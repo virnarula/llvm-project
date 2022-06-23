@@ -8,7 +8,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/IPO/BlockExtractor.h"
+#include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/IPO/LoopExtractionAnalysis.h"
 
 using namespace llvm;
@@ -115,13 +116,25 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
     }
     GroupOfBBs.push_back(BBs);
   }
-
+  
   legacy::PassManager PM;
   PM.add(createBlockExtractorPass(GroupOfBBs, true));
   PM.add(createStripDeadPrototypesPass());
   PM.run(*ClonedModPtr);
   
-  Function *Extracted = *ExtractedLoops.begin();
+//  ModulePassManager MPM;
+//  ModuleAnalysisManager MAM;
+//  MPM.addPass(BlockExtractorPass());
+//  MPM.addPass(StripDeadPrototypesPass());
+//  MPM.run(*ClonedModPtr, MAM);
+  
+  Function *Extracted = nullptr;
+  for (Function &Func : *ClonedModPtr) { 
+    if (!Func.empty()) {
+      Extracted = &Func;
+      break;
+    }
+  }
   OptimizationRemarkEmitter ORE(Extracted);
   ORE.emit([&]() {
     std::string str; raw_string_ostream rso(str);
