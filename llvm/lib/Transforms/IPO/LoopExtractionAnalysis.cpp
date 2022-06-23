@@ -1,11 +1,14 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/LegacyPassManager.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
-
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/IPO/LoopExtractionAnalysis.h"
 
 using namespace llvm;
@@ -99,10 +102,36 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
       break;
     }
   }
-
-  for (auto Iter = ExtractedLoops.begin(); ExtractedLoops.end(); ++Iter) {
-    errs() << (*Iter)->getName() << "\n";
+  
+  if (ExtractedLoops.empty()) {
+    return false;
   }
 
+  SmallVector<SmallVector<BasicBlock*, 16>, 4> GroupOfBBs;
+  for (Function *Func : ExtractedLoops) {
+    SmallVector<BasicBlock*, 16> BBs;
+    for (auto &BB : *Func) {
+      BBs.push_back(&BB);
+    }
+    GroupOfBBs.push_back(BBs);
+  }
+
+  legacy::PassManager PM;
+  PM.add(createBlockExtractorPass(GroupOfBBs, true));
+  PM.add(createStripDeadPrototypesPass());
+  PM.run(*ClonedModPtr);
+  
+  Function *Extracted = *ExtractedLoops.begin();
+  OptimizationRemarkEmitter ORE(Extracted);
+  ORE.emit([&]() {
+    std::string str; raw_string_ostream rso(str);
+    ClonedModPtr->print(rso, nullptr);
+    
+    auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "ModuleDump", DebugLoc, &Extracted->getEntryBlock())
+    << str;
+
+  });
+  
   return false;
 }
