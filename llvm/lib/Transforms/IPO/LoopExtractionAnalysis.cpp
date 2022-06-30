@@ -52,16 +52,15 @@ PreservedAnalyses LoopExtractionAnalysisPass::run(Module &M, ModuleAnalysisManag
     return FAM.getCachedResult<AssumptionAnalysis>(F);
   };
   
-  LoopExtractionAnalyzer(LookupDomTree, LookupLoopInfo, LookupAssumptionCache).runOnModule(M);
+   LoopExtractionAnalyzer(LookupDomTree, LookupLoopInfo, LookupAssumptionCache).runOnModule(M);
 
   return PreservedAnalyses::all();
 }
 
 Function *LoopExtractionAnalyzer::ExtractLoop(Loop *L, LoopInfo &LI, DominatorTree &DT) {
   Function &Func = *L->getHeader()->getParent();
-  AssumptionCache *AC = LookupAssumptionCache(Func);
   CodeExtractorAnalysisCache CEAC(Func); 
-  CodeExtractor Extractor(DT, *L, false, nullptr, nullptr, AC);
+  CodeExtractor Extractor(DT, *L, false, nullptr, nullptr, nullptr);
 
   if (Function *ExtractionLoop = Extractor.extractCodeRegion(CEAC)) {
     ExtractedLoops.push_back(ExtractionLoop);
@@ -75,8 +74,11 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   if (F.empty())
     return false;
 
-  LoopInfo &LI = LookupLoopInfo(F);
-  DominatorTree &DT = LookupDomTree(F);
+  DominatorTree DT;
+  DT.recalculate(F);
+  
+  LoopInfo LI;
+  LI.analyze(DT);
   
   if (LI.empty()) {
     return false;
@@ -96,6 +98,9 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
 bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   std::unique_ptr<Module> ClonedModPtr = CloneModule(M);
 
+  if (M.empty()) 
+    return false;
+
   auto End = --ClonedModPtr->end();
   for (auto Iter = ClonedModPtr->begin(); ; ++Iter) {
     runOnFunction(*Iter);
@@ -110,32 +115,31 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
 
   SmallVector<SmallVector<BasicBlock*, 16>, 4> GroupOfBBs;
   for (Function *Func : ExtractedLoops) {
+    if (Func->getParent() != ClonedModPtr.get()) {
+      errs() << "Wrong module!!!\n";
+      return false;
+    }
     SmallVector<BasicBlock*, 16> BBs;
     for (auto &BB : *Func) {
       BBs.push_back(&BB);
     }
     GroupOfBBs.push_back(BBs);
   }
-  
+
   legacy::PassManager PM;
   PM.add(createBlockExtractorPass(GroupOfBBs, true));
   PM.add(createStripDeadPrototypesPass());
   PM.run(*ClonedModPtr);
   
-//  ModulePassManager MPM;
-//  ModuleAnalysisManager MAM;
-//  MPM.addPass(BlockExtractorPass());
-//  MPM.addPass(StripDeadPrototypesPass());
-//  MPM.run(*ClonedModPtr, MAM);
-  
   Function *Extracted = nullptr;
-  for (Function &Func : *ClonedModPtr) { 
+  for (Function &Func : *ClonedModPtr) {
     if (!Func.empty()) {
       Extracted = &Func;
       break;
     }
   }
   OptimizationRemarkEmitter ORE(Extracted);
+
   ORE.emit([&]() {
     std::string str; raw_string_ostream rso(str);
     ClonedModPtr->print(rso, nullptr);
@@ -145,6 +149,6 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
     << str;
 
   });
-  
+
   return false;
 }
