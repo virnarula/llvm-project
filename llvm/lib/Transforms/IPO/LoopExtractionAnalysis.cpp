@@ -8,7 +8,6 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/BlockExtractor.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/IPO/LoopExtractionAnalysis.h"
 
@@ -63,8 +62,8 @@ Function *LoopExtractionAnalyzer::ExtractLoop(Loop *L, LoopInfo &LI, DominatorTr
   CodeExtractor Extractor(DT, *L, false, nullptr, nullptr, nullptr);
 
   if (Function *ExtractionLoop = Extractor.extractCodeRegion(CEAC)) {
-    ExtractedLoops.push_back(ExtractionLoop);
     LI.erase(L);
+    return ExtractionLoop;
   }
 
   return nullptr;
@@ -88,7 +87,13 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   Loops.assign(LI.begin(), LI.end());
   for (Loop *L : Loops) {
     if (L->isLoopSimplifyForm()) {
-      ExtractLoop(L, LI, DT);
+      if (Function *ExtractedFunc = ExtractLoop(L, LI, DT)) {
+        ExtractedLoops.push_back(ExtractedFunc);
+      } else {
+        LLVM_DEBUG(errs() << "Loop could not be extracted!!\n");
+      }
+    } else {
+      LLVM_DEBUG(dbgs() << "Loop is not in Loop Simply Form!\n");
     }
   }
 
@@ -112,25 +117,18 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   if (ExtractedLoops.empty()) {
     return false;
   }
-
-  SmallVector<SmallVector<BasicBlock*, 16>, 4> GroupOfBBs;
-  for (Function *Func : ExtractedLoops) {
-    if (Func->getParent() != ClonedModPtr.get()) {
-      errs() << "Wrong module!!!\n";
-      return false;
-    }
-    SmallVector<BasicBlock*, 16> BBs;
-    for (auto &BB : *Func) {
-      BBs.push_back(&BB);
-    }
-    GroupOfBBs.push_back(BBs);
-  }
+  
+  std::vector<GlobalValue *> GVs(ExtractedLoops.begin(), ExtractedLoops.end());
 
   legacy::PassManager PM;
-  PM.add(createBlockExtractorPass(GroupOfBBs, true));
+  PM.add(createGVExtractionPass(GVs));
   PM.add(createStripDeadPrototypesPass());
   PM.run(*ClonedModPtr);
   
+  if (ClonedModPtr->empty()) {
+    assert(false && "Nothing after cloning!");
+  }
+ 
   Function *Extracted = nullptr;
   for (Function &Func : *ClonedModPtr) {
     if (!Func.empty()) {
@@ -138,6 +136,11 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
       break;
     }
   }
+  
+  if (Extracted == nullptr) {
+    assert(false && "Failed to find extracted func!");
+  }
+  
   OptimizationRemarkEmitter ORE(Extracted);
 
   ORE.emit([&]() {
