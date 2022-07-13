@@ -23,7 +23,10 @@ namespace {
       function_ref<AssumptionCache *(Function &)> LookupAssumptionCache)
       : LookupDomTree(LookupDomTree),
         LookupLoopInfo(LookupLoopInfo),
-        LookupAssumptionCache(LookupAssumptionCache) {}
+        LookupAssumptionCache(LookupAssumptionCache),
+        NumNotSimplified(0),
+        NumNotExtracted(0),
+        NumExtracted(0) {}
     
     bool runOnModule(Module &M);
 
@@ -36,6 +39,9 @@ private:
   function_ref<DominatorTree &(Function &)> LookupDomTree;
   function_ref<LoopInfo &(Function &)> LookupLoopInfo;
   function_ref<AssumptionCache *(Function &)> LookupAssumptionCache;
+    
+  int NumNotSimplified, NumNotExtracted, NumExtracted;
+    
 };
 } // namespace
 
@@ -86,14 +92,19 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   SmallVector<Loop*, 8> Loops;
   Loops.assign(LI.begin(), LI.end());
   for (Loop *L : Loops) {
-    if (L->isLoopSimplifyForm()) {
+    // Check that loop is in simply form and not contained inside another loop
+    if (L->isLoopSimplifyForm() &&
+        L->getLoopDepth() == 1) {
       if (Function *ExtractedFunc = ExtractLoop(L, LI, DT)) {
         ExtractedLoops.push_back(ExtractedFunc);
+        NumExtracted++;
       } else {
         LLVM_DEBUG(errs() << "Loop could not be extracted!!\n");
+        NumNotExtracted++;
       }
     } else {
       LLVM_DEBUG(dbgs() << "Loop is not in Loop Simply Form!\n");
+      NumNotSimplified++;
     }
   }
 
@@ -143,6 +154,7 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   
   OptimizationRemarkEmitter ORE(Extracted);
 
+  // Emit the module to remarks
   ORE.emit([&]() {
     std::string str; raw_string_ostream rso(str);
     ClonedModPtr->print(rso, nullptr);
@@ -152,6 +164,27 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
     << str;
 
   });
+  
+  // Emit extraction stats
+  ORE.emit([&]() {
+    auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "NotSimplified", DebugLoc, &Extracted->getEntryBlock())
+    << std::to_string(NumNotSimplified);
+  });
+  
+  ORE.emit([&]() {
+    auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "NotExtractable", DebugLoc, &Extracted->getEntryBlock())
+    << std::to_string(NumNotExtracted);
+  });
+  
+  ORE.emit([&]() {
+    auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "Extracted", DebugLoc, &Extracted->getEntryBlock())
+    << std::to_string(NumExtracted);
+  });
 
+  errs() << "Ran Loop Extraction Analysis\n";
+  
   return false;
 }
