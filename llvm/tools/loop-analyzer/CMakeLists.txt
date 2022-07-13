@@ -4,6 +4,13 @@ set(LLVM_LINK_COMPONENTS
   Support
   Analysis
   TransformUtils
+  Vectorize
+  Target
+  AllTargetsAsmParsers
+  AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsInfos
+  AllTargetsDisassemblers
 )
 
 add_llvm_tool(loop-analyzer
