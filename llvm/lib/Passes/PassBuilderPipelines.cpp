@@ -350,8 +350,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
   
-  // FPM.addPass(LoopExtractionAnalysisPass());
-  
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   FPM.addPass(InstCombinePass());
@@ -788,9 +786,6 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   for (auto &C : CGSCCOptimizerLateEPCallbacks)
     C(MainCGPipeline, Level);
 
-  
-  // MainCGPipeline.addPass(LoopExtractionAnalysisPass());
-
   // Lastly, add the core function simplification pipeline nested inside the
   // CGSCC walk.
   MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
@@ -1001,7 +996,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(SyntheticCountsPropagation());
 
   MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
-  MPM.addPass(LoopExtractionAnalysisPass());
+  // MPM.addPass(LoopExtractionAnalysisPass());
 
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
@@ -1207,6 +1202,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // the vectorizer will be able to use them to help recognize vectorizable
   // memory operations.
   MPM.addPass(RecomputeGlobalsAAPass());
+
+  MPM.addPass(LoopExtractionAnalysisPass());
 
   for (auto &C : OptimizerEarlyEPCallbacks)
     C(MPM, Level);

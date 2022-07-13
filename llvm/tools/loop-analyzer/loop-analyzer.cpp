@@ -37,6 +37,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 
 using namespace llvm;
 
@@ -49,7 +50,7 @@ static cl::opt<std::string> OutputFileName(cl::Positional, cl::Required,
                                            cl::cat(SizeDiffCategory),
                                            cl::desc("output remark file"));
 
-static int Extracted, NotExtracted, NotSimplified, Dumps, NumVectorized;
+static int Extracted, NotExtracted, NotSimplified, Contained, Dumps, NumVectorized, NumDeterminableBounds;
 static bool Vectorized;
 
 class MyDiagnosticHandler final : public DiagnosticHandler {
@@ -60,6 +61,7 @@ public:
     std::string Msg; raw_string_ostream RSO(Msg);
     DiagnosticPrinterRawOStream DP(RSO);
     DI.print(DP); 
+    // dbgs() << Msg;
     
     std::string ToMatch("vectorized loop");
     if (Msg.find(ToMatch) != std::string::npos) {
@@ -88,76 +90,25 @@ private:
   StringRef VectorizePassName;
 };
 
-Error ProcessRemarks(StringRef InputFileName) {
-  auto Buf = MemoryBuffer::getFile(InputFileName);
-  if (auto EC = Buf.getError()) {
-    errs() << "Buffer error!\n";
-    exit(1);
-  }
-  
-  auto MaybeParser = remarks::createRemarkParserFromMeta(remarks::Format::Bitstream, (*Buf)->getBuffer());
-  if (!MaybeParser)
-    return MaybeParser.takeError();
-  
-  auto &Parser = **MaybeParser;
-  auto MaybeRemark = Parser.next();
-  
-  while (MaybeRemark) {
-    const remarks::Remark &Remark = **MaybeRemark;
-    const auto &PassName = Remark.PassName;
-    if (PassName.equals("loop-extract-analysis")) {
-      const auto &RemarkName = Remark.RemarkName;
-      if (RemarkName.equals("ModuleDump")) { // it just rewrites over the moduledumps
-        std::string ModuleString = Remark.getArgsAsMsg();
-        std::ofstream out(OutputFileName);
-        out << ModuleString;
-        out.close();
-        Dumps++;
-      } else if (RemarkName.equals("Extracted")) {
-        Extracted += std::stoi(Remark.getArgsAsMsg());
-      } else if (RemarkName.equals("NotExtracted")) {
-        NotExtracted += std::stoi(Remark.getArgsAsMsg());
-      } else if (RemarkName.equals("NotSimplified")) {
-        NotSimplified += std::stoi(Remark.getArgsAsMsg());
-      }
-      MaybeRemark = Parser.next();
-    }
-  }
-  
-  auto E = MaybeRemark.takeError();
-  if (!E.isA<remarks::EndOfFileError>())
-    return E;
-
-  consumeError(std::move(E));
-  
-  return Error::success();
-}
-
-std::unique_ptr<Module> getLoopModule(LLVMContext &Context) {
-  SMDiagnostic Err;
-  std::unique_ptr<Module> M = parseIRFile(OutputFileName, Err, Context);
-  if (!M) {
-    errs() << "Unable to parse IR file!\n";
-    Err.print("yes", errs());
-    exit(1);
-  }
-  return M;
-}
-
-void printLoopSummaries(Module &M) {
+legacy::FunctionPassManager createFPM(Module &M) {
   legacy::FunctionPassManager FPM(&M);
 
   std::string Msg;
   const Target *T = TargetRegistry::lookupTarget(M.getTargetTriple(), Msg);
   SubtargetFeatures Features;
   Features.getDefaultSubtargetFeatures(Triple(M.getTargetTriple()));
+
   const TargetMachine *TM = T->createTargetMachine(M.getTargetTriple(), "", Features.getString(), TargetOptions(), Reloc::Static, M.getCodeModel(), CodeGenOpt::Default);
 
-  // construct the target, targetmachine 
   FPM.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-
   FPM.add(createLoopVectorizePass());
-  dbgs() << "Loops:";
+
+  return FPM;
+}
+
+void printLoopSummaries(Module &M) {
+  auto FPM = createFPM(M);
+  dbgs() << "Loops:\n";
   for (Function &F : M) {
     if (F.empty())
       continue;
@@ -193,6 +144,7 @@ void printLoopSummaries(Module &M) {
       dbgs() << "Determinable Bounds: false\n";
     } else {
       dbgs() << "Determinable Bounds: true\n";
+      NumDeterminableBounds++;
     }
 
     Vectorized = false;
@@ -205,14 +157,89 @@ void printLoopSummaries(Module &M) {
   }
 }
 
+Error ProcessRemarks(StringRef InputFileName) {
+  std::remove(OutputFileName.c_str());
+  auto Buf = MemoryBuffer::getFile(InputFileName);
+  if (auto EC = Buf.getError()) {
+    errs() << "Buffer error!\n";
+    exit(1);
+  }
+  
+  auto MaybeParser = remarks::createRemarkParserFromMeta(remarks::Format::Bitstream, (*Buf)->getBuffer());
+  if (!MaybeParser)
+    return MaybeParser.takeError();
+  
+  auto &Parser = **MaybeParser;
+  auto MaybeRemark = Parser.next();
+  
+  while (MaybeRemark) {
+    const remarks::Remark &Remark = **MaybeRemark;
+    const auto &PassName = Remark.PassName;
+    if (PassName.equals("loop-extract-analysis")) {
+      const auto &RemarkName = Remark.RemarkName;
+      if (RemarkName.equals("ModuleDump")) { // it just rewrites over the moduledumps
+        std::string ModuleString = Remark.getArgsAsMsg();
+        std::ofstream out(OutputFileName, std::ios_base::app);
+        out << ModuleString;
+        out.close();
+     
+        auto MB = MemoryBuffer::getMemBuffer(ModuleString);
+        MemoryBufferRef MBRef(*MB);
+        SMDiagnostic Err;
+        LLVMContext Context;
+        Context.setDiagnosticHandler(std::make_unique<MyDiagnosticHandler>());
+        auto Mod = parseIR(MBRef, Err, Context);
+        printLoopSummaries(*Mod);
+        
+        Dumps++;
+      } else if (RemarkName.equals("Extracted")) {
+        Extracted += std::stoi(Remark.getArgsAsMsg());
+      } else if (RemarkName.equals("NotExtracted")) {
+        NotExtracted += std::stoi(Remark.getArgsAsMsg());
+      } else if (RemarkName.equals("NotSimplified")) {
+        NotSimplified += std::stoi(Remark.getArgsAsMsg());
+      } else if (RemarkName.equals("Contained")) {
+        Contained += std::stoi(Remark.getArgsAsMsg());
+      }
+      MaybeRemark = Parser.next();
+    }
+  }
+  
+  auto E = MaybeRemark.takeError();
+  if (!E.isA<remarks::EndOfFileError>())
+    return E;
+
+  consumeError(std::move(E));
+  
+  return Error::success();
+}
+
+std::unique_ptr<Module> getLoopModule(LLVMContext &Context) {
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M = parseIRFile(OutputFileName, Err, Context);
+  if (!M) {
+    errs() << "Unable to parse IR file!\n";
+    Err.print("yes", errs());
+    exit(1);
+  }
+  return M;
+}
+
 void printSummaryStats() {
   dbgs() << "\n_______________\n";
   dbgs() << "Summary Stats: \n";
-  dbgs() << "Extracted: " << Extracted << "\n";
-  dbgs() << "Not able to Extract: " << NotExtracted << "\n";
-  dbgs() << "Not in Simplified Form: " << NotSimplified << "\n";
+  dbgs() << "# of module dumps: " << Dumps << "\n\n";
+
+  dbgs() << "Not extracted because not in Simplified Form: " << NotSimplified << "\n";
+  dbgs() << "Simplied form but still unable to extract: " << NotExtracted << "\n";
+  dbgs() << "Contained in extracted loops: " << Contained << "\n";
+  dbgs() << "Extracted: " << Extracted << "\n\n";
+  
+  dbgs() << "Total Determinable bounds: " << NumDeterminableBounds << "\n";
+  dbgs() << "Total Vectorized: " << NumVectorized << "\n";
   dbgs() << "\n";
 }
+
 
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
@@ -233,13 +260,12 @@ int main(int argc, char **argv) {
     errs() << "Error parsing Remarks!\n";
     exit(1);
   }
-
-  printSummaryStats();
   
   LLVMContext Context;
   Context.setDiagnosticHandler(std::make_unique<MyDiagnosticHandler>());
-  auto M = getLoopModule(Context);
-  printLoopSummaries(*M);
+  // auto M = getLoopModule(Context);
+
+  printSummaryStats();
   
   handleAllErrors(std::move(E), [&](const ErrorInfoBase &PE) {
         PE.log(WithColor::error());
