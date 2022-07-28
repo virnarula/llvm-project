@@ -1,15 +1,31 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/MemorySSAUpdater.h"
+
+#include "llvm/Bitcode/BitcodeWriter.h"
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/LegacyPassManager.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/IPO/LoopExtractionAnalysis.h"
+
+
+#include "llvm/Analysis/AliasAnalysis.h"
+
+
+#include "llvm/ADT/SmallSet.h"
+#include <set>
 
 using namespace llvm;
 
@@ -24,6 +40,7 @@ namespace {
       : LookupDomTree(LookupDomTree),
         LookupLoopInfo(LookupLoopInfo),
         LookupAssumptionCache(LookupAssumptionCache),
+        NumContained(0),
         NumNotSimplified(0),
         NumNotExtracted(0),
         NumExtracted(0) {}
@@ -40,12 +57,13 @@ private:
   function_ref<LoopInfo &(Function &)> LookupLoopInfo;
   function_ref<AssumptionCache *(Function &)> LookupAssumptionCache;
     
-  int NumNotSimplified, NumNotExtracted, NumExtracted;
+  int NumContained, NumNotSimplified, NumNotExtracted, NumExtracted;
     
 };
 } // namespace
 
 PreservedAnalyses LoopExtractionAnalysisPass::run(Module &M, ModuleAnalysisManager &AM) {
+  // M.dump();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto LookupDomTree = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
@@ -68,7 +86,7 @@ Function *LoopExtractionAnalyzer::ExtractLoop(Loop *L, LoopInfo &LI, DominatorTr
   CodeExtractor Extractor(DT, *L, false, nullptr, nullptr, nullptr);
 
   if (Function *ExtractionLoop = Extractor.extractCodeRegion(CEAC)) {
-    LI.erase(L);
+    // LI.erase(L);
     return ExtractionLoop;
   }
 
@@ -88,23 +106,49 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   if (LI.empty()) {
     return false;
   }
+  
+  TargetLibraryInfoImpl TLII;
+  TargetLibraryInfo TLI(TLII);
+  AssumptionCache AC(F);
+  ScalarEvolution SE(F, TLI, AC, DT, LI);
+
+  AliasAnalysis AA(TLI);
+
+  MemorySSA MSSA(F, &AA, &DT);
+  MemorySSAUpdater MSSAU(&MSSA);
 
   SmallVector<Loop*, 8> Loops;
   Loops.assign(LI.begin(), LI.end());
+  static std::set<Loop*> Contained;
   for (Loop *L : Loops) {
     // Check that loop is in simply form and not contained inside another loop
-    if (L->isLoopSimplifyForm() &&
-        L->getLoopDepth() == 1) {
-      if (Function *ExtractedFunc = ExtractLoop(L, LI, DT)) {
-        ExtractedLoops.push_back(ExtractedFunc);
-        NumExtracted++;
+    for (auto Child : L->getSubLoops()) {
+      Contained.insert(Child);
+    }
+
+    if (simplifyLoop(L, &DT, &LI, &SE, &AC, &MSSAU, false)) {
+      LLVM_DEBUG(dbgs() << "Simplified a loop!\n");
+      // dbgs() << "Simplified a loop!\n";
+    }
+    LLVM_DEBUG(errs() << "Loop dump in func " << L->getHeader()->getParent()->getName() << ":\n");
+    LLVM_DEBUG(L->dump());
+
+    if (Contained.find(L) == Contained.end()) {
+      if (L->isLoopSimplifyForm()) {
+        if (Function *ExtractedFunc = ExtractLoop(L, LI, DT)) {
+          LLVM_DEBUG(errs() << "Loop was extracted\n");
+          ExtractedLoops.push_back(ExtractedFunc);
+          NumExtracted++;
+          // NumContained += L->getSubLoops().size();
+        } else {
+          LLVM_DEBUG(errs() << "Loop could not be extracted!!\n");
+          NumNotExtracted++;
+        }
       } else {
-        LLVM_DEBUG(errs() << "Loop could not be extracted!!\n");
-        NumNotExtracted++;
+        LLVM_DEBUG(errs() << "Loop is not in Loop Simply Form!\n"); NumNotSimplified++;
       }
     } else {
-      LLVM_DEBUG(dbgs() << "Loop is not in Loop Simply Form!\n");
-      NumNotSimplified++;
+      LLVM_DEBUG(errs() << "Loop is contained in another loop!\n");
     }
   }
 
@@ -112,17 +156,23 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
 }
 
 bool LoopExtractionAnalyzer::runOnModule(Module &M) {
+//  M.dump();
   std::unique_ptr<Module> ClonedModPtr = CloneModule(M);
 
   if (M.empty()) 
     return false;
 
-  auto End = --ClonedModPtr->end();
-  for (auto Iter = ClonedModPtr->begin(); ; ++Iter) {
-    runOnFunction(*Iter);
-    if (Iter == End) {
-      break;
-    }
+  SmallVector<Function*, 16> OriginalFunctions;
+  for (auto Iter = ClonedModPtr->begin(); Iter != ClonedModPtr->end(); ++Iter) {
+    OriginalFunctions.push_back(&*Iter);
+  }
+
+  auto End = OriginalFunctions.end();
+  for (auto Iter = OriginalFunctions.begin(); Iter != End; ++Iter) {
+    runOnFunction(**Iter);
+    // if (Iter == End) {
+    //   break;
+    // }
   }
   
   if (ExtractedLoops.empty()) {
@@ -158,11 +208,12 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   ORE.emit([&]() {
     std::string str; raw_string_ostream rso(str);
     ClonedModPtr->print(rso, nullptr);
+//    WriteBitcodeToFile(*ClonedModPtr, rso);
+//    dbgs() << str << "\n";
     
     auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
     return OptimizationRemarkAnalysis(DEBUG_TYPE, "ModuleDump", DebugLoc, &Extracted->getEntryBlock())
     << str;
-
   });
   
   // Emit extraction stats
@@ -184,7 +235,13 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
     << std::to_string(NumExtracted);
   });
 
-  errs() << "Ran Loop Extraction Analysis\n";
+  ORE.emit([&] {
+    auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "Contained", DebugLoc, &Extracted->getEntryBlock())
+    << std::to_string(NumContained);
+  });
+
+  // errs() << "Ran Loop Extraction Analysis\n";
   
   return false;
 }
