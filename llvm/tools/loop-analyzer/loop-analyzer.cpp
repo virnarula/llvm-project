@@ -4,6 +4,8 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
+#include "llvm/Bitcode/BitcodeReader.h"
+
 #include "llvm/Remarks/Remark.h"
 #include "llvm/Remarks/RemarkParser.h"
 
@@ -53,20 +55,53 @@ static cl::opt<std::string> OutputFileName(cl::Positional, cl::Required,
 static int Extracted, NotExtracted, NotSimplified, Contained, Dumps, NumVectorized, NumDeterminableBounds;
 static bool Vectorized;
 
+static int OptRemarks, MissedRemarks, FailedRemarks, AnalysisRemarks;
+
 class MyDiagnosticHandler final : public DiagnosticHandler {
 public:
-  MyDiagnosticHandler() { VectorizePassName = "LoopVectorize"; }
+  MyDiagnosticHandler() : VectorizePassName("LoopVectorize") { }
   
   bool handleDiagnostics(const DiagnosticInfo &DI) override {
     std::string Msg; raw_string_ostream RSO(Msg);
     DiagnosticPrinterRawOStream DP(RSO);
-    DI.print(DP); 
+    DI.print(DP);
+    if (DI.getKind() == DK_OptimizationRemarkAnalysis) {
+      dbgs() << "Analysis Remark: " << Msg << "\n";
+    } else if (DI.getKind() == DK_OptimizationRemark) {
+      dbgs() << "Success Remark: " << Msg << "\n";
+    }
+    /*
+    switch(DI.getKind()) {
+      case DK_OptimizationRemark:
+        dbgs() << "Remark: " << Msg << "\n";
+        OptRemarks++;
+        break;
+      
+      case DK_OptimizationRemarkMissed:
+        MissedRemarks++;
+//        dbgs() << "Missed Opt Remark: " << Msg << "\n";
+        break;
+      
+      case DK_OptimizationFailure:
+        FailedRemarks++;
+//        dbgs() << "Failed Remark: " << Msg << "\n";
+        break;
+      case DK_OptimizationRemarkAnalysis:
+        AnalysisRemarks++;
+        dbgs() << "Analysis Remark: " << Msg << "\n";
+        break;
+      default:
+//        dbgs() << "other remark: " << Msg << "\n";
+        break;
+    };
+     */
+    
     // dbgs() << Msg;
     
     std::string ToMatch("vectorized loop");
     if (Msg.find(ToMatch) != std::string::npos) {
       Vectorized = true;
-      NumVectorized++;
+      // NumVectorized++;
     }
     
     return true;
@@ -107,6 +142,7 @@ legacy::FunctionPassManager createFPM(Module &M) {
 }
 
 void printLoopSummaries(Module &M) {
+//  M.dump();
   auto FPM = createFPM(M);
   dbgs() << "Loops:\n";
   for (Function &F : M) {
@@ -141,19 +177,21 @@ void printLoopSummaries(Module &M) {
     AssumptionCache AC(F);
     ScalarEvolution SE(F, TLI, AC, DT, LI);
     if (isa<SCEVCouldNotCompute>(SE.getBackedgeTakenCount(L))) {
-      dbgs() << "Determinable Bounds: false\n";
+      dbgs() << "Known Bounds: false\n";
     } else {
-      dbgs() << "Determinable Bounds: true\n";
+      dbgs() << "Known Bounds: true\n";
       NumDeterminableBounds++;
     }
 
     Vectorized = false;
     FPM.run(F);
     dbgs() << "Vectorized: ";
-    if (Vectorized)
+    if (Vectorized) {
       dbgs() << "true\n";
-    else
+      NumVectorized++;
+    } else {
       dbgs() << "false\n";
+    }
   }
 }
 
@@ -179,18 +217,26 @@ Error ProcessRemarks(StringRef InputFileName) {
       const auto &RemarkName = Remark.RemarkName;
       if (RemarkName.equals("ModuleDump")) { // it just rewrites over the moduledumps
         std::string ModuleString = Remark.getArgsAsMsg();
-        std::ofstream out(OutputFileName, std::ios_base::app);
-        out << ModuleString;
-        out.close();
+        
+//        std::ofstream out(OutputFileName, std::ios_base::app);
+//        out << ModuleString;
+//        out.close();
      
         auto MB = MemoryBuffer::getMemBuffer(ModuleString);
-        MemoryBufferRef MBRef(*MB);
         SMDiagnostic Err;
         LLVMContext Context;
         Context.setDiagnosticHandler(std::make_unique<MyDiagnosticHandler>());
-        auto Mod = parseIR(MBRef, Err, Context);
+        auto Mod = parseIR(MB->getMemBufferRef(), Err, Context);
         printLoopSummaries(*Mod);
         
+        /*
+        auto Mod = parseBitcodeFile(MB->getMemBufferRef(), Context);
+        if (Error E = Mod.takeError()) {
+          errs() << toString(std::move(E)) << "\n";
+        }
+        printLoopSummaries(*Mod.get());
+        */
+         
         Dumps++;
       } else if (RemarkName.equals("Extracted")) {
         Extracted += std::stoi(Remark.getArgsAsMsg());
@@ -230,12 +276,12 @@ void printSummaryStats() {
   dbgs() << "Summary Stats: \n";
   dbgs() << "# of module dumps: " << Dumps << "\n\n";
 
-  dbgs() << "Not extracted because not in Simplified Form: " << NotSimplified << "\n";
-  dbgs() << "Simplied form but still unable to extract: " << NotExtracted << "\n";
-  dbgs() << "Contained in extracted loops: " << Contained << "\n";
-  dbgs() << "Extracted: " << Extracted << "\n\n";
+  // dbgs() << "Not extracted because not in Simplified Form: " << NotSimplified << "\n";
+  // dbgs() << "Simplied form but still unable to extract: " << NotExtracted << "\n";
+  dbgs() << "Extracted: " << Extracted << "\n";
+  dbgs() << "Contained in extracted loops: " << Contained << "\n\n";
   
-  dbgs() << "Total Determinable bounds: " << NumDeterminableBounds << "\n";
+  dbgs() << "Total known bounds: " << NumDeterminableBounds << "\n";
   dbgs() << "Total Vectorized: " << NumVectorized << "\n";
   dbgs() << "\n";
 }
@@ -271,6 +317,14 @@ int main(int argc, char **argv) {
         PE.log(WithColor::error());
         errs() << '\n';
       });
+  
+  /*
+  dbgs() << "______________" << "\n";
+  dbgs() << "Opts succeeded: " << OptRemarks << "\n";
+  dbgs() << "Missed: " << MissedRemarks << "\n";
+  dbgs() << "Opts failed: " << FailedRemarks << "\n";
+  dbgs() << "Analysis: " << AnalysisRemarks << "\n";
+   */
   
   return 0;
 }
