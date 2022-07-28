@@ -255,7 +255,7 @@ static bool isLTOPreLink(ThinOrFullLTOPhase Phase) {
 FunctionPassManager
 PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
                                                    ThinOrFullLTOPhase Phase) {
-
+  
   FunctionPassManager FPM;
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
@@ -1150,6 +1150,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                            LTOPhase == ThinOrFullLTOPhase::FullLTOPreLink);
   ModulePassManager MPM;
 
+  // MPM.addPass(LoopExtractionAnalysisPass());
+
   // Optimize globals now that the module is fully simplified.
   MPM.addPass(GlobalOptPass());
   MPM.addPass(GlobalDCEPass());
@@ -1202,7 +1204,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // the vectorizer will be able to use them to help recognize vectorizable
   // memory operations.
   MPM.addPass(RecomputeGlobalsAAPass());
-
+  MPM.addPass(GlobalDCEPass());
   MPM.addPass(LoopExtractionAnalysisPass());
 
   for (auto &C : OptimizerEarlyEPCallbacks)
