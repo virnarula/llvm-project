@@ -1,0 +1,5 @@
+# We simply compare the actual output against the expected output
+# This is a simple test on a couple loops
+
+RUN: %loop-analyzer %p/Inputs/complex.dwarf /dev/null 2> %p/temp.txt
+RUN: diff %p/temp.txt %p/Outputs/complex.result.txt

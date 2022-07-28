@@ -1,0 +1,206 @@
+Loops:
+_______________________
+Name: _Z5otherv.for.body
+IR: 
+; Function Attrs: mustprogress ssp uwtable
+define hidden void @_Z5otherv.for.body(ptr %sum.0.lcssa.ce.out) #1 !dbg !13 {
+newFuncRoot:
+  br label %for.body, !dbg !17
+
+for.body:                                         ; preds = %for.cond.cleanup6, %newFuncRoot
+  %j.028 = phi i64 [ 0, %newFuncRoot ], [ %inc14, %for.cond.cleanup6 ]
+  %sum.027 = phi double [ 0.000000e+00, %newFuncRoot ], [ %sum.1.lcssa, %for.cond.cleanup6 ]
+  %call = tail call i32 @rand(), !dbg !17
+  %mul = mul nsw i32 %call, 10, !dbg !18
+  %conv = sext i32 %mul to i64, !dbg !17
+  %cmp1 = icmp eq i64 %j.028, %conv, !dbg !19
+  br i1 %cmp1, label %cleanup.split, label %if.end, !dbg !20
+
+if.end:                                           ; preds = %for.body
+  %call2 = tail call i32 @rand(), !dbg !21
+  %conv3 = sitofp i32 %call2 to double, !dbg !21
+  %add = fadd double %sum.027, %conv3, !dbg !22
+  %cmp524.not = icmp eq i64 %j.028, 0, !dbg !23
+  br i1 %cmp524.not, label %for.cond.cleanup6, label %for.body7.preheader, !dbg !24
+
+for.body7:                                        ; preds = %for.body7.preheader, %for.body7
+  %i.026 = phi i64 [ %inc, %for.body7 ], [ 0, %for.body7.preheader ]
+  %sum.125 = phi double [ %add12, %for.body7 ], [ %add, %for.body7.preheader ]
+  %call8 = tail call i32 @rand(), !dbg !25
+  %conv9 = sext i32 %call8 to i64, !dbg !25
+  %mul10 = mul i64 %i.026, %conv9, !dbg !26
+  %conv11 = uitofp i64 %mul10 to double, !dbg !25
+  %add12 = fadd double %sum.125, %conv11, !dbg !27
+  %inc = add nuw nsw i64 %i.026, 1, !dbg !28
+  %exitcond.not = icmp eq i64 %inc, %j.028, !dbg !23
+  br i1 %exitcond.not, label %for.cond.cleanup6.loopexit, label %for.body7, !dbg !24, !llvm.loop !29
+
+for.cond.cleanup6:                                ; preds = %for.cond.cleanup6.loopexit, %if.end
+  %sum.1.lcssa = phi double [ %add, %if.end ], [ %add12, %for.cond.cleanup6.loopexit ], !dbg !32
+  %inc14 = add nuw nsw i64 %j.028, 1, !dbg !33
+  %exitcond29.not = icmp eq i64 %inc14, 10000, !dbg !34
+  br i1 %exitcond29.not, label %cleanup.split, label %for.body, !dbg !35, !llvm.loop !36
+
+for.body7.preheader:                              ; preds = %if.end
+  br label %for.body7, !dbg !24
+
+for.cond.cleanup6.loopexit:                       ; preds = %for.body7
+  br label %for.cond.cleanup6, !dbg !33
+
+cleanup.split:                                    ; preds = %for.cond.cleanup6, %for.body
+  %sum.0.lcssa.ce = phi double [ %sum.027, %for.body ], [ %sum.1.lcssa, %for.cond.cleanup6 ]
+  store double %sum.0.lcssa.ce, ptr %sum.0.lcssa.ce.out, align 8
+  br label %cleanup.exitStub
+
+cleanup.exitStub:                                 ; preds = %cleanup.split
+  ret void
+}
+
+# Exiting Nodes: 2
+Known Bounds: false
+Vectorized: false
+_______________________
+Name: _Z4testPiS_S_.for.body
+IR: 
+; Function Attrs: mustprogress nofree norecurse nounwind ssp uwtable
+define hidden void @_Z4testPiS_S_.for.body(ptr %a, ptr %b, ptr %c) #2 !dbg !38 {
+newFuncRoot:
+  br label %for.body, !dbg !39
+
+for.body:                                         ; preds = %for.body, %newFuncRoot
+  %i.07 = phi i64 [ 0, %newFuncRoot ], [ %inc, %for.body ]
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %i.07, !dbg !39
+  %0 = load i32, ptr %arrayidx, align 4, !dbg !39, !tbaa !40
+  %arrayidx1 = getelementptr inbounds i32, ptr %b, i64 %i.07, !dbg !44
+  %1 = load i32, ptr %arrayidx1, align 4, !dbg !44, !tbaa !40
+  %add = add nsw i32 %1, %0, !dbg !45
+  %arrayidx2 = getelementptr inbounds i32, ptr %c, i64 %i.07, !dbg !46
+  store i32 %add, ptr %arrayidx2, align 4, !dbg !47, !tbaa !40
+  %inc = add nuw nsw i64 %i.07, 1, !dbg !48
+  %exitcond.not = icmp eq i64 %inc, 256, !dbg !49
+  br i1 %exitcond.not, label %for.cond.cleanup.exitStub, label %for.body, !dbg !50, !llvm.loop !51
+
+for.cond.cleanup.exitStub:                        ; preds = %for.body
+  ret void
+}
+
+# Exiting Nodes: 1
+Known Bounds: true
+Vectorized: true
+_______________________
+Name: _Z4testPfS_S_S_S_.for.body
+IR: 
+; Function Attrs: mustprogress nofree norecurse nounwind ssp uwtable
+define hidden void @_Z4testPfS_S_S_S_.for.body(ptr %B, ptr %C, ptr %D, ptr %E, ptr %A) #2 !dbg !55 {
+newFuncRoot:
+  br label %for.body, !dbg !56
+
+for.body:                                         ; preds = %for.body, %newFuncRoot
+  %indvars.iv = phi i64 [ 0, %newFuncRoot ], [ %indvars.iv.next, %for.body ]
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv, !dbg !56
+  %0 = load float, ptr %arrayidx, align 4, !dbg !56, !tbaa !57
+  %arrayidx2 = getelementptr inbounds float, ptr %C, i64 %indvars.iv, !dbg !59
+  %1 = load float, ptr %arrayidx2, align 4, !dbg !59, !tbaa !57
+  %add = fadd float %0, %1, !dbg !60
+  %arrayidx4 = getelementptr inbounds float, ptr %D, i64 %indvars.iv, !dbg !61
+  %2 = load float, ptr %arrayidx4, align 4, !dbg !61, !tbaa !57
+  %add5 = fadd float %add, %2, !dbg !62
+  %arrayidx7 = getelementptr inbounds float, ptr %E, i64 %indvars.iv, !dbg !63
+  %3 = load float, ptr %arrayidx7, align 4, !dbg !63, !tbaa !57
+  %add8 = fadd float %add5, %3, !dbg !64
+  %arrayidx10 = getelementptr inbounds float, ptr %A, i64 %indvars.iv, !dbg !65
+  store float %add8, ptr %arrayidx10, align 4, !dbg !66, !tbaa !57
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !67
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 256, !dbg !68
+  br i1 %exitcond.not, label %for.cond.cleanup.exitStub, label %for.body, !dbg !69, !llvm.loop !70
+
+for.cond.cleanup.exitStub:                        ; preds = %for.body
+  ret void
+}
+
+# Exiting Nodes: 1
+Known Bounds: true
+Vectorized: true
+_______________________
+Name: main.for.body.i
+IR: 
+; Function Attrs: mustprogress norecurse ssp uwtable
+define hidden void @main.for.body.i() #3 !dbg !73 {
+newFuncRoot:
+  br label %for.body.i, !dbg !74
+
+for.body.i:                                       ; preds = %for.cond.cleanup6.i, %newFuncRoot
+  %j.028.i = phi i64 [ %inc14.i, %for.cond.cleanup6.i ], [ 0, %newFuncRoot ]
+  %call.i = tail call i32 @rand(), !dbg !74
+  %mul.i = mul nsw i32 %call.i, 10, !dbg !75
+  %conv.i = sext i32 %mul.i to i64, !dbg !74
+  %cmp1.i = icmp eq i64 %j.028.i, %conv.i, !dbg !76
+  br i1 %cmp1.i, label %_Z5otherv.exit.exitStub, label %if.end.i, !dbg !77
+
+if.end.i:                                         ; preds = %for.body.i
+  %call2.i = tail call i32 @rand(), !dbg !78
+  %cmp524.not.i = icmp eq i64 %j.028.i, 0, !dbg !79
+  br i1 %cmp524.not.i, label %for.cond.cleanup6.i, label %for.body7.i.preheader, !dbg !80
+
+for.body7.i:                                      ; preds = %for.body7.i.preheader, %for.body7.i
+  %i.026.i = phi i64 [ %inc.i, %for.body7.i ], [ 0, %for.body7.i.preheader ]
+  %call8.i = tail call i32 @rand(), !dbg !81
+  %inc.i = add nuw nsw i64 %i.026.i, 1, !dbg !82
+  %exitcond.not.i = icmp eq i64 %inc.i, %j.028.i, !dbg !79
+  br i1 %exitcond.not.i, label %for.cond.cleanup6.i.loopexit, label %for.body7.i, !dbg !80, !llvm.loop !83
+
+for.cond.cleanup6.i:                              ; preds = %for.cond.cleanup6.i.loopexit, %if.end.i
+  %inc14.i = add nuw nsw i64 %j.028.i, 1, !dbg !85
+  %exitcond29.not.i = icmp eq i64 %inc14.i, 10000, !dbg !86
+  br i1 %exitcond29.not.i, label %_Z5otherv.exit.exitStub, label %for.body.i, !dbg !87, !llvm.loop !88
+
+for.body7.i.preheader:                            ; preds = %if.end.i
+  br label %for.body7.i, !dbg !80
+
+for.cond.cleanup6.i.loopexit:                     ; preds = %for.body7.i
+  br label %for.cond.cleanup6.i, !dbg !85
+
+_Z5otherv.exit.exitStub:                          ; preds = %for.cond.cleanup6.i, %for.body.i
+  ret void
+}
+
+# Exiting Nodes: 2
+Known Bounds: false
+Vectorized: false
+_______________________
+Name: main.for.body
+IR: 
+; Function Attrs: mustprogress norecurse ssp uwtable
+define hidden void @main.for.body(ptr %add.out) #3 !dbg !90 {
+newFuncRoot:
+  br label %for.body, !dbg !91
+
+for.body:                                         ; preds = %for.body, %newFuncRoot
+  %i.012 = phi i64 [ 0, %newFuncRoot ], [ %inc, %for.body ]
+  %sum.011 = phi double [ 0.000000e+00, %newFuncRoot ], [ %add, %for.body ]
+  %call = tail call i32 @rand(), !dbg !91
+  %conv = sitofp i32 %call to double, !dbg !91
+  %add = fadd double %sum.011, %conv, !dbg !92
+  store double %add, ptr %add.out, align 8
+  %inc = add nuw nsw i64 %i.012, 1, !dbg !93
+  %exitcond.not = icmp eq i64 %inc, 100000, !dbg !94
+  br i1 %exitcond.not, label %for.body.i.preheader.exitStub, label %for.body, !dbg !95, !llvm.loop !96
+
+for.body.i.preheader.exitStub:                    ; preds = %for.body
+  ret void
+}
+
+# Exiting Nodes: 1
+Known Bounds: true
+Vectorized: false
+
+_______________
+Summary Stats: 
+# of module dumps: 1
+
+Extracted: 5
+Contained in extracted loops: 0
+
+Total known bounds: 3
+Total Vectorized: 2
+
