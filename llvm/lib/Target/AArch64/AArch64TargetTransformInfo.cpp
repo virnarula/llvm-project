@@ -2735,6 +2735,34 @@ AArch64TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   switch (ISD) {
   default:
     break;
+  case ISD::FADD: {
+    Type *EltType = ValTy->getElementType();
+    if (!EltType->isDoubleTy() && !EltType->isFloatTy() &&
+        !(EltType->isHalfTy() && ST->hasFullFP16()))
+      break;
+
+    unsigned NumVecElts = cast<FixedVectorType>(ValTy)->getNumElements();
+    unsigned RoundedNumVecElts = std::pow(2, Log2_32_Ceil(NumVecElts));
+    unsigned BitsPerElement = EltType->getScalarSizeInBits();
+    auto VectorRegBitWidth =
+        getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
+    unsigned ElementsPerRegister = VectorRegBitWidth / BitsPerElement;
+
+    // While there are more elements than fit into a single register,
+    // we will use element-wise vector adds to reduce the elements.
+    InstructionCost VectorFADD;
+    unsigned ElementsLeft = RoundedNumVecElts;
+    while (ElementsLeft > ElementsPerRegister) {
+      VectorFADD += ElementsLeft / (ElementsPerRegister * 2);
+      ElementsLeft /= 2;
+    }
+
+    // Once the remaining elements fit into a single vector register,
+    // they will be reduced using pairwise adds (faddp).
+    InstructionCost FADDPCosts(Log2_32_Ceil(ElementsLeft));
+
+    return FADDPCosts + VectorFADD;
+  }
   case ISD::ADD:
     if (const auto *Entry = CostTableLookup(CostTblNoPairwise, ISD, MTy))
       return (LT.first - 1) + Entry->Cost;
