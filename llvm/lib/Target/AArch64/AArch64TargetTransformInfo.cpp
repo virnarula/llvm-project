@@ -2588,10 +2588,6 @@ AArch64TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
       {ISD::ADD, MVT::v8i16,  2},
       {ISD::ADD, MVT::v4i32,  2},
       {ISD::ADD, MVT::v2i64,  2},
-      {ISD::FADD,MVT::v4f16,  2},
-      {ISD::FADD,MVT::v8f16,  2},
-      {ISD::FADD,MVT::v4f32,  2},
-      {ISD::FADD,MVT::v2f64,  2},
       {ISD::OR,  MVT::v8i8,  15},
       {ISD::OR,  MVT::v16i8, 17},
       {ISD::OR,  MVT::v4i16,  7},
@@ -2618,6 +2614,30 @@ AArch64TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   default:
     break;
   case ISD::FADD:
+    {
+      Type *EltType = ValTy->getElementType();
+      if (!EltType->isDoubleTy() && !EltType->isFloatTy() && !EltType->isHalfTy())
+        break;
+      
+      unsigned NumVecElts = cast<FixedVectorType>(ValTy)->getNumElements();
+      unsigned int RoundedNumVecElts = pow(2, Log2_32_Ceil(NumVecElts));
+      unsigned int BitsPerElement = EltType->getScalarSizeInBits();
+      unsigned int ElementsPerRegister = 128 / BitsPerElement;
+
+      // While there are more elements than fit into a single register,
+      // We will do element-wise vector adds to reduce
+      InstructionCost VectorFADD;
+      unsigned int ElementsLeft = RoundedNumVecElts;
+      while (ElementsLeft > ElementsPerRegister) {
+        VectorFADD += ElementsLeft / (ElementsPerRegister * 2);
+        ElementsLeft /= 2;
+      }
+      
+      // if elements don't exceed 1 vector register size, they will only be reduced by FADDPs
+      InstructionCost FADDPCosts(Log2_32_Ceil(ElementsLeft));
+
+      return FADDPCosts + VectorFADD;
+    }
   case ISD::ADD:
     if (const auto *Entry = CostTableLookup(CostTblNoPairwise, ISD, MTy))
       return (LT.first - 1) + Entry->Cost;
