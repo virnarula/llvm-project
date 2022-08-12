@@ -24,6 +24,8 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 
+#include "llvm/Linker/Linker.h"
+
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize.h"
 
@@ -40,6 +42,9 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+#include <vector>
+
+#include "llvm/Remarks/Remark.h"
 
 using namespace llvm;
 
@@ -53,9 +58,40 @@ static cl::opt<std::string> OutputFileName(cl::Positional, cl::Required,
                                            cl::desc("output remark file"));
 
 static int Extracted, NotExtracted, NotSimplified, Contained, Dumps, NumVectorized, NumDeterminableBounds;
-static bool Vectorized;
 
-static int OptRemarks, MissedRemarks, FailedRemarks, AnalysisRemarks;
+
+
+// static int OptRemarks, MissedRemarks, FailedRemarks, AnalysisRemarks;
+
+static enum VectorizationResult {
+  Success,
+  NotProfitable,
+  ContainsCallInstruction,
+  Other
+} VectorizeRes;
+
+// struct to contain all information about a loop
+typedef struct LoopDetails {
+  Function *F;
+  VectorizationResult VecRes;
+  bool KnownBounds;
+  unsigned ExitNodes;
+  
+} LoopDetails;
+
+// Summary of
+typedef struct VectorizationSummary {
+  unsigned NumSuccess;
+  unsigned NumNotProfitable;
+  unsigned NumContainsCallInstruction;
+  unsigned NumOther;
+  
+  VectorizationSummary() :  NumSuccess(0), NumNotProfitable(0),
+                            NumContainsCallInstruction(0),
+                            NumOther(0) { }
+} VectorizationSummary;
+
+static VectorizationSummary VectorizeCounter;
 
 class MyDiagnosticHandler final : public DiagnosticHandler {
 public:
@@ -65,46 +101,31 @@ public:
     std::string Msg; raw_string_ostream RSO(Msg);
     DiagnosticPrinterRawOStream DP(RSO);
     DI.print(DP);
-    if (DI.getKind() == DK_OptimizationRemarkAnalysis) {
-      dbgs() << "Analysis Remark: " << Msg << "\n";
-    } else if (DI.getKind() == DK_OptimizationRemark) {
-      dbgs() << "Success Remark: " << Msg << "\n";
-    }
-    /*
-    switch(DI.getKind()) {
-      case DK_OptimizationRemark:
-        dbgs() << "Remark: " << Msg << "\n";
-        OptRemarks++;
-        break;
-      
-      case DK_OptimizationRemarkMissed:
-        MissedRemarks++;
-//        dbgs() << "Missed Opt Remark: " << Msg << "\n";
-        break;
-      
-      case DK_OptimizationFailure:
-        FailedRemarks++;
-//        dbgs() << "Failed Remark: " << Msg << "\n";
-        break;
+    
+    std::string ToMatch;
+    switch (DI.getKind()) {
       case DK_OptimizationRemarkAnalysis:
-        AnalysisRemarks++;
-        dbgs() << "Analysis Remark: " << Msg << "\n";
-        break;
-      default:
-//        dbgs() << "other remark: " << Msg << "\n";
-        break;
-    };
-     */
-    
-    // dbgs() << Msg;
-    
-    std::string ToMatch("vectorized loop");
-    if (Msg.find(ToMatch) != std::string::npos) {
-      Vectorized = true;
-      // NumVectorized++;
+        ToMatch = "call instruction cannot be vectorized";
+        if (Msg.find(ToMatch) != std::string::npos) {
+          VectorizeRes = VectorizationResult::ContainsCallInstruction;
+          VectorizeCounter.NumContainsCallInstruction++;
+          return true;
+        } else {
+          VectorizeRes = VectorizationResult::Other;
+          VectorizeCounter.NumOther++;
+          return true;
+        }
+        // This is where we would add more checks
+        
+      case DK_OptimizationRemark:
+        ToMatch = "vectorized loop";
+        if (Msg.find(ToMatch) != std::string::npos) {
+          VectorizeRes = VectorizationResult::Success;
+          VectorizeCounter.NumSuccess++;
+        }
+        return true;
     }
-    
-    return true;
+    return false;
   }
 
   bool isAnalysisRemarkEnabled(StringRef PassName) const override {
@@ -125,6 +146,7 @@ private:
   StringRef VectorizePassName;
 };
 
+
 legacy::FunctionPassManager createFPM(Module &M) {
   legacy::FunctionPassManager FPM(&M);
 
@@ -142,7 +164,6 @@ legacy::FunctionPassManager createFPM(Module &M) {
 }
 
 void printLoopSummaries(Module &M) {
-//  M.dump();
   auto FPM = createFPM(M);
   dbgs() << "Loops:\n";
   for (Function &F : M) {
@@ -182,17 +203,77 @@ void printLoopSummaries(Module &M) {
       dbgs() << "Known Bounds: true\n";
       NumDeterminableBounds++;
     }
-
-    Vectorized = false;
+    
     FPM.run(F);
     dbgs() << "Vectorized: ";
-    if (Vectorized) {
-      dbgs() << "true\n";
-      NumVectorized++;
-    } else {
-      dbgs() << "false\n";
+    switch (VectorizeRes) {
+      case VectorizationResult::Success:
+        dbgs() << "true\n";
+        break;
+        
+      case VectorizationResult::ContainsCallInstruction:
+        dbgs() << "false: contains call instruction\n";
+        break;
+        
+      default:
+        dbgs() << "false\n";
+        break;
     }
   }
+}
+
+LLVMContext Context;
+std::unique_ptr<Module> ModulePointer;
+//std::vector<std::unique_ptr<Module>> Modules;
+std::vector<LoopDetails> LoopsVec;
+//MemoryBuffer *MB;
+
+LoopDetails AnalyzeLoops(Function &F, legacy::FunctionPassManager &FPM) {
+  LoopDetails Details;
+  Details.F = &F;
+  
+  DominatorTree DT;
+  LoopInfo LI;
+  DT.recalculate(F);
+  LI.analyze(DT);
+  
+  const Loop *L = *LI.begin();
+  
+  if (!L) {
+    errs() << "Extracted function didn't have a loop\n";
+    exit(1);
+  }
+  
+  // Calculate number of exit blocks
+  SmallVector<BasicBlock*, 16> ExitingBlocks;
+  L->getExitingBlocks(ExitingBlocks);
+  Details.ExitNodes = ExitingBlocks.size();
+  
+  // Find if loop as known bounds
+  TargetLibraryInfoImpl TLII;
+  TargetLibraryInfo TLI(TLII);
+  AssumptionCache AC(F);
+  ScalarEvolution SE(F, TLI, AC, DT, LI);
+  Details.KnownBounds = !isa<SCEVCouldNotCompute>(SE.getBackedgeTakenCount(L));
+  NumDeterminableBounds += Details.KnownBounds;
+  
+  // Find it it has been vectorized of not
+  FPM.run(F);
+  Details.VecRes = VectorizeRes;
+  
+  return Details;
+  }
+
+void AnalyzeModules() {
+  auto FPM = createFPM(*ModulePointer);
+  for (Function &F : *ModulePointer) {
+    if (F.empty())
+      continue;
+    
+    LoopDetails Details = AnalyzeLoops(F, FPM);
+    LoopsVec.push_back(Details);
+  }
+  
 }
 
 Error ProcessRemarks(StringRef InputFileName) {
@@ -213,30 +294,19 @@ Error ProcessRemarks(StringRef InputFileName) {
   while (MaybeRemark) {
     const remarks::Remark &Remark = **MaybeRemark;
     const auto &PassName = Remark.PassName;
+    
+    if (auto Hotness = Remark.Hotness) {
+      dbgs() << "Remark: " << Remark.getArgsAsMsg() << "\n";
+      dbgs() << "Hotness: " << Hotness.getValue();
+    }
     if (PassName.equals("loop-extract-analysis")) {
       const auto &RemarkName = Remark.RemarkName;
-      if (RemarkName.equals("ModuleDump")) { // it just rewrites over the moduledumps
+      if (RemarkName.equals("ModuleDump")) {
         std::string ModuleString = Remark.getArgsAsMsg();
-        
-//        std::ofstream out(OutputFileName, std::ios_base::app);
-//        out << ModuleString;
-//        out.close();
-     
+
         auto MB = MemoryBuffer::getMemBuffer(ModuleString);
         SMDiagnostic Err;
-        LLVMContext Context;
-        Context.setDiagnosticHandler(std::make_unique<MyDiagnosticHandler>());
-        auto Mod = parseIR(MB->getMemBufferRef(), Err, Context);
-        printLoopSummaries(*Mod);
-        
-        /*
-        auto Mod = parseBitcodeFile(MB->getMemBufferRef(), Context);
-        if (Error E = Mod.takeError()) {
-          errs() << toString(std::move(E)) << "\n";
-        }
-        printLoopSummaries(*Mod.get());
-        */
-         
+        ModulePointer = parseIR(MB->getMemBufferRef(), Err, Context);
         Dumps++;
       } else if (RemarkName.equals("Extracted")) {
         Extracted += std::stoi(Remark.getArgsAsMsg());
@@ -271,6 +341,16 @@ std::unique_ptr<Module> getLoopModule(LLVMContext &Context) {
   return M;
 }
 
+
+
+void printFunctionNames() {
+  dbgs() << "Functions:\n";
+  for (LoopDetails &Details : LoopsVec) {
+    dbgs() << Details.F->getName() << "\n";
+  }
+  dbgs() << "\n";
+}
+
 void printSummaryStats() {
   dbgs() << "\n_______________\n";
   dbgs() << "Summary Stats: \n";
@@ -282,10 +362,57 @@ void printSummaryStats() {
   dbgs() << "Contained in extracted loops: " << Contained << "\n\n";
   
   dbgs() << "Total known bounds: " << NumDeterminableBounds << "\n";
-  dbgs() << "Total Vectorized: " << NumVectorized << "\n";
+  dbgs() << "Total Vectorized: " << VectorizeCounter.NumSuccess << "\n";
+  dbgs() << "# Cannot vectorize - contains call instruction: " << VectorizeCounter.NumContainsCallInstruction << "\n";
   dbgs() << "\n";
 }
 
+std::string VectorizeResToString(VectorizationResult Res) {
+  switch (Res) {
+    case VectorizationResult::Success:
+      return "Success!";
+    case VectorizationResult::ContainsCallInstruction:
+      return "Failed - contains call instruction";
+    case VectorizationResult::NotProfitable:
+      return "Failed - not profitable";
+    default:
+      return "Failed - other";
+  }
+}
+
+void printLoopSummary(LoopDetails Details) {
+  dbgs() << "IR Dump: \n";
+  dbgs() << *Details.F << "\n";
+  dbgs() << "Name: " << Details.F->getName() << "\n";
+  dbgs() << "Known Bounds: " << Details.KnownBounds << "\n";
+  dbgs() << "Exit Nodes: " << Details.ExitNodes << "\n";
+  dbgs() << "Vectorization Status: " <<
+    VectorizeResToString(Details.VecRes) << "\n";
+  
+}
+
+void beginQuerying() {
+  while (true) {
+    dbgs() << ">> ";
+    std::string Query;
+    std::cin >> Query;
+    if (Query.empty()) {
+      return;
+    }
+    Function *F = ModulePointer->getFunction(Query);
+    if (!F) {
+      dbgs() << "Not a valid function!\n";
+      continue;
+    }
+    
+    for (LoopDetails Loop : LoopsVec) {
+      if (F == Loop.F) {
+        printLoopSummary(Loop);
+        break;
+      }
+    }
+  }
+}
 
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
@@ -300,6 +427,8 @@ int main(int argc, char **argv) {
   InitializeAllAsmPrinters();
   InitializeAllDisassemblers();
   
+  Context.setDiagnosticHandler(std::make_unique<MyDiagnosticHandler>());
+  
   Error E = ProcessRemarks(InputFileName);
   
   if (E) {
@@ -307,10 +436,14 @@ int main(int argc, char **argv) {
     exit(1);
   }
   
-  LLVMContext Context;
-  Context.setDiagnosticHandler(std::make_unique<MyDiagnosticHandler>());
-  // auto M = getLoopModule(Context);
-
+//  if (Modules.empty()) {
+//    errs() << "Could not find any loop remarks!\n";
+//    exit(1);
+//  }
+  
+  AnalyzeModules();
+  
+  printFunctionNames();
   printSummaryStats();
   
   handleAllErrors(std::move(E), [&](const ErrorInfoBase &PE) {
@@ -318,13 +451,7 @@ int main(int argc, char **argv) {
         errs() << '\n';
       });
   
-  /*
-  dbgs() << "______________" << "\n";
-  dbgs() << "Opts succeeded: " << OptRemarks << "\n";
-  dbgs() << "Missed: " << MissedRemarks << "\n";
-  dbgs() << "Opts failed: " << FailedRemarks << "\n";
-  dbgs() << "Analysis: " << AnalysisRemarks << "\n";
-   */
+  beginQuerying();
   
   return 0;
 }
