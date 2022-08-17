@@ -3,8 +3,9 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-
 #include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 
 #include "llvm/Remarks/Remark.h"
 #include "llvm/Remarks/RemarkParser.h"
@@ -76,10 +77,10 @@ typedef struct LoopDetails {
   VectorizationResult VecRes;
   bool KnownBounds;
   unsigned ExitNodes;
-  
+  unsigned Hotness;
 } LoopDetails;
 
-// Summary of
+// Summary of vectorization results
 typedef struct VectorizationSummary {
   unsigned NumSuccess;
   unsigned NumNotProfitable;
@@ -101,6 +102,14 @@ public:
     std::string Msg; raw_string_ostream RSO(Msg);
     DiagnosticPrinterRawOStream DP(RSO);
     DI.print(DP);
+    
+    const DiagnosticInfoOptimizationBase *DIOB =
+      cast<DiagnosticInfoOptimizationBase>(&DI);
+    if (DIOB) {
+      const Optional<uint64_t> Hotness = DIOB->getHotness();
+      if (Hotness)
+        dbgs() << "Hotness: " << Hotness.value() << "\n";
+    }
     
     std::string ToMatch;
     switch (DI.getKind()) {
@@ -257,6 +266,15 @@ LoopDetails AnalyzeLoops(Function &F, legacy::FunctionPassManager &FPM) {
   Details.KnownBounds = !isa<SCEVCouldNotCompute>(SE.getBackedgeTakenCount(L));
   NumDeterminableBounds += Details.KnownBounds;
   
+  // Get Hotness information
+  BranchProbabilityInfo BPI(F, LI);
+  BlockFrequencyInfo BFI(F, BPI, LI);
+  BasicBlock *Incoming, *Backedge;
+  if (L->getIncomingAndBackEdge(Incoming, Backedge)) {
+    BlockFrequency BlockFreq = BFI.getBlockFreq(Backedge);
+    Details.Hotness = BlockFreq.getFrequency();
+  }
+  
   // Find it it has been vectorized of not
   FPM.run(F);
   Details.VecRes = VectorizeRes;
@@ -297,7 +315,7 @@ Error ProcessRemarks(StringRef InputFileName) {
     
     if (auto Hotness = Remark.Hotness) {
       dbgs() << "Remark: " << Remark.getArgsAsMsg() << "\n";
-      dbgs() << "Hotness: " << Hotness.getValue();
+      dbgs() << "Hotness: " << Hotness.value();
     }
     if (PassName.equals("loop-extract-analysis")) {
       const auto &RemarkName = Remark.RemarkName;
@@ -340,8 +358,6 @@ std::unique_ptr<Module> getLoopModule(LLVMContext &Context) {
   }
   return M;
 }
-
-
 
 void printFunctionNames() {
   dbgs() << "Functions:\n";
@@ -388,6 +404,7 @@ void printLoopSummary(LoopDetails Details) {
   dbgs() << "Exit Nodes: " << Details.ExitNodes << "\n";
   dbgs() << "Vectorization Status: " <<
     VectorizeResToString(Details.VecRes) << "\n";
+  dbgs() << "Hotness: " << Details.Hotness << "\n";
   
 }
 
@@ -412,6 +429,12 @@ void beginQuerying() {
       }
     }
   }
+}
+
+void sortLoopsByHotness() {
+  std::sort(LoopsVec.begin(), LoopsVec.end(), [](LoopDetails Left, LoopDetails Right){
+    return Left.Hotness > Right.Hotness;
+  });
 }
 
 int main(int argc, char **argv) {
@@ -443,6 +466,7 @@ int main(int argc, char **argv) {
   
   AnalyzeModules();
   
+  sortLoopsByHotness();
   printFunctionNames();
   printSummaryStats();
   

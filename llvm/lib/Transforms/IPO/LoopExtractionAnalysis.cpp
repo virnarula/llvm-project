@@ -1,16 +1,30 @@
+//===- LoopExtractionAnalysis.cpp - Loop Extraction Analysis ---------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass extracts loops into remarks for future analysis
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/Analysis/MemorySSA.h"
-#include "llvm/Analysis/MemorySSAUpdater.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 
 #include "llvm/Bitcode/BitcodeWriter.h"
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/IR/ModulePass"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
@@ -20,10 +34,6 @@
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/IPO/LoopExtractionAnalysis.h"
 
-
-#include "llvm/Analysis/AliasAnalysis.h"
-
-
 #include "llvm/ADT/SmallSet.h"
 #include <set>
 
@@ -32,6 +42,11 @@ using namespace llvm;
 #define DEBUG_TYPE "loop-extract-analysis"
 
 namespace {
+/// LoopExtractionAnalyzer contains the methods used to extract the loops of a module into remarks for later analysis.
+///
+/// This pass works in tandem with the loop-analyzer tool, which will automate the analysis of the remarks
+/// This pass is responsible for only the extraction of loops and passing additional information such as hotness for later analysis.
+///
   struct LoopExtractionAnalyzer {
     explicit LoopExtractionAnalyzer(
       function_ref<DominatorTree &(Function &)> LookupDomTree,
@@ -103,45 +118,37 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   LoopInfo LI;
   LI.analyze(DT);
   
-  if (LI.empty()) {
+  if (LI.empty())
     return false;
-  }
   
   TargetLibraryInfoImpl TLII;
   TargetLibraryInfo TLI(TLII);
   AssumptionCache AC(F);
   ScalarEvolution SE(F, TLI, AC, DT, LI);
 
-  AliasAnalysis AA(TLI);
-
-  MemorySSA MSSA(F, &AA, &DT);
-  MemorySSAUpdater MSSAU(&MSSA);
-
   SmallVector<Loop*, 8> Loops;
   Loops.assign(LI.begin(), LI.end());
-  static std::set<Loop*> Contained;
+  SmallPtrSet<Loop*, 16> Contained;
   for (Loop *L : Loops) {
     // Check that loop is in simply form and not contained inside another loop
     for (auto Child : L->getSubLoops()) {
       Contained.insert(Child);
     }
 
-    if (simplifyLoop(L, &DT, &LI, &SE, &AC, &MSSAU, false)) {
+    if (simplifyLoop(L, &DT, &LI, &SE, &AC, nullptr, false)) {
       LLVM_DEBUG(dbgs() << "Simplified a loop!\n");
-      // dbgs() << "Simplified a loop!\n";
     }
-    LLVM_DEBUG(errs() << "Loop dump in func " << L->getHeader()->getParent()->getName() << ":\n");
+    LLVM_DEBUG(dbgs() << "Loop dump in func " << L->getHeader()->getParent()->getName() << ":\n");
     LLVM_DEBUG(L->dump());
 
     if (Contained.find(L) == Contained.end()) {
       if (L->isLoopSimplifyForm()) {
         if (Function *ExtractedFunc = ExtractLoop(L, LI, DT)) {
-          LLVM_DEBUG(errs() << "Loop was extracted\n");
+          LLVM_DEBUG(dbgs() << "Loop was extracted\n");
           ExtractedLoops.push_back(ExtractedFunc);
           NumExtracted++;
-          // NumContained += L->getSubLoops().size();
         } else {
-          LLVM_DEBUG(errs() << "Loop could not be extracted!!\n");
+          LLVM_DEBUG(dbgs() << "Loop could not be extracted!!\n");
           NumNotExtracted++;
         }
       } else {
@@ -155,12 +162,21 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   return false;
 }
 
-bool LoopExtractionAnalyzer::runOnModule(Module &M) {
-//  M.dump();
-  std::unique_ptr<Module> ClonedModPtr = CloneModule(M);
+//bool LoopExtractionAnalyzer::runOnModule(Module &M) {
+//  if (M.empty())
+//    return false;
+//  
+//  for (Function &F : M) {
+//    std::unique_ptr<Module> ClonedModPtr = CloneModule(M);
+//    runOnFunction(F);
+//  }
+//}
 
-  if (M.empty()) 
+bool LoopExtractionAnalyzer::runOnModule(Module &M) {
+  if (M.empty())
     return false;
+  
+  std::unique_ptr<Module> ClonedModPtr = CloneModule(M);
 
   SmallVector<Function*, 16> OriginalFunctions;
   for (auto Iter = ClonedModPtr->begin(); Iter != ClonedModPtr->end(); ++Iter) {
@@ -170,9 +186,6 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   auto End = OriginalFunctions.end();
   for (auto Iter = OriginalFunctions.begin(); Iter != End; ++Iter) {
     runOnFunction(**Iter);
-    // if (Iter == End) {
-    //   break;
-    // }
   }
   
   if (ExtractedLoops.empty()) {
@@ -180,11 +193,17 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   }
   
   std::vector<GlobalValue *> GVs(ExtractedLoops.begin(), ExtractedLoops.end());
-
+  
+  
+  ModulePassManager
+  createGVExtraction
+  
+  /*
   legacy::PassManager PM;
   PM.add(createGVExtractionPass(GVs));
   PM.add(createStripDeadPrototypesPass());
   PM.run(*ClonedModPtr);
+  */
   
   if (ClonedModPtr->empty()) {
     assert(false && "Nothing after cloning!");
@@ -201,47 +220,58 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   if (Extracted == nullptr) {
     assert(false && "Failed to find extracted func!");
   }
+  BasicBlock *LoopBB = Extracted->getEntryBlock().getSingleSuccessor();
+
+  dbgs() << LoopBB->getName() << "\n";
+  dbgs() << *Extracted << "\n";
   
-  OptimizationRemarkEmitter ORE(Extracted);
+  M.getContext().setDiagnosticsHotnessRequested(true);
+  ClonedModPtr->getContext().setDiagnosticsHotnessRequested(true);
+  
+  DominatorTree DT;
+  LoopInfo LI;
+  DT.recalculate(*Extracted);
+  LI.analyze(DT);
+  BranchProbabilityInfo BPI(*Extracted, LI);
+  BlockFrequencyInfo BFI(*Extracted, BPI, LI);
+  BlockFrequency BlockFreq = BFI.getBlockFreq(LoopBB);
+  dbgs() << "BlockFreq: " << BlockFreq.getFrequency() << "\n";
+  OptimizationRemarkEmitter ORE(Extracted, &BFI);
 
   // Emit the module to remarks
   ORE.emit([&]() {
     std::string str; raw_string_ostream rso(str);
     ClonedModPtr->print(rso, nullptr);
-//    WriteBitcodeToFile(*ClonedModPtr, rso);
-//    dbgs() << str << "\n";
-    
     auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
-    return OptimizationRemarkAnalysis(DEBUG_TYPE, "ModuleDump", DebugLoc, &Extracted->getEntryBlock())
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "ModuleDump", DebugLoc, LoopBB)
     << str;
   });
   
   // Emit extraction stats
   ORE.emit([&]() {
     auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
-    return OptimizationRemarkAnalysis(DEBUG_TYPE, "NotSimplified", DebugLoc, &Extracted->getEntryBlock())
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "NotSimplified", DebugLoc, LoopBB)
     << std::to_string(NumNotSimplified);
   });
   
   ORE.emit([&]() {
     auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
-    return OptimizationRemarkAnalysis(DEBUG_TYPE, "NotExtractable", DebugLoc, &Extracted->getEntryBlock())
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "NotExtractable", DebugLoc, LoopBB)
     << std::to_string(NumNotExtracted);
   });
   
   ORE.emit([&]() {
     auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
-    return OptimizationRemarkAnalysis(DEBUG_TYPE, "Extracted", DebugLoc, &Extracted->getEntryBlock())
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "Extracted", DebugLoc, LoopBB)
     << std::to_string(NumExtracted);
   });
 
   ORE.emit([&] {
     auto DebugLoc = Extracted->getEntryBlock().getFirstNonPHI()->getDebugLoc();
-    return OptimizationRemarkAnalysis(DEBUG_TYPE, "Contained", DebugLoc, &Extracted->getEntryBlock())
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "Contained", DebugLoc, LoopBB)
     << std::to_string(NumContained);
   });
-
-  // errs() << "Ran Loop Extraction Analysis\n";
   
   return false;
 }
+
