@@ -291,7 +291,6 @@ void AnalyzeModules() {
     LoopDetails Details = AnalyzeLoops(F, FPM);
     LoopsVec.push_back(Details);
   }
-  
 }
 
 Error ProcessRemarks(StringRef InputFileName) {
@@ -314,8 +313,8 @@ Error ProcessRemarks(StringRef InputFileName) {
     const auto &PassName = Remark.PassName;
     
     if (auto Hotness = Remark.Hotness) {
-      dbgs() << "Remark: " << Remark.getArgsAsMsg() << "\n";
-      dbgs() << "Hotness: " << Hotness.value();
+//      dbgs() << "Remark: " << Remark.getArgsAsMsg() << "\n";
+      dbgs() << "Hotness: " << Hotness.value() << "\n";
     }
     if (PassName.equals("loop-extract-analysis")) {
       const auto &RemarkName = Remark.RemarkName;

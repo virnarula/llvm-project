@@ -24,7 +24,6 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/IR/ModulePass"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
@@ -97,11 +96,12 @@ PreservedAnalyses LoopExtractionAnalysisPass::run(Module &M, ModuleAnalysisManag
 
 Function *LoopExtractionAnalyzer::ExtractLoop(Loop *L, LoopInfo &LI, DominatorTree &DT) {
   Function &Func = *L->getHeader()->getParent();
-  CodeExtractorAnalysisCache CEAC(Func); 
-  CodeExtractor Extractor(DT, *L, false, nullptr, nullptr, nullptr);
+  CodeExtractorAnalysisCache CEAC(Func);
+  BranchProbabilityInfo BPI(Func, LI);
+  BlockFrequencyInfo BFI(Func, BPI, LI);
+  CodeExtractor Extractor(DT, *L, false, &BFI, &BPI, nullptr);
 
   if (Function *ExtractionLoop = Extractor.extractCodeRegion(CEAC)) {
-    // LI.erase(L);
     return ExtractionLoop;
   }
 
@@ -162,16 +162,6 @@ bool LoopExtractionAnalyzer::runOnFunction(Function &F) {
   return false;
 }
 
-//bool LoopExtractionAnalyzer::runOnModule(Module &M) {
-//  if (M.empty())
-//    return false;
-//  
-//  for (Function &F : M) {
-//    std::unique_ptr<Module> ClonedModPtr = CloneModule(M);
-//    runOnFunction(F);
-//  }
-//}
-
 bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   if (M.empty())
     return false;
@@ -194,15 +184,46 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   
   std::vector<GlobalValue *> GVs(ExtractedLoops.begin(), ExtractedLoops.end());
   
-  
-  ModulePassManager
-  createGVExtraction
-  
-  /*
+  // Create remark emitter with hotness information attached
   legacy::PassManager PM;
   PM.add(createGVExtractionPass(GVs));
   PM.add(createStripDeadPrototypesPass());
   PM.run(*ClonedModPtr);
+
+  M.getContext().setDiagnosticsHotnessRequested(true);
+  ClonedModPtr->getContext().setDiagnosticsHotnessRequested(true);
+  
+  /*
+  for (auto ExtractedLoop : ExtractedLoops) {
+    std::unique_ptr<Module> ExtractedModule = CloneModule(*ClonedModPtr);
+    Function *ToExtract = ExtractedModule->getFunction(ExtractedLoop->getName());
+    std::vector<GlobalValue*> GVToExtract = { ToExtract };
+    
+    legacy::PassManager PM;
+    PM.add(createGVExtractionPass(GVs));
+    PM.add(createStripDeadPrototypesPass());
+    PM.run(*ExtractedModule);
+    
+    assert(!ExtractedModule->empty() && "Extracted Module is empty!");
+    
+    BasicBlock *LoopBB = ToExtract->getEntryBlock().getSingleSuccessor();
+    
+    DominatorTree DT;
+    LoopInfo LI;
+    DT.recalculate(*ToExtract);
+    LI.analyze(DT);
+    BranchProbabilityInfo BPI(*ToExtract, LI);
+    BlockFrequencyInfo BFI(*ToExtract, BPI, LI);
+    OptimizationRemarkEmitter ORE(ToExtract, &BFI);
+    
+    ORE.emit([&]() {
+      std::string str; raw_string_ostream rso(str);
+      ClonedModPtr->print(rso, nullptr);
+      auto DebugLoc = ToExtract->getEntryBlock().getFirstNonPHI()->getDebugLoc();
+      return OptimizationRemarkAnalysis(DEBUG_TYPE, "ModuleDump", DebugLoc, LoopBB)
+      << str;
+    });
+  }
   */
   
   if (ClonedModPtr->empty()) {
@@ -220,13 +241,8 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   if (Extracted == nullptr) {
     assert(false && "Failed to find extracted func!");
   }
-  BasicBlock *LoopBB = Extracted->getEntryBlock().getSingleSuccessor();
-
-  dbgs() << LoopBB->getName() << "\n";
-  dbgs() << *Extracted << "\n";
   
-  M.getContext().setDiagnosticsHotnessRequested(true);
-  ClonedModPtr->getContext().setDiagnosticsHotnessRequested(true);
+  BasicBlock *LoopBB = Extracted->getEntryBlock().getSingleSuccessor();
   
   DominatorTree DT;
   LoopInfo LI;
@@ -234,8 +250,6 @@ bool LoopExtractionAnalyzer::runOnModule(Module &M) {
   LI.analyze(DT);
   BranchProbabilityInfo BPI(*Extracted, LI);
   BlockFrequencyInfo BFI(*Extracted, BPI, LI);
-  BlockFrequency BlockFreq = BFI.getBlockFreq(LoopBB);
-  dbgs() << "BlockFreq: " << BlockFreq.getFrequency() << "\n";
   OptimizationRemarkEmitter ORE(Extracted, &BFI);
 
   // Emit the module to remarks

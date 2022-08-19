@@ -16,6 +16,8 @@
 #include "llvm/Transforms/IPO/LoopExtractor.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
@@ -241,7 +243,9 @@ bool LoopExtractor::extractLoop(Loop *L, LoopInfo &LI, DominatorTree &DT) {
   Function &Func = *L->getHeader()->getParent();
   AssumptionCache *AC = LookupAssumptionCache(Func);
   CodeExtractorAnalysisCache CEAC(Func);
-  CodeExtractor Extractor(DT, *L, false, nullptr, nullptr, AC);
+  BranchProbabilityInfo BPI(Func, LI);
+  BlockFrequencyInfo BFI(Func, BPI, LI);
+  CodeExtractor Extractor(DT, *L, false, &BFI, &BPI, AC);
   if (Extractor.extractCodeRegion(CEAC)) {
     LI.erase(L);
     --NumLoops;
