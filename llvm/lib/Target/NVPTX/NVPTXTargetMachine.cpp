@@ -80,6 +80,7 @@ void initializeNVVMIntrRangePass(PassRegistry &);
 void initializeNVVMReflectPass(PassRegistry &);
 void initializeNVPTXAAWrapperPassPass(PassRegistry &);
 void initializeNVPTXExternalAAWrapperPass(PassRegistry &);
+void initializeNVPTXMemOptsPass(PassRegistry &);
 
 } // end namespace llvm
 
@@ -106,6 +107,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeNVPTXTarget() {
   initializeNVPTXDAGToDAGISelPass(PR);
   initializeNVPTXAAWrapperPassPass(PR);
   initializeNVPTXExternalAAWrapperPass(PR);
+  initializeNVPTXMemOptsPass(PR);
 }
 
 static std::string computeDataLayout(bool is64Bit, bool UseShortPointers) {
@@ -403,6 +405,9 @@ void NVPTXPassConfig::addIRPasses() {
       addPass(createLoadStoreVectorizerPass());
     addPass(createSROAPass());
   }
+
+  // === Memory optimization passes ===
+  addPass(createNVPTXMemOptsPass());
 
   const auto &Options = getNVPTXTargetMachine().Options;
   addPass(createNVPTXLowerUnreachablePass(Options.TrapUnreachable,
