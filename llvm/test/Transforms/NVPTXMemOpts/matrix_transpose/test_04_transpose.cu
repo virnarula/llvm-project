@@ -12,6 +12,22 @@ __global__ void transposeMatrix(const float *input, float *output, int width, in
     }
 }
 
+// CUDA kernel to transpose a matrix
+__global__ void transposeMatrix_coalesced(const float *input, float *output, int width, int height) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    __shared__ float input_shared[16][16];
+    input_shared[threadIdx.y][threadIdx.x] = input[y * width + x];
+    __syncthreads();
+
+    if (x < width && y < height) {
+        int pos = y * width + x;
+        int transPos = x * height + y;
+        output[transPos] = input[pos];
+    }
+}
+
 int main(void) {
     int width = 1024;
     int height = 1024;

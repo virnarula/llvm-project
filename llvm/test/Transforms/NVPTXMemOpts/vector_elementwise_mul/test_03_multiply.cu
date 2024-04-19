@@ -10,6 +10,19 @@ __global__ void vectorMultiply(const float *input1, const float *input2, float *
     }
 }
 
+// CUDA kernel for vector multiplication
+__global__ void vectorMultiply_coalesced(const float *input1, const float *input2, float *output, int numElements) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    __shared__ float input1_shared[16];
+    __shared__ float input2_shared[16];
+    input1_shared[threadIdx.x] = input1[i];
+    input2_shared[threadIdx.x] = input2[i];
+    __syncthreads();
+    if (i < numElements) {
+        output[i] = input1[i] * input2[i];
+    }
+}
+
 int main(void) {
     int numElements = 50000;
     size_t size = numElements * sizeof(float);

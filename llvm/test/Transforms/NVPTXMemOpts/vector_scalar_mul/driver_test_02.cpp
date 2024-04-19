@@ -33,7 +33,7 @@ int main(void) {
     cuDeviceGet(&cuDevice, 0);
     cuCtxCreate(&cuContext, 0, cuDevice);
     cuModuleLoad(&cuModule, "test_02_scalar.fatbin");
-    cuModuleGetFunction(&vectorScalarMultiply, cuModule, "_Z20vectorScalarMultiplyPKfPffi");
+    cuModuleGetFunction(&vectorScalarMultiply, cuModule, "_Z30vectorScalarMultiply_coalescedPKfPffi");
 
     // Allocate vectors in device memory
     CUdeviceptr d_input, d_output;
