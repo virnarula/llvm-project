@@ -69,7 +69,7 @@ std::string NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME = "llvm.nvvm.read.ptx.sr
 
 // A common pattern to calculate the abosolute index of a thread is:
 // idx = tid + ctaid * ntid
-// This function will check if the index is calculated in this way
+// This function will check if an index is calculated in this way
 bool isAbsoluteThreadIndex(Value *idx) {
   auto sext = dyn_cast<SExtInst>(idx);
   if (!sext) { return false; }
@@ -114,8 +114,9 @@ void getIndexValues(GetElementPtrInst *GEP, std::vector<NVPTXMemOpts::IndexType>
   return;
 }
 
-// Return dimension's indexes for an array load instruction
-// return 0 if the value is not an array
+// This function will check if the load instruction is loading from an array
+// If it is, it will return the index value types used to access the array
+// If not, it will return an empty vector
 std::vector<NVPTXMemOpts::IndexType> NVPTXMemOpts::isLoadingFromArray(LoadInst *LI) {
 
   std::vector<NVPTXMemOpts::IndexType> indexValues;
@@ -130,94 +131,10 @@ std::vector<NVPTXMemOpts::IndexType> NVPTXMemOpts::isLoadingFromArray(LoadInst *
   // get index value. There should be exactly one
   auto idx = GEP->idx_begin();
   assert(idx != GEP->idx_end() && "No index found");
-  
-  // TODO:: if more than one index, it is probably coalesced already
-  // if (++idx != GEP->idx_end()) {
-  //   return indexValues;
-  // }
 
   getIndexValues(GEP, indexValues);
   return indexValues;
 }
-
-int isStoringToArray(StoreInst *SI) {
-  assert(SI && "SI is null");
-  auto GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
-  if (!GEP) { return 0; }
-
-  return 0;
-}
-
-// Check if the index is a constant
-bool isIndexConstant(Value *idx) {
-  return isa<ConstantInt>(idx);
-}
-
-// Check if the index is a thread constant.
-// ie. the thread id. this is not a constant for all threads in a warp
-bool isIndexThreadConstant(Value *idx) {
-  return false;
-}
-
-
-bool NVPTXMemOpts::isCallCoalescable(LoadInst *LI, std::vector<IndexType> &indexValues) {
-  // Check if the call is already coalesced
-  // We can do this by seeing if the call is already a load from shared memory
-  // If it is, we can skip this call
-  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
-  assert(GEP && "GEP is null");
-  auto ptr = GEP->getPointerOperand();
-  auto ptrGEP = dyn_cast<GetElementPtrInst>(ptr);
-  assert(!ptrGEP && "Nested GEP not supported");
-
-  // check if the loaded float is being used by a store into shared memory (addressspace 3)
-  // if it is, we can skip this call
-
-  // check if the gep is loading from global memory
-  if (GEP->getPointerOperand()->getType()->getPointerAddressSpace() != 1) {
-    return false;
-  }
-
-  auto storeInst = dyn_cast<StoreInst>(LI->user_back());
-  if (storeInst && storeInst->getPointerAddressSpace() == 3) {
-    return false;
-  }
-
-  // TODO:: otherwise, for now, we will assume that the call is coalescable
-  return true;
-}
-
-/*
-This function will coalesce memory calls.
-Example:
-
-  %0 = call noundef i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
-  %1 = call noundef i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
-  %mul = mul i32 %0, %1
-  %2 = call noundef i32 @llvm.nvvm.read.ptx.sreg.tid.x()
-  %add = add i32 %mul, %2
-  %3 = call noundef i32 @llvm.nvvm.read.ptx.sreg.ntid.y()
-  %4 = call noundef i32 @llvm.nvvm.read.ptx.sreg.ctaid.y()
-  %mul5 = mul i32 %3, %4
-  %5 = call noundef i32 @llvm.nvvm.read.ptx.sreg.tid.y()
-  %add7 = add i32 %mul5, %5
-  %idxprom = sext i32 %add7 to i64
-  %arrayidx = getelementptr inbounds ptr, ptr %A2, i64 %idxprom
-  %6 = load ptr, ptr %arrayidx, align 8
-  %idxprom8 = sext i32 %i.0 to i64
-  %arrayidx9 = getelementptr inbounds float, ptr %6, i64 %idxprom8
-  %7 = load float, ptr %arrayidx9, align 4
-
-Will give the following parameters:
-  LI = %6
-  indexValues = { %add7, %add5, %add, %mul, %add7, %add, %mul }
-
-Will be coalesced to:
-
-
-
-
-*/
 
 /*
 Rules regarding coalescing:
@@ -227,6 +144,30 @@ Rules regarding coalescing:
 
 Other memory accesses will be ignored for now
 */
+bool NVPTXMemOpts::isCallCoalescable(LoadInst *LI, std::vector<IndexType> &indexValues) {
+  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  assert(GEP && "GEP is null");
+  auto ptr = GEP->getPointerOperand();
+  auto ptrGEP = dyn_cast<GetElementPtrInst>(ptr);
+  assert(!ptrGEP && "Nested GEP not supported");
+
+  // We only consider loads from global memory. Filters out already coalesced loads
+  if (GEP->getPointerOperand()->getType()->getPointerAddressSpace() != 1) {
+    return false;
+  }
+
+  // If the load is being stored to shared memory, it cannot be coalesced
+  // It is probably already coalesced
+  auto storeInst = dyn_cast<StoreInst>(LI->user_back());
+  if (storeInst && storeInst->getPointerAddressSpace() == 3) {
+    return false;
+  }
+
+  // TODO:: there will be other considerations
+  // otherwise, we assume  the call is coalescable
+  return true;
+}
+
 void NVPTXMemOpts::CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexValues) {
   assert (LI && "LI is null");
   assert (indexValues.size() > 0 && "indexValues is empty");
@@ -278,7 +219,6 @@ void NVPTXMemOpts::CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexV
   Builder.SetInsertPoint(LI);
   auto SharedLoad = Builder.CreateLoad(GEP->getSourceElementType(), SharedGEP);
   LI->replaceAllUsesWith(SharedLoad);
-  // LI->eraseFromParent();
 
 }
 
@@ -299,14 +239,9 @@ bool NVPTXMemOpts::runOnFunction(Function &F) {
           toDelete.push_back(LI);
         }
       }
-      if (auto *SI = dyn_cast<StoreInst>(&*I)) {
-        if (isStoringToArray(SI) > 0) {
-          errs() << "Found a store instruction: " << *SI << "\n";
-        }
-      }
     }
     for (auto LI : toDelete) {
-      // asser that the LI has no uses
+      // assert that the LI has no uses
       assert(LI->use_empty());
       LI->eraseFromParent();
     }
