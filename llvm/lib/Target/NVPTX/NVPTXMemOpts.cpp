@@ -22,6 +22,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #define DEBUG_TYPE "nvptx-mem-opts"
 
@@ -35,6 +38,9 @@ namespace {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
+      // Added for analysis for prefetching
+      AU.addRequired<LoopInfoWrapperPass>();
+      AU.addRequired<ScalarEvolutionWrapperPass>();
     }
 
     bool runOnFunction(Function &F) override;
@@ -56,6 +62,8 @@ namespace {
     // Helper functions
     void CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexValues);
     bool isCallCoalescable(LoadInst *LI, std::vector<IndexType> &indexValues);
+    bool canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE);
+    void prefetchDataToCache(IRBuilder<> &Builder, Value *Address);
     
     std::vector<IndexType> isLoadingFromArray(LoadInst *LI);
 
@@ -222,8 +230,20 @@ void NVPTXMemOpts::CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexV
 
 }
 
+// Logic to decide whether to prefetch or not
+bool NVPTXMemOpts::canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE) {
+    return false;
+}
+
+// Prefetcing logic
+void NVPTXMemOpts::prefetchDataToCache(IRBuilder<> &Builder, Value *Address) {
+}
+
 bool NVPTXMemOpts::runOnFunction(Function &F) {
   M = F.getParent();
+  //Analysis for prefetching: 
+  LoopInfo &LIInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   errs() << "Hello from NVPTXMemOpts\n";
   std::vector<LoadInst*> toDelete;
