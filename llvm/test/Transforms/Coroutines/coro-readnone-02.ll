@@ -39,7 +39,7 @@ cleanup:
   br label %suspend
 
 suspend:
-  call i1 @llvm.coro.end(ptr %hdl, i1 0)
+  call i1 @llvm.coro.end(ptr %hdl, i1 0, token none)
   ret ptr %hdl
 }
 
@@ -50,7 +50,7 @@ suspend:
 ; CHECK_SPLITTED-NEXT:    call void @nop()
 ; CHECK_SPLITTED-NEXT:    call void @print_same()
 ;
-; CHECK_SPLITTED: attributes #[[ATTR_NUM]] = { readnone }
+; CHECK_SPLITTED: attributes #[[ATTR_NUM]] = { memory(none) }
 ;
 ; CHECK_UNSPLITTED-LABEL: @f(
 ; CHECK_UNSPLITTED: br i1 %cmp, label %same, label %diff
@@ -75,7 +75,7 @@ declare i8  @llvm.coro.suspend(token, i1)
 declare token @llvm.coro.id(i32, ptr, ptr, ptr)
 declare i1 @llvm.coro.alloc(token)
 declare ptr @llvm.coro.begin(token, ptr)
-declare i1 @llvm.coro.end(ptr, i1)
+declare i1 @llvm.coro.end(ptr, i1, token)
 
 declare noalias ptr @malloc(i32)
 declare void @free(ptr)

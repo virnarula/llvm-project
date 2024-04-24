@@ -194,8 +194,9 @@ void testFunctionPointerCapture() {
 // Captured variable-length array.
 
 void testVariableLengthArrayCaptured() {
-  int n = 2;
-  int array[n];
+  int n = 2;     // expected-note {{declared here}}
+  int array[n];  // expected-warning {{variable length arrays in C++ are a Clang extension}} \
+                    expected-note {{read of non-const variable 'n' is not allowed in a constant expression}}
   array[0] = 7;
 
   int i = [&]{
@@ -338,7 +339,7 @@ void captureByReference() {
     local1++;
   };
 
-  // Don't treat as a dead store because local1 was was captured by reference.
+  // Don't treat as a dead store because local1 was captured by reference.
   local1 = 7; // no-warning
 
   lambda1();
@@ -349,7 +350,7 @@ void captureByReference() {
     local2++; // Implicit capture by reference
   };
 
-  // Don't treat as a dead store because local2 was was captured by reference.
+  // Don't treat as a dead store because local2 was captured by reference.
   local2 = 7; // no-warning
 
   lambda2();

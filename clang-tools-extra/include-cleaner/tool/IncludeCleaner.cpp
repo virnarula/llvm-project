@@ -7,15 +7,27 @@
 //===----------------------------------------------------------------------===//
 
 #include "AnalysisInternal.h"
+#include "clang-include-cleaner/Analysis.h"
 #include "clang-include-cleaner/Record.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/Regex.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace clang {
 namespace include_cleaner {
@@ -45,8 +57,93 @@ cl::opt<std::string> HTMLReportPath{
     cl::cat(IncludeCleaner),
 };
 
-class HTMLReportAction : public clang::ASTFrontendAction {
+cl::opt<std::string> OnlyHeaders{
+    "only-headers",
+    cl::desc("A comma-separated list of regexes to match against suffix of a "
+             "header. Only headers that match will be analyzed."),
+    cl::init(""),
+    cl::cat(IncludeCleaner),
+};
+
+cl::opt<std::string> IgnoreHeaders{
+    "ignore-headers",
+    cl::desc("A comma-separated list of regexes to match against suffix of a "
+             "header, and disable analysis if matched."),
+    cl::init(""),
+    cl::cat(IncludeCleaner),
+};
+
+enum class PrintStyle { Changes, Final };
+cl::opt<PrintStyle> Print{
+    "print",
+    cl::values(
+        clEnumValN(PrintStyle::Changes, "changes", "Print symbolic changes"),
+        clEnumValN(PrintStyle::Final, "", "Print final code")),
+    cl::ValueOptional,
+    cl::init(PrintStyle::Final),
+    cl::desc("Print the list of headers to insert and remove"),
+    cl::cat(IncludeCleaner),
+};
+
+cl::opt<bool> Edit{
+    "edit",
+    cl::desc("Apply edits to analyzed source files"),
+    cl::cat(IncludeCleaner),
+};
+
+cl::opt<bool> Insert{
+    "insert",
+    cl::desc("Allow header insertions"),
+    cl::init(true),
+    cl::cat(IncludeCleaner),
+};
+cl::opt<bool> Remove{
+    "remove",
+    cl::desc("Allow header removals"),
+    cl::init(true),
+    cl::cat(IncludeCleaner),
+};
+
+std::atomic<unsigned> Errors = ATOMIC_VAR_INIT(0);
+
+format::FormatStyle getStyle(llvm::StringRef Filename) {
+  auto S = format::getStyle(format::DefaultFormatStyle, Filename,
+                            format::DefaultFallbackStyle);
+  if (!S || !S->isCpp()) {
+    consumeError(S.takeError());
+    return format::getLLVMStyle();
+  }
+  return std::move(*S);
+}
+
+class Action : public clang::ASTFrontendAction {
+public:
+  Action(llvm::function_ref<bool(llvm::StringRef)> HeaderFilter,
+         llvm::StringMap<std::string> &EditedFiles)
+      : HeaderFilter(HeaderFilter), EditedFiles(EditedFiles) {}
+
+private:
   RecordedAST AST;
+  RecordedPP PP;
+  PragmaIncludes PI;
+  llvm::function_ref<bool(llvm::StringRef)> HeaderFilter;
+  llvm::StringMap<std::string> &EditedFiles;
+
+  bool BeginInvocation(CompilerInstance &CI) override {
+    // We only perform include-cleaner analysis. So we disable diagnostics that
+    // won't affect our analysis to make the tool more robust against
+    // in-development code.
+    CI.getLangOpts().ModulesDeclUse = false;
+    CI.getLangOpts().ModulesStrictDeclUse = false;
+    return true;
+  }
+
+  void ExecuteAction() override {
+    auto &P = getCompilerInstance().getPreprocessor();
+    P.addPPCallbacks(PP.record(P));
+    PI.record(getCompilerInstance());
+    ASTFrontendAction::ExecuteAction();
+  }
 
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  StringRef File) override {
@@ -54,17 +151,124 @@ class HTMLReportAction : public clang::ASTFrontendAction {
   }
 
   void EndSourceFile() override {
+    const auto &SM = getCompilerInstance().getSourceManager();
+    if (SM.getDiagnostics().hasUncompilableErrorOccurred()) {
+      llvm::errs()
+          << "Skipping file " << getCurrentFile()
+          << " due to compiler errors. clang-include-cleaner expects to "
+             "work on compilable source code.\n";
+      return;
+    }
+
+    if (!HTMLReportPath.empty())
+      writeHTML();
+
+    llvm::StringRef Path =
+        SM.getFileEntryForID(SM.getMainFileID())->tryGetRealPathName();
+    assert(!Path.empty() && "Main file path not known?");
+    llvm::StringRef Code = SM.getBufferData(SM.getMainFileID());
+
+    auto Results =
+        analyze(AST.Roots, PP.MacroReferences, PP.Includes, &PI,
+                getCompilerInstance().getPreprocessor(), HeaderFilter);
+    if (!Insert)
+      Results.Missing.clear();
+    if (!Remove)
+      Results.Unused.clear();
+    std::string Final = fixIncludes(Results, Path, Code, getStyle(Path));
+
+    if (Print.getNumOccurrences()) {
+      switch (Print) {
+      case PrintStyle::Changes:
+        for (const Include *I : Results.Unused)
+          llvm::outs() << "- " << I->quote() << " @Line:" << I->Line << "\n";
+        for (const auto &I : Results.Missing)
+          llvm::outs() << "+ " << I << "\n";
+        break;
+      case PrintStyle::Final:
+        llvm::outs() << Final;
+        break;
+      }
+    }
+
+    if (!Results.Missing.empty() || !Results.Unused.empty())
+      EditedFiles.try_emplace(Path, Final);
+  }
+
+  void writeHTML() {
     std::error_code EC;
     llvm::raw_fd_ostream OS(HTMLReportPath, EC);
     if (EC) {
       llvm::errs() << "Unable to write HTML report to " << HTMLReportPath
                    << ": " << EC.message() << "\n";
-      exit(1);
+      ++Errors;
+      return;
     }
-    writeHTMLReport(AST.Ctx->getSourceManager().getMainFileID(), AST.Roots,
-                    *AST.Ctx, OS);
+    writeHTMLReport(
+        AST.Ctx->getSourceManager().getMainFileID(), PP.Includes, AST.Roots,
+        PP.MacroReferences, *AST.Ctx,
+        getCompilerInstance().getPreprocessor().getHeaderSearchInfo(), &PI, OS);
   }
 };
+class ActionFactory : public tooling::FrontendActionFactory {
+public:
+  ActionFactory(llvm::function_ref<bool(llvm::StringRef)> HeaderFilter)
+      : HeaderFilter(HeaderFilter) {}
+
+  std::unique_ptr<clang::FrontendAction> create() override {
+    return std::make_unique<Action>(HeaderFilter, EditedFiles);
+  }
+
+  const llvm::StringMap<std::string> &editedFiles() const {
+    return EditedFiles;
+  }
+
+private:
+  llvm::function_ref<bool(llvm::StringRef)> HeaderFilter;
+  // Map from file name to final code with the include edits applied.
+  llvm::StringMap<std::string> EditedFiles;
+};
+
+// Compiles a regex list into a function that return true if any match a header.
+// Prints and returns nullptr if any regexes are invalid.
+std::function<bool(llvm::StringRef)> matchesAny(llvm::StringRef RegexFlag) {
+  auto FilterRegs = std::make_shared<std::vector<llvm::Regex>>();
+  llvm::SmallVector<llvm::StringRef> Headers;
+  RegexFlag.split(Headers, ',', -1, /*KeepEmpty=*/false);
+  for (auto HeaderPattern : Headers) {
+    std::string AnchoredPattern = "(" + HeaderPattern.str() + ")$";
+    llvm::Regex CompiledRegex(AnchoredPattern);
+    std::string RegexError;
+    if (!CompiledRegex.isValid(RegexError)) {
+      llvm::errs() << llvm::formatv("Invalid regular expression '{0}': {1}\n",
+                                    HeaderPattern, RegexError);
+      return nullptr;
+    }
+    FilterRegs->push_back(std::move(CompiledRegex));
+  }
+  return [FilterRegs](llvm::StringRef Path) {
+    for (const auto &F : *FilterRegs) {
+      if (F.match(Path))
+        return true;
+    }
+    return false;
+  };
+}
+
+std::function<bool(llvm::StringRef)> headerFilter() {
+  auto OnlyMatches = matchesAny(OnlyHeaders);
+  auto IgnoreMatches = matchesAny(IgnoreHeaders);
+  if (!OnlyMatches || !IgnoreMatches)
+    return nullptr;
+
+  return [OnlyMatches, IgnoreMatches](llvm::StringRef Header) {
+    if (OnlyHeaders.getNumOccurrences() && !OnlyMatches(Header))
+      return true;
+    if (IgnoreHeaders.getNumOccurrences() && IgnoreMatches(Header))
+      return true;
+    return false;
+  };
+}
 
 } // namespace
 } // namespace include_cleaner
@@ -81,20 +285,38 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  std::unique_ptr<clang::tooling::FrontendActionFactory> Factory;
-  if (HTMLReportPath.getNumOccurrences()) {
-    if (OptionsParser->getSourcePathList().size() != 1) {
-      llvm::errs() << "-" << HTMLReportPath.ArgStr
-                   << " requires a single input file";
-      return 1;
+  if (OptionsParser->getSourcePathList().size() != 1) {
+    std::vector<cl::Option *> IncompatibleFlags = {&HTMLReportPath, &Print};
+    for (const auto *Flag : IncompatibleFlags) {
+      if (Flag->getNumOccurrences()) {
+        llvm::errs() << "-" << Flag->ArgStr << " requires a single input file";
+        return 1;
+      }
     }
-    Factory = clang::tooling::newFrontendActionFactory<HTMLReportAction>();
-  } else {
-    llvm::errs() << "Unimplemented\n";
-    return 1;
   }
 
-  return clang::tooling::ClangTool(OptionsParser->getCompilations(),
-                                   OptionsParser->getSourcePathList())
-      .run(Factory.get());
+  clang::tooling::ClangTool Tool(OptionsParser->getCompilations(),
+                                 OptionsParser->getSourcePathList());
+
+  auto HeaderFilter = headerFilter();
+  if (!HeaderFilter)
+    return 1; // error already reported.
+  ActionFactory Factory(HeaderFilter);
+  auto ErrorCode = Tool.run(&Factory);
+  if (Edit) {
+    for (const auto &NameAndContent : Factory.editedFiles()) {
+      llvm::StringRef FileName = NameAndContent.first();
+      const std::string &FinalCode = NameAndContent.second;
+      if (auto Err = llvm::writeToOutput(
+              FileName, [&](llvm::raw_ostream &OS) -> llvm::Error {
+                OS << FinalCode;
+                return llvm::Error::success();
+              })) {
+        llvm::errs() << "Failed to apply edits to " << FileName << ": "
+                     << toString(std::move(Err)) << "\n";
+        ++Errors;
+      }
+    }
+  }
+  return ErrorCode || Errors != 0;
 }

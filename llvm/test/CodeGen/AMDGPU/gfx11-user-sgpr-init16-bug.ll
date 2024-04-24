@@ -36,6 +36,7 @@
 ; GCN-NEXT: .amdhsa_user_sgpr_dispatch_id 0
 ; GCN-NEXT: .amdhsa_user_sgpr_private_segment_size 0
 ; GCN-NEXT: .amdhsa_wavefront_size32
+; GCN-NEXT: .amdhsa_uses_dynamic_stack 0
 ; GCN-NEXT: .amdhsa_enable_private_segment 0
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_x 1
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_y 0
@@ -46,7 +47,7 @@
 ; NOWORKAROUND: ; COMPUTE_PGM_RSRC2:USER_SGPR: 0
 define amdgpu_kernel void @minimal_kernel_inputs() {
   %id = call i32 @llvm.amdgcn.workgroup.id.x()
-  store volatile i32 %id, i32 addrspace(1)* undef
+  store volatile i32 %id, ptr addrspace(1) undef
   ret void
 }
 
@@ -64,6 +65,7 @@ define amdgpu_kernel void @minimal_kernel_inputs() {
 ; GCN-NEXT: .amdhsa_user_sgpr_dispatch_id 0
 ; GCN-NEXT: .amdhsa_user_sgpr_private_segment_size 0
 ; GCN-NEXT: .amdhsa_wavefront_size32
+; GCN-NEXT: .amdhsa_uses_dynamic_stack 0
 ; GCN-NEXT: .amdhsa_enable_private_segment 1
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_x 1
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_y 0
@@ -75,13 +77,13 @@ define amdgpu_kernel void @minimal_kernel_inputs() {
 define amdgpu_kernel void @minimal_kernel_inputs_with_stack() {
   %alloca = alloca i32, addrspace(5)
   %id = call i32 @llvm.amdgcn.workgroup.id.x()
-  store volatile i32 %id, i32 addrspace(1)* undef
-  store volatile i32 0, i32 addrspace(5)* %alloca
+  store volatile i32 %id, ptr addrspace(1) undef
+  store volatile i32 0, ptr addrspace(5) %alloca
   ret void
 }
 
 ; GCN-LABEL: {{^}}queue_ptr:
-; GCN: global_load_u8 v{{[0-9]+}}, v{{[0-9]+}}, s[0:1]
+; GCN: global_load_u8 v{{[0-9]+}},
 
 ; WORKAROUND: v_mov_b32_e32 [[V:v[0-9]+]], s15
 ; NOWORKAROUND: v_mov_b32_e32 [[V:v[0-9]+]], s2
@@ -91,11 +93,12 @@ define amdgpu_kernel void @minimal_kernel_inputs_with_stack() {
 ; WORKAROUND: .amdhsa_user_sgpr_count 15
 ; NOWORKAROUND: .amdhsa_user_sgpr_count 2
 ; GCN-NEXT: .amdhsa_user_sgpr_dispatch_ptr 0
-; GCN-NEXT: .amdhsa_user_sgpr_queue_ptr 1
-; GCN-NEXT: .amdhsa_user_sgpr_kernarg_segment_ptr 0
+; GCN-NEXT: .amdhsa_user_sgpr_queue_ptr 0
+; GCN-NEXT: .amdhsa_user_sgpr_kernarg_segment_ptr 1
 ; GCN-NEXT: .amdhsa_user_sgpr_dispatch_id 0
 ; GCN-NEXT: .amdhsa_user_sgpr_private_segment_size 0
 ; GCN-NEXT: .amdhsa_wavefront_size32
+; GCN-NEXT: .amdhsa_uses_dynamic_stack 0
 ; GCN-NEXT: .amdhsa_enable_private_segment 0
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_x 1
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_y 0
@@ -105,10 +108,10 @@ define amdgpu_kernel void @minimal_kernel_inputs_with_stack() {
 ; WORKAROUND: ; COMPUTE_PGM_RSRC2:USER_SGPR: 15
 ; NOWORKAROUND: ; COMPUTE_PGM_RSRC2:USER_SGPR: 2
 define amdgpu_kernel void @queue_ptr() {
-  %queue.ptr = call noalias i8 addrspace(4)* @llvm.amdgcn.queue.ptr() #0
-  %load = load volatile i8, i8 addrspace(4)* %queue.ptr
+  %queue.ptr = call noalias ptr addrspace(4) @llvm.amdgcn.queue.ptr() #0
+  %load = load volatile i8, ptr addrspace(4) %queue.ptr
   %id = call i32 @llvm.amdgcn.workgroup.id.x()
-  store volatile i32 %id, i32 addrspace(1)* undef
+  store volatile i32 %id, ptr addrspace(1) undef
   ret void
 }
 
@@ -117,16 +120,16 @@ define amdgpu_kernel void @queue_ptr() {
 ; WORKAROUND: v_mov_b32_e32 [[V_Y:v[0-9]+]], s14
 ; WORKAROUND: v_mov_b32_e32 [[V_Z:v[0-9]+]], s15
 
-; NOWORKAROUND: v_mov_b32_e32 [[V_X:v[0-9]+]], s8
-; NOWORKAROUND: v_mov_b32_e32 [[V_Y:v[0-9]+]], s9
-; NOWORKAROUND: v_mov_b32_e32 [[V_Z:v[0-9]+]], s10
+; NOWORKAROUND: v_mov_b32_e32 [[V_X:v[0-9]+]], s6
+; NOWORKAROUND: v_mov_b32_e32 [[V_Y:v[0-9]+]], s7
+; NOWORKAROUND: v_mov_b32_e32 [[V_Z:v[0-9]+]], s8
 
 ; GCN: global_load_u8 v{{[0-9]+}}, v{{[0-9]+}}, s[0:1]
+; GCN: global_load_u8 v{{[0-9]+}},
 ; GCN: global_load_u8 v{{[0-9]+}}, v{{[0-9]+}}, s[2:3]
-; GCN: global_load_u8 v{{[0-9]+}}, v{{[0-9]+}}, s[4:5]
 
-; GCN-DAG: v_mov_b32_e32 v[[DISPATCH_LO:[0-9]+]], s6
-; GCN-DAG: v_mov_b32_e32 v[[DISPATCH_HI:[0-9]+]], s7
+; GCN-DAG: v_mov_b32_e32 v[[DISPATCH_LO:[0-9]+]], s4
+; GCN-DAG: v_mov_b32_e32 v[[DISPATCH_HI:[0-9]+]], s5
 
 ; GCN: global_store_b32 v{{\[[0-9]+:[0-9]+\]}}, [[V_X]], off
 ; GCN: global_store_b32 v{{\[[0-9]+:[0-9]+\]}}, [[V_Y]], off
@@ -135,13 +138,14 @@ define amdgpu_kernel void @queue_ptr() {
 
 ; GCN: .amdhsa_kernel all_inputs
 ; WORKAROUND: .amdhsa_user_sgpr_count 13
-; NOWORKAROUND: .amdhsa_user_sgpr_count 8
+; NOWORKAROUND: .amdhsa_user_sgpr_count 6
 ; GCN-NEXT: .amdhsa_user_sgpr_dispatch_ptr 1
-; GCN-NEXT: .amdhsa_user_sgpr_queue_ptr 1
+; GCN-NEXT: .amdhsa_user_sgpr_queue_ptr 0
 ; GCN-NEXT: .amdhsa_user_sgpr_kernarg_segment_ptr 1
 ; GCN-NEXT: .amdhsa_user_sgpr_dispatch_id 1
 ; GCN-NEXT: .amdhsa_user_sgpr_private_segment_size 0
 ; GCN-NEXT: .amdhsa_wavefront_size32
+; GCN-NEXT: .amdhsa_uses_dynamic_stack 0
 ; GCN-NEXT: .amdhsa_enable_private_segment 1
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_x 1
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_id_y 1
@@ -149,31 +153,31 @@ define amdgpu_kernel void @queue_ptr() {
 ; GCN-NEXT: .amdhsa_system_sgpr_workgroup_info 0
 ; GCN-NEXT: .amdhsa_system_vgpr_workitem_id 0
 ; WORKAROUND: ; COMPUTE_PGM_RSRC2:USER_SGPR: 13
-; NOWORKAROUND: ; COMPUTE_PGM_RSRC2:USER_SGPR: 8
+; NOWORKAROUND: ; COMPUTE_PGM_RSRC2:USER_SGPR: 6
 define amdgpu_kernel void @all_inputs() {
   %alloca = alloca i32, addrspace(5)
-  store volatile i32 0, i32 addrspace(5)* %alloca
+  store volatile i32 0, ptr addrspace(5) %alloca
 
-  %dispatch.ptr = call noalias i8 addrspace(4)* @llvm.amdgcn.dispatch.ptr()
-  %load.dispatch = load volatile i8, i8 addrspace(4)* %dispatch.ptr
+  %dispatch.ptr = call noalias ptr addrspace(4) @llvm.amdgcn.dispatch.ptr()
+  %load.dispatch = load volatile i8, ptr addrspace(4) %dispatch.ptr
 
-  %queue.ptr = call noalias i8 addrspace(4)* @llvm.amdgcn.queue.ptr()
-  %load.queue = load volatile i8, i8 addrspace(4)* %queue.ptr
+  %queue.ptr = call noalias ptr addrspace(4) @llvm.amdgcn.queue.ptr()
+  %load.queue = load volatile i8, ptr addrspace(4) %queue.ptr
 
-  %implicitarg.ptr = call noalias i8 addrspace(4)* @llvm.amdgcn.implicitarg.ptr()
-  %load.implicitarg = load volatile i8, i8 addrspace(4)* %implicitarg.ptr
+  %implicitarg.ptr = call noalias ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr()
+  %load.implicitarg = load volatile i8, ptr addrspace(4) %implicitarg.ptr
 
   %id.x = call i32 @llvm.amdgcn.workgroup.id.x()
-  store volatile i32 %id.x, i32 addrspace(1)* undef
+  store volatile i32 %id.x, ptr addrspace(1) undef
 
   %id.y = call i32 @llvm.amdgcn.workgroup.id.y()
-  store volatile i32 %id.y, i32 addrspace(1)* undef
+  store volatile i32 %id.y, ptr addrspace(1) undef
 
   %id.z = call i32 @llvm.amdgcn.workgroup.id.z()
-  store volatile i32 %id.z, i32 addrspace(1)* undef
+  store volatile i32 %id.z, ptr addrspace(1) undef
 
   %dispatch.id = call i64 @llvm.amdgcn.dispatch.id()
-  store volatile i64 %dispatch.id, i64 addrspace(1)* undef
+  store volatile i64 %dispatch.id, ptr addrspace(1) undef
 
   ret void
 }
@@ -181,10 +185,13 @@ define amdgpu_kernel void @all_inputs() {
 declare i32 @llvm.amdgcn.workgroup.id.x() #0
 declare i32 @llvm.amdgcn.workgroup.id.y() #0
 declare i32 @llvm.amdgcn.workgroup.id.z() #0
-declare align 4 i8 addrspace(4)* @llvm.amdgcn.implicitarg.ptr() #0
-declare align 4 i8 addrspace(4)* @llvm.amdgcn.dispatch.ptr() #0
-declare align 4 i8 addrspace(4)* @llvm.amdgcn.queue.ptr() #0
-declare align 4 i8 addrspace(4)* @llvm.amdgcn.kernarg.segment.ptr() #0
+declare align 4 ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr() #0
+declare align 4 ptr addrspace(4) @llvm.amdgcn.dispatch.ptr() #0
+declare align 4 ptr addrspace(4) @llvm.amdgcn.queue.ptr() #0
+declare align 4 ptr addrspace(4) @llvm.amdgcn.kernarg.segment.ptr() #0
 declare i64 @llvm.amdgcn.dispatch.id() #0
 
 attributes #0 = { nounwind readnone speculatable willreturn }
+
+!llvm.module.flags = !{!0}
+!0 = !{i32 1, !"amdgpu_code_object_version", i32 500}

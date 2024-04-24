@@ -73,7 +73,7 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER > 17
+#if _LIBCPP_STD_VER >= 20
 
 namespace __extended_grapheme_custer_property_boundary {
 
@@ -111,7 +111,7 @@ enum class __property : uint8_t {
 /// - https://www.unicode.org/Public/UCD/latest/ucd/emoji/emoji-data.txt
 ///
 /// The data has 3 values
-/// - bits [0, 3] The property. One of the values generated form the datafiles
+/// - bits [0, 3] The property. One of the values generated from the datafiles
 ///   of \ref __property
 /// - bits [4, 10] The size of the range.
 /// - bits [11, 31] The lower bound code point of the range. The upper bound of
@@ -124,6 +124,7 @@ enum class __property : uint8_t {
 /// this approach uses less space for the data and is about 4% faster in the
 /// following benchmark.
 /// libcxx/benchmarks/std_format_spec_string_unicode.bench.cpp
+// clang-format off
 inline constexpr uint32_t __entries[1496] = {
     0x00000091,
     0x00005005,
@@ -1621,6 +1622,7 @@ inline constexpr uint32_t __entries[1496] = {
     0x707787f1,
     0x707b87f1,
     0x707f80f1};
+// clang-format on
 
 /// Returns the extended grapheme cluster bondary property of a code point.
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __property __get_property(const char32_t __code_point) noexcept {
@@ -1654,7 +1656,7 @@ inline constexpr uint32_t __entries[1496] = {
 
 } // namespace __extended_grapheme_custer_property_boundary
 
-#endif //_LIBCPP_STD_VER > 17
+#endif //_LIBCPP_STD_VER >= 20
 
 _LIBCPP_END_NAMESPACE_STD
 

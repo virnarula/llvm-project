@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "DXILResource.h"
+#include "CBufferDataLayout.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Metadata.h"
@@ -22,76 +23,96 @@ using namespace llvm;
 using namespace llvm::dxil;
 using namespace llvm::hlsl;
 
-void Resources::collectUAVs(Module &M) {
-  NamedMDNode *Entry = M.getNamedMetadata("hlsl.uavs");
+template <typename T> void ResourceTable<T>::collect(Module &M) {
+  NamedMDNode *Entry = M.getNamedMetadata(MDName);
   if (!Entry || Entry->getNumOperands() == 0)
     return;
 
   uint32_t Counter = 0;
-  for (auto *UAV : Entry->operands()) {
-    UAVs.push_back(UAVResource(Counter++, FrontendResource(cast<MDNode>(UAV))));
+  for (auto *Res : Entry->operands()) {
+    Data.push_back(T(Counter++, FrontendResource(cast<MDNode>(Res))));
   }
 }
 
-void Resources::collect(Module &M) { collectUAVs(M); }
+template <> void ResourceTable<ConstantBuffer>::collect(Module &M) {
+  NamedMDNode *Entry = M.getNamedMetadata(MDName);
+  if (!Entry || Entry->getNumOperands() == 0)
+    return;
+
+  uint32_t Counter = 0;
+  for (auto *Res : Entry->operands()) {
+    Data.push_back(
+        ConstantBuffer(Counter++, FrontendResource(cast<MDNode>(Res))));
+  }
+  // FIXME: share CBufferDataLayout with CBuffer load lowering.
+  //   See https://github.com/llvm/llvm-project/issues/58381
+  CBufferDataLayout CBDL(M.getDataLayout(), /*IsLegacy*/ true);
+  for (auto &CB : Data)
+    CB.setSize(CBDL);
+}
+
+void Resources::collect(Module &M) {
+  UAVs.collect(M);
+  CBuffers.collect(M);
+}
 
 ResourceBase::ResourceBase(uint32_t I, FrontendResource R)
     : ID(I), GV(R.getGlobalVariable()), Name(""), Space(R.getSpace()),
       LowerBound(R.getResourceIndex()), RangeSize(1) {
-  if (auto *ArrTy = dyn_cast<ArrayType>(GV->getInitializer()->getType()))
+  if (auto *ArrTy = dyn_cast<ArrayType>(GV->getValueType()))
     RangeSize = ArrTy->getNumElements();
 }
 
-StringRef ResourceBase::getComponentTypeName(ComponentType CompType) {
-  switch (CompType) {
-  case ComponentType::LastEntry:
-  case ComponentType::Invalid:
+StringRef ResourceBase::getElementTypeName(ElementType ElTy) {
+  switch (ElTy) {
+  case ElementType::Invalid:
     return "invalid";
-  case ComponentType::I1:
+  case ElementType::I1:
     return "i1";
-  case ComponentType::I16:
+  case ElementType::I16:
     return "i16";
-  case ComponentType::U16:
+  case ElementType::U16:
     return "u16";
-  case ComponentType::I32:
+  case ElementType::I32:
     return "i32";
-  case ComponentType::U32:
+  case ElementType::U32:
     return "u32";
-  case ComponentType::I64:
+  case ElementType::I64:
     return "i64";
-  case ComponentType::U64:
+  case ElementType::U64:
     return "u64";
-  case ComponentType::F16:
+  case ElementType::F16:
     return "f16";
-  case ComponentType::F32:
+  case ElementType::F32:
     return "f32";
-  case ComponentType::F64:
+  case ElementType::F64:
     return "f64";
-  case ComponentType::SNormF16:
+  case ElementType::SNormF16:
     return "snorm_f16";
-  case ComponentType::UNormF16:
+  case ElementType::UNormF16:
     return "unorm_f16";
-  case ComponentType::SNormF32:
+  case ElementType::SNormF32:
     return "snorm_f32";
-  case ComponentType::UNormF32:
+  case ElementType::UNormF32:
     return "unorm_f32";
-  case ComponentType::SNormF64:
+  case ElementType::SNormF64:
     return "snorm_f64";
-  case ComponentType::UNormF64:
+  case ElementType::UNormF64:
     return "unorm_f64";
-  case ComponentType::PackedS8x32:
+  case ElementType::PackedS8x32:
     return "p32i8";
-  case ComponentType::PackedU8x32:
+  case ElementType::PackedU8x32:
     return "p32u8";
   }
+  llvm_unreachable("All ElementType enums are handled in switch");
 }
 
-void ResourceBase::printComponentType(Kinds Kind, ComponentType CompType,
-                                      unsigned Alignment, raw_ostream &OS) {
+void ResourceBase::printElementType(Kinds Kind, ElementType ElTy,
+                                    unsigned Alignment, raw_ostream &OS) {
   switch (Kind) {
   default:
     // TODO: add vector size.
-    OS << right_justify(getComponentTypeName(CompType), Alignment);
+    OS << right_justify(getElementTypeName(ElTy), Alignment);
     break;
   case Kinds::RawBuffer:
     OS << right_justify("byte", Alignment);
@@ -151,6 +172,7 @@ StringRef ResourceBase::getKindName(Kinds Kind) {
   case Kinds::FeedbackTexture2DArray:
     return "fbtex2darray";
   }
+  llvm_unreachable("All Kinds enums are handled in switch");
 }
 
 void ResourceBase::printKind(Kinds Kind, unsigned Alignment, raw_ostream &OS,
@@ -209,20 +231,13 @@ void ResourceBase::print(raw_ostream &OS, StringRef IDPrefix,
     OS << right_justify("unbounded", 6) << "\n";
 }
 
-UAVResource::UAVResource(uint32_t I, FrontendResource R)
-    : ResourceBase(I, R),
-      Shape(static_cast<ResourceBase::Kinds>(R.getResourceKind())),
-      GloballyCoherent(false), HasCounter(false), IsROV(false), ExtProps() {
-  parseSourceType(R.getSourceType());
-}
-
 void UAVResource::print(raw_ostream &OS) const {
   OS << "; " << left_justify(Name, 31);
 
   OS << right_justify("UAV", 10);
 
-  printComponentType(
-      Shape, ExtProps.ElementType.value_or(ComponentType::Invalid), 8, OS);
+  printElementType(Shape, ExtProps.ElementType.value_or(ElementType::Invalid),
+                   8, OS);
 
   // FIXME: support SampleCount.
   // See https://github.com/llvm/llvm-project/issues/58175
@@ -231,49 +246,28 @@ void UAVResource::print(raw_ostream &OS) const {
   ResourceBase::print(OS, "U", "u");
 }
 
-// FIXME: Capture this in HLSL source. I would go do this right now, but I want
-// to get this in first so that I can make sure to capture all the extra
-// information we need to remove the source type string from here (See issue:
-// https://github.com/llvm/llvm-project/issues/57991).
-void UAVResource::parseSourceType(StringRef S) {
-  IsROV = S.startswith("RasterizerOrdered");
-  if (IsROV)
-    S = S.substr(strlen("RasterizerOrdered"));
-  if (S.startswith("RW"))
-    S = S.substr(strlen("RW"));
+ConstantBuffer::ConstantBuffer(uint32_t I, hlsl::FrontendResource R)
+    : ResourceBase(I, R) {}
 
-  // Note: I'm deliberately not handling any of the Texture buffer types at the
-  // moment. I want to resolve the issue above before adding Texture or Sampler
-  // support.
-  Shape = StringSwitch<ResourceBase::Kinds>(S)
-              .StartsWith("Buffer<", Kinds::TypedBuffer)
-              .StartsWith("ByteAddressBuffer<", Kinds::RawBuffer)
-              .StartsWith("StructuredBuffer<", Kinds::StructuredBuffer)
-              .Default(Kinds::Invalid);
-  assert(Shape != Kinds::Invalid && "Unsupported buffer type");
+void ConstantBuffer::setSize(CBufferDataLayout &DL) {
+  CBufferSizeInBytes = DL.getTypeAllocSizeInBytes(GV->getValueType());
+}
 
-  S = S.substr(S.find("<") + 1);
+void ConstantBuffer::print(raw_ostream &OS) const {
+  OS << "; " << left_justify(Name, 31);
 
-  constexpr size_t PrefixLen = StringRef("vector<").size();
-  if (S.startswith("vector<"))
-    S = S.substr(PrefixLen, S.find(",") - PrefixLen);
-  else
-    S = S.substr(0, S.find(">"));
+  OS << right_justify("cbuffer", 10);
 
-  ComponentType ElTy = StringSwitch<ResourceBase::ComponentType>(S)
-                           .Case("bool", ComponentType::I1)
-                           .Case("int16_t", ComponentType::I16)
-                           .Case("uint16_t", ComponentType::U16)
-                           .Case("int32_t", ComponentType::I32)
-                           .Case("uint32_t", ComponentType::U32)
-                           .Case("int64_t", ComponentType::I64)
-                           .Case("uint64_t", ComponentType::U64)
-                           .Case("half", ComponentType::F16)
-                           .Case("float", ComponentType::F32)
-                           .Case("double", ComponentType::F64)
-                           .Default(ComponentType::Invalid);
-  if (ElTy != ComponentType::Invalid)
-    ExtProps.ElementType = ElTy;
+  printElementType(Kinds::CBuffer, ElementType::Invalid, 8, OS);
+
+  printKind(Kinds::CBuffer, 12, OS, /*SRV*/ false, /*HasCounter*/ false);
+  // Print the binding part.
+  ResourceBase::print(OS, "CB", "cb");
+}
+
+template <typename T> void ResourceTable<T>::print(raw_ostream &OS) const {
+  for (auto &Res : Data)
+    Res.print(OS);
 }
 
 MDNode *ResourceBase::ExtendedProperties::write(LLVMContext &Ctx) const {
@@ -315,17 +309,44 @@ MDNode *UAVResource::write() const {
   return MDNode::get(Ctx, Entries);
 }
 
+MDNode *ConstantBuffer::write() const {
+  auto &Ctx = GV->getContext();
+  IRBuilder<> B(Ctx);
+  Metadata *Entries[7];
+  ResourceBase::write(Ctx, Entries);
+
+  Entries[6] = ConstantAsMetadata::get(B.getInt32(CBufferSizeInBytes));
+  return MDNode::get(Ctx, Entries);
+}
+
+template <typename T> MDNode *ResourceTable<T>::write(Module &M) const {
+  if (Data.empty())
+    return nullptr;
+  SmallVector<Metadata *> MDs;
+  for (auto &Res : Data)
+    MDs.emplace_back(Res.write());
+
+  NamedMDNode *Entry = M.getNamedMetadata(MDName);
+  if (Entry)
+    Entry->eraseFromParent();
+
+  return MDNode::get(M.getContext(), MDs);
+}
+
 void Resources::write(Module &M) const {
   Metadata *ResourceMDs[4] = {nullptr, nullptr, nullptr, nullptr};
-  SmallVector<Metadata *> UAVMDs;
-  for (auto &UAV : UAVs)
-    UAVMDs.emplace_back(UAV.write());
 
-  if (!UAVMDs.empty())
-    ResourceMDs[1] = MDNode::get(M.getContext(), UAVMDs);
+  ResourceMDs[1] = UAVs.write(M);
 
-  NamedMDNode *DXResMD = M.getOrInsertNamedMetadata("dx.resources");
-  DXResMD->addOperand(MDNode::get(M.getContext(), ResourceMDs));
+  ResourceMDs[2] = CBuffers.write(M);
+
+  bool HasResource = ResourceMDs[0] != nullptr || ResourceMDs[1] != nullptr ||
+                     ResourceMDs[2] != nullptr || ResourceMDs[3] != nullptr;
+
+  if (HasResource) {
+    NamedMDNode *DXResMD = M.getOrInsertNamedMetadata("dx.resources");
+    DXResMD->addOperand(MDNode::get(M.getContext(), ResourceMDs));
+  }
 
   NamedMDNode *Entry = M.getNamedMetadata("hlsl.uavs");
   if (Entry)
@@ -341,8 +362,8 @@ void Resources::print(raw_ostream &O) const {
     << "; ------------------------------ ---------- ------- ----------- "
        "------- -------------- ------\n";
 
-  for (auto &UAV : UAVs)
-    UAV.print(O);
+  CBuffers.print(O);
+  UAVs.print(O);
 }
 
 void Resources::dump() const { print(dbgs()); }

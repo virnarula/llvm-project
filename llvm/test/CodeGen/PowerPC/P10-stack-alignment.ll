@@ -5,7 +5,7 @@
 ; RUN: llc -verify-machineinstrs -mtriple=powerpc64-unknown-linux-gnu \
 ; RUN:   -ppc-asm-full-reg-names -ppc-vsr-nums-as-vr < %s | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-BE
-; RUN: opt --passes=sroa,loop-vectorize,loop-unroll,instcombine -S \
+; RUN: opt --passes='sroa,loop-vectorize,loop-unroll,instcombine' -S \
 ; RUN: -vectorizer-maximize-bandwidth --mtriple=powerpc64le-- -mcpu=pwr10 < %s | \
 ; RUN: FileCheck %s --check-prefix=CHECK-OPT
 
@@ -22,15 +22,15 @@ define dso_local signext i32 @test_32byte_vector() nounwind {
 ; CHECK-LE-NEXT:    subfic r0, r0, -96
 ; CHECK-LE-NEXT:    stdux r1, r1, r0
 ; CHECK-LE-NEXT:    addis r3, r2, .LCPI0_0@toc@ha
-; CHECK-LE-NEXT:    addis r4, r2, .LCPI0_1@toc@ha
 ; CHECK-LE-NEXT:    addi r3, r3, .LCPI0_0@toc@l
-; CHECK-LE-NEXT:    addi r4, r4, .LCPI0_1@toc@l
 ; CHECK-LE-NEXT:    lxvd2x vs0, 0, r3
-; CHECK-LE-NEXT:    lxvd2x vs1, 0, r4
-; CHECK-LE-NEXT:    addi r4, r1, 48
+; CHECK-LE-NEXT:    addi r3, r1, 48
+; CHECK-LE-NEXT:    stxvd2x vs0, 0, r3
+; CHECK-LE-NEXT:    addis r3, r2, .LCPI0_1@toc@ha
+; CHECK-LE-NEXT:    addi r3, r3, .LCPI0_1@toc@l
+; CHECK-LE-NEXT:    lxvd2x vs0, 0, r3
 ; CHECK-LE-NEXT:    addi r3, r1, 32
-; CHECK-LE-NEXT:    stxvd2x vs0, 0, r4
-; CHECK-LE-NEXT:    stxvd2x vs1, 0, r3
+; CHECK-LE-NEXT:    stxvd2x vs0, 0, r3
 ; CHECK-LE-NEXT:    bl test
 ; CHECK-LE-NEXT:    nop
 ; CHECK-LE-NEXT:    lwa r3, 32(r1)
@@ -157,26 +157,25 @@ define dso_local void @test_Array() nounwind {
 ; CHECK-LE-LABEL: test_Array:
 ; CHECK-LE:       # %bb.0: # %entry
 ; CHECK-LE-NEXT:    mflr r0
-; CHECK-LE-NEXT:    std r0, 16(r1)
 ; CHECK-LE-NEXT:    stdu r1, -176(r1)
-; CHECK-LE-NEXT:    addis r4, r2, Arr1@toc@ha
 ; CHECK-LE-NEXT:    li r3, 0
+; CHECK-LE-NEXT:    addis r4, r2, Arr1@toc@ha
 ; CHECK-LE-NEXT:    li r6, 65
+; CHECK-LE-NEXT:    std r0, 192(r1)
 ; CHECK-LE-NEXT:    addi r5, r1, 46
-; CHECK-LE-NEXT:    addi r4, r4, Arr1@toc@l
 ; CHECK-LE-NEXT:    stw r3, 44(r1)
-; CHECK-LE-NEXT:    addi r4, r4, -1
+; CHECK-LE-NEXT:    addi r4, r4, Arr1@toc@l
 ; CHECK-LE-NEXT:    mtctr r6
+; CHECK-LE-NEXT:    addi r4, r4, -1
 ; CHECK-LE-NEXT:    bdz .LBB2_2
 ; CHECK-LE-NEXT:    .p2align 5
 ; CHECK-LE-NEXT:  .LBB2_1: # %for.body
 ; CHECK-LE-NEXT:    #
 ; CHECK-LE-NEXT:    lbz r6, 1(r4)
-; CHECK-LE-NEXT:    addi r7, r5, 2
 ; CHECK-LE-NEXT:    addi r4, r4, 1
 ; CHECK-LE-NEXT:    addi r3, r3, 1
 ; CHECK-LE-NEXT:    sth r6, 2(r5)
-; CHECK-LE-NEXT:    mr r5, r7
+; CHECK-LE-NEXT:    addi r5, r5, 2
 ; CHECK-LE-NEXT:    bdnz .LBB2_1
 ; CHECK-LE-NEXT:  .LBB2_2: # %for.cond.cleanup
 ; CHECK-LE-NEXT:    addi r3, r1, 48
@@ -190,11 +189,11 @@ define dso_local void @test_Array() nounwind {
 ; CHECK-BE-LABEL: test_Array:
 ; CHECK-BE:       # %bb.0: # %entry
 ; CHECK-BE-NEXT:    mflr r0
-; CHECK-BE-NEXT:    std r0, 16(r1)
 ; CHECK-BE-NEXT:    stdu r1, -256(r1)
 ; CHECK-BE-NEXT:    addis r5, r2, Arr1@toc@ha
 ; CHECK-BE-NEXT:    li r3, 0
 ; CHECK-BE-NEXT:    addi r5, r5, Arr1@toc@l
+; CHECK-BE-NEXT:    std r0, 272(r1)
 ; CHECK-BE-NEXT:    addi r4, r1, 126
 ; CHECK-BE-NEXT:    li r6, 65
 ; CHECK-BE-NEXT:    stw r3, 124(r1)

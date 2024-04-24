@@ -14,7 +14,6 @@
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
@@ -92,7 +91,7 @@ void CallGraph::populateCallGraphNode(CallGraphNode *Node) {
 
   // If this function is not defined in this translation unit, it could call
   // anything.
-  if (F->isDeclaration() && !F->isIntrinsic())
+  if (F->isDeclaration() && !F->hasFnAttribute(Attribute::NoCallback))
     Node->addCalledFunction(nullptr, CallsExternalNode.get());
 
   // Look for calls by this function.
@@ -100,12 +99,9 @@ void CallGraph::populateCallGraphNode(CallGraphNode *Node) {
     for (Instruction &I : BB) {
       if (auto *Call = dyn_cast<CallBase>(&I)) {
         const Function *Callee = Call->getCalledFunction();
-        if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
-          // Indirect calls of intrinsics are not allowed so no need to check.
-          // We can be more precise here by using TargetArg returned by
-          // Intrinsic::isLeaf.
+        if (!Callee)
           Node->addCalledFunction(Call, CallsExternalNode.get());
-        else if (!Callee->isIntrinsic())
+        else if (!isDbgInfoIntrinsic(Callee->getIntrinsicID()))
           Node->addCalledFunction(Call, getOrInsertFunction(Callee));
 
         // Add reference to callback functions.
@@ -386,33 +382,3 @@ void CallGraphWrapperPass::print(raw_ostream &OS, const Module *) const {
 LLVM_DUMP_METHOD
 void CallGraphWrapperPass::dump() const { print(dbgs(), nullptr); }
 #endif
-
-namespace {
-
-struct CallGraphPrinterLegacyPass : public ModulePass {
-  static char ID; // Pass ID, replacement for typeid
-
-  CallGraphPrinterLegacyPass() : ModulePass(ID) {
-    initializeCallGraphPrinterLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<CallGraphWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    getAnalysis<CallGraphWrapperPass>().print(errs(), &M);
-    return false;
-  }
-};
-
-} // end anonymous namespace
-
-char CallGraphPrinterLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(CallGraphPrinterLegacyPass, "print-callgraph",
-                      "Print a call graph", true, true)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(CallGraphPrinterLegacyPass, "print-callgraph",
-                    "Print a call graph", true, true)

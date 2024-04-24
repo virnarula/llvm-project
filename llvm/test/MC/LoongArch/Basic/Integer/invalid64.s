@@ -65,7 +65,7 @@ addu16i.d $a0, $a0, 32768
 
 ## simm20
 pcaddu18i $a0, 0x80000
-# CHECK: :[[#@LINE-1]]:16: error: immediate must be an integer in the range [-524288, 524287]
+# CHECK: :[[#@LINE-1]]:16: error: operand must be a symbol with modifier (e.g. %call36) or an integer in the range [-524288, 524287]
 
 ## simm20_lu32id
 lu32i.d $a0, 0x80000
@@ -81,15 +81,13 @@ bstrpick.d $a0, $a0, 32, 63
 # CHECK:             ^~~~~~
 
 # CHECK: :[[#@LINE+1]]:10: error: $rd must be different from both $rk and $rj
-amadd.d $zero, $zero, $zero
-# CHECK: :[[#@LINE+1]]:10: error: $rd must be different from both $rk and $rj
-ammin.w $zero, $zero, $a0
-# CHECK: :[[#@LINE+1]]:10: error: $rd must be different from both $rk and $rj
-amxor.w $zero, $a0, $zero
-
-# CHECK: :[[#@LINE+1]]:10: error: $rd must be different from both $rk and $rj
 amadd.d $a0, $a0, $a0
 # CHECK: :[[#@LINE+1]]:10: error: $rd must be different from both $rk and $rj
 ammin.w $a0, $a0, $a1
 # CHECK: :[[#@LINE+1]]:10: error: $rd must be different from both $rk and $rj
 amxor.w $a0, $a1, $a0
+
+# CHECK: :[[#@LINE+1]]:24: error: expected optional integer offset
+amadd.d $a0, $a1, $a2, $a3
+# CHECK: :[[#@LINE+1]]:24: error: optional integer offset must be 0
+amadd.d $a0, $a1, $a2, 1

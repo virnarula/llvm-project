@@ -20,8 +20,6 @@
 #define LLVM_SUPPORT_COMMANDLINE_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -222,7 +220,7 @@ public:
   static SubCommand &getTopLevel();
 
   // Get the special subcommand that can be used to put an option into all
-  // subcomands.
+  // subcommands.
   static SubCommand &getAll();
 
   void reset();
@@ -244,6 +242,15 @@ extern ManagedStatic<SubCommand> TopLevelSubCommand;
 
 // A special subcommand that can be used to put an option into all subcommands.
 extern ManagedStatic<SubCommand> AllSubCommands;
+
+class SubCommandGroup {
+  SmallVector<SubCommand *, 4> Subs;
+
+public:
+  SubCommandGroup(std::initializer_list<SubCommand *> IL) : Subs(IL) {}
+
+  ArrayRef<SubCommand *> getSubCommands() const { return Subs; }
+};
 
 //===----------------------------------------------------------------------===//
 //
@@ -314,10 +321,6 @@ public:
 
   bool isConsumeAfter() const {
     return getNumOccurrencesFlag() == cl::ConsumeAfter;
-  }
-
-  bool isInAllSubCommands() const {
-    return llvm::is_contained(Subs, &SubCommand::getAll());
   }
 
   //-------------------------------------------------------------------------===
@@ -479,11 +482,19 @@ struct cat {
 
 // Specify the subcommand that this option belongs to.
 struct sub {
-  SubCommand &Sub;
+  SubCommand *Sub = nullptr;
+  SubCommandGroup *Group = nullptr;
 
-  sub(SubCommand &S) : Sub(S) {}
+  sub(SubCommand &S) : Sub(&S) {}
+  sub(SubCommandGroup &G) : Group(&G) {}
 
-  template <class Opt> void apply(Opt &O) const { O.addSubCommand(Sub); }
+  template <class Opt> void apply(Opt &O) const {
+    if (Sub)
+      O.addSubCommand(*Sub);
+    else if (Group)
+      for (SubCommand *SC : Group->getSubCommands())
+        O.addSubCommand(*SC);
+  }
 };
 
 // Specify a callback function to be called when an option is seen.
@@ -505,10 +516,10 @@ struct callback_traits<R (C::*)(Args...) const> {
   using result_type = R;
   using arg_type = std::tuple_element_t<0, std::tuple<Args...>>;
   static_assert(sizeof...(Args) == 1, "callback function must have one and only one parameter");
-  static_assert(std::is_same<result_type, void>::value,
+  static_assert(std::is_same_v<result_type, void>,
                 "callback return type must be void");
-  static_assert(std::is_lvalue_reference<arg_type>::value &&
-                    std::is_const<std::remove_reference_t<arg_type>>::value,
+  static_assert(std::is_lvalue_reference_v<arg_type> &&
+                    std::is_const_v<std::remove_reference_t<arg_type>>,
                 "callback arg_type must be a const lvalue reference");
 };
 } // namespace detail
@@ -554,6 +565,7 @@ struct OptionValueBase : public GenericOptionValue {
   // Some options may take their value from a different data type.
   template <class DT> void setValue(const DT & /*V*/) {}
 
+  // Returns whether this instance matches the argument.
   bool compare(const DataType & /*V*/) const { return false; }
 
   bool compare(const GenericOptionValue & /*V*/) const override {
@@ -589,7 +601,8 @@ public:
     Value = V;
   }
 
-  bool compare(const DataType &V) const { return Valid && (Value != V); }
+  // Returns whether this instance matches V.
+  bool compare(const DataType &V) const { return Valid && (Value == V); }
 
   bool compare(const GenericOptionValue &V) const override {
     const OptionValueCopy<DataType> &VC =
@@ -615,7 +628,7 @@ protected:
 // Top-level option class.
 template <class DataType>
 struct OptionValue final
-    : OptionValueBase<DataType, std::is_class<DataType>::value> {
+    : OptionValueBase<DataType, std::is_class_v<DataType>> {
   OptionValue() = default;
 
   OptionValue(const DataType &V) { this->setValue(V); }
@@ -863,7 +876,10 @@ public:
   ///
   template <class DT>
   void addLiteralOption(StringRef Name, const DT &V, StringRef HelpStr) {
-    assert(findOption(Name) == Values.size() && "Option already exists!");
+#ifndef NDEBUG
+    if (findOption(Name) != Values.size())
+      report_fatal_error("Option " + Name + " already exists!");
+#endif
     OptionInfo X(Name, static_cast<DataType>(V), HelpStr);
     Values.push_back(X);
     AddLiteralOption(Owner, Name);
@@ -1409,9 +1425,9 @@ public:
 //
 template <class DataType, bool ExternalStorage = false,
           class ParserClass = parser<DataType>>
-class opt : public Option,
-            public opt_storage<DataType, ExternalStorage,
-                               std::is_class<DataType>::value> {
+class opt
+    : public Option,
+      public opt_storage<DataType, ExternalStorage, std::is_class_v<DataType>> {
   ParserClass Parser;
 
   bool handleOccurrence(unsigned pos, StringRef ArgName,
@@ -1444,14 +1460,13 @@ class opt : public Option,
   }
 
   void printOptionValue(size_t GlobalWidth, bool Force) const override {
-    if (Force || this->getDefault().compare(this->getValue())) {
+    if (Force || !this->getDefault().compare(this->getValue())) {
       cl::printOptionDiff<ParserClass>(*this, Parser, this->getValue(),
                                        this->getDefault(), GlobalWidth);
     }
   }
 
-  template <class T,
-            class = std::enable_if_t<std::is_assignable<T &, T>::value>>
+  template <class T, class = std::enable_if_t<std::is_assignable_v<T &, T>>>
   void setDefaultImpl() {
     const OptionValue<DataType> &V = this->getDefault();
     if (V.hasValue())
@@ -1460,8 +1475,7 @@ class opt : public Option,
       this->setValue(T());
   }
 
-  template <class T,
-            class = std::enable_if_t<!std::is_assignable<T &, T>::value>>
+  template <class T, class = std::enable_if_t<!std::is_assignable_v<T &, T>>>
   void setDefaultImpl(...) {}
 
   void setDefault() override { setDefaultImpl<DataType>(); }
@@ -2206,10 +2220,10 @@ public:
   /// commands resolving file names in them relative to the directory where
   /// CfgFilename resides. It also expands "<CFGDIR>" to the base path of the
   /// current config file.
-  bool readConfigFile(StringRef CfgFile, SmallVectorImpl<const char *> &Argv);
+  Error readConfigFile(StringRef CfgFile, SmallVectorImpl<const char *> &Argv);
 
   /// Expands constructs "@file" in the provided array of arguments recursively.
-  bool expandResponseFiles(SmallVectorImpl<const char *> &Argv);
+  Error expandResponseFiles(SmallVectorImpl<const char *> &Argv);
 };
 
 /// A convenience helper which concatenates the options specified by the
@@ -2221,11 +2235,8 @@ bool expandResponseFiles(int Argc, const char *const *Argv, const char *EnvVar,
 
 /// A convenience helper which supports the typical use case of expansion
 /// function call.
-inline bool ExpandResponseFiles(StringSaver &Saver, TokenizerCallback Tokenizer,
-                                SmallVectorImpl<const char *> &Argv) {
-  ExpansionContext ECtx(Saver.getAllocator(), Tokenizer);
-  return ECtx.expandResponseFiles(Argv);
-}
+bool ExpandResponseFiles(StringSaver &Saver, TokenizerCallback Tokenizer,
+                         SmallVectorImpl<const char *> &Argv);
 
 /// A convenience helper which concatenates the options specified by the
 /// environment variable EnvVar and command line options, then expands response

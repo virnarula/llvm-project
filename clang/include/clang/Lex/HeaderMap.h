@@ -16,11 +16,11 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Lex/HeaderMapTypes.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <memory>
+#include <optional>
 
 namespace clang {
 
@@ -47,11 +47,9 @@ public:
 
     for (unsigned Bucket = 0; Bucket < NumBuckets; ++Bucket) {
       HMapBucket B = getBucket(Bucket);
-      if (B.Key != HMAP_EmptyBucketKey) {
-        Optional<StringRef> Key = getString(B.Key);
-        if (Key)
-          Callback(Key.value());
-      }
+      if (B.Key != HMAP_EmptyBucketKey)
+        if (std::optional<StringRef> Key = getString(B.Key))
+          Callback(*Key);
     }
   }
 
@@ -75,8 +73,8 @@ private:
   HMapBucket getBucket(unsigned BucketNo) const;
 
   /// Look up the specified string in the string table.  If the string index is
-  /// not valid, return None.
-  Optional<StringRef> getString(unsigned StrTabIdx) const;
+  /// not valid, return std::nullopt.
+  std::optional<StringRef> getString(unsigned StrTabIdx) const;
 };
 
 /// This class represents an Apple concept known as a 'header map'.  To the
@@ -90,8 +88,7 @@ class HeaderMap : private HeaderMapImpl {
 public:
   /// This attempts to load the specified file as a header map.  If it doesn't
   /// look like a HeaderMap, it gives up and returns null.
-  static std::unique_ptr<HeaderMap> Create(const FileEntry *FE,
-                                           FileManager &FM);
+  static std::unique_ptr<HeaderMap> Create(FileEntryRef FE, FileManager &FM);
 
   using HeaderMapImpl::dump;
   using HeaderMapImpl::forEachKey;

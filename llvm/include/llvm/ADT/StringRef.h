@@ -128,7 +128,7 @@ namespace llvm {
 
     /// data - Get a pointer to the start of the string (which may not be null
     /// terminated).
-    [[nodiscard]] const char *data() const { return Data; }
+    [[nodiscard]] constexpr const char *data() const { return Data; }
 
     /// empty - Check if the string is empty.
     [[nodiscard]] constexpr bool empty() const { return Length == 0; }
@@ -171,8 +171,9 @@ namespace llvm {
       return Length == RHS.Length && compare_insensitive(RHS) == 0;
     }
 
-    /// compare - Compare two strings; the result is -1, 0, or 1 if this string
-    /// is lexicographically less than, equal to, or greater than the \p RHS.
+    /// compare - Compare two strings; the result is negative, zero, or positive
+    /// if this string is lexicographically less than, equal to, or greater than
+    /// the \p RHS.
     [[nodiscard]] int compare(StringRef RHS) const {
       // Check the prefix for a mismatch.
       if (int Res = compareMemory(Data, RHS.Data, std::min(Length, RHS.Length)))
@@ -244,7 +245,7 @@ namespace llvm {
     /// @name Type Conversions
     /// @{
 
-    operator std::string_view() const {
+    constexpr operator std::string_view() const {
       return std::string_view(data(), size());
     }
 
@@ -257,15 +258,14 @@ namespace llvm {
       return Length >= Prefix.Length &&
              compareMemory(Data, Prefix.Data, Prefix.Length) == 0;
     }
-    [[nodiscard]] bool startswith(StringRef Prefix) const {
+    [[nodiscard]] LLVM_DEPRECATED(
+        "Use starts_with instead",
+        "starts_with") bool startswith(StringRef Prefix) const {
       return starts_with(Prefix);
     }
 
     /// Check if this string starts with the given \p Prefix, ignoring case.
     [[nodiscard]] bool starts_with_insensitive(StringRef Prefix) const;
-    [[nodiscard]] bool startswith_insensitive(StringRef Prefix) const {
-      return starts_with_insensitive(Prefix);
-    }
 
     /// Check if this string ends with the given \p Suffix.
     [[nodiscard]] bool ends_with(StringRef Suffix) const {
@@ -273,15 +273,14 @@ namespace llvm {
              compareMemory(end() - Suffix.Length, Suffix.Data, Suffix.Length) ==
                  0;
     }
-    [[nodiscard]] bool endswith(StringRef Suffix) const {
+    [[nodiscard]] LLVM_DEPRECATED(
+        "Use ends_with instead",
+        "ends_with") bool endswith(StringRef Suffix) const {
       return ends_with(Suffix);
     }
 
     /// Check if this string ends with the given \p Suffix, ignoring case.
     [[nodiscard]] bool ends_with_insensitive(StringRef Suffix) const;
-    [[nodiscard]] bool endswith_insensitive(StringRef Suffix) const {
-      return ends_with_insensitive(Suffix);
-    }
 
     /// @}
     /// @name String Searching
@@ -292,13 +291,7 @@ namespace llvm {
     /// \returns The index of the first occurrence of \p C, or npos if not
     /// found.
     [[nodiscard]] size_t find(char C, size_t From = 0) const {
-      size_t FindBegin = std::min(From, Length);
-      if (FindBegin < Length) { // Avoid calling memchr with nullptr.
-        // Just forward to memchr, which is faster than a hand-rolled loop.
-        if (const void *P = ::memchr(Data + FindBegin, C, Length - FindBegin))
-          return static_cast<const char *>(P) - Data;
-      }
-      return npos;
+      return std::string_view(*this).find(C, From);
     }
 
     /// Search for the first character \p C in the string, ignoring case.
@@ -348,12 +341,11 @@ namespace llvm {
     /// \returns The index of the last occurrence of \p C, or npos if not
     /// found.
     [[nodiscard]] size_t rfind(char C, size_t From = npos) const {
-      From = std::min(From, Length);
-      size_t i = From;
-      while (i != 0) {
-        --i;
-        if (Data[i] == C)
-          return i;
+      size_t I = std::min(From, Length);
+      while (I) {
+        --I;
+        if (Data[I] == C)
+          return I;
       }
       return npos;
     }
@@ -454,8 +446,8 @@ namespace llvm {
     /// Return the number of occurrences of \p C in the string.
     [[nodiscard]] size_t count(char C) const {
       size_t Count = 0;
-      for (size_t i = 0, e = Length; i != e; ++i)
-        if (Data[i] == C)
+      for (size_t I = 0; I != Length; ++I)
+        if (Data[I] == C)
           ++Count;
       return Count;
     }
@@ -529,6 +521,17 @@ namespace llvm {
     /// string is well-formed in the given radix.
     bool getAsInteger(unsigned Radix, APInt &Result) const;
 
+    /// Parse the current string as an integer of the specified \p Radix.  If
+    /// \p Radix is specified as zero, this does radix autosensing using
+    /// extended C rules: 0 is octal, 0x is hex, 0b is binary.
+    ///
+    /// If the string does not begin with a number of the specified radix,
+    /// this returns true to signify the error. The string is considered
+    /// erroneous if empty.
+    /// The portion of the string representing the discovered numeric value
+    /// is removed from the beginning of the string.
+    bool consumeInteger(unsigned Radix, APInt &Result);
+
     /// Parse the current string as an IEEE double-precision floating
     /// point value.  The string must be a well-formed double.
     ///
@@ -561,7 +564,8 @@ namespace llvm {
     /// \param N The number of characters to included in the substring. If N
     /// exceeds the number of characters remaining in the string, the string
     /// suffix (starting with \p Start) will be returned.
-    [[nodiscard]] StringRef substr(size_t Start, size_t N = npos) const {
+    [[nodiscard]] constexpr StringRef substr(size_t Start,
+                                             size_t N = npos) const {
       Start = std::min(Start, Length);
       return StringRef(Data + Start, std::min(N, Length - Start));
     }
@@ -628,17 +632,17 @@ namespace llvm {
       if (!starts_with(Prefix))
         return false;
 
-      *this = drop_front(Prefix.size());
+      *this = substr(Prefix.size());
       return true;
     }
 
     /// Returns true if this StringRef has the given prefix, ignoring case,
     /// and removes that prefix.
     bool consume_front_insensitive(StringRef Prefix) {
-      if (!startswith_insensitive(Prefix))
+      if (!starts_with_insensitive(Prefix))
         return false;
 
-      *this = drop_front(Prefix.size());
+      *this = substr(Prefix.size());
       return true;
     }
 
@@ -648,17 +652,17 @@ namespace llvm {
       if (!ends_with(Suffix))
         return false;
 
-      *this = drop_back(Suffix.size());
+      *this = substr(0, size() - Suffix.size());
       return true;
     }
 
     /// Returns true if this StringRef has the given suffix, ignoring case,
     /// and removes that suffix.
     bool consume_back_insensitive(StringRef Suffix) {
-      if (!endswith_insensitive(Suffix))
+      if (!ends_with_insensitive(Suffix))
         return false;
 
-      *this = drop_back(Suffix.size());
+      *this = substr(0, size() - Suffix.size());
       return true;
     }
 
@@ -675,7 +679,7 @@ namespace llvm {
     /// be returned.
     [[nodiscard]] StringRef slice(size_t Start, size_t End) const {
       Start = std::min(Start, Length);
-      End = std::min(std::max(Start, End), Length);
+      End = std::clamp(End, Start, Length);
       return StringRef(Data + Start, End - Start);
     }
 
@@ -877,19 +881,19 @@ namespace llvm {
   inline bool operator!=(StringRef LHS, StringRef RHS) { return !(LHS == RHS); }
 
   inline bool operator<(StringRef LHS, StringRef RHS) {
-    return LHS.compare(RHS) == -1;
+    return LHS.compare(RHS) < 0;
   }
 
   inline bool operator<=(StringRef LHS, StringRef RHS) {
-    return LHS.compare(RHS) != 1;
+    return LHS.compare(RHS) <= 0;
   }
 
   inline bool operator>(StringRef LHS, StringRef RHS) {
-    return LHS.compare(RHS) == 1;
+    return LHS.compare(RHS) > 0;
   }
 
   inline bool operator>=(StringRef LHS, StringRef RHS) {
-    return LHS.compare(RHS) != -1;
+    return LHS.compare(RHS) >= 0;
   }
 
   inline std::string &operator+=(std::string &buffer, StringRef string) {

@@ -43,9 +43,6 @@
 /* Default OpenMP runtime used by -fopenmp. */
 #define CLANG_DEFAULT_OPENMP_RUNTIME "libomp"
 
-/* Default architecture for OpenMP offloading to Nvidia GPUs. */
-#define CLANG_OPENMP_NVPTX_DEFAULT_ARCH "sm_35"
-
 /* Default architecture for SystemZ. */
 #define CLANG_SYSTEMZ_DEFAULT_ARCH "z10"
 
@@ -73,6 +70,12 @@
 
 /* Define if we have sys/resource.h (rlimits) */
 /* CLANG_HAVE_RLIMITS defined conditionally below */
+
+/* Define if we have dlfcn.h */
+#define CLANG_HAVE_DLFCN_H 1
+
+/* Define if dladdr() is available on this platform. */
+#define CLANG_HAVE_DLADDR 1
 
 /* Linker version detected at compile time. */
 /* #undef HOST_LINK_VERSION */

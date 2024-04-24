@@ -198,12 +198,15 @@ enum class CompilerContextKind : uint16_t {
   Variable = 1 << 7,
   Enum = 1 << 8,
   Typedef = 1 << 9,
+  Builtin = 1 << 10,
 
   Any = 1 << 15,
   /// Match 0..n nested modules.
   AnyModule = Any | Module,
   /// Match any type.
-  AnyType = Any | Class | Struct | Union | Enum | Typedef
+  AnyType = Any | Class | Struct | Union | Enum | Typedef | Builtin,
+  /// Math any declaration context.
+  AnyDeclContext = Any | Namespace | Class | Struct | Union | Enum | Function
 };
 
 // Enumerations that can be used to specify the kind of metric we're looking at
@@ -268,5 +271,15 @@ template <> struct format_provider<lldb_private::Vote> {
   }
 };
 }
+
+enum SelectMostRelevant : bool {
+  SelectMostRelevantFrame = true,
+  DoNoSelectMostRelevantFrame = false,
+};
+
+enum InterruptionControl : bool {
+  AllowInterruption = true,
+  DoNotAllowInterruption = false,
+};
 
 #endif // LLDB_LLDB_PRIVATE_ENUMERATIONS_H

@@ -8,9 +8,10 @@
 
 # Flang drivers
 
-```eval_rst
-.. contents::
-   :local:
+```{contents}
+---
+local:
+---
 ```
 
 There are two main drivers in Flang:
@@ -60,7 +61,7 @@ Note that similarly to `-Xclang` in `clang`, you can use `-Xflang` to forward a
 frontend specific flag from the _compiler_ directly to the _frontend_ driver,
 e.g.:
 
-```lang=bash
+```bash
 flang-new -Xflang -fdebug-dump-parse-tree input.f95
 ```
 
@@ -68,7 +69,7 @@ In the invocation above, `-fdebug-dump-parse-tree` is forwarded to `flang-new
 -fc1`. Without the forwarding flag, `-Xflang`, you would see the following
 warning:
 
-```lang=bash
+```bash
 flang-new: warning: argument unused during compilation:
 ```
 
@@ -149,11 +150,6 @@ flang-new -ccc-print-phases -c file.f
 +- 3: backend, {2}, assembler
 4: assembler, {3}, object
 ```
-Note that currently Flang does not support code-generation and `flang-new` will
-fail during the second step above with the following error:
-```bash
-error: code-generation is not available yet
-```
 The other phases are printed nonetheless when using `-ccc-print-phases`, as
 that reflects what `clangDriver`, the library, will try to create and run.
 
@@ -166,6 +162,71 @@ forward compiler options to the frontend driver, `flang-new -fc1`.
 
 You can read more on the design of `clangDriver` in Clang's [Driver Design &
 Internals](https://clang.llvm.org/docs/DriverInternals.html).
+
+## Linker Driver
+When used as a linker, Flang's frontend driver assembles the command line for an
+external linker command (e.g., LLVM's `lld`) and invokes it to create the final
+executable by linking static and shared libraries together with all the
+translation units supplied as object files.
+
+By default, the Flang linker driver adds several libraries to the linker
+invocation to make sure that all entrypoints for program start
+(Fortran's program unit) and runtime routines can be resolved by the linker.
+
+An abridged example (only showing the Fortran specific linker flags, omission
+indicated by `[...]`) for such a linker invocation on a Linux system would look
+like this:
+
+```
+$ flang -v -o example example.o
+"/usr/bin/ld" [...] example.o [...] "--whole-archive" "-lFortran_main"
+"--no-whole-archive" "-lFortranRuntime" "-lFortranDecimal" [...]
+```
+
+The automatically added libraries are:
+
+* `Fortran_main`: Provides the main entry point `main` that then invokes
+  `_QQmain` with the Fortran program unit.  This library has a dependency to
+  the `FortranRuntime` library.
+* `FortranRuntime`: Provides most of the Flang runtime library.
+* `FortranDecimal`: Provides operations for decimal numbers.
+
+The default is that, when using Flang as the linker, one of the Fortran
+translation units provides the program unit and therefore it is assumed that
+Fortran is the main code part (calling into C/C++ routines via `BIND (C)`
+interfaces).  When composing the linker commandline, Flang uses
+`--whole-archive` and `--no-whole-archive` (Windows: `/WHOLEARCHIVE:`,
+Darwin & AIX: *not implemented yet*) to make sure that all for `Fortran_main`
+is processed by the linker.  This is done to issue a proper error message when
+multiple definitions of `main` occur.  This happens, for instance, when linking
+a code that has a Fortran program unit with a C/C++ code that also defines a
+`main` function.  A user may be required to explicitly provide the C++ runtime
+libraries at link time (e.g., via `-lstdc++` for STL)
+
+If the code is C/C++ based and invokes Fortran routines, one can either use Clang
+or Flang as the linker driver.  If Clang is used, it will automatically all
+required runtime libraries needed by C++ (e.g., for STL) to the linker invocation.
+In this case, one has to explicitly provide the Fortran runtime libraries
+`FortranRuntime` and/or `FortranDecimal`.  An alternative is to use Flang to link
+and use the `-fno-fortran-main` flag.  This flag removes
+`Fortran_main` from the linker stage and hence requires one of the C/C++
+translation units to provide a definition of the `main` function. In this case,
+it may be required to explicitly supply C++ runtime libraries as mentioned above.
+
+When creating shared or static libraries using Flang with `-shared` or `-static`
+flag, Fortran_main is automatically removed from the linker stage (i.e.,
+`-fno-fortran-main` is on by default).  It is assumed that when creating a
+static or shared library, the generated library does not need a `main`
+function, as a final link stage will occur that will provide the `Fortran_main`
+library when creating the final executable.
+
+On Darwin, the logical root where the system libraries are located (sysroot)
+must be specified. This can be done with the CMake build flag `DEFAULT_SYSROOT`
+or by using the `-isysroot` flag when linking a binary. On other targets
+`-isysroot` doesn't change the linker command line (it only affects the header
+search path). While with Clang `-isysroot` also changes the sysroot for
+includes, with Flang (and Fortran in general) it only affects Darwin libraries'
+sysroot.
 
 ## Frontend Driver
 Flang's frontend driver is the main interface between compiler developers and
@@ -245,16 +306,14 @@ at times. Sometimes the easiest approach is to find an existing option that has
 similar semantics to your new option and start by copying that.
 
 For every new option, you will also have to define the visibility of the new
-option. This is controlled through the `Flags` field. You can use the following
-Flang specific option flags to control this:
+option. This is controlled through the `Visibility` field. You can use the
+following Flang specific visibility flags to control this:
   * `FlangOption` - this option will be available in the `flang-new` compiler driver,
   * `FC1Option` - this option will be available in the `flang-new -fc1` frontend driver,
-  * `FlangOnlyOption` - this option will not be visible in Clang drivers.
 
-Please make sure that options that you add are only visible in drivers that can
-support it. For example, options that only make sense for Fortran input files
-(e.g. `-ffree-form`) should not be visible in Clang and be marked as
-`FlangOnlyOption`.
+Options that are supported by clang should explicitly specify `ClangOption` in
+`Visibility`, and options that are only supported in Flang should not specify
+`ClangOption`.
 
 When deciding what `OptionGroup` to use when defining a new option in the
 `Options.td` file, many new options fall into one of the following two
@@ -276,12 +335,12 @@ two different places, depending on which driver they belong to:
 The parsing will depend on the semantics encoded in the TableGen definition.
 
 When adding a compiler driver option (i.e. an option that contains
-`FlangOption` among its `Flags`) that you also intend to be understood by the
-frontend, make sure that it is either forwarded to `flang-new -fc1` or translated
-into some other option that is accepted by the frontend driver. In the case of
-options that contain both `FlangOption` and `FC1Option` among its flags, we
-usually just forward from `flang-new` to `flang-new -fc1`. This is then tested in
-`flang/test/Driver/frontend-forward.F90`.
+`FlangOption` among in it's `Visibility`) that you also intend to be understood
+by the frontend, make sure that it is either forwarded to `flang-new -fc1` or
+translated into some other option that is accepted by the frontend driver. In
+the case of options that contain both `FlangOption` and `FC1Option` among its
+flags, we usually just forward from `flang-new` to `flang-new -fc1`. This is
+then tested in `flang/test/Driver/frontend-forward.F90`.
 
 What follows is usually very dependant on the meaning of the corresponding
 option. In general, regular compiler flags (e.g. `-ffree-form`) are mapped to
@@ -330,16 +389,13 @@ As of [#7246](https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7246)
 supported Fortran compiler. You can configure your CMake projects to use
 `flang-new` as follows:
 ```bash
-cmake -DCMAKE_Fortran_FLAGS="-flang-experimental-exec" -DCMAKE_Fortran_COMPILER=<path/to/flang-new> <src/dir>
+cmake -DCMAKE_Fortran_COMPILER=<path/to/flang-new> <src/dir>
 ```
 You should see the following in the output:
 ```
 -- The Fortran compiler identification is LLVMFlang <version>
 ```
-where `<version>` corresponds to the LLVM Flang version. Note that while
-generating executables remains experimental, you will need to inform CMake to
-use the `-flang-experimental-exec` flag when invoking `flang-new` as in the
-example above.
+where `<version>` corresponds to the LLVM Flang version.
 
 # Testing
 In LIT, we define two variables that you can use to invoke Flang's drivers:
@@ -485,7 +541,7 @@ reports an error diagnostic and returns `nullptr`.
 For in-tree plugins, there is the CMake flag `FLANG_PLUGIN_SUPPORT`, enabled by
 default, that controls the exporting of executable symbols from `flang-new`,
 which plugins need access to. Additionally, there is the CMake flag
-`FLANG_BUILD_EXAMPLES`, turned off by default, that is used to control if the
+`LLVM_BUILD_EXAMPLES`, turned off by default, that is used to control if the
 example programs are built. This includes plugins that are in the
 `flang/example` directory and added as a `sub_directory` to the
 `flang/examples/CMakeLists.txt`, for example, the `PrintFlangFunctionNames`
@@ -507,3 +563,95 @@ Lastly, if `ParseTree` modifications are performed, then it might be necessary
 to re-analyze expressions and modify scope or symbols. You can check
 [Semantics.md](Semantics.md) for more details on how `ParseTree` is edited
 e.g. during the semantic checks.
+
+# LLVM Pass Plugins
+
+Pass plugins are dynamic shared objects that consist of one or more LLVM IR
+passes. The `-fpass-plugin` option enables these passes to be passed to the
+middle-end where they are added to the optimization pass pipeline and run after
+lowering to LLVM IR.The exact position of the pass in the pipeline will depend
+on how it has been registered with the `llvm::PassBuilder`. See the
+documentation for
+[`llvm::PassBuilder`](https://llvm.org/doxygen/classllvm_1_1PassBuilder.html)
+for details.
+
+The framework to enable pass plugins in `flang-new` uses the exact same
+machinery as that used by `clang` and thus has the same capabilities and
+limitations.
+
+In order to use a pass plugin, the pass(es) must be compiled into a dynamic
+shared object which is then loaded using the `-fpass-plugin` option.
+
+```
+flang-new -fpass-plugin=/path/to/plugin.so <file.f90>
+```
+
+This option is available in both the compiler driver and the frontend driver.
+Note that LLVM plugins are not officially supported on Windows.
+
+## LLVM Pass Extensions
+
+Pass extensions are similar to plugins, except that they can also be linked
+statically. Setting `-DLLVM_${NAME}_LINK_INTO_TOOLS` to `ON` in the cmake
+command turns the project into a statically linked extension. An example would
+be Polly, e.g., using `-DLLVM_POLLY_LINK_INTO_TOOLS=ON` would link Polly passes
+into `flang-new` as built-in middle-end passes.
+
+See the
+[`WritingAnLLVMNewPMPass`](https://llvm.org/docs/WritingAnLLVMNewPMPass.html#id9)
+documentation for more details.
+
+## Ofast and Fast Math
+`-Ofast` in Flang means `-O3 -ffast-math -fstack-arrays`.
+
+`-ffast-math` means the following:
+ - `-fno-honor-infinities`
+ - `-fno-honor-nans`
+ - `-fassociative-math`
+ - `-freciprocal-math`
+ - `-fapprox-func`
+ - `-fno-signed-zeros`
+ - `-ffp-contract=fast`
+
+These correspond to LLVM IR Fast Math attributes:
+https://llvm.org/docs/LangRef.html#fast-math-flags
+
+When `-ffast-math` is specified, any linker steps generated by the compiler
+driver will also link to `crtfastmath.o`, which adds a static constructor
+that sets the FTZ/DAZ bits in MXCSR, affecting not only the current only the
+current compilation unit but all static and shared libraries included in the
+program. Setting these bits causes denormal floating point numbers to be flushed
+to zero.
+
+### Comparison with GCC/GFortran
+GCC/GFortran translate `-Ofast` to
+`-O3 -ffast-math -fstack-arrays -fno-semantic-interposition`.
+`-fno-semantic-interposition` is not used because Clang does not enable this as
+part of `-Ofast` as the default behaviour is similar.
+
+GCC/GFortran has a wider definition of `-ffast-math`: also including
+`-fno-trapping-math`,  `-fno-rounding-math`, and  `-fsignaling-nans`; these
+aren't included in Flang because Flang currently has no support for strict
+floating point and so always acts as though these flags were specified.
+
+GCC/GFortran will also set flush-to-zero mode: linking `crtfastmath.o`, the same
+as Flang.
+
+The only GCC/GFortran warning option currently supported is `-Werror`.  Passing
+any unsupported GCC/GFortran warning flags into Flang's compiler driver will
+result in warnings being emitted.
+
+### Comparison with nvfortran
+nvfortran defines `-fast` as
+`-O2 -Munroll=c:1 -Mnoframe -Mlre -Mpre -Mvect=simd -Mcache_align -Mflushz -Mvect`.
+ - `-O2 -Munroll=c:1 -Mlre -Mautoinline -Mpre -Mvect-simd` affect code
+   optimization. `flang -O3` should enable all optimizations for execution time,
+   similarly to `clang -O3`. The `-O3` pipeline has passes that perform
+   transformations like inlining, vectorisation, unrolling, etc. Additionally,
+   the GVN and LICM passes perform redundancy elimination like `Mpre` and `Mlre`
+ - `-Mnoframe`: the equivalent flag would be `-fomit-frame-pointer`. This flag
+   is not yet supported in Flang and so Flang follows GFortran in not including
+   this in `-Ofast`. There is no plan to include this flag as part of `-Ofast`.
+ - `-Mcache_align`: there is no equivalent flag in Flang or Clang.
+ - `-Mflushz`: flush-to-zero mode - when `-ffast-math` is specified, Flang will
+   link to `crtfastmath.o` to ensure denormal numbers are flushed to zero.

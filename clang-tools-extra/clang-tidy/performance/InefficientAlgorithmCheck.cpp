@@ -13,9 +13,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace performance {
+namespace clang::tidy::performance {
 
 static bool areTypesCompatible(QualType Left, QualType Right) {
   if (const auto *LeftRefType = Left->getAs<ReferenceType>())
@@ -99,7 +97,7 @@ void InefficientAlgorithmCheck::check(const MatchFinder::MatchResult &Result) {
   if (!AlgDecl)
     return;
 
-  if (Unordered && AlgDecl->getName().find("bound") != llvm::StringRef::npos)
+  if (Unordered && AlgDecl->getName().contains("bound"))
     return;
 
   const auto *AlgParam = Result.Nodes.getNodeAs<Expr>("AlgParam");
@@ -148,6 +146,4 @@ void InefficientAlgorithmCheck::check(const MatchFinder::MatchResult &Result) {
       << Hint;
 }
 
-} // namespace performance
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::performance

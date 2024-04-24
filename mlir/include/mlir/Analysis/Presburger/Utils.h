@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "mlir/Analysis/Presburger/Matrix.h"
+#include <optional>
 
 namespace mlir {
 namespace presburger {
@@ -52,7 +53,7 @@ public:
   bool isUnbounded() const { return kind == OptimumKind::Unbounded; }
   bool isEmpty() const { return kind == OptimumKind::Empty; }
 
-  Optional<T> getOptimumIfBounded() const { return optimum; }
+  std::optional<T> getOptimumIfBounded() const { return optimum; }
   const T &getBoundedOptimum() const {
     assert(kind == OptimumKind::Bounded &&
            "This should be called only for bounded optima");
@@ -142,7 +143,7 @@ public:
   // For a given point containing values for each variable other than the
   // division variables, try to find the values for each division variable from
   // their division representation.
-  SmallVector<Optional<MPInt>, 4> divValuesAt(ArrayRef<MPInt> point) const;
+  SmallVector<std::optional<MPInt>, 4> divValuesAt(ArrayRef<MPInt> point) const;
 
   // Get the `i^th` denominator.
   MPInt &getDenom(unsigned i) { return denoms[i]; }
@@ -154,6 +155,11 @@ public:
     dividends.setRow(i, dividend);
     denoms[i] = divisor;
   }
+
+  // Find the greatest common divisor (GCD) of the dividends and divisor for
+  // each valid division. Divide the dividends and divisor by the GCD to
+  // simplify the expression.
+  void normalizeDivs();
 
   void insertDiv(unsigned pos, ArrayRef<MPInt> dividend, const MPInt &divisor);
   void insertDiv(unsigned pos, unsigned num = 1);
@@ -176,7 +182,7 @@ private:
   /// Each row of the Matrix represents a single division dividend. The
   /// `i^th` row represents the dividend of the variable at `divOffset + i`
   /// in the constraint system (and the `i^th` local variable).
-  Matrix dividends;
+  IntMatrix dividends;
 
   /// Denominators of each division. If a denominator of a division is `0`, the
   /// division variable is considered to not have a division representation.
@@ -270,6 +276,16 @@ SmallVector<MPInt, 8> getNegatedCoeffs(ArrayRef<MPInt> coeffs);
 /// a_1 x_1 + ... + a_n x_ + c < 0, i.e., -a_1 x_1 - ... - a_n x_ - c - 1 >= 0,
 /// since all the variables are constrained to be integers.
 SmallVector<MPInt, 8> getComplementIneq(ArrayRef<MPInt> ineq);
+
+/// Compute the dot product of two vectors.
+/// The vectors must have the same sizes.
+Fraction dotProduct(ArrayRef<Fraction> a, ArrayRef<Fraction> b);
+
+/// Find the product of two polynomials, each given by an array of
+/// coefficients.
+std::vector<Fraction> multiplyPolynomials(ArrayRef<Fraction> a,
+                                          ArrayRef<Fraction> b);
+
 } // namespace presburger
 } // namespace mlir
 

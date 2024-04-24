@@ -14,6 +14,12 @@ using namespace mlir;
 
 namespace {
 
+struct DumpNotifications : public OpBuilder::Listener {
+  void notifyOperationInserted(Operation *op) override {
+    llvm::outs() << "notifyOperationInserted: " << op->getName() << "\n";
+  }
+};
+
 /// This is a test pass which clones the body of a function. Specifically
 /// this pass replaces f(x) to instead return f(f(x)) in which the cloned body
 /// takes the result of the first operation return as an input.
@@ -41,7 +47,7 @@ struct ClonePass
     if (terminator->getNumOperands() != regionEntry.getNumArguments())
       return;
 
-    BlockAndValueMapping map;
+    IRMapping map;
     for (auto tup :
          llvm::zip(terminator->getOperands(), regionEntry.getArguments())) {
       if (std::get<0>(tup).getType() != std::get<1>(tup).getType())
@@ -50,6 +56,8 @@ struct ClonePass
     }
 
     OpBuilder builder(op->getContext());
+    DumpNotifications dumpNotifications;
+    builder.setListener(&dumpNotifications);
     builder.setInsertionPointToEnd(&regionEntry);
     SmallVector<Operation *> toClone;
     for (Operation &inst : regionEntry)

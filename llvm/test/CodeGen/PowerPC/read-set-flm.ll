@@ -2,7 +2,7 @@
 ; RUN: llc < %s -mtriple powerpc64le-unknown-linux | FileCheck %s
 ; RUN: llc < %s -mtriple powerpc64le-unknown-linux -debug-only=machine-scheduler \
 ; RUN:   2>&1 | FileCheck %s --check-prefix=LOG
-; REQUIRES: DEBUG
+; REQUIRES: asserts
 
 define double @in_nostrict(double %a, double %b, double %c, double %d) {
 ; CHECK-LABEL: in_nostrict:
@@ -84,8 +84,8 @@ define void @cse_nomerge(ptr %f1, ptr %f2, double %f3) #0 {
 ; CHECK-NEXT:    .cfi_offset f31, -8
 ; CHECK-NEXT:    std 30, -24(1) # 8-byte Folded Spill
 ; CHECK-NEXT:    stfd 31, -8(1) # 8-byte Folded Spill
-; CHECK-NEXT:    std 0, 16(1)
 ; CHECK-NEXT:    stdu 1, -64(1)
+; CHECK-NEXT:    std 0, 80(1)
 ; CHECK-NEXT:    fmr 31, 1
 ; CHECK-NEXT:    mr 30, 4
 ; CHECK-NEXT:    mffs 0
@@ -121,8 +121,8 @@ define void @cse_nomerge_readonly(ptr %f1, ptr %f2, double %f3) #0 {
 ; CHECK-NEXT:    .cfi_offset f31, -8
 ; CHECK-NEXT:    std 30, -24(1) # 8-byte Folded Spill
 ; CHECK-NEXT:    stfd 31, -8(1) # 8-byte Folded Spill
-; CHECK-NEXT:    std 0, 16(1)
 ; CHECK-NEXT:    stdu 1, -64(1)
+; CHECK-NEXT:    std 0, 80(1)
 ; CHECK-NEXT:    fmr 31, 1
 ; CHECK-NEXT:    mr 30, 4
 ; CHECK-NEXT:    mffs 0
@@ -148,8 +148,19 @@ entry:
   ret void
 }
 
+define double @mffsl() {
+; CHECK-LABEL: mffsl:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    mffsl 1
+; CHECK-NEXT:    blr
+entry:
+  %x = call double @llvm.ppc.mffsl()
+  ret double %x
+}
+
 declare void @effect_func()
 declare void @readonly_func() #1
+declare double @llvm.ppc.mffsl()
 declare double @llvm.ppc.readflm()
 declare double @llvm.ppc.setflm(double)
 declare double @llvm.experimental.constrained.fadd.f64(double, double, metadata, metadata)

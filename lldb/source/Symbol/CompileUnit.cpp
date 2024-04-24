@@ -13,6 +13,7 @@
 #include "lldb/Symbol/VariableList.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Utility/Timer.h"
+#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -21,16 +22,20 @@ CompileUnit::CompileUnit(const lldb::ModuleSP &module_sp, void *user_data,
                          const char *pathname, const lldb::user_id_t cu_sym_id,
                          lldb::LanguageType language,
                          lldb_private::LazyBool is_optimized)
-    : CompileUnit(module_sp, user_data, FileSpec(pathname), cu_sym_id, language,
-                  is_optimized) {}
+    : CompileUnit(module_sp, user_data,
+                  std::make_shared<SupportFile>(FileSpec(pathname)), cu_sym_id,
+                  language, is_optimized) {}
 
 CompileUnit::CompileUnit(const lldb::ModuleSP &module_sp, void *user_data,
-                         const FileSpec &fspec, const lldb::user_id_t cu_sym_id,
+                         lldb::SupportFileSP support_file_sp,
+                         const lldb::user_id_t cu_sym_id,
                          lldb::LanguageType language,
-                         lldb_private::LazyBool is_optimized)
+                         lldb_private::LazyBool is_optimized,
+                         SupportFileList &&support_files)
     : ModuleChild(module_sp), UserID(cu_sym_id), m_user_data(user_data),
-      m_language(language), m_flags(0), m_file_spec(fspec),
-      m_is_optimized(is_optimized) {
+      m_language(language), m_flags(0),
+      m_primary_support_file_sp(support_file_sp),
+      m_support_files(std::move(support_files)), m_is_optimized(is_optimized) {
   if (language != eLanguageTypeUnknown)
     m_flags.Set(flagsParsedLanguage);
   assert(module_sp);
@@ -177,14 +182,6 @@ void CompileUnit::SetLineTable(LineTable *line_table) {
   m_line_table_up.reset(line_table);
 }
 
-void CompileUnit::SetSupportFiles(const FileSpecList &support_files) {
-  m_support_files = support_files;
-}
-
-void CompileUnit::SetSupportFiles(FileSpecList &&support_files) {
-  m_support_files = std::move(support_files);
-}
-
 DebugMacros *CompileUnit::GetDebugMacros() {
   if (m_debug_macros_sp.get() == nullptr) {
     if (m_flags.IsClear(flagsParsedDebugMacros)) {
@@ -216,7 +213,7 @@ VariableListSP CompileUnit::GetVariableList(bool can_create) {
   return m_variables;
 }
 
-std::vector<uint32_t> FindFileIndexes(const FileSpecList &files,
+std::vector<uint32_t> FindFileIndexes(const SupportFileList &files,
                                       const FileSpec &file) {
   std::vector<uint32_t> result;
   uint32_t idx = -1;
@@ -237,7 +234,8 @@ uint32_t CompileUnit::FindLineEntry(uint32_t start_idx, uint32_t line,
     return UINT32_MAX;
 
   // TODO: Handle SourceLocationSpec column information
-  SourceLocationSpec location_spec(*file_spec_ptr, line, /*column=*/llvm::None,
+  SourceLocationSpec location_spec(*file_spec_ptr, line,
+                                   /*column=*/std::nullopt,
                                    /*check_inlines=*/false, exact);
 
   LineTable *line_table = GetLineTable();
@@ -318,10 +316,9 @@ void CompileUnit::ResolveSymbolContext(
   // subsequent line exact matches below.
   const bool inlines = false;
   const bool exact = true;
-  const llvm::Optional<uint16_t> column =
-      src_location_spec.GetColumn()
-          ? llvm::Optional<uint16_t>(line_entry.column)
-          : llvm::None;
+  const std::optional<uint16_t> column =
+      src_location_spec.GetColumn() ? std::optional<uint16_t>(line_entry.column)
+                                    : std::nullopt;
 
   SourceLocationSpec found_entry(line_entry.file, line_entry.line, column,
                                  inlines, exact);
@@ -360,9 +357,10 @@ void CompileUnit::ResolveSymbolContext(
           // address resolving is completely failing and more deserving of an
           // error message the user can see.
           resolved_sc.module_sp->ReportError(
-              "unable to resolve a line table file address 0x%" PRIx64 " back "
+              "unable to resolve a line table file address {0:x16} back "
               "to a compile unit, please file a bug and attach the address "
-              "and file.", line_entry.range.GetBaseAddress().GetFileAddress());
+              "and file.",
+              line_entry.range.GetBaseAddress().GetFileAddress());
         }
         sc_list.Append(sc);
       }
@@ -413,7 +411,7 @@ bool CompileUnit::ForEachExternalModule(
   return false;
 }
 
-const FileSpecList &CompileUnit::GetSupportFiles() {
+const SupportFileList &CompileUnit::GetSupportFiles() {
   if (m_support_files.GetSize() == 0) {
     if (m_flags.IsClear(flagsParsedSupportFiles)) {
       m_flags.Set(flagsParsedSupportFiles);

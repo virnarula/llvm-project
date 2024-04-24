@@ -22,6 +22,7 @@ add_llvm_target(SPIRVCodeGen
   SPIRVGlobalRegistry.cpp
   SPIRVInstrInfo.cpp
   SPIRVInstructionSelector.cpp
+  SPIRVStripConvergentIntrinsics.cpp
   SPIRVISelLowering.cpp
   SPIRVLegalizerInfo.cpp
   SPIRVMCInstLower.cpp
@@ -39,6 +40,7 @@ add_llvm_target(SPIRVCodeGen
   Analysis
   AsmPrinter
   CodeGen
+  CodeGenTypes
   Core
   Demangle
   GlobalISel
@@ -48,6 +50,7 @@ add_llvm_target(SPIRVCodeGen
   SelectionDAG
   Support
   Target
+  TargetParser
   TransformUtils
 
   ADD_TO_COMPONENT

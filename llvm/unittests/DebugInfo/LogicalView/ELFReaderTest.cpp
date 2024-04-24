@@ -47,15 +47,16 @@ LVScopeCompileUnit *getFirstCompileUnit(LVScopeRoot *Root) {
 }
 
 // Helper function to create a reader.
-LVReader *createReader(LVReaderHandler &ReaderHandler,
-                       SmallString<128> &InputsDir, StringRef Filename) {
+std::unique_ptr<LVReader> createReader(LVReaderHandler &ReaderHandler,
+                                       SmallString<128> &InputsDir,
+                                       StringRef Filename) {
   SmallString<128> ObjectName(InputsDir);
   llvm::sys::path::append(ObjectName, Filename);
 
-  Expected<LVReader *> ReaderOrErr =
+  Expected<std::unique_ptr<LVReader>> ReaderOrErr =
       ReaderHandler.createReader(std::string(ObjectName));
   EXPECT_THAT_EXPECTED(ReaderOrErr, Succeeded());
-  LVReader *Reader = *ReaderOrErr;
+  std::unique_ptr<LVReader> Reader = std::move(*ReaderOrErr);
   EXPECT_NE(Reader, nullptr);
   return Reader;
 }
@@ -69,7 +70,7 @@ void checkElementProperties(LVReader *Reader) {
   EXPECT_EQ(Root->getName(), DwarfClang);
 
   EXPECT_EQ(CompileUnit->getBaseAddress(), 0u);
-  EXPECT_TRUE(CompileUnit->getProducer().startswith("clang"));
+  EXPECT_TRUE(CompileUnit->getProducer().starts_with("clang"));
   EXPECT_EQ(CompileUnit->getName(), "test.cpp");
 
   EXPECT_EQ(CompileUnit->lineCount(), 0u);
@@ -260,9 +261,9 @@ void elementProperties(SmallString<128> &InputsDir) {
   LVReaderHandler ReaderHandler(Objects, W, ReaderOptions);
 
   // Check logical elements properties.
-  LVReader *Reader = createReader(ReaderHandler, InputsDir, DwarfClang);
-  checkElementProperties(Reader);
-  ReaderHandler.deleteReader(Reader);
+  std::unique_ptr<LVReader> Reader =
+      createReader(ReaderHandler, InputsDir, DwarfClang);
+  checkElementProperties(Reader.get());
 }
 
 // Logical elements selection.
@@ -291,9 +292,9 @@ void elementSelection(SmallString<128> &InputsDir) {
   LVReaderHandler ReaderHandler(Objects, W, ReaderOptions);
 
   // Check logical elements selection.
-  LVReader *Reader = createReader(ReaderHandler, InputsDir, DwarfGcc);
-  checkElementSelection(Reader);
-  ReaderHandler.deleteReader(Reader);
+  std::unique_ptr<LVReader> Reader =
+      createReader(ReaderHandler, InputsDir, DwarfGcc);
+  checkElementSelection(Reader.get());
 }
 
 // Compare logical elements.
@@ -315,11 +316,11 @@ void compareElements(SmallString<128> &InputsDir) {
   LVReaderHandler ReaderHandler(Objects, W, ReaderOptions);
 
   // Check logical comparison.
-  LVReader *Reference = createReader(ReaderHandler, InputsDir, DwarfClang);
-  LVReader *Target = createReader(ReaderHandler, InputsDir, DwarfGcc);
-  checkElementComparison(Reference, Target);
-  ReaderHandler.deleteReader(Reference);
-  ReaderHandler.deleteReader(Target);
+  std::unique_ptr<LVReader> Reference =
+      createReader(ReaderHandler, InputsDir, DwarfClang);
+  std::unique_ptr<LVReader> Target =
+      createReader(ReaderHandler, InputsDir, DwarfGcc);
+  checkElementComparison(Reference.get(), Target.get());
 }
 
 TEST(LogicalViewTest, ELFReader) {
@@ -330,9 +331,7 @@ TEST(LogicalViewTest, ELFReader) {
 
   llvm::sys::InitializeCOMRAII COM(llvm::sys::COMThreadingMode::MultiThreaded);
 
-  SmallString<128> InputsDir = unittest::getInputFileDirectory(TestMainArgv0);
-
-  // This test requires a x86-registered-target
+  // This test requires a x86-registered-target.
   Triple TT;
   TT.setArch(Triple::x86_64);
   TT.setVendor(Triple::UnknownVendor);
@@ -340,7 +339,9 @@ TEST(LogicalViewTest, ELFReader) {
 
   std::string TargetLookupError;
   if (!TargetRegistry::lookupTarget(std::string(TT.str()), TargetLookupError))
-    return;
+    GTEST_SKIP();
+
+  SmallString<128> InputsDir = unittest::getInputFileDirectory(TestMainArgv0);
 
   // Logical elements general properties and selection.
   elementProperties(InputsDir);

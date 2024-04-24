@@ -22,12 +22,16 @@
 #include "lldb/Symbol/TypeList.h"
 #include "lldb/Symbol/TypeSystem.h"
 #include "lldb/Target/Statistics.h"
+#include "lldb/Utility/StructuredData.h"
 #include "lldb/Utility/XcodeSDK.h"
 #include "lldb/lldb-private.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Errc.h"
 
 #include <mutex>
+#include <optional>
+#include <unordered_map>
 
 #if defined(LLDB_CONFIGURATION_DEBUG)
 #define ASSERT_MODULE_LOCK(expr) (expr->AssertModuleLock())
@@ -145,6 +149,17 @@ public:
   virtual lldb::LanguageType ParseLanguage(CompileUnit &comp_unit) = 0;
   /// Return the Xcode SDK comp_unit was compiled against.
   virtual XcodeSDK ParseXcodeSDK(CompileUnit &comp_unit) { return {}; }
+
+  /// This function exists because SymbolFileDWARFDebugMap may extra compile
+  /// units which aren't exposed as "real" compile units. In every other
+  /// case this function should behave identically as ParseLanguage.
+  virtual llvm::SmallSet<lldb::LanguageType, 4>
+  ParseAllLanguages(CompileUnit &comp_unit) {
+    llvm::SmallSet<lldb::LanguageType, 4> langs;
+    langs.insert(ParseLanguage(comp_unit));
+    return langs;
+  }
+
   virtual size_t ParseFunctions(CompileUnit &comp_unit) = 0;
   virtual bool ParseLineTable(CompileUnit &comp_unit) = 0;
   virtual bool ParseDebugMacros(CompileUnit &comp_unit) = 0;
@@ -182,7 +197,7 @@ public:
     return false;
   }
   virtual bool ParseSupportFiles(CompileUnit &comp_unit,
-                                 FileSpecList &support_files) = 0;
+                                 SupportFileList &support_files) = 0;
   virtual size_t ParseTypes(CompileUnit &comp_unit) = 0;
   virtual bool ParseIsOptimized(CompileUnit &comp_unit) { return false; }
 
@@ -204,20 +219,22 @@ public:
   /// To support variable-length array types, this function takes an
   /// optional \p ExecutionContext. If \c exe_ctx is non-null, the
   /// dynamic characteristics for that context are returned.
-  virtual llvm::Optional<ArrayInfo>
+  virtual std::optional<ArrayInfo>
   GetDynamicArrayInfoForUID(lldb::user_id_t type_uid,
                             const lldb_private::ExecutionContext *exe_ctx) = 0;
 
   virtual bool CompleteType(CompilerType &compiler_type) = 0;
   virtual void ParseDeclsForContext(CompilerDeclContext decl_ctx) {}
-  virtual CompilerDecl GetDeclForUID(lldb::user_id_t uid) {
-    return CompilerDecl();
-  }
+  virtual CompilerDecl GetDeclForUID(lldb::user_id_t uid) { return {}; }
   virtual CompilerDeclContext GetDeclContextForUID(lldb::user_id_t uid) {
-    return CompilerDeclContext();
+    return {};
   }
   virtual CompilerDeclContext GetDeclContextContainingUID(lldb::user_id_t uid) {
-    return CompilerDeclContext();
+    return {};
+  }
+  virtual std::vector<CompilerContext>
+  GetCompilerContextForUID(lldb::user_id_t uid) {
+    return {};
   }
   virtual uint32_t ResolveSymbolContext(const Address &so_addr,
                                         lldb::SymbolContextItem resolve_scope,
@@ -284,21 +301,20 @@ public:
                              bool include_inlines, SymbolContextList &sc_list);
   virtual void FindFunctions(const RegularExpression &regex,
                              bool include_inlines, SymbolContextList &sc_list);
-  virtual void
-  FindTypes(ConstString name, const CompilerDeclContext &parent_decl_ctx,
-            uint32_t max_matches,
-            llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
-            TypeMap &types);
 
-  /// Find types specified by a CompilerContextPattern.
-  /// \param languages
-  ///     Only return results in these languages.
-  /// \param searched_symbol_files
-  ///     Prevents one file from being visited multiple times.
-  virtual void
-  FindTypes(llvm::ArrayRef<CompilerContext> pattern, LanguageSet languages,
-            llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
-            TypeMap &types);
+  /// Find types using a type-matching object that contains all search
+  /// parameters.
+  ///
+  /// \see lldb_private::TypeQuery
+  ///
+  /// \param[in] query
+  ///     A type matching object that contains all of the details of the type
+  ///     search.
+  ///
+  /// \param[in] results
+  ///     Any matching types will be populated into the \a results object using
+  ///     TypeMap::InsertUnique(...).
+  virtual void FindTypes(const TypeQuery &query, TypeResults &results) {}
 
   virtual void
   GetMangledNamesForFunction(const std::string &scope_qualified_name,
@@ -310,11 +326,20 @@ public:
 
   virtual void PreloadSymbols();
 
-  virtual llvm::Expected<lldb_private::TypeSystem &>
+  virtual llvm::Expected<lldb::TypeSystemSP>
   GetTypeSystemForLanguage(lldb::LanguageType language) = 0;
 
+  /// Finds a namespace of name \ref name and whose parent
+  /// context is \ref parent_decl_ctx.
+  ///
+  /// If \code{.cpp} !parent_decl_ctx.IsValid() \endcode
+  /// then this function will consider all namespaces that
+  /// match the name. If \ref only_root_namespaces is
+  /// true, only consider in the search those DIEs that
+  /// represent top-level namespaces.
   virtual CompilerDeclContext
-  FindNamespace(ConstString name, const CompilerDeclContext &parent_decl_ctx) {
+  FindNamespace(ConstString name, const CompilerDeclContext &parent_decl_ctx,
+                bool only_root_namespaces = false) {
     return CompilerDeclContext();
   }
 
@@ -411,8 +436,47 @@ public:
   virtual bool GetDebugInfoHadFrameVariableErrors() const = 0;
   virtual void SetDebugInfoHadFrameVariableErrors() = 0;
 
+  /// Return true if separate debug info files are supported and this function
+  /// succeeded, false otherwise.
+  ///
+  /// \param[out] d
+  ///     If this function succeeded, then this will be a dictionary that
+  ///     contains the keys "type", "symfile", and "separate-debug-info-files".
+  ///     "type" can be used to assume the structure of each object in
+  ///     "separate-debug-info-files".
+  /// \param errors_only
+  ///     If true, then only return separate debug info files that encountered
+  ///     errors during loading. If false, then return all expected separate
+  ///     debug info files, regardless of whether they were successfully loaded.
+  virtual bool GetSeparateDebugInfo(StructuredData::Dictionary &d,
+                                    bool errors_only) {
+    return false;
+  };
+
+  virtual lldb::TypeSP
+  MakeType(lldb::user_id_t uid, ConstString name,
+           std::optional<uint64_t> byte_size, SymbolContextScope *context,
+           lldb::user_id_t encoding_uid,
+           Type::EncodingDataType encoding_uid_type, const Declaration &decl,
+           const CompilerType &compiler_qual_type,
+           Type::ResolveState compiler_type_resolve_state,
+           uint32_t opaque_payload = 0) = 0;
+
+  virtual lldb::TypeSP CopyType(const lldb::TypeSP &other_type) = 0;
+
+  /// Returns a map of compilation unit to the compile option arguments
+  /// associated with that compilation unit.
+  std::unordered_map<lldb::CompUnitSP, Args> GetCompileOptions() {
+    std::unordered_map<lldb::CompUnitSP, Args> args;
+    GetCompileOptions(args);
+    return args;
+  }
+
 protected:
   void AssertModuleLock();
+
+  virtual void GetCompileOptions(
+      std::unordered_map<lldb::CompUnitSP, lldb_private::Args> &args) {}
 
 private:
   SymbolFile(const SymbolFile &) = delete;
@@ -465,7 +529,7 @@ public:
   uint32_t GetNumCompileUnits() override;
   lldb::CompUnitSP GetCompileUnitAtIndex(uint32_t idx) override;
 
-  llvm::Expected<lldb_private::TypeSystem &>
+  llvm::Expected<lldb::TypeSystemSP>
   GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
   void Dump(Stream &s) override;
@@ -491,6 +555,35 @@ public:
      m_debug_info_had_variable_errors = true;
   }
 
+  /// This function is used to create types that belong to a SymbolFile. The
+  /// symbol file will own a strong reference to the type in an internal type
+  /// list.
+  lldb::TypeSP MakeType(lldb::user_id_t uid, ConstString name,
+                        std::optional<uint64_t> byte_size,
+                        SymbolContextScope *context,
+                        lldb::user_id_t encoding_uid,
+                        Type::EncodingDataType encoding_uid_type,
+                        const Declaration &decl,
+                        const CompilerType &compiler_qual_type,
+                        Type::ResolveState compiler_type_resolve_state,
+                        uint32_t opaque_payload = 0) override {
+     lldb::TypeSP type_sp (new Type(
+         uid, this, name, byte_size, context, encoding_uid,
+         encoding_uid_type, decl, compiler_qual_type,
+         compiler_type_resolve_state, opaque_payload));
+     m_type_list.Insert(type_sp);
+     return type_sp;
+  }
+
+  lldb::TypeSP CopyType(const lldb::TypeSP &other_type) override {
+     // Make sure the real symbol file matches when copying types.
+     if (GetBackingSymbolFile() != other_type->GetSymbolFile())
+      return lldb::TypeSP();
+     lldb::TypeSP type_sp(new Type(*other_type));
+     m_type_list.Insert(type_sp);
+     return type_sp;
+  }
+
 protected:
   virtual uint32_t CalculateNumCompileUnits() = 0;
   virtual lldb::CompUnitSP ParseCompileUnitAtIndex(uint32_t idx) = 0;
@@ -501,9 +594,8 @@ protected:
                                    // case it isn't the same as the module
                                    // object file (debug symbols in a separate
                                    // file)
-  llvm::Optional<std::vector<lldb::CompUnitSP>> m_compile_units;
+  std::optional<std::vector<lldb::CompUnitSP>> m_compile_units;
   TypeList m_type_list;
-  Symtab *m_symtab = nullptr;
   uint32_t m_abilities = 0;
   bool m_calculated_abilities = false;
   bool m_index_was_loaded_from_cache = false;
@@ -516,6 +608,10 @@ protected:
 private:
   SymbolFileCommon(const SymbolFileCommon &) = delete;
   const SymbolFileCommon &operator=(const SymbolFileCommon &) = delete;
+
+  /// Do not use m_symtab directly, as it may be freed. Use GetSymtab()
+  /// to access it instead.
+  Symtab *m_symtab = nullptr;
 };
 
 } // namespace lldb_private

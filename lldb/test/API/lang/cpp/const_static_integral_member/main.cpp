@@ -5,6 +5,11 @@ enum Enum {
   enum_case2 = 2,
 };
 
+enum EnumBool : bool {
+  enum_bool_case1 = false,
+  enum_bool_case2 = true,
+};
+
 enum class ScopedEnum {
   scoped_enum_case1 = 1,
   scoped_enum_case2 = 2,
@@ -51,6 +56,7 @@ struct A {
   const static auto wchar_min = std::numeric_limits<wchar_t>::min();
 
   const static Enum enum_val = enum_case2;
+  const static EnumBool enum_bool_val = enum_bool_case1;
   const static ScopedEnum scoped_enum_val = ScopedEnum::scoped_enum_case2;
   const static ScopedEnum not_enumerator_scoped_enum_val = static_cast<ScopedEnum>(5);
   const static ScopedEnum not_enumerator_scoped_enum_val_2 =
@@ -82,6 +88,25 @@ struct ClassWithEnumAlias {
   static constexpr EnumAliasAlias enum_alias_alias =
       ScopedEnum::scoped_enum_case1;
 };
+
+namespace ns {
+struct Foo {
+  constexpr static int mem = 10;
+
+  void bar() { return; }
+};
+} // namespace ns
+
+struct Foo {
+  constexpr static int mem = -29;
+};
+
+int func() {
+  Foo f1;
+  ns::Foo f2;
+  f2.bar();
+  return ns::Foo::mem + Foo::mem;
+}
 
 int main() {
   A a;
@@ -118,6 +143,7 @@ int main() {
 
   auto enum_alias_val = ClassWithEnumAlias::enum_alias;
   auto enum_alias_alias_val = ClassWithEnumAlias::enum_alias_alias;
+  auto ret = func();
 
   return 0; // break here
 }

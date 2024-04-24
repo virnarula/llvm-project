@@ -16,16 +16,19 @@
 #include "LoongArchFixupKinds.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbolELF.h"
 #include "llvm/MC/MCValue.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "loongarch-mcexpr"
 
-const LoongArchMCExpr *
-LoongArchMCExpr::create(const MCExpr *Expr, VariantKind Kind, MCContext &Ctx) {
-  return new (Ctx) LoongArchMCExpr(Expr, Kind);
+const LoongArchMCExpr *LoongArchMCExpr::create(const MCExpr *Expr,
+                                               VariantKind Kind, MCContext &Ctx,
+                                               bool Hint) {
+  return new (Ctx) LoongArchMCExpr(Expr, Kind, Hint);
 }
 
 void LoongArchMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
@@ -135,6 +138,8 @@ StringRef LoongArchMCExpr::getVariantKindName(VariantKind Kind) {
     return "gd_pc_hi20";
   case VK_LoongArch_TLS_GD_HI20:
     return "gd_hi20";
+  case VK_LoongArch_CALL36:
+    return "call36";
   }
 }
 
@@ -177,5 +182,48 @@ LoongArchMCExpr::getVariantKindForName(StringRef name) {
       .Case("ld_hi20", VK_LoongArch_TLS_LD_HI20)
       .Case("gd_pc_hi20", VK_LoongArch_TLS_GD_PC_HI20)
       .Case("gd_hi20", VK_LoongArch_TLS_GD_HI20)
+      .Case("call36", VK_LoongArch_CALL36)
       .Default(VK_LoongArch_Invalid);
+}
+
+static void fixELFSymbolsInTLSFixupsImpl(const MCExpr *Expr, MCAssembler &Asm) {
+  switch (Expr->getKind()) {
+  case MCExpr::Target:
+    llvm_unreachable("Can't handle nested target expression");
+    break;
+  case MCExpr::Constant:
+    break;
+  case MCExpr::Unary:
+    fixELFSymbolsInTLSFixupsImpl(cast<MCUnaryExpr>(Expr)->getSubExpr(), Asm);
+    break;
+  case MCExpr::Binary: {
+    const MCBinaryExpr *BE = cast<MCBinaryExpr>(Expr);
+    fixELFSymbolsInTLSFixupsImpl(BE->getLHS(), Asm);
+    fixELFSymbolsInTLSFixupsImpl(BE->getRHS(), Asm);
+    break;
+  }
+  case MCExpr::SymbolRef: {
+    // We're known to be under a TLS fixup, so any symbol should be
+    // modified. There should be only one.
+    const MCSymbolRefExpr &SymRef = *cast<MCSymbolRefExpr>(Expr);
+    cast<MCSymbolELF>(SymRef.getSymbol()).setType(ELF::STT_TLS);
+    break;
+  }
+  }
+}
+
+void LoongArchMCExpr::fixELFSymbolsInTLSFixups(MCAssembler &Asm) const {
+  switch (getKind()) {
+  default:
+    return;
+  case VK_LoongArch_TLS_LE_HI20:
+  case VK_LoongArch_TLS_IE_PC_HI20:
+  case VK_LoongArch_TLS_IE_HI20:
+  case VK_LoongArch_TLS_LD_PC_HI20:
+  case VK_LoongArch_TLS_LD_HI20:
+  case VK_LoongArch_TLS_GD_PC_HI20:
+  case VK_LoongArch_TLS_GD_HI20:
+    break;
+  }
+  fixELFSymbolsInTLSFixupsImpl(getSubExpr(), Asm);
 }

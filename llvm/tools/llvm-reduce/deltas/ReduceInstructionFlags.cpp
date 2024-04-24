@@ -17,8 +17,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 
-static void reduceFlagsInModule(Oracle &O, Module &Mod) {
-  for (Function &F : Mod) {
+using namespace llvm;
+
+static void reduceFlagsInModule(Oracle &O, ReducerWorkItem &WorkItem) {
+  for (Function &F : WorkItem.getModule()) {
     for (Instruction &I : instructions(F)) {
       if (auto *OBO = dyn_cast<OverflowingBinaryOperator>(&I)) {
         if (OBO->hasNoSignedWrap() && !O.shouldKeep())
@@ -28,6 +30,12 @@ static void reduceFlagsInModule(Oracle &O, Module &Mod) {
       } else if (auto *PE = dyn_cast<PossiblyExactOperator>(&I)) {
         if (PE->isExact() && !O.shouldKeep())
           I.setIsExact(false);
+      } else if (auto *NNI = dyn_cast<PossiblyNonNegInst>(&I)) {
+        if (NNI->hasNonNeg() && !O.shouldKeep())
+          NNI->setNonNeg(false);
+      } else if (auto *PDI = dyn_cast<PossiblyDisjointInst>(&I)) {
+        if (PDI->isDisjoint() && !O.shouldKeep())
+          PDI->setIsDisjoint(false);
       } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
         if (GEP->isInBounds() && !O.shouldKeep())
           GEP->setIsInBounds(false);

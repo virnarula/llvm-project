@@ -76,19 +76,12 @@ define i32 @not_pos_sel_same_variable(i32 signext %a) {
 
 ; Compare if positive and select of constants where one constant is zero.
 define i32 @pos_sel_constants(i32 signext %a) {
-; RV32-LABEL: pos_sel_constants:
-; RV32:       # %bb.0:
-; RV32-NEXT:    slti a0, a0, 0
-; RV32-NEXT:    addi a0, a0, -1
-; RV32-NEXT:    andi a0, a0, 5
-; RV32-NEXT:    ret
-;
-; RV64-LABEL: pos_sel_constants:
-; RV64:       # %bb.0:
-; RV64-NEXT:    slti a0, a0, 0
-; RV64-NEXT:    addiw a0, a0, -1
-; RV64-NEXT:    andi a0, a0, 5
-; RV64-NEXT:    ret
+; CHECK-LABEL: pos_sel_constants:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    slti a0, a0, 0
+; CHECK-NEXT:    addi a0, a0, -1
+; CHECK-NEXT:    andi a0, a0, 5
+; CHECK-NEXT:    ret
   %tmp.1 = icmp sgt i32 %a, -1
   %retval = select i1 %tmp.1, i32 5, i32 0
   ret i32 %retval
@@ -216,12 +209,19 @@ define i32 @sub_clamp_zero(i32 signext %x, i32 signext %y) {
 }
 
 define i8 @sel_shift_bool_i8(i1 %t) {
-; CHECK-LABEL: sel_shift_bool_i8:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    andi a0, a0, 1
-; CHECK-NEXT:    neg a0, a0
-; CHECK-NEXT:    andi a0, a0, -128
-; CHECK-NEXT:    ret
+; RV32-LABEL: sel_shift_bool_i8:
+; RV32:       # %bb.0:
+; RV32-NEXT:    slli a0, a0, 31
+; RV32-NEXT:    srai a0, a0, 31
+; RV32-NEXT:    andi a0, a0, -128
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: sel_shift_bool_i8:
+; RV64:       # %bb.0:
+; RV64-NEXT:    slli a0, a0, 63
+; RV64-NEXT:    srai a0, a0, 63
+; RV64-NEXT:    andi a0, a0, -128
+; RV64-NEXT:    ret
   %shl = select i1 %t, i8 128, i8 0
   ret i8 %shl
 }

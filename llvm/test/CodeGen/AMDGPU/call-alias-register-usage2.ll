@@ -4,7 +4,7 @@
 ; through aliases. If GlobalOpt is never run, we do not see direct
 ; calls,
 
-@alias2 = hidden alias void (), void()* @aliasee_vgpr64_sgpr102
+@alias2 = hidden alias void (), ptr @aliasee_vgpr64_sgpr102
 
 ; CHECK-LABEL: {{^}}kernel2:
 ; CHECK: .amdhsa_next_free_vgpr 53
@@ -24,3 +24,6 @@ bb:
 attributes #0 = { noinline norecurse nounwind optnone }
 attributes #1 = { noinline norecurse nounwind readnone willreturn "amdgpu-waves-per-eu"="4,10" }
 attributes #2 = { nounwind readnone willreturn }
+
+!llvm.module.flags = !{!0}
+!0 = !{i32 1, !"amdgpu_code_object_version", i32 500}

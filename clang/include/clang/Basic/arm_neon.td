@@ -957,8 +957,10 @@ def VQDMLAL_HIGH : SOpInst<"vqdmlal_high", "(>Q)(>Q)QQ", "si", OP_QDMLALHi>;
 def VQDMLAL_HIGH_N : SOpInst<"vqdmlal_high_n", "(>Q)(>Q)Q1", "si", OP_QDMLALHi_N>;
 def VQDMLSL_HIGH : SOpInst<"vqdmlsl_high", "(>Q)(>Q)QQ", "si", OP_QDMLSLHi>;
 def VQDMLSL_HIGH_N : SOpInst<"vqdmlsl_high_n", "(>Q)(>Q)Q1", "si", OP_QDMLSLHi_N>;
-def VMULL_P64    : SInst<"vmull", "(1>)11", "Pl">;
-def VMULL_HIGH_P64 : SOpInst<"vmull_high", "(1>)..", "HPl", OP_MULLHi_P64>;
+let TargetGuard = "aes" in {
+  def VMULL_P64    : SInst<"vmull", "(1>)11", "Pl">;
+  def VMULL_HIGH_P64 : SOpInst<"vmull_high", "(1>)..", "HPl", OP_MULLHi_P64>;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1230,6 +1232,11 @@ def FRINT32X_S32 : SInst<"vrnd32x", "..", "fQf">;
 def FRINT32Z_S32 : SInst<"vrnd32z", "..", "fQf">;
 def FRINT64X_S32 : SInst<"vrnd64x", "..", "fQf">;
 def FRINT64Z_S32 : SInst<"vrnd64z", "..", "fQf">;
+
+def FRINT32X_S64 : SInst<"vrnd32x", "..", "dQd">;
+def FRINT32Z_S64 : SInst<"vrnd32z", "..", "dQd">;
+def FRINT64X_S64 : SInst<"vrnd64x", "..", "dQd">;
+def FRINT64Z_S64 : SInst<"vrnd64z", "..", "dQd">;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2083,4 +2090,10 @@ let ArchGuard = "defined(__aarch64__)", TargetGuard = "bf16" in {
     defm VVREINTERPRET_BF : REINTERPRET_CROSS_TYPES<
         "csilUcUsUiUlhfdPcPsPlQcQsQiQlQUcQUsQUiQUlQhQfQdQPcQPsQPlQPk", "bQb">;
   }
+}
+
+// v8.9a/v9.4a LRCPC3 intrinsics
+let ArchGuard = "defined(__aarch64__)", TargetGuard = "rcpc3" in {
+  def VLDAP1_LANE : WInst<"vldap1_lane", ".(c*!).I", "QUlQlUlldQdPlQPl">;
+  def VSTL1_LANE  : WInst<"vstl1_lane", "v*(.!)I", "QUlQlUlldQdPlQPl">;
 }

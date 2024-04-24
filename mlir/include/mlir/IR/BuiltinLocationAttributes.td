@@ -15,7 +15,6 @@
 
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/BuiltinDialect.td"
-include "mlir/IR/SubElementInterfaces.td"
 
 // Base class for Builtin dialect location attributes.
 class Builtin_LocationAttr<string name, list<Trait> traits = []>
@@ -28,9 +27,7 @@ class Builtin_LocationAttr<string name, list<Trait> traits = []>
 // CallSiteLoc
 //===----------------------------------------------------------------------===//
 
-def CallSiteLoc : Builtin_LocationAttr<"CallSiteLoc", [
-    DeclareAttrInterfaceMethods<SubElementAttrInterface>
-  ]> {
+def CallSiteLoc : Builtin_LocationAttr<"CallSiteLoc"> {
   let summary = "A callsite source location";
   let description = [{
     Syntax:
@@ -59,6 +56,7 @@ def CallSiteLoc : Builtin_LocationAttr<"CallSiteLoc", [
                                         "ArrayRef<Location>":$frames)>
   ];
   let skipDefaultBuilders = 1;
+  let attrName = "builtin.call_site_loc";
 }
 
 //===----------------------------------------------------------------------===//
@@ -101,22 +99,21 @@ def FileLineColLoc : Builtin_LocationAttr<"FileLineColLoc"> {
     }]>
   ];
   let skipDefaultBuilders = 1;
+  let attrName = "builtin.file_line_loc";
 }
 
 //===----------------------------------------------------------------------===//
 // FusedLoc
 //===----------------------------------------------------------------------===//
 
-def FusedLoc : Builtin_LocationAttr<"FusedLoc", [
-    DeclareAttrInterfaceMethods<SubElementAttrInterface>
-  ]> {
+def FusedLoc : Builtin_LocationAttr<"FusedLoc"> {
   let summary = "A tuple of other source locations";
   let description = [{
     Syntax:
 
     ```
-    fused-location ::= `fused` fusion-metadata? `[` location (location `,`)* `]`
     fusion-metadata ::= `<` attribute-value `>`
+    fused-location ::= `fused` fusion-metadata? `[` (location (`,` location)* )? `]`
     ```
 
     An instance of a `fused` location represents a grouping of several other
@@ -129,7 +126,7 @@ def FusedLoc : Builtin_LocationAttr<"FusedLoc", [
     Example:
 
     ```mlir
-    loc(fused["mysource.cc":10:8, "mysource.cc":22:8)
+    loc(fused["mysource.cc":10:8, "mysource.cc":22:8])
     loc(fused<"CSE">["mysource.cc":10:8, "mysource.cc":22:8])
     ```
   }];
@@ -142,15 +139,14 @@ def FusedLoc : Builtin_LocationAttr<"FusedLoc", [
       return get(locs, Attribute(), context);
     }
   }];
+  let attrName = "builtin.fused_loc";
 }
 
 //===----------------------------------------------------------------------===//
 // NameLoc
 //===----------------------------------------------------------------------===//
 
-def NameLoc : Builtin_LocationAttr<"NameLoc", [
-    DeclareAttrInterfaceMethods<SubElementAttrInterface>
-  ]> {
+def NameLoc : Builtin_LocationAttr<"NameLoc"> {
   let summary = "A named source location";
   let description = [{
     Syntax:
@@ -163,7 +159,7 @@ def NameLoc : Builtin_LocationAttr<"NameLoc", [
     This can be useful for representing the locations of variable, or node,
     definitions.
 
-    Example:
+    #### Example:
 
     ```mlir
     loc("CSE"("mysource.cc":10:8))
@@ -181,21 +177,27 @@ def NameLoc : Builtin_LocationAttr<"NameLoc", [
     }]>
   ];
   let skipDefaultBuilders = 1;
+  let attrName = "builtin.name_loc";
 }
 
 //===----------------------------------------------------------------------===//
 // OpaqueLoc
 //===----------------------------------------------------------------------===//
 
-def OpaqueLoc : Builtin_LocationAttr<"OpaqueLoc", [
-    DeclareAttrInterfaceMethods<SubElementAttrInterface>
-  ]> {
+def OpaqueLoc : Builtin_LocationAttr<"OpaqueLoc"> {
   let summary = "An opaque source location";
   let description = [{
     An instance of this location essentially contains a pointer to some data
     structure that is external to MLIR and an optional location that can be used
     if the first one is not suitable. Since it contains an external structure,
     only the optional location is used during serialization.
+
+    #### Example:
+
+    ```mlir
+    %0 = "example.operation"() : () -> i32 loc("mysource")
+    %1 = arith.constant 4 : index loc(callsite("mysum" at "mysource.cc":10:8))
+    ```
   }];
   let parameters = (ins "uintptr_t":$underlyingLocation,
                         "TypeID":$underlyingTypeID,
@@ -248,6 +250,7 @@ def OpaqueLoc : Builtin_LocationAttr<"OpaqueLoc", [
     }
   }];
   let skipDefaultBuilders = 1;
+  let attrName = "builtin.opaque_loc";
 }
 
 //===----------------------------------------------------------------------===//
@@ -277,6 +280,7 @@ def UnknownLoc : Builtin_LocationAttr<"UnknownLoc"> {
   let extraClassDeclaration = [{
     static UnknownLoc get(MLIRContext *context);
   }];
+  let attrName = "builtin.unknown_loc";
 }
 
 #endif // BUILTIN_LOCATION_ATTRIBUTES_TD

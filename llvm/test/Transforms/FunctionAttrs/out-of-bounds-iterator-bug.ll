@@ -1,4 +1,3 @@
-; RUN: opt -function-attrs -S < %s | FileCheck %s
 ; RUN: opt -passes=function-attrs -S < %s | FileCheck %s
 
 ; This checks for a previously existing iterator wraparound bug in
@@ -18,7 +17,7 @@ define void @va_func(ptr readonly %b, ...) readonly nounwind {
 }
 
 define i32 @caller(ptr %x) {
-; CHECK-LABEL: define i32 @caller(ptr nocapture readonly %x)
+; CHECK-LABEL: define noundef i32 @caller(ptr nocapture readonly %x)
  entry:
   call void(ptr,...) @va_func(ptr null, i32 0, i32 0, i32 0, ptr %x)
   ret i32 42
@@ -35,7 +34,7 @@ define void @va_func2(ptr readonly %b, ...) {
 }
 
 define i32 @caller2(ptr %x, ptr %y) {
-; CHECK-LABEL: define i32 @caller2(ptr nocapture readonly %x, ptr %y)
+; CHECK-LABEL: define noundef i32 @caller2(ptr nocapture readonly %x, ptr %y)
  entry:
   call void(ptr,...) @va_func2(ptr %x, i32 0, i32 0, i32 0, ptr %y)
   ret i32 42

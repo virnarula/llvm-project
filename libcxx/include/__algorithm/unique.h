@@ -21,6 +21,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 // unique
@@ -51,10 +54,11 @@ unique(_ForwardIterator __first, _ForwardIterator __last, _BinaryPredicate __pre
 template <class _ForwardIterator>
 _LIBCPP_NODISCARD_EXT inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 unique(_ForwardIterator __first, _ForwardIterator __last) {
-  typedef typename iterator_traits<_ForwardIterator>::value_type __v;
-  return std::unique(__first, __last, __equal_to<__v>());
+  return std::unique(__first, __last, __equal_to());
 }
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___ALGORITHM_UNIQUE_H

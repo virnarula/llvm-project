@@ -1,127 +1,90 @@
-// First use with `kViaCOO` for sparse2sparse conversion (the old way).
-// RUN: mlir-opt %s --sparse-tensor-conversion="s2s-strategy=1" \
-// RUN:    --canonicalize --cse | FileCheck %s -check-prefix=CHECK-COO
-//
-// Now again with `kAuto` (the new default).
-// RUN: mlir-opt %s --sparse-tensor-conversion="s2s-strategy=0" \
-// RUN:    --canonicalize --cse | FileCheck %s -check-prefixes=CHECK-AUTO,CHECK
+// RUN: mlir-opt %s --stage-sparse-ops --lower-sparse-ops-to-foreach --canonicalize --cse | FileCheck %s
 
 #SparseVector64 = #sparse_tensor.encoding<{
-  dimLevelType = ["compressed"],
-  pointerBitWidth = 64,
-  indexBitWidth = 64
+  map = (d0) -> (d0 : compressed),
+  posWidth = 64,
+  crdWidth = 64
 }>
 
 #SparseVector32 = #sparse_tensor.encoding<{
-  dimLevelType = ["compressed"],
-  pointerBitWidth = 32,
-  indexBitWidth = 32
+  map = (d0) -> (d0 : compressed),
+  posWidth = 32,
+  crdWidth = 32
 }>
 
 #SparseVector = #sparse_tensor.encoding<{
-  dimLevelType = ["compressed"]
+  map = (d0) -> (d0 : compressed)
 }>
 
-// CHECK-LABEL: func @sparse_nop_convert(
-//  CHECK-SAME: %[[A:.*]]: !llvm.ptr<i8>) -> !llvm.ptr<i8>
-//       CHECK: return %[[A]] : !llvm.ptr<i8>
+#SortedCOO2D = #sparse_tensor.encoding<{
+  map = (d0, d1) -> (d0 : compressed(nonunique), d1 : singleton),
+}>
+
+#SortedCOO3D = #sparse_tensor.encoding<{
+  map = (d0, d1, d2) -> (d0 : compressed(nonunique), d1 : singleton(nonunique), d2 : singleton)
+
+}>
+
+#TsssPermuted = #sparse_tensor.encoding<{
+  map = (d0, d1, d2) -> (d2 : compressed, d0 : compressed, d1 : compressed)
+}>
+
+#COOSlice = #sparse_tensor.encoding<{
+  map = (d0 : #sparse_tensor<slice(2, 2, 1)>, d1 : #sparse_tensor<slice(12, 13, 1)>) -> (d0 : compressed(nonunique), d1 : singleton)
+}>
+
+// CHECK-LABEL:   func.func @sparse_nop_convert
+// CHECK-NEXT:       return
 func.func @sparse_nop_convert(%arg0: tensor<64xf32, #SparseVector>) -> tensor<64xf32, #SparseVector> {
   %0 = sparse_tensor.convert %arg0 : tensor<64xf32, #SparseVector> to tensor<64xf32, #SparseVector>
   return %0 : tensor<64xf32, #SparseVector>
 }
 
-// CHECK-LABEL: func @sparse_hidden_nop_cast(
-//  CHECK-SAME: %[[A:.*]]: !llvm.ptr<i8>) -> !llvm.ptr<i8>
-//       CHECK: return %[[A]] : !llvm.ptr<i8>
+// CHECK-LABEL:   func.func @sparse_hidden_nop_cast
+// CHECK-NEXT:      sparse_tensor.convert
+// CHECK-NEXT:      return
 func.func @sparse_hidden_nop_cast(%arg0: tensor<32xf32, #SparseVector>) -> tensor<?xf32, #SparseVector> {
   %0 = sparse_tensor.convert %arg0 : tensor<32xf32, #SparseVector> to tensor<?xf32, #SparseVector>
   return %0 : tensor<?xf32, #SparseVector>
 }
 
-// CHECK-LABEL: func @sparse_convert_1d_ss(
-//  CHECK-SAME: %[[A:.*]]: !llvm.ptr<i8>)
-//   CHECK-DAG: %[[SparseToSparse:.*]] = arith.constant 3 : i32
-//   CHECK-DAG: %[[P:.*]] = memref.alloca() : memref<1xi8>
-//   CHECK-DAG: %[[Q:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-DAG: %[[R:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-DAG: %[[X:.*]] = memref.cast %[[P]] : memref<1xi8> to memref<?xi8>
-//   CHECK-DAG: %[[Y:.*]] = memref.cast %[[Q]] : memref<1xindex> to memref<?xindex>
-//   CHECK-DAG: %[[Z:.*]] = memref.cast %[[R]] : memref<1xindex> to memref<?xindex>
-//       CHECK: %[[T:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[SparseToSparse]], %[[A]])
-//       CHECK: return %[[T]] : !llvm.ptr<i8>
+// CHECK-LABEL:   func.func @sparse_convert_1d_ss(
+// CHECK-NEXT:      sparse_tensor.convert
+// CHECK-NEXT:      return
 func.func @sparse_convert_1d_ss(%arg0: tensor<?xf32, #SparseVector64>) -> tensor<?xf32, #SparseVector32> {
   %0 = sparse_tensor.convert %arg0 : tensor<?xf32, #SparseVector64> to tensor<?xf32, #SparseVector32>
   return %0 : tensor<?xf32, #SparseVector32>
 }
 
-// CHECK-COO-LABEL: func @sparse_convert(
-//  CHECK-COO-SAME: %[[A:.*]]: !llvm.ptr<i8>)
-//  CHECK-COO-DAG:  %[[ToCOO:.*]] = arith.constant 5 : i32
-//  CHECK-COO-DAG:  %[[FromCOO:.*]] = arith.constant 2 : i32
-//   CHECK-COO-DAG: %[[P:.*]] = memref.alloca() : memref<1xi8>
-//   CHECK-COO-DAG: %[[Q:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-COO-DAG: %[[R:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-COO-DAG: %[[X:.*]] = memref.cast %[[P]] : memref<1xi8> to memref<?xi8>
-//   CHECK-COO-DAG: %[[Y:.*]] = memref.cast %[[Q]] : memref<1xindex> to memref<?xindex>
-//   CHECK-COO-DAG: %[[Z:.*]] = memref.cast %[[R]] : memref<1xindex> to memref<?xindex>
-//       CHECK-COO: %[[C:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[ToCOO]], %[[A]])
-//       CHECK-COO: %[[T:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[FromCOO]], %[[C]])
-//       CHECK-COO: call @delSparseTensorCOOF32(%[[C]])
-//       CHECK-COO: return %[[T]] : !llvm.ptr<i8>
-// CHECK-AUTO-LABEL: func @sparse_convert(
-//  CHECK-AUTO-SAME: %[[A:.*]]: !llvm.ptr<i8>)
-//   CHECK-AUTO-DAG: %[[SparseToSparse:.*]] = arith.constant 3 : i32
-//   CHECK-AUTO-DAG: %[[P:.*]] = memref.alloca() : memref<1xi8>
-//   CHECK-AUTO-DAG: %[[Q:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-AUTO-DAG: %[[R:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-AUTO-DAG: %[[X:.*]] = memref.cast %[[P]] : memref<1xi8> to memref<?xi8>
-//   CHECK-AUTO-DAG: %[[Y:.*]] = memref.cast %[[Q]] : memref<1xindex> to memref<?xindex>
-//   CHECK-AUTO-DAG: %[[Z:.*]] = memref.cast %[[R]] : memref<1xindex> to memref<?xindex>
-//       CHECK-AUTO: %[[T:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[SparseToSparse]], %[[A]])
-//       CHECK-AUTO: return %[[T]] : !llvm.ptr<i8>
+// CHECK-LABEL:   func.func @sparse_convert(
+// CHECK-NEXT:      sparse_tensor.convert
+// CHECK-NEXT:      return
 func.func @sparse_convert(%arg0: tensor<?xf32, #SparseVector64>) -> tensor<?xf32, #SparseVector32> {
   %0 = sparse_tensor.convert %arg0 : tensor<?xf32, #SparseVector64> to tensor<?xf32, #SparseVector32>
   return %0 : tensor<?xf32, #SparseVector32>
 }
 
-#SparseSingleton64 = #sparse_tensor.encoding<{
-  dimLevelType = ["singleton"],
-  pointerBitWidth = 64,
-  indexBitWidth = 64
-}>
+// CHECK-LABEL:   func.func @sparse_convert_permuted
+// CHECK:           sparse_tensor.foreach
+// CHECK:             tensor.insert
+// CHECK:           sparse_tensor.load
+// CHECK:           sparse_tensor.reorder_coo
+// CHECK:           sparse_tensor.foreach
+// CHECK:             tensor.insert
+// CHECK:           sparse_tensor.load
+// CHECK:           return
+func.func @sparse_convert_permuted(%arg0: tensor<?x?x?xf32, #SortedCOO3D>) -> tensor<?x?x?xf32, #TsssPermuted> {
+  %0 = sparse_tensor.convert %arg0 : tensor<?x?x?xf32, #SortedCOO3D> to tensor<?x?x?xf32, #TsssPermuted>
+  return %0 : tensor<?x?x?xf32, #TsssPermuted>
+}
 
-#SparseSingleton32 = #sparse_tensor.encoding<{
-  dimLevelType = ["singleton"],
-  pointerBitWidth = 32,
-  indexBitWidth = 32
-}>
-
-// CHECK-COO-LABEL: func @sparse_convert_singleton(
-//  CHECK-COO-SAME: %[[A:.*]]: !llvm.ptr<i8>)
-//  CHECK-COO-DAG:  %[[ToCOO:.*]] = arith.constant 5 : i32
-//  CHECK-COO-DAG:  %[[FromCOO:.*]] = arith.constant 2 : i32
-//   CHECK-COO-DAG: %[[P:.*]] = memref.alloca() : memref<1xi8>
-//   CHECK-COO-DAG: %[[Q:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-COO-DAG: %[[R:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-COO-DAG: %[[X:.*]] = memref.cast %[[P]] : memref<1xi8> to memref<?xi8>
-//   CHECK-COO-DAG: %[[Y:.*]] = memref.cast %[[Q]] : memref<1xindex> to memref<?xindex>
-//   CHECK-COO-DAG: %[[Z:.*]] = memref.cast %[[R]] : memref<1xindex> to memref<?xindex>
-//       CHECK-COO: %[[C:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[ToCOO]], %[[A]])
-//       CHECK-COO: %[[T:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[FromCOO]], %[[C]])
-//       CHECK-COO: call @delSparseTensorCOOF32(%[[C]])
-//       CHECK-COO: return %[[T]] : !llvm.ptr<i8>
-// CHECK-AUTO-LABEL: func @sparse_convert_singleton(
-//  CHECK-AUTO-SAME: %[[A:.*]]: !llvm.ptr<i8>)
-//   CHECK-AUTO-DAG: %[[SparseToSparse:.*]] = arith.constant 3 : i32
-//   CHECK-AUTO-DAG: %[[P:.*]] = memref.alloca() : memref<1xi8>
-//   CHECK-AUTO-DAG: %[[Q:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-AUTO-DAG: %[[R:.*]] = memref.alloca() : memref<1xindex>
-//   CHECK-AUTO-DAG: %[[X:.*]] = memref.cast %[[P]] : memref<1xi8> to memref<?xi8>
-//   CHECK-AUTO-DAG: %[[Y:.*]] = memref.cast %[[Q]] : memref<1xindex> to memref<?xindex>
-//   CHECK-AUTO-DAG: %[[Z:.*]] = memref.cast %[[R]] : memref<1xindex> to memref<?xindex>
-//       CHECK-AUTO: %[[T:.*]] = call @newSparseTensor(%[[X]], %[[Y]], %[[Z]], %{{.*}}, %{{.*}}, %{{.*}}, %[[SparseToSparse]], %[[A]])
-//       CHECK-AUTO: return %[[T]] : !llvm.ptr<i8>
-func.func @sparse_convert_singleton(%arg0: tensor<?xf32, #SparseSingleton64>) -> tensor<?xf32, #SparseSingleton32> {
-  %0 = sparse_tensor.convert %arg0 : tensor<?xf32, #SparseSingleton64> to tensor<?xf32, #SparseSingleton32>
-  return %0 : tensor<?xf32, #SparseSingleton32>
+// CHECK-LABEL:   func.func @sparse_convert_slice
+// CHECK:           sparse_tensor.foreach
+// CHECK:             tensor.insert
+// CHECK:           sparse_tensor.load
+// CHECK-NOT:       sparse_tensor.reorder_coo
+// CHECK:           return
+func.func @sparse_convert_slice(%arg0: tensor<2x13xi32, #COOSlice>) -> (tensor<2x13xi32, #SortedCOO2D>)  {
+  %0 = sparse_tensor.convert %arg0 : tensor<2x13xi32, #COOSlice> to tensor<2x13xi32, #SortedCOO2D>
+  return %0 : tensor<2x13xi32, #SortedCOO2D>
 }

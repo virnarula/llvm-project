@@ -4,7 +4,9 @@ namespace PR47043 {
   template<typename T> concept True = true;
   template<typename ...T> concept AllTrue1 = True<T>; // expected-error {{expression contains unexpanded parameter pack 'T'}}
   template<typename ...T> concept AllTrue2 = (True<T> && ...);
+  template<typename ...T> concept AllTrue3 = (bool)(True<T> & ...);
   static_assert(AllTrue2<int, float, char>);
+  static_assert(AllTrue3<int, float, char>);
 }
 
 namespace PR47025 {
@@ -53,10 +55,15 @@ namespace PR45699 {
 }
 
 namespace P0857R0 {
+  template <typename T> static constexpr bool V = true;
+
   void f() {
     auto x = []<bool B> requires B {}; // expected-note {{constraints not satisfied}} expected-note {{false}}
     x.operator()<true>();
     x.operator()<false>(); // expected-error {{no matching member function}}
+
+    auto y = []<typename T> requires V<T> () {};
+    y.operator()<int>(); // OK
   }
 
   template<typename T> concept C = true;
@@ -112,7 +119,7 @@ namespace PackInTypeConstraint {
     []() -> C<T> auto{ return T(); }(); // expected-error {{expression contains unexpanded parameter pack 'T'}}
   }
   template<typename ...T> void g5() {
-    ([]() -> C<T> auto{ // expected-error-re {{deduced type {{.*}} does not satisfy}}
+    ([]() -> C<T> auto{ // expected-error-re {{deduced type {{.*}} does not satisfy}} expected-note {{while substituting into a lambda}}
      return T();
      }(), ...);
   }
@@ -403,8 +410,8 @@ void SingleDepthReferencesTopCalled(U &&u) {
 
 template <typename U>
 void SingleDepthReferencesTopLambda(U &&u) {
-  []()
-    requires IsInt<decltype(u)>
+  []() // #SDRTL_OP
+    requires IsInt<decltype(u)> // #SDRTL_REQ
   {}();
 }
 
@@ -427,8 +434,8 @@ void DoubleDepthReferencesTop(U &&u) {
 
 template <typename U>
 void DoubleDepthReferencesTopLambda(U &&u) {
-  []() { []()
-           requires IsInt<decltype(u)>
+  []() { []() // #DDRTL_OP
+           requires IsInt<decltype(u)> // #DDRTL_REQ
          {}(); }();
 }
 
@@ -452,10 +459,11 @@ void DoubleDepthReferencesAll(U &&u) {
 
 template <typename U>
 void DoubleDepthReferencesAllLambda(U &&u) {
-  [](U &&u2) {
-    [](U && u3)
-      requires IsInt<decltype(u)> &&
-               IsInt<decltype(u2)> && IsInt<decltype(u3)>
+  [](U &&u2) { // #DDRAL_OP1
+    [](U && u3) // #DDRAL_OP2
+      requires IsInt<decltype(u)> // #DDRAL_REQ
+            && IsInt<decltype(u2)>
+            && IsInt<decltype(u3)>
     {}(u2);
   }(u);
 }
@@ -477,8 +485,8 @@ struct CausesFriendConstraint {
 template <typename T>
 void ChecksLocalVar(T x) {
   T Local;
-  []()
-    requires(IsInt<decltype(Local)>)
+  []() // #CLV_OP
+    requires(IsInt<decltype(Local)>) // #CLV_REQ
   {}();
 }
 
@@ -520,8 +528,12 @@ void test_dependent() {
   SingleDepthReferencesTopNotCalled(will_fail);
   SingleDepthReferencesTopCalled(v); // #SDRTC
   SingleDepthReferencesTopLambda(v);
-  // FIXME: This should error on constraint failure! (Lambda!)
   SingleDepthReferencesTopLambda(will_fail);
+  // expected-note@-1{{in instantiation of function template specialization}}
+  // expected-error@#SDRTL_OP{{no matching function for call to object of type}}
+  // expected-note@#SDRTL_OP{{candidate function not viable: constraints not satisfied}}
+  // expected-note@#SDRTL_REQ{{because 'IsInt<decltype(u)>' evaluated to false}}
+
   DoubleDepthReferencesTop(v);
   DoubleDepthReferencesTop(will_fail);
   // expected-error@#DDRT_CALL{{no matching function for call to object of type 'lc2'}}
@@ -531,8 +543,12 @@ void test_dependent() {
   // expected-note@#DDRT_REQ{{'IsInt<decltype(u)>' evaluated to false}}
 
   DoubleDepthReferencesTopLambda(v);
-  // FIXME: This should error on constraint failure! (Lambda!)
   DoubleDepthReferencesTopLambda(will_fail);
+  // expected-note@-1{{in instantiation of function template specialization}}
+  // expected-error@#DDRTL_OP{{no matching function for call to object of type}}
+  // expected-note@#DDRTL_OP{{candidate function not viable: constraints not satisfied}}
+  // expected-note@#DDRTL_OP{{while substituting into a lambda expression here}}
+  // expected-note@#DDRTL_REQ{{because 'IsInt<decltype(u)>' evaluated to false}}
   DoubleDepthReferencesAll(v);
   DoubleDepthReferencesAll(will_fail);
   // expected-error@#DDRA_CALL{{no matching function for call to object of type 'lc2'}}
@@ -542,8 +558,12 @@ void test_dependent() {
   // expected-note@#DDRA_REQ{{'IsInt<decltype(u)>' evaluated to false}}
 
   DoubleDepthReferencesAllLambda(v);
-  // FIXME: This should error on constraint failure! (Lambda!)
   DoubleDepthReferencesAllLambda(will_fail);
+  // expected-note@-1{{in instantiation of function template specialization}}
+  // expected-note@#DDRAL_OP1{{while substituting into a lambda expression here}}
+  // expected-error@#DDRAL_OP2{{no matching function for call to object of type}}
+  // expected-note@#DDRAL_OP2{{candidate function not viable: constraints not satisfied}}
+  // expected-note@#DDRAL_REQ{{because 'IsInt<decltype(u)>' evaluated to false}}
 
   CausesFriendConstraint<int> CFC;
   FriendFunc(CFC, 1);
@@ -556,8 +576,13 @@ void test_dependent() {
   // ChecksCapture(v);
 
   ChecksLocalVar(v);
-  // FIXME: This should error on constraint failure! (Lambda!)
   ChecksLocalVar(will_fail);
+  // expected-note@-1{{in instantiation of function template specialization}}
+  // expected-error@#CLV_OP{{no matching function for call to object of type}}
+  // expected-note@#CLV_OP{{candidate function not viable: constraints not satisfied}}
+  // expected-note@#CLV_REQ{{because 'IsInt<decltype(Local)>' evaluated to false}}
+
+
 
   LocalStructMemberVar(v);
   LocalStructMemberVar(will_fail);
@@ -694,6 +719,18 @@ namespace SelfFriend {
 } // namespace SelfFriend
 
 
+namespace Surrogates {
+int f1(int);
+template <auto N>
+struct A {
+    using F = int(int);
+    operator F*() requires N { return f1; } // expected-note{{conversion candidate 'operator int (*)(int)' not viable: constraints not satisfied}}
+};
+int i = A<true>{}(0);
+int j = A<false>{}(0); // expected-error{{no matching function for call to object of type 'A<false>'}}
+}
+
+
 namespace ConstrainedMemberVarTemplate {
 template <long Size> struct Container {
   static constexpr long arity = Size;
@@ -764,3 +801,287 @@ void use2() {
   __iterator_traits_member_pointer_or_arrow_or_void<counted_iterator<int>> f;
 }
 }// namespace InheritedFromPartialSpec
+
+namespace GH48182 {
+template<typename, typename..., typename = int> // expected-error{{template parameter pack must be the last template parameter}}
+concept invalid = true;
+
+template<typename> requires invalid<int> // expected-error{{use of undeclared identifier 'invalid'}}
+no errors are printed
+;
+
+static_assert(invalid<int> also here ; // expected-error{{use of undeclared identifier 'invalid'}}
+
+int foo() {
+    bool b;
+    b = invalid<int> not just in declarations; // expected-error{{expected ';' after expression}}
+                                               // expected-error@-1{{use of undeclared identifier 'invalid'}}
+                                               // expected-error@-2{{expected ';' after expression}}
+                                               // expected-error@-3{{use of undeclared identifier 'just'}}
+                                               // expected-error@-4{{unknown type name 'in'}}
+    return b;
+}
+} // namespace GH48182
+
+namespace GH61777 {
+template<class T> concept C = sizeof(T) == 4; // #61777_C
+template<class T, class U> concept C2 = sizeof(T) == sizeof(U); //#61777_C2
+
+template<class T>
+struct Parent {
+  template<class, C auto> struct TakesUnary { static const int i = 0 ; }; // #UNARY
+  template<class, C2<T> auto> struct TakesBinary { static const int i = 0 ; }; //#BINARY
+};
+
+static_assert(Parent<void>::TakesUnary<int, 0>::i == 0);
+// expected-error@+3{{constraints not satisfied for class template 'TakesUnary'}}
+// expected-note@#UNARY{{because 'decltype(0ULL)' (aka 'unsigned long long') does not satisfy 'C'}}
+// expected-note@#61777_C{{because 'sizeof(unsigned long long) == 4' (8 == 4) evaluated to false}}
+static_assert(Parent<void>::TakesUnary<int, 0uLL>::i == 0);
+
+static_assert(Parent<int>::TakesBinary<int, 0>::i == 0);
+// expected-error@+3{{constraints not satisfied for class template 'TakesBinary'}}
+// expected-note@#BINARY{{because 'C2<decltype(0ULL), int>' evaluated to false}}
+// expected-note@#61777_C2{{because 'sizeof(unsigned long long) == sizeof(int)' (8 == 4) evaluated to false}}
+static_assert(Parent<int>::TakesBinary<int, 0ULL>::i == 0);
+}
+
+namespace TemplateInsideNonTemplateClass {
+template<typename T, typename U> concept C = true;
+
+template<typename T> auto L = []<C<T> U>() {};
+
+struct Q {
+  template<C<int> U> friend constexpr auto decltype(L<int>)::operator()() const;
+};
+
+template <class T>
+concept C1 = false;
+
+struct Foo {
+  template <typename>
+  struct Bar {};
+
+  template <typename T>
+    requires(C1<T>)
+  struct Bar<T>;
+};
+
+Foo::Bar<int> BarInstance;
+} // namespace TemplateInsideNonTemplateClass
+
+namespace GH61959 {
+template <typename T0>
+concept C = (sizeof(T0) >= 4);
+
+template<typename...>
+struct Orig { };
+
+template<typename T>
+struct Orig<T> {
+  template<typename> requires C<T>
+  void f() { }
+
+  template<typename> requires true
+  void f() { }
+};
+
+template <typename...> struct Mod {};
+
+template <typename T1, typename T2>
+struct Mod<T1, T2> {
+  template <typename> requires C<T1>
+  constexpr static int f() { return 1; }
+
+  template <typename> requires C<T2>
+  constexpr static int f() { return 2; }
+};
+
+static_assert(Mod<int, char>::f<double>() == 1);
+static_assert(Mod<char, int>::f<double>() == 2);
+
+template<typename T>
+struct Outer {
+  template<typename ...>
+  struct Inner {};
+
+  template<typename U>
+  struct Inner<U> {
+    template<typename V>
+    void foo()  requires C<U> && C<T> && C<V>{}
+    template<typename V>
+    void foo()  requires true{}
+  };
+};
+
+void bar() {
+  Outer<int>::Inner<float> I;
+  I.foo<char>();
+}
+} // namespace GH61959
+
+
+namespace TemplateInsideTemplateInsideTemplate {
+template<typename T>
+concept C1 = false;
+
+template <unsigned I0>
+struct W0 {
+  template <unsigned I1>
+  struct W1 {
+    template <typename T>
+    struct F {
+      enum { value = 1 };
+    };
+
+    template <typename T>
+      requires C1<T>
+    struct F<T> {
+      enum { value = 2 };
+    };
+  };
+};
+
+static_assert(W0<0>::W1<1>::F<int>::value == 1);
+} // TemplateInsideTemplateInsideTemplate
+
+
+namespace GH63181 {
+
+template<auto N, class T> void f() {
+auto l = []() requires N { }; // expected-note 2{{candidate function not viable: constraints not satisfied}} \
+                              // expected-note 2{{because 'false' evaluated to false}}
+
+l();
+// expected-error@-1 {{no matching function for call to object of type}}
+void(*ptr)() = l;
+// expected-error-re@-1 {{no viable conversion from '(lambda {{.*}})' to 'void (*)()'}}
+}
+
+template void f<false, int>(); // expected-note {{in instantiation of function template specialization 'GH63181::f<false, int>' requested here}}
+template void f<true, int>();
+
+template<class T> concept C = __is_same(T, int); // expected-note{{because '__is_same(char, int)' evaluated to false}}
+
+template<class... Ts> void f() {
+  ([]() requires C<Ts> { return Ts(); }(), ...);
+  // expected-error@-1 {{no matching function for call to object of type}} \
+  // expected-note@-1 {{candidate function not viable: constraints not satisfied}} \
+  // expected-note@-1 {{because 'char' does not satisfy 'C'}}
+}
+
+template void f<int, int, int>();
+template void f<int, int, char>();
+//expected-note@-1{{in instantiation of function template specialization 'GH63181::f<int, int, char>' requested here}}
+
+
+template <typename T, bool IsTrue>
+concept Test = IsTrue; // expected-note 2{{because 'false' evaluated to false}}
+
+template <typename T, bool IsTrue>
+void params() {
+    auto l = [](T t)  // expected-note 2{{candidate function not viable: constraints not satisfied}}
+    requires Test<decltype(t), IsTrue> // expected-note 2{{because 'Test<decltype(t), false>' evaluated to false}}
+    {};
+    using F = void(T);
+    F* f = l; // expected-error {{no viable conversion from}}
+    l(0); // expected-error {{no matching function for call to object}}
+}
+
+void test_params() {
+    params<int, true>();
+    params<int, false>(); // expected-note {{in instantiation of function template specialization 'GH63181::params<int, false>' requested here}}
+}
+
+}
+
+namespace GH54678 {
+template<class>
+concept True = true;
+
+template<class>
+concept False = false; // expected-note 9 {{'false' evaluated to false}}
+
+template<class>
+concept Irrelevant = false;
+
+template <typename T>
+concept ErrorRequires = requires(ErrorRequires auto x) { x; }; // expected-error {{unknown type name 'ErrorRequires'}}
+
+template<class T> void aaa(T t) // expected-note {{candidate template ignored: constraints not satisfied}}
+requires (False<T> || False<T>) || False<T> {} // expected-note 3 {{'int' does not satisfy 'False'}}
+template<class T> void bbb(T t) // expected-note {{candidate template ignored: constraints not satisfied}}
+requires (False<T> || False<T>) && True<T> {} // expected-note 2 {{'long' does not satisfy 'False'}}
+template<class T> void ccc(T t) // expected-note {{candidate template ignored: constraints not satisfied}}
+requires (True<T> || Irrelevant<T>) && False<T> {} // expected-note {{'unsigned long' does not satisfy 'False'}}
+template<class T> void ddd(T t) // expected-note {{candidate template ignored: constraints not satisfied}}
+requires (Irrelevant<T> || True<T>) && False<T> {} // expected-note {{'int' does not satisfy 'False'}}
+template<class T> void eee(T t) // expected-note {{candidate template ignored: constraints not satisfied}}
+requires (Irrelevant<T> || Irrelevant<T> || True<T>) && False<T> {} // expected-note {{'long' does not satisfy 'False'}}
+
+template<class T> void fff(T t) // expected-note {{candidate template ignored: constraints not satisfied}}
+requires((ErrorRequires<T> || False<T> || True<T>) && False<T>) {} // expected-note {{'unsigned long' does not satisfy 'False'}}
+
+void test() {
+    aaa(42); // expected-error {{no matching function}}
+    bbb(42L); // expected-error{{no matching function}}
+    ccc(42UL); // expected-error {{no matching function}}
+    ddd(42); // expected-error {{no matching function}}
+    eee(42L); // expected-error {{no matching function}}
+    fff(42UL); // expected-error {{no matching function}}
+}
+}
+
+namespace GH66612 {
+  template<typename C>
+    auto end(C c) ->int;
+
+  template <typename T>
+    concept Iterator = true;
+
+  template <typename CT>
+    concept Container = requires(CT b) {
+        { end } -> Iterator; // #66612GH_END
+    };
+
+  static_assert(Container<int>);// expected-error{{static assertion failed}}
+  // expected-note@-1{{because 'int' does not satisfy 'Container'}}
+  // expected-note@#66612GH_END{{because 'end' would be invalid: reference to overloaded function could not be resolved; did you mean to call it?}}
+}
+
+namespace GH66938 {
+template <class>
+concept True = true;
+
+template <class>
+concept False = false;
+
+template <class T>
+void cand(T t)
+  requires False<T> || False<T> || False<T> || False<T> || False<T> ||
+           False<T> || False<T> || False<T> || False<T> || True<T>
+{}
+
+void test() { cand(42); }
+}
+
+namespace GH63837 {
+
+template<class> concept IsFoo = true;
+
+template<class> struct Struct {
+  template<IsFoo auto... xs>
+  void foo() {}
+
+  template<auto... xs> requires (... && IsFoo<decltype(xs)>)
+  void bar() {}
+
+  template<IsFoo auto... xs>
+  static inline int field = 0;
+};
+
+template void Struct<void>::foo<>();
+template void Struct<void>::bar<>();
+template int Struct<void>::field<1, 2>;
+
+}

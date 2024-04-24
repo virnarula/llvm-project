@@ -150,6 +150,10 @@ std::ostream &operator<<(std::ostream &os, const bf16 &d) {
   return os;
 }
 
+bool operator==(const f16 &f1, const f16 &f2) { return f1.bits == f2.bits; }
+
+bool operator==(const bf16 &f1, const bf16 &f2) { return f1.bits == f2.bits; }
+
 // Mark these symbols as weak so they don't conflict when compiler-rt also
 // defines them.
 #define ATTR_WEAK
@@ -190,6 +194,18 @@ extern "C" BF16ABIType ATTR_WEAK __truncdfbf2(double d) {
   // This does a double rounding step, but it's precise enough for our use
   // cases.
   return __truncsfbf2(static_cast<float>(d));
+}
+
+// Provide these to the CRunner with the local float16 knowledge.
+extern "C" void printF16(uint16_t bits) {
+  f16 f;
+  std::memcpy(&f, &bits, sizeof(f16));
+  std::cout << f;
+}
+extern "C" void printBF16(uint16_t bits) {
+  bf16 f;
+  std::memcpy(&f, &bits, sizeof(bf16));
+  std::cout << f;
 }
 
 #endif // MLIR_FLOAT16_DEFINE_FUNCTIONS

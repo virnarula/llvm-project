@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Linalg/Analysis/DependenceAnalysis.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -61,9 +60,9 @@ mlir::linalg::interchangeGenericOp(RewriterBase &rewriter, GenericOp genericOp,
   assert(permutationMap && "unexpected null map");
 
   // Start a guarded inplace update.
-  rewriter.startRootUpdate(genericOp);
-  auto guard =
-      llvm::make_scope_exit([&]() { rewriter.finalizeRootUpdate(genericOp); });
+  rewriter.startOpModification(genericOp);
+  auto guard = llvm::make_scope_exit(
+      [&]() { rewriter.finalizeOpModification(genericOp); });
 
   // 2. Compute the interchanged indexing maps.
   SmallVector<AffineMap> newIndexingMaps;
@@ -73,8 +72,8 @@ mlir::linalg::interchangeGenericOp(RewriterBase &rewriter, GenericOp genericOp,
       m = m.compose(permutationMap);
     newIndexingMaps.push_back(m);
   }
-  genericOp->setAttr(getIndexingMapsAttrName(),
-                     rewriter.getAffineMapArrayAttr(newIndexingMaps));
+  genericOp.setIndexingMapsAttr(
+      rewriter.getAffineMapArrayAttr(newIndexingMaps));
 
   // 3. Compute the interchanged iterator types.
   ArrayRef<Attribute> itTypes = genericOp.getIteratorTypes().getValue();
@@ -83,8 +82,7 @@ mlir::linalg::interchangeGenericOp(RewriterBase &rewriter, GenericOp genericOp,
   SmallVector<int64_t> permutation(interchangeVector.begin(),
                                    interchangeVector.end());
   applyPermutationToVector(itTypesVector, permutation);
-  genericOp->setAttr(getIteratorTypesAttrName(),
-                     ArrayAttr::get(context, itTypesVector));
+  genericOp.setIteratorTypesAttr(rewriter.getArrayAttr(itTypesVector));
 
   // 4. Transform the index operations by applying the permutation map.
   if (genericOp.hasIndexSemantics()) {
@@ -98,7 +96,7 @@ mlir::linalg::interchangeGenericOp(RewriterBase &rewriter, GenericOp genericOp,
                       std::back_inserter(allIndices), [&](uint64_t dim) {
                         return rewriter.create<IndexOp>(indexOp->getLoc(), dim);
                       });
-      rewriter.replaceOpWithNewOp<AffineApplyOp>(
+      rewriter.replaceOpWithNewOp<affine::AffineApplyOp>(
           indexOp, permutationMap.getSubMap(indexOp.getDim()), allIndices);
     }
   }

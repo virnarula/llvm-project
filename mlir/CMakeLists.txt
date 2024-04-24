@@ -1,5 +1,5 @@
 # MLIR project.
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.20.0)
 
 if(NOT DEFINED LLVM_COMMON_CMAKE_UTILS)
   set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
@@ -15,6 +15,7 @@ endif()
 
 # Must go below project(..)
 include(GNUInstallDirs)
+set(CMAKE_CXX_STANDARD 17)
 
 if(MLIR_STANDALONE_BUILD)
   find_package(LLVM CONFIG REQUIRED)
@@ -25,11 +26,9 @@ if(MLIR_STANDALONE_BUILD)
 
   include_directories(${LLVM_INCLUDE_DIRS})
 
-  set(LLVM_MAIN_SRC_DIR ${CMAKE_SOURCE_DIR}/../llvm CACHE PATH
-      "Path to LLVM source tree")
-  set(UNITTEST_DIR ${LLVM_MAIN_SRC_DIR}/utils/unittest)
+  set(UNITTEST_DIR ${LLVM_THIRD_PARTY_DIR}/unittest)
   if(EXISTS ${UNITTEST_DIR}/googletest/include/gtest/gtest.h)
-    add_subdirectory(${UNITTEST_DIR} utils/unittest)
+    add_subdirectory(${UNITTEST_DIR} third-party/unittest)
   endif()
 
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY
@@ -78,6 +77,15 @@ check_c_compiler_flag("-Werror=mismatched-tags" C_SUPPORTS_WERROR_MISMATCHED_TAG
 append_if(C_SUPPORTS_WERROR_MISMATCHED_TAGS "-Werror=mismatched-tags" CMAKE_C_FLAGS)
 append_if(C_SUPPORTS_WERROR_MISMATCHED_TAGS "-Werror=mismatched-tags" CMAKE_CXX_FLAGS)
 
+# Silence a false positive GCC -Wunused-but-set-parameter warning in constexpr
+# cases, by marking SelectedCase as used. See
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=85827 for details. The issue is
+# fixed in GCC 10.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0")
+  check_cxx_compiler_flag("-Wno-unused-but-set-parameter" CXX_SUPPORTS_WNO_UNUSED_BUT_SET_PARAMETER)
+  append_if(CXX_SUPPORTS_WNO_UNUSED_BUT_SET_PARAMETER "-Wno-unused-but-set-parameter" CMAKE_CXX_FLAGS)
+endif()
+
 # Installing the headers and docs needs to depend on generating any public
 # tablegen'd targets.
 # mlir-generic-headers are dialect-independent.
@@ -98,7 +106,7 @@ endif()
 
 # Build the CUDA conversions and run according tests if the NVPTX backend
 # is available
-if ("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD AND MLIR_ENABLE_EXECUTION_ENGINE)
+if ("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD)
   set(MLIR_ENABLE_CUDA_CONVERSIONS 1)
 else()
   set(MLIR_ENABLE_CUDA_CONVERSIONS 0)
@@ -108,17 +116,24 @@ add_definitions(-DMLIR_CUDA_CONVERSIONS_ENABLED=${MLIR_ENABLE_CUDA_CONVERSIONS})
 
 # Build the ROCm conversions and run according tests if the AMDGPU backend
 # is available.
-if ("AMDGPU" IN_LIST LLVM_TARGETS_TO_BUILD AND MLIR_ENABLE_EXECUTION_ENGINE)
+if ("AMDGPU" IN_LIST LLVM_TARGETS_TO_BUILD)
   set(MLIR_ENABLE_ROCM_CONVERSIONS 1)
 else()
   set(MLIR_ENABLE_ROCM_CONVERSIONS 0)
 endif()
 add_definitions(-DMLIR_ROCM_CONVERSIONS_ENABLED=${MLIR_ENABLE_ROCM_CONVERSIONS})
 
+set(MLIR_ENABLE_DEPRECATED_GPU_SERIALIZATION 0 CACHE BOOL "Enable deprecated GPU serialization passes")
 set(MLIR_ENABLE_CUDA_RUNNER 0 CACHE BOOL "Enable building the mlir CUDA runner")
 set(MLIR_ENABLE_ROCM_RUNNER 0 CACHE BOOL "Enable building the mlir ROCm runner")
+set(MLIR_ENABLE_SYCL_RUNNER 0 CACHE BOOL "Enable building the mlir Sycl runner")
 set(MLIR_ENABLE_SPIRV_CPU_RUNNER 0 CACHE BOOL "Enable building the mlir SPIR-V cpu runner")
 set(MLIR_ENABLE_VULKAN_RUNNER 0 CACHE BOOL "Enable building the mlir Vulkan runner")
+set(MLIR_ENABLE_NVPTXCOMPILER 0 CACHE BOOL
+    "Statically link the nvptxlibrary instead of calling ptxas as a subprocess \
+    for compiling PTX to cubin")
+
+set(MLIR_ENABLE_PDL_IN_PATTERNMATCH 1 CACHE BOOL "Enable PDL in PatternMatch")
 
 option(MLIR_INCLUDE_TESTS
        "Generate build targets for the MLIR unit tests."
@@ -134,6 +149,10 @@ set(MLIR_INSTALL_AGGREGATE_OBJECTS 1 CACHE BOOL
     under lib/objects-{CMAKE_BUILD_TYPE}.")
 
 set(MLIR_BUILD_MLIR_C_DYLIB 0 CACHE BOOL "Builds libMLIR-C shared library.")
+
+configure_file(
+  ${MLIR_MAIN_INCLUDE_DIR}/mlir/Config/mlir-config.h.cmake
+  ${MLIR_INCLUDE_DIR}/mlir/Config/mlir-config.h)
 
 #-------------------------------------------------------------------------------
 # Python Bindings Configuration
@@ -161,10 +180,9 @@ include_directories( ${MLIR_INCLUDE_DIR})
 # Adding tools/mlir-tblgen here as calling add_tablegen sets some variables like
 # MLIR_TABLEGEN_EXE in PARENT_SCOPE which gets lost if that folder is included
 # from another directory like tools
-add_subdirectory(tools/mlir-tblgen)
 add_subdirectory(tools/mlir-linalg-ods-gen)
 add_subdirectory(tools/mlir-pdll)
-
+add_subdirectory(tools/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE "${MLIR_TABLEGEN_EXE}" CACHE INTERNAL "")
 set(MLIR_TABLEGEN_TARGET "${MLIR_TABLEGEN_TARGET}" CACHE INTERNAL "")
 set(MLIR_PDLL_TABLEGEN_EXE "${MLIR_PDLL_TABLEGEN_EXE}" CACHE INTERNAL "")
@@ -178,7 +196,7 @@ add_subdirectory(lib/CAPI)
 if (MLIR_INCLUDE_TESTS)
   add_definitions(-DMLIR_INCLUDE_TESTS)
   add_custom_target(MLIRUnitTests)
-  if (EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include/gtest/gtest.h)
+  if (EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include/gtest/gtest.h)
     add_subdirectory(unittests)
   else()
     message(WARNING "gtest not found, unittests will not be available")

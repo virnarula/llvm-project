@@ -64,7 +64,7 @@ bool forAllReachableExits(const DominatorTree &DT, const PostDominatorTree &PDT,
     // sure that the return is covered. Otherwise, we can check whether there
     // is a way to reach the RI from the start of the lifetime without passing
     // through an end.
-    if (EndBlocks.count(RI->getParent()) > 0 ||
+    if (EndBlocks.contains(RI->getParent()) ||
         !isPotentiallyReachable(Start, RI, &EndBlocks, &DT, &LI)) {
       ++NumCoveredExits;
     }
@@ -174,7 +174,7 @@ bool StackInfoBuilder::isInterestingAlloca(const AllocaInst &AI) {
 
 uint64_t getAllocaSizeInBytes(const AllocaInst &AI) {
   auto DL = AI.getModule()->getDataLayout();
-  return *AI.getAllocationSizeInBits(DL) / 8;
+  return *AI.getAllocationSize(DL);
 }
 
 void alignAndPadAlloca(memtag::AllocaInfo &Info, llvm::Align Alignment) {
@@ -204,7 +204,12 @@ void alignAndPadAlloca(memtag::AllocaInfo &Info, llvm::Align Alignment) {
   NewAI->setSwiftError(Info.AI->isSwiftError());
   NewAI->copyMetadata(*Info.AI);
 
-  auto *NewPtr = new BitCastInst(NewAI, Info.AI->getType(), "", Info.AI);
+  Value *NewPtr = NewAI;
+
+  // TODO: Remove when typed pointers dropped
+  if (Info.AI->getType() != NewAI->getType())
+    NewPtr = new BitCastInst(NewAI, Info.AI->getType(), "", Info.AI);
+
   Info.AI->replaceAllUsesWith(NewPtr);
   Info.AI->eraseFromParent();
   Info.AI = NewAI;

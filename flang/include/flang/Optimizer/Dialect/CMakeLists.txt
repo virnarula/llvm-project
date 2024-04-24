@@ -18,6 +18,10 @@ set(LLVM_TARGET_DEFINITIONS FortranVariableInterface.td)
 mlir_tablegen(FortranVariableInterface.h.inc -gen-op-interface-decls)
 mlir_tablegen(FortranVariableInterface.cpp.inc -gen-op-interface-defs)
 
+set(LLVM_TARGET_DEFINITIONS FirAliasTagOpInterface.td)
+mlir_tablegen(FirAliasTagOpInterface.h.inc -gen-op-interface-decls)
+mlir_tablegen(FirAliasTagOpInterface.cpp.inc -gen-op-interface-defs)
+
 set(LLVM_TARGET_DEFINITIONS CanonicalizationPatterns.td)
 mlir_tablegen(CanonicalizationPatterns.inc -gen-rewriters)
 add_public_tablegen_target(CanonicalizationPatternsIncGen)
@@ -26,7 +30,7 @@ add_custom_target(flang-doc)
 set(dialect_doc_filename "FIRLangRef")
 
 set(LLVM_TARGET_DEFINITIONS FIROps.td)
-tablegen(MLIR ${dialect_doc_filename}.md -gen-op-doc "-I${MLIR_MAIN_SRC_DIR}" "-I${MLIR_INCLUDE_DIR}")
+tablegen(MLIR ${dialect_doc_filename}.md -gen-op-doc "-I${MLIR_INCLUDE_DIR}")
 set(GEN_DOC_FILE ${FLANG_BINARY_DIR}/docs/Dialect/${dialect_doc_filename}.md)
 add_custom_command(
         OUTPUT ${GEN_DOC_FILE}

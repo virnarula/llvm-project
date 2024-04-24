@@ -21,6 +21,7 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Expression/IRExecutionUnit.h"
+#include "lldb/Expression/ObjectFileJIT.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/SymbolContext.h"
@@ -36,7 +37,7 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 
-#include "lldb/../../source/Plugins/ObjectFile/JIT/ObjectFileJIT.h"
+#include <optional>
 
 using namespace lldb_private;
 
@@ -284,7 +285,7 @@ void IRExecutionUnit::GetRunnableInfo(Status &error, lldb::addr_t &func_addr,
       .setRelocationModel(triple.isOSBinFormatMachO() ? llvm::Reloc::PIC_
                                                       : llvm::Reloc::Static)
       .setMCJITMemoryManager(std::make_unique<MemoryManager>(*this))
-      .setOptLevel(llvm::CodeGenOpt::Less);
+      .setOptLevel(llvm::CodeGenOptLevel::Less);
 
   llvm::StringRef mArch;
   llvm::StringRef mCPU;
@@ -405,11 +406,11 @@ void IRExecutionUnit::GetRunnableInfo(Status &error, lldb::addr_t &func_addr,
     }
   };
 
-  for (llvm::GlobalVariable &global_var : m_module->getGlobalList()) {
+  for (llvm::GlobalVariable &global_var : m_module->globals()) {
     RegisterOneValue(global_var);
   }
 
-  for (llvm::GlobalAlias &global_alias : m_module->getAliasList()) {
+  for (llvm::GlobalAlias &global_alias : m_module->aliases()) {
     RegisterOneValue(global_alias);
   }
 
@@ -418,7 +419,7 @@ void IRExecutionUnit::GetRunnableInfo(Status &error, lldb::addr_t &func_addr,
   if (m_failed_lookups.size()) {
     StreamString ss;
 
-    ss.PutCString("Couldn't lookup symbols:\n");
+    ss.PutCString("Couldn't look up symbols:\n");
 
     bool emitNewLine = false;
 
@@ -536,7 +537,7 @@ lldb::SectionType IRExecutionUnit::GetSectionTypeFromSectionName(
       sect_type = lldb::eSectionTypeCode;
     else if (name.equals("__data") || name.equals(".data"))
       sect_type = lldb::eSectionTypeCode;
-    else if (name.startswith("__debug_") || name.startswith(".debug_")) {
+    else if (name.starts_with("__debug_") || name.starts_with(".debug_")) {
       const uint32_t name_idx = name[0] == '_' ? 8 : 7;
       llvm::StringRef dwarf_name(name.substr(name_idx));
       switch (dwarf_name[0]) {
@@ -595,7 +596,7 @@ lldb::SectionType IRExecutionUnit::GetSectionTypeFromSectionName(
       default:
         break;
       }
-    } else if (name.startswith("__apple_") || name.startswith(".apple_"))
+    } else if (name.starts_with("__apple_") || name.starts_with(".apple_"))
       sect_type = lldb::eSectionTypeInvalid;
     else if (name.equals("__objc_imageinfo"))
       sect_type = lldb::eSectionTypeOther;
@@ -702,9 +703,9 @@ public:
   LoadAddressResolver(Target *target, bool &symbol_was_missing_weak)
       : m_target(target), m_symbol_was_missing_weak(symbol_was_missing_weak) {}
 
-  llvm::Optional<lldb::addr_t> Resolve(SymbolContextList &sc_list) {
+  std::optional<lldb::addr_t> Resolve(SymbolContextList &sc_list) {
     if (sc_list.IsEmpty())
-      return llvm::None;
+      return std::nullopt;
 
     lldb::addr_t load_address = LLDB_INVALID_ADDRESS;
 
@@ -758,7 +759,7 @@ public:
     if (m_symbol_was_missing_weak)
       return 0;
 
-    return llvm::None;
+    return std::nullopt;
   }
 
   lldb::addr_t GetBestInternalLoadAddress() const {

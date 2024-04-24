@@ -1,4 +1,4 @@
-// RUN: mlir-opt %s -split-input-file -pass-pipeline='spirv.module(inline{default-pipeline=''})' | FileCheck %s
+// RUN: mlir-opt %s -split-input-file -pass-pipeline='builtin.module(spirv.module(inline{default-pipeline=''}))' | FileCheck %s
 
 spirv.module Logical GLSL450 {
   spirv.func @callee() "None" {
@@ -206,7 +206,7 @@ spirv.module Logical GLSL450 {
       // CHECK: [[STOREPTR:%.*]] = spirv.AccessChain [[ADDRESS_ARG1]]
       %7 = spirv.AccessChain %3[%1] : !spirv.ptr<!spirv.struct<(i32 [0])>, StorageBuffer>, i32
       // CHECK-NOT: spirv.FunctionCall
-      // CHECK: spirv.AtomicIAdd "Device" "AcquireRelease" [[STOREPTR]], [[VAL]]
+      // CHECK: spirv.AtomicIAdd <Device> <AcquireRelease> [[STOREPTR]], [[VAL]]
       // CHECK: spirv.Branch
       spirv.FunctionCall @atomic_add(%5, %7) : (i32, !spirv.ptr<i32, StorageBuffer>) -> ()
       spirv.Branch ^bb2
@@ -217,7 +217,7 @@ spirv.module Logical GLSL450 {
     spirv.Return
   }
   spirv.func @atomic_add(%arg0: i32, %arg1: !spirv.ptr<i32, StorageBuffer>) "None" {
-    %0 = spirv.AtomicIAdd "Device" "AcquireRelease" %arg1, %arg0 : !spirv.ptr<i32, StorageBuffer>
+    %0 = spirv.AtomicIAdd <Device> <AcquireRelease> %arg1, %arg0 : !spirv.ptr<i32, StorageBuffer>
     spirv.Return
   }
   spirv.EntryPoint "GLCompute" @inline_into_selection_region

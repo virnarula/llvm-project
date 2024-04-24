@@ -31,9 +31,9 @@ include "mlir/IR/OpBase.td"
 // DEF-NEXT: .Case(::test::IndexType::getMnemonic()
 // DEF-NEXT:   value = ::test::IndexType::parse(parser);
 // DEF-NEXT:   return ::mlir::success(!!value);
-// DEF: .Default([&](llvm::StringRef keyword, 
+// DEF: .Default([&](llvm::StringRef keyword,
 // DEF-NEXT:   *mnemonic = keyword;
-// DEF-NEXT:   return llvm::None; 
+// DEF-NEXT:   return std::nullopt;
 
 def Test_Dialect: Dialect {
 // DECL-NOT: TestDialect
@@ -45,6 +45,7 @@ class TestType<string name> : TypeDef<Test_Dialect, name> { }
 
 def A_SimpleTypeA : TestType<"SimpleA"> {
 // DECL: class SimpleAType : public ::mlir::Type
+  let typeName = "test.simple_a";
 }
 
 def RTLValueType : Type<CPred<"isRTLValueType($_self)">, "Type"> {
@@ -97,6 +98,7 @@ def C_IndexType : TestType<"Index"> {
 }
 
 def D_SingleParameterType : TestType<"SingleParameter"> {
+  let typeName = "test.d_single_parameter";
   let parameters = (ins
     "int": $num
   );

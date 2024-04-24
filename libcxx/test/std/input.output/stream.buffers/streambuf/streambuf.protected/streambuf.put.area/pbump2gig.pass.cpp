@@ -21,6 +21,10 @@
 // allocation failure when attempting to allocate the 2GiB string.
 // UNSUPPORTED: no-exceptions
 
+// Android devices frequently don't have enough memory to run this test. Rather
+// than throw std::bad_alloc, exhausting memory triggers the OOM Killer.
+// UNSUPPORTED: LIBCXX-ANDROID-FIXME
+
 #include <sstream>
 #include <cassert>
 #include "test_macros.h"

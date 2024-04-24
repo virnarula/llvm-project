@@ -18,8 +18,6 @@
 namespace mlir {
 
 // Forward declarations.
-class AffineApplyOp;
-class AffineForOp;
 class AffineMap;
 class Block;
 class Location;
@@ -30,48 +28,54 @@ class Value;
 class VectorType;
 class VectorTransferOpInterface;
 
+namespace affine {
+class AffineApplyOp;
+class AffineForOp;
+} // namespace affine
+
 namespace vector {
 /// Helper function that creates a memref::DimOp or tensor::DimOp depending on
 /// the type of `source`.
 Value createOrFoldDimOp(OpBuilder &b, Location loc, Value source, int64_t dim);
-} // namespace vector
 
-/// Return the number of elements of basis, `0` if empty.
-int64_t computeMaxLinearIndex(ArrayRef<int64_t> basis);
+/// Returns two dims that are greater than one if the transposition is applied
+/// on a 2D slice. Otherwise, returns a failure.
+FailureOr<std::pair<int, int>> isTranspose2DSlice(vector::TransposeOp op);
 
-/// Given the shape and sizes of a vector, returns the corresponding
-/// strides for each dimension.
-/// TODO: needs better doc of how it is used.
-SmallVector<int64_t, 4> computeStrides(ArrayRef<int64_t> shape,
-                                       ArrayRef<int64_t> sizes);
-
-/// Given the target sizes of a vector, together with vector-space offsets,
-/// returns the element-space offsets for each dimension.
-SmallVector<int64_t, 4>
-computeElementOffsetsFromVectorSliceOffsets(ArrayRef<int64_t> sizes,
-                                            ArrayRef<int64_t> vectorOffsets);
-
-/// Computes and returns the multi-dimensional ratio of `superShape` to
-/// `subShape`. This is calculated by performing a traversal from minor to major
-/// dimensions (i.e. in reverse shape order). If integral division is not
-/// possible, returns None.
-/// The ArrayRefs are assumed (and enforced) to only contain > 1 values.
-/// This constraint comes from the fact that they are meant to be used with
-/// VectorTypes, for which the property holds by construction.
+/// Return true if `vectorType` is a contiguous slice of `memrefType`.
 ///
-/// Examples:
-///   - shapeRatio({3, 4, 5, 8}, {2, 5, 2}) returns {3, 2, 1, 4}
-///   - shapeRatio({3, 4, 4, 8}, {2, 5, 2}) returns None
-///   - shapeRatio({1, 2, 10, 32}, {2, 5, 2}) returns {1, 1, 2, 16}
-Optional<SmallVector<int64_t, 4>> shapeRatio(ArrayRef<int64_t> superShape,
-                                             ArrayRef<int64_t> subShape);
+/// Only the N = vectorType.getRank() trailing dims of `memrefType` are
+/// checked (the other dims are not relevant). Note that for `vectorType` to be
+/// a contiguous slice of `memrefType`, the trailing dims of the latter have
+/// to be contiguous - this is checked by looking at the corresponding strides.
+///
+/// There might be some restriction on the leading dim of `VectorType`:
+///
+/// Case 1. If all the trailing dims of `vectorType` match the trailing dims
+///         of `memrefType` then the leading dim of `vectorType` can be
+///         arbitrary.
+///
+///        Ex. 1.1 contiguous slice, perfect match
+///          vector<4x3x2xi32> from memref<5x4x3x2xi32>
+///        Ex. 1.2 contiguous slice, the leading dim does not match (2 != 4)
+///          vector<2x3x2xi32> from memref<5x4x3x2xi32>
+///
+/// Case 2. If an "internal" dim of `vectorType` does not match the
+///         corresponding trailing dim in `memrefType` then the remaining
+///         leading dims of `vectorType` have to be 1 (the first non-matching
+///         dim can be arbitrary).
+///
+///        Ex. 2.1 non-contiguous slice, 2 != 3 and the leading dim != <1>
+///          vector<2x2x2xi32> from memref<5x4x3x2xi32>
+///        Ex. 2.2  contiguous slice, 2 != 3 and the leading dim == <1>
+///          vector<1x2x2xi32> from memref<5x4x3x2xi32>
+///        Ex. 2.3. contiguous slice, 2 != 3 and the leading dims == <1x1>
+///          vector<1x1x2x2xi32> from memref<5x4x3x2xi32>
+///        Ex. 2.4. non-contiguous slice, 2 != 3 and the leading dims != <1x1>
+///         vector<2x1x2x2xi32> from memref<5x4x3x2xi32>)
+bool isContiguousSlice(MemRefType memrefType, VectorType vectorType);
 
-/// Computes and returns the multi-dimensional ratio of the shapes of
-/// `superVector` to `subVector`. If integral division is not possible, returns
-/// None.
-/// Assumes and enforces that the VectorTypes have the same elemental type.
-Optional<SmallVector<int64_t, 4>> shapeRatio(VectorType superVectorType,
-                                             VectorType subVectorType);
+} // namespace vector
 
 /// Constructs a permutation map of invariant memref indices to vector
 /// dimension.

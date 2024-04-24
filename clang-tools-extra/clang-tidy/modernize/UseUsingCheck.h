@@ -11,9 +11,7 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 
 /// Check finds typedefs and replaces it with usings.
 ///
@@ -22,6 +20,7 @@ namespace modernize {
 class UseUsingCheck : public ClangTidyCheck {
 
   const bool IgnoreMacros;
+  const bool IgnoreExternC;
   SourceLocation LastReplacementEnd;
   llvm::DenseMap<const Decl *, SourceRange> LastTagDeclRanges;
 
@@ -38,8 +37,6 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_USE_USING_H

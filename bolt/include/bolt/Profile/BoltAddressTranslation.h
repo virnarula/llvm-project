@@ -9,11 +9,12 @@
 #ifndef BOLT_PROFILE_BOLTADDRESSTRANSLATION_H
 #define BOLT_PROFILE_BOLTADDRESSTRANSLATION_H
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/DataExtractor.h"
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <system_error>
 
 namespace llvm {
@@ -96,11 +97,11 @@ public:
 
   /// Use the map keys containing basic block addresses to infer fall-throughs
   /// taken in the path started at FirstLBR.To and ending at SecondLBR.From.
-  /// Return NoneType if trace is invalid or the list of fall-throughs
+  /// Return std::nullopt if trace is invalid or the list of fall-throughs
   /// otherwise.
-  Optional<FallthroughListTy> getFallthroughsInTrace(uint64_t FuncAddress,
-                                                     uint64_t From,
-                                                     uint64_t To) const;
+  std::optional<FallthroughListTy> getFallthroughsInTrace(uint64_t FuncAddress,
+                                                          uint64_t From,
+                                                          uint64_t To) const;
 
   /// If available, fetch the address of the hot part linked to the cold part
   /// at \p Address. Return 0 otherwise.
@@ -118,6 +119,17 @@ private:
   void writeEntriesForBB(MapTy &Map, const BinaryBasicBlock &BB,
                          uint64_t FuncAddress);
 
+  /// Write the serialized address translation table for a function.
+  template <bool Cold>
+  void writeMaps(std::map<uint64_t, MapTy> &Maps, uint64_t &PrevAddress,
+                 raw_ostream &OS);
+
+  /// Read the serialized address translation table for a function.
+  /// Return a parse error if failed.
+  template <bool Cold>
+  void parseMaps(std::vector<uint64_t> &HotFuncs, uint64_t &PrevAddress,
+                 DataExtractor &DE, uint64_t &Offset, Error &Err);
+
   std::map<uint64_t, MapTy> Maps;
 
   /// Links outlined cold bocks to their original function
@@ -125,7 +137,7 @@ private:
 
   /// Identifies the address of a control-flow changing instructions in a
   /// translation map entry
-  const static uint32_t BRANCHENTRY = 0x80000000;
+  const static uint32_t BRANCHENTRY = 0x1;
 };
 } // namespace bolt
 

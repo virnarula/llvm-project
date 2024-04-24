@@ -7,6 +7,11 @@
 ; RUN:    -experimental-debug-variable-locations=true \
 ; RUN: | FileCheck %s --check-prefixes=CHECK,INSTRREF
 
+; RUN: llc -mtriple=x86_64-unknown-unknown -start-after=codegenprepare \
+; RUN:    -stop-before finalize-isel %s -o -  \
+; RUN:    -experimental-debug-variable-locations=false --try-experimental-debuginfo-iterators \
+; RUN: | FileCheck %s --check-prefixes=CHECK,DBGVALUE
+
 ; Test that the dbg.value for %baz, which doesn't exist in the 'next' bb,
 ; can be salvaged back to the underlying argument vreg.
 
@@ -14,7 +19,7 @@
 ; CHECK-LABEL: bb.0.entry:
 ; INSTRREF:    DBG_PHI $rdi, 1
 ; CHECK-LABEL: bb.1.next:
-; INSTRREF:    DBG_INSTR_REF 1, 0, ![[AAAVAR]]
+; INSTRREF:    DBG_INSTR_REF ![[AAAVAR]], {{.+}}, dbg-instr-ref(1, 0)
 ; DBGVALUE:    DBG_VALUE %{{[0-9]+}}, $noreg, ![[AAAVAR]]
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"

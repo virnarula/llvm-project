@@ -33,13 +33,13 @@ define i32 @test_load_and_cmp() nounwind {
 ; RV32I-NEXT:    addi a0, sp, 24
 ; RV32I-NEXT:    addi a1, sp, 8
 ; RV32I-NEXT:    sw a2, 24(sp)
-; RV32I-NEXT:    call __netf2@plt
+; RV32I-NEXT:    call __netf2
 ; RV32I-NEXT:    snez a0, a0
 ; RV32I-NEXT:    lw ra, 44(sp) # 4-byte Folded Reload
 ; RV32I-NEXT:    addi sp, sp, 48
 ; RV32I-NEXT:    ret
-  %1 = load fp128, fp128* @x, align 16
-  %2 = load fp128, fp128* @y, align 16
+  %1 = load fp128, ptr @x, align 16
+  %2 = load fp128, ptr @y, align 16
   %cmp = fcmp une fp128 %1, %2
   %3 = zext i1 %cmp to i32
   ret i32 %3
@@ -71,7 +71,7 @@ define i32 @test_add_and_fptosi() nounwind {
 ; RV32I-NEXT:    addi a1, sp, 40
 ; RV32I-NEXT:    addi a2, sp, 24
 ; RV32I-NEXT:    sw a3, 40(sp)
-; RV32I-NEXT:    call __addtf3@plt
+; RV32I-NEXT:    call __addtf3
 ; RV32I-NEXT:    lw a1, 56(sp)
 ; RV32I-NEXT:    lw a0, 60(sp)
 ; RV32I-NEXT:    lw a2, 64(sp)
@@ -81,12 +81,12 @@ define i32 @test_add_and_fptosi() nounwind {
 ; RV32I-NEXT:    sw a0, 12(sp)
 ; RV32I-NEXT:    addi a0, sp, 8
 ; RV32I-NEXT:    sw a1, 8(sp)
-; RV32I-NEXT:    call __fixtfsi@plt
+; RV32I-NEXT:    call __fixtfsi
 ; RV32I-NEXT:    lw ra, 76(sp) # 4-byte Folded Reload
 ; RV32I-NEXT:    addi sp, sp, 80
 ; RV32I-NEXT:    ret
-  %1 = load fp128, fp128* @x, align 16
-  %2 = load fp128, fp128* @y, align 16
+  %1 = load fp128, ptr @x, align 16
+  %2 = load fp128, ptr @y, align 16
   %3 = fadd fp128 %1, %2
   %4 = fptosi fp128 %3 to i32
   ret i32 %4

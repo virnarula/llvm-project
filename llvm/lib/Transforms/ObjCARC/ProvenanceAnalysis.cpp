@@ -53,23 +53,10 @@ bool ProvenanceAnalysis::relatedSelect(const SelectInst *A,
 
 bool ProvenanceAnalysis::relatedPHI(const PHINode *A,
                                     const Value *B) {
-
-  auto comparePHISources = [this](const PHINode *PNA, const Value *B) -> bool {
-    // Check each unique source of the PHI node against B.
-    SmallPtrSet<const Value *, 4> UniqueSrc;
-    for (Value *PV1 : PNA->incoming_values()) {
-      if (UniqueSrc.insert(PV1).second && related(PV1, B))
-        return true;
-    }
-
-    // All of the arms checked out.
-    return false;
-  };
-
-  if (const PHINode *PNB = dyn_cast<PHINode>(B)) {
-    // If the values are PHIs in the same block, we can do a more precise as
-    // well as efficient check: just check for relations between the values on
-    // corresponding edges.
+  // If the values are PHIs in the same block, we can do a more precise as well
+  // as efficient check: just check for relations between the values on
+  // corresponding edges.
+  if (const PHINode *PNB = dyn_cast<PHINode>(B))
     if (PNB->getParent() == A->getParent()) {
       for (unsigned i = 0, e = A->getNumIncomingValues(); i != e; ++i)
         if (related(A->getIncomingValue(i),
@@ -78,11 +65,15 @@ bool ProvenanceAnalysis::relatedPHI(const PHINode *A,
       return false;
     }
 
-    if (!comparePHISources(PNB, A))
-      return false;
+  // Check each unique source of the PHI node against B.
+  SmallPtrSet<const Value *, 4> UniqueSrc;
+  for (Value *PV1 : A->incoming_values()) {
+    if (UniqueSrc.insert(PV1).second && related(PV1, B))
+      return true;
   }
 
-  return comparePHISources(A, B);
+  // All of the arms checked out.
+  return false;
 }
 
 /// Test if the value of P, or any value covered by its provenance, is ever
@@ -176,15 +167,12 @@ bool ProvenanceAnalysis::related(const Value *A, const Value *B) {
   // Begin by inserting a conservative value into the map. If the insertion
   // fails, we have the answer already. If it succeeds, leave it there until we
   // compute the real answer to guard against recursive queries.
-  if (A > B) std::swap(A, B);
   std::pair<CachedResultsTy::iterator, bool> Pair =
     CachedResults.insert(std::make_pair(ValuePairTy(A, B), true));
   if (!Pair.second)
     return Pair.first->second;
 
   bool Result = relatedCheck(A, B);
-  assert(relatedCheck(B, A) == Result &&
-         "relatedCheck result depending on order of parameters!");
   CachedResults[ValuePairTy(A, B)] = Result;
   return Result;
 }

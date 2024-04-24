@@ -1,12 +1,12 @@
-; RUN: llc -mtriple=amdgcn-amd-amdhsa -verify-machineinstrs -enable-ipra -amdgpu-sroa=0 < %s | FileCheck -check-prefix=GCN %s
-; RUN: llc -mtriple=amdgcn-amd-amdhsa -verify-machineinstrs -amdgpu-sroa=0 < %s | FileCheck -check-prefix=GCN %s
+; RUN: llc -mtriple=amdgcn-amd-amdhsa -verify-machineinstrs -enable-ipra < %s | FileCheck -check-prefix=GCN %s
+; RUN: llc -mtriple=amdgcn-amd-amdhsa -verify-machineinstrs < %s | FileCheck -check-prefix=GCN %s
 
 ; Kernels are not called, so there is no call preserved mask.
 ; GCN-LABEL: {{^}}kernel:
 ; GCN: flat_store_dword
-define amdgpu_kernel void @kernel(i32 addrspace(1)* %out) #0 {
+define amdgpu_kernel void @kernel(ptr addrspace(1) %out) #0 {
 entry:
-  store i32 0, i32 addrspace(1)* %out
+  store i32 0, ptr addrspace(1) %out
   ret void
 }
 
@@ -33,27 +33,27 @@ define hidden void @func() #1 {
 ; GCN: ; NumSgprs: 37
 ; GCN: ; NumVgprs: 9
 define amdgpu_kernel void @kernel_call() #0 {
-  %vgpr = load volatile i32, i32 addrspace(1)* undef
+  %vgpr = load volatile i32, ptr addrspace(1) undef
   tail call void @func()
-  store volatile i32 %vgpr, i32 addrspace(1)* undef
+  store volatile i32 %vgpr, ptr addrspace(1) undef
   ret void
 }
 
 ; GCN-LABEL: {{^}}func_regular_call:
 ; GCN-NOT: buffer_load
 ; GCN-NOT: readlane
-; GCN: flat_load_dword v9
+; GCN: flat_load_dword v8
 ; GCN: s_swappc_b64
 ; GCN-NOT: buffer_load
 ; GCN-NOT: readlane
-; GCN: flat_store_dword v{{\[[0-9]+:[0-9]+\]}}, v9
+; GCN: flat_store_dword v{{\[[0-9]+:[0-9]+\]}}, v8
 
 ; GCN: ; NumSgprs: 34
 ; GCN: ; NumVgprs: 10
 define void @func_regular_call() #1 {
-  %vgpr = load volatile i32, i32 addrspace(1)* undef
+  %vgpr = load volatile i32, ptr addrspace(1) undef
   tail call void @func()
-  store volatile i32 %vgpr, i32 addrspace(1)* undef
+  store volatile i32 %vgpr, ptr addrspace(1) undef
   ret void
 }
 
@@ -72,17 +72,17 @@ define void @func_tail_call() #1 {
 }
 
 ; GCN-LABEL: {{^}}func_call_tail_call:
-; GCN: flat_load_dword v9
+; GCN: flat_load_dword v8
 ; GCN: s_swappc_b64
-; GCN: flat_store_dword v{{\[[0-9]+:[0-9]+\]}}, v9
+; GCN: flat_store_dword v{{\[[0-9]+:[0-9]+\]}}, v8
 ; GCN: s_setpc_b64
 
 ; GCN: ; NumSgprs: 34
 ; GCN: ; NumVgprs: 10
 define void @func_call_tail_call() #1 {
-  %vgpr = load volatile i32, i32 addrspace(1)* undef
+  %vgpr = load volatile i32, ptr addrspace(1) undef
   tail call void @func()
-  store volatile i32 %vgpr, i32 addrspace(1)* undef
+  store volatile i32 %vgpr, ptr addrspace(1) undef
   tail call void @func()
   ret void
 }
@@ -106,7 +106,7 @@ define void @test_funcx2() #0 {
 }
 
 ; GCN-LABEL: {{^}}wombat:
-define weak amdgpu_kernel void @wombat(i32* %arg, i32* %arg2) {
+define weak amdgpu_kernel void @wombat(ptr %arg, ptr %arg2) {
 bb:
   call void @hoge() #0
   ret void

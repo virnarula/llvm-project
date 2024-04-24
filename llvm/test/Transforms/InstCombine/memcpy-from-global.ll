@@ -8,25 +8,25 @@ define float @test1(i32 %hash, float %x, float %y, float %z, float %w) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP3:%.*]] = shl i32 [[HASH:%.*]], 2
 ; CHECK-NEXT:    [[TMP5:%.*]] = and i32 [[TMP3]], 124
-; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[TMP5]] to i64
+; CHECK-NEXT:    [[TMP0:%.*]] = zext nneg i32 [[TMP5]] to i64
 ; CHECK-NEXT:    [[TMP753:%.*]] = getelementptr [128 x float], ptr @C.0.1248, i64 0, i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP9:%.*]] = load float, ptr [[TMP753]], align 16
+; CHECK-NEXT:    [[TMP9:%.*]] = load float, ptr [[TMP753]], align 4
 ; CHECK-NEXT:    [[TMP11:%.*]] = fmul float [[TMP9]], [[X:%.*]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = fadd float [[TMP11]], 0.000000e+00
-; CHECK-NEXT:    [[TMP17_SUM52:%.*]] = or i32 [[TMP5]], 1
-; CHECK-NEXT:    [[TMP1:%.*]] = zext i32 [[TMP17_SUM52]] to i64
+; CHECK-NEXT:    [[TMP17_SUM52:%.*]] = or disjoint i32 [[TMP5]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = zext nneg i32 [[TMP17_SUM52]] to i64
 ; CHECK-NEXT:    [[TMP1851:%.*]] = getelementptr [128 x float], ptr @C.0.1248, i64 0, i64 [[TMP1]]
 ; CHECK-NEXT:    [[TMP19:%.*]] = load float, ptr [[TMP1851]], align 4
 ; CHECK-NEXT:    [[TMP21:%.*]] = fmul float [[TMP19]], [[Y:%.*]]
 ; CHECK-NEXT:    [[TMP23:%.*]] = fadd float [[TMP21]], [[TMP13]]
-; CHECK-NEXT:    [[TMP27_SUM50:%.*]] = or i32 [[TMP5]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = zext i32 [[TMP27_SUM50]] to i64
+; CHECK-NEXT:    [[TMP27_SUM50:%.*]] = or disjoint i32 [[TMP5]], 2
+; CHECK-NEXT:    [[TMP2:%.*]] = zext nneg i32 [[TMP27_SUM50]] to i64
 ; CHECK-NEXT:    [[TMP2849:%.*]] = getelementptr [128 x float], ptr @C.0.1248, i64 0, i64 [[TMP2]]
-; CHECK-NEXT:    [[TMP29:%.*]] = load float, ptr [[TMP2849]], align 8
+; CHECK-NEXT:    [[TMP29:%.*]] = load float, ptr [[TMP2849]], align 4
 ; CHECK-NEXT:    [[TMP31:%.*]] = fmul float [[TMP29]], [[Z:%.*]]
 ; CHECK-NEXT:    [[TMP33:%.*]] = fadd float [[TMP31]], [[TMP23]]
-; CHECK-NEXT:    [[TMP37_SUM48:%.*]] = or i32 [[TMP5]], 3
-; CHECK-NEXT:    [[TMP3:%.*]] = zext i32 [[TMP37_SUM48]] to i64
+; CHECK-NEXT:    [[TMP37_SUM48:%.*]] = or disjoint i32 [[TMP5]], 3
+; CHECK-NEXT:    [[TMP3:%.*]] = zext nneg i32 [[TMP37_SUM48]] to i64
 ; CHECK-NEXT:    [[TMP3847:%.*]] = getelementptr [128 x float], ptr @C.0.1248, i64 0, i64 [[TMP3]]
 ; CHECK-NEXT:    [[TMP39:%.*]] = load float, ptr [[TMP3847]], align 4
 ; CHECK-NEXT:    [[TMP41:%.*]] = fmul float [[TMP39]], [[W:%.*]]
@@ -303,9 +303,7 @@ entry:
 define float @test11(i64 %i) {
 ; CHECK-LABEL: @test11(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[G:%.*]] = getelementptr [4 x float], ptr addrspace(1) @I, i64 0, i64 [[I:%.*]]
-; CHECK-NEXT:    [[R:%.*]] = load float, ptr addrspace(1) [[G]], align 4
-; CHECK-NEXT:    ret float [[R]]
+; CHECK-NEXT:    ret float 0.000000e+00
 ;
 
 entry:
@@ -338,12 +336,10 @@ entry:
   ret float %r
 }
 
-; Tests that we can't eliminate allocas copied from readonly noalias pointers yet.
+; Tests that we can eliminate allocas copied from readonly noalias pointers.
 define void @memcpy_from_readonly_noalias(ptr readonly noalias align 8 dereferenceable(124) %arg) {
 ; CHECK-LABEL: @memcpy_from_readonly_noalias(
-; CHECK-NEXT:    [[ALLOCA:%.*]] = alloca [[T:%.*]], align 8
-; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(124) [[ALLOCA]], ptr noundef nonnull align 8 dereferenceable(124) [[ARG:%.*]], i64 124, i1 false)
-; CHECK-NEXT:    call void @bar(ptr nonnull [[ALLOCA]]) #[[ATTR3]]
+; CHECK-NEXT:    call void @bar(ptr nonnull [[ARG:%.*]]) #[[ATTR3]]
 ; CHECK-NEXT:    ret void
 ;
   %alloca = alloca %T, align 8
@@ -365,5 +361,65 @@ define void @memcpy_from_just_readonly(ptr readonly align 8 dereferenceable(124)
   call void @bar(ptr %alloca) readonly
   ret void
 }
+
+; Test that we don't elide a volatile memcpy.
+define void @volatile_memcpy() {
+; CHECK-LABEL: @volatile_memcpy(
+; CHECK-NEXT:    [[A:%.*]] = alloca [[U:%.*]], align 16
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 4 [[A]], ptr align 4 @H, i64 20, i1 true)
+; CHECK-NEXT:    call void @bar(ptr nonnull [[A]]) #[[ATTR3]]
+; CHECK-NEXT:    ret void
+;
+  %A = alloca %U, align 16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %A, ptr align 4 @H, i64 20, i1 true)
+  call void @bar(ptr %A) readonly
+  ret void
+}
+
+; Test that we can elide a memcpy when copying a constant value onto the stack
+; and then forwarding it by readonly nocapture reference.
+define void @memcpy_to_nocapture_readonly() {
+; CHECK-LABEL: @memcpy_to_nocapture_readonly(
+; CHECK-NEXT:    call void @bar(ptr nocapture nonnull readonly @H)
+; CHECK-NEXT:    ret void
+;
+  %A = alloca %U, align 16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %A, ptr align 4 @H, i64 20, i1 false)
+  call void @bar(ptr nocapture readonly %A)
+  ret void
+}
+
+; Test that we don't elide the memcpy when copying a constant value onto the
+; stack and then forwarding it by readonly, but capturing, reference.
+define void @memcpy_to_capturing_readonly() {
+; CHECK-LABEL: @memcpy_to_capturing_readonly(
+; CHECK-NEXT:    [[A:%.*]] = alloca [[U:%.*]], align 16
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(20) [[A]], ptr noundef nonnull align 16 dereferenceable(20) @H, i64 20, i1 false)
+; CHECK-NEXT:    call void @bar(ptr nonnull readonly [[A]])
+; CHECK-NEXT:    ret void
+;
+  %A = alloca %U, align 16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %A, ptr align 4 @H, i64 20, i1 false)
+  call void @bar(ptr readonly %A)
+  ret void
+}
+
+; Test that we don't elide the memcpy when copying a constant value onto the
+; stack and then forwarding it by read-write, nocapture reference, even if it's
+; also forwarded by readonly nocapture reference to the same function.
+define void @memcpy_to_aliased_nocapture_readonly() {
+; CHECK-LABEL: @memcpy_to_aliased_nocapture_readonly(
+; CHECK-NEXT:    [[A:%.*]] = alloca [[U:%.*]], align 16
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(20) [[A]], ptr noundef nonnull align 16 dereferenceable(20) @H, i64 20, i1 false)
+; CHECK-NEXT:    call void @two_params(ptr nocapture nonnull readonly [[A]], ptr nocapture nonnull [[A]])
+; CHECK-NEXT:    ret void
+;
+  %A = alloca %U, align 16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %A, ptr align 4 @H, i64 20, i1 false)
+  call void @two_params(ptr nocapture readonly %A, ptr nocapture %A)
+  ret void
+}
+
+declare void @two_params(ptr nocapture readonly, ptr nocapture)
 
 attributes #0 = { null_pointer_is_valid }

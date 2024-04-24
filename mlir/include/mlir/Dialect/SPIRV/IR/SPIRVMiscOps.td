@@ -28,11 +28,11 @@ def SPIRV_KHRAssumeTrueOp : SPIRV_KhrVendorOp<"AssumeTrue", []> {
 
     ```
     assumetruekhr-op ::= `spirv.KHR.AssumeTrue` ssa-use
-    ```mlir
+    ```
 
     #### Example:
 
-    ```
+    ```mlir
     spirv.KHR.AssumeTrue %arg
     ```
   }];
@@ -65,12 +65,6 @@ def SPIRV_UndefOp : SPIRV_Op<"Undef", [Pure]> {
     Each consumption of Result <id> yields an arbitrary, possibly different
     bit pattern or abstract value resulting in possibly different concrete,
     abstract, or opaque values.
-
-    <!-- End of AutoGen section -->
-
-    ```
-    undef-op ::= `spirv.Undef` `:` spirv-type
-    ```
 
     #### Example:
 

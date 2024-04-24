@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <optional>
 
 using namespace lldb_private;
 
@@ -66,12 +67,12 @@ llvm::VersionTuple HostInfoLinux::GetOSVersion() {
   return g_fields->m_os_version;
 }
 
-llvm::Optional<std::string> HostInfoLinux::GetOSBuildString() {
+std::optional<std::string> HostInfoLinux::GetOSBuildString() {
   struct utsname un;
   ::memset(&un, 0, sizeof(utsname));
 
   if (uname(&un) < 0)
-    return llvm::None;
+    return std::nullopt;
 
   return std::string(un.release);
 }
@@ -122,7 +123,7 @@ llvm::StringRef HostInfoLinux::GetDistributionId() {
         if (strstr(distribution_id, distributor_id_key)) {
           // strip newlines
           std::string id_string(distribution_id + strlen(distributor_id_key));
-          llvm::erase_value(id_string, '\n');
+          llvm::erase(id_string, '\n');
 
           // lower case it and convert whitespace to underscores
           std::transform(
@@ -199,17 +200,13 @@ void HostInfoLinux::ComputeHostArchitectureSupport(ArchSpec &arch_32,
                                                    ArchSpec &arch_64) {
   HostInfoPosix::ComputeHostArchitectureSupport(arch_32, arch_64);
 
-  const char *distribution_id = GetDistributionId().data();
-
   // On Linux, "unknown" in the vendor slot isn't what we want for the default
   // triple.  It's probably an artifact of config.guess.
   if (arch_32.IsValid()) {
-    arch_32.SetDistributionId(distribution_id);
     if (arch_32.GetTriple().getVendor() == llvm::Triple::UnknownVendor)
       arch_32.GetTriple().setVendorName(llvm::StringRef());
   }
   if (arch_64.IsValid()) {
-    arch_64.SetDistributionId(distribution_id);
     if (arch_64.GetTriple().getVendor() == llvm::Triple::UnknownVendor)
       arch_64.GetTriple().setVendorName(llvm::StringRef());
   }

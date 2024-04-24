@@ -4,6 +4,13 @@ add_header_library(
     sqrt.h
     sqrt_80_bit_long_double.h
   DEPENDS
+    libc.include.fenv
+    libc.src.__support.common
+    libc.src.__support.CPP.bit
+    libc.src.__support.CPP.type_traits
+    libc.src.__support.FPUtil.fenv_impl
+    libc.src.__support.FPUtil.fp_bits
+    libc.src.__support.FPUtil.rounding_mode
     libc.src.__support.uint128
 )
 
@@ -12,6 +19,13 @@ add_header_library(
   HDRS
     FMA.h
   DEPENDS
+    libc.src.__support.common
+    libc.src.__support.CPP.bit
+    libc.src.__support.CPP.type_traits
+    libc.src.__support.FPUtil.fenv_impl
+    libc.src.__support.FPUtil.fp_bits
+    libc.src.__support.FPUtil.rounding_mode
+    libc.src.__support.macros.optimization
     libc.src.__support.uint128
 )
 
@@ -19,4 +33,13 @@ add_header_library(
   fmod
   HDRS
     FMod.h
+  DEPENDS
+    libc.src.__support.common
+    libc.src.__support.CPP.bit
+    libc.src.__support.CPP.type_traits
+    libc.src.__support.FPUtil.fenv_impl
+    libc.src.__support.FPUtil.fp_bits
+    libc.src.__support.FPUtil.rounding_mode
+    libc.src.__support.macros.optimization
+    libc.src.math.generic.math_utils
 )

@@ -5,7 +5,10 @@ a C compiler.
 
 REQUIRES: c-compiler
 
-RUN: %cc -std=c99 %s -I%include %libruntime %libdecimal -lm -o /dev/null
+RUN: %if system-aix %{ export OBJECT_MODE=64 %}
+RUN: %cc -std=c99 %s -I%include %libruntime %libdecimal -lm  \
+RUN: %if system-aix %{-lpthread %}
+RUN: rm a.out
 */
 
 #include "flang/Runtime/entry-names.h"
@@ -26,11 +29,13 @@ void RTNAME(ProgramStart)(
 int32_t RTNAME(ArgumentCount)();
 int32_t RTNAME(GetCommandArgument)(int32_t, const struct Descriptor *,
     const struct Descriptor *, const struct Descriptor *);
+int32_t RTNAME(GetEnvVariable)();
 
 int main() {
   double x = RTNAME(CpuTime)();
   RTNAME(ProgramStart)(0, 0, 0, 0);
   int32_t c = RTNAME(ArgumentCount)();
   int32_t v = RTNAME(GetCommandArgument)(0, 0, 0, 0);
-  return x + c + v;
+  int32_t e = RTNAME(GetEnvVariable)("FOO", 0, 0);
+  return x + c + v + e;
 }

@@ -360,9 +360,8 @@ func.func @embox_tdesc(%arg0: !fir.class<!fir.array<10x!fir.type<derived{a:i32,b
     %c1_i64 = arith.constant 1 : i64
     %11 = arith.subi %10, %c1_i64 : i64
     %12 = fir.coordinate_of %arg0, %11 : (!fir.class<!fir.array<10x!fir.type<derived{a:i32,b:i32}>>>, i64) -> !fir.ref<!fir.type<derived{a:i32,b:i32}>>
-    %tdesc = fir.box_tdesc %arg0 : (!fir.class<!fir.array<10x!fir.type<derived{a:i32,b:i32}>>>) -> (!fir.tdesc<!fir.type<derived{a:i32,b:i32}>>)
-    // expected-error@+1 {{'fir.embox' op tdesc must be used with fir.class result type}}
-    %13 = fir.embox %12 tdesc %tdesc : (!fir.ref<!fir.type<derived{a:i32,b:i32}>>, !fir.tdesc<!fir.type<derived{a:i32,b:i32}>>) -> !fir.box<!fir.type<derived{a:i32,b:i32}>>
+    // expected-error@+1 {{'fir.embox' op source_box must be used with fir.class result type}}
+    %13 = fir.embox %12 source_box %arg0 : (!fir.ref<!fir.type<derived{a:i32,b:i32}>>, !fir.class<!fir.array<10x!fir.type<derived{a:i32,b:i32}>>>) -> !fir.box<!fir.type<derived{a:i32,b:i32}>>
     %14 = arith.addi %arg2, %c1 : index
     %15 = fir.convert %c1 : (index) -> i32
     %16 = fir.load %0 : !fir.ref<i32>
@@ -691,7 +690,7 @@ func.func @bad_array_modify(%arr1 : !fir.ref<!fir.array<?x?xf32>>, %m : index, %
 func.func @slice_must_be_integral() {
   %0 = arith.constant 42 : i32
   %1 = fir.field_index field, !fir.type<t(param:i32){field:i32}> (%0 : i32)
-  // expected-error@+1 {{'fir.slice' op operand #0 must be any integer, but got '!fir.field'}}
+  // expected-error@+1 {{'fir.slice' op operand #0 must be variadic of any integer, but got '!fir.field'}}
   %2 = fir.slice %1, %1, %1 : (!fir.field, !fir.field, !fir.field) -> !fir.slice<1>
   return
 }
@@ -926,5 +925,56 @@ func.func @bad_array_declare_unlimited_polymorphic_boxaddr(%arg0: !fir.ref<!fir.
   %shape = fir.shift %c1, %c2 : (index, index) -> !fir.shift<2>
   // expected-error@+1 {{'fir.declare' op for box address must not have a shape operand}}
   %0 = fir.declare %arg0(%shape) {uniq_name = "x"} : (!fir.ref<!fir.class<!fir.ptr<!fir.array<?x?xnone>>>>, !fir.shift<2>) -> !fir.ref<!fir.class<!fir.ptr<!fir.array<?x?xnone>>>>
+  return
+}
+
+// -----
+
+func.func @invalid_selector(%arg : !fir.box<!fir.ref<i32>>) -> i32 {
+  %0 = arith.constant 1 : i32
+  %2 = arith.constant 3 : i32
+  // expected-error@+1{{'fir.select_type' op selector must be polymorphic}}
+  fir.select_type %arg : !fir.box<!fir.ref<i32>> [
+    #fir.type_is<!fir.int<4>>,^bb1(%0:i32),
+    #fir.type_is<!fir.int<8>>,^bb2(%2:i32),
+    unit,^bb5 ]
+^bb1(%a : i32) :
+  return %a : i32
+^bb2(%b : i32) :
+  return %b : i32
+^bb5 :
+  %zero = arith.constant 0 : i32
+  return %zero : i32
+}
+
+// -----
+
+func.func @logical_to_fp(%arg0: !fir.logical<4>) -> f32 {
+  // expected-error@+1{{'fir.convert' op invalid type conversion}}
+  %0 = fir.convert %arg0 : (!fir.logical<4>) -> f32
+  return %0 : f32
+}
+
+// -----
+
+func.func @fp_to_logical(%arg0: f32) -> !fir.logical<4> {
+  // expected-error@+1{{'fir.convert' op invalid type conversion}}
+  %0 = fir.convert %arg0 : (f32) -> !fir.logical<4>
+  return %0 : !fir.logical<4>
+}
+
+// -----
+
+func.func @bad_box_offset(%not_a_box : !fir.ref<i32>) {
+  // expected-error@+1{{'fir.box_offset' op box_ref operand must have !fir.ref<!fir.box<T>> type}}
+  %addr1 = fir.box_offset %not_a_box base_addr : (!fir.ref<i32>) -> !fir.llvm_ptr<!fir.ref<i32>>
+  return
+}
+
+// -----
+
+func.func @bad_box_offset(%no_addendum : !fir.ref<!fir.box<i32>>) {
+  // expected-error@+1{{'fir.box_offset' op can only address derived_type field of derived type or unlimited polymorphic fir.box}}
+  %addr1 = fir.box_offset %no_addendum derived_type : (!fir.ref<!fir.box<i32>>) -> !fir.llvm_ptr<!fir.tdesc<!fir.type<none>>>
   return
 }
