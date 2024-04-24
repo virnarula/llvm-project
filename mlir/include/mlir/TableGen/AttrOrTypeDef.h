@@ -38,7 +38,7 @@ public:
   using Builder::Builder;
 
   /// Returns an optional builder return type.
-  std::optional<StringRef> getReturnType() const;
+  Optional<StringRef> getReturnType() const;
 
   /// Returns true if this builder is able to infer the MLIRContext parameter.
   bool hasInferredContextParameter() const;
@@ -65,7 +65,7 @@ public:
   std::string getAccessorName() const;
 
   /// If specified, get the custom allocator code for this parameter.
-  std::optional<StringRef> getAllocator() const;
+  Optional<StringRef> getAllocator() const;
 
   /// If specified, get the custom comparator code for this parameter.
   StringRef getComparator() const;
@@ -83,13 +83,13 @@ public:
   StringRef getConvertFromStorage() const;
 
   /// Get an optional C++ parameter parser.
-  std::optional<StringRef> getParser() const;
+  Optional<StringRef> getParser() const;
 
   /// Get an optional C++ parameter printer.
-  std::optional<StringRef> getPrinter() const;
+  Optional<StringRef> getPrinter() const;
 
   /// Get a description of this parameter for documentation purposes.
-  std::optional<StringRef> getSummary() const;
+  Optional<StringRef> getSummary() const;
 
   /// Get the assembly syntax documentation.
   StringRef getSyntax() const;
@@ -98,7 +98,7 @@ public:
   bool isOptional() const;
 
   /// Get the default value of the parameter if it has one.
-  std::optional<StringRef> getDefaultValue() const;
+  Optional<StringRef> getDefaultValue() const;
 
   /// Return the underlying def of this parameter.
   llvm::Init *getDef() const;
@@ -182,14 +182,14 @@ public:
 
   /// Return the keyword/mnemonic to use in the printer/parser methods if we are
   /// supposed to auto-generate them.
-  std::optional<StringRef> getMnemonic() const;
+  Optional<StringRef> getMnemonic() const;
 
   /// Returns if the attribute or type has a custom assembly format implemented
   /// in C++. Corresponds to the `hasCustomAssemblyFormat` field.
   bool hasCustomAssemblyFormat() const;
 
   /// Returns the custom assembly format, if one was specified.
-  std::optional<StringRef> getAssemblyFormat() const;
+  Optional<StringRef> getAssemblyFormat() const;
 
   /// Returns true if the accessors based on the parameters should be generated.
   bool genAccessors() const;
@@ -199,10 +199,10 @@ public:
   bool genVerifyDecl() const;
 
   /// Returns the def's extra class declaration code.
-  std::optional<StringRef> getExtraDecls() const;
+  Optional<StringRef> getExtraDecls() const;
 
   /// Returns the def's extra class definition code.
-  std::optional<StringRef> getExtraDefs() const;
+  Optional<StringRef> getExtraDefs() const;
 
   /// Get the code location (for error printing).
   ArrayRef<SMLoc> getLoc() const;
@@ -252,14 +252,11 @@ class AttrDef : public AttrOrTypeDef {
 public:
   using AttrOrTypeDef::AttrOrTypeDef;
 
-  /// Returns the attributes value type builder code block, or std::nullopt if
-  /// it doesn't have one.
-  std::optional<StringRef> getTypeBuilder() const;
+  /// Returns the attributes value type builder code block, or None if it
+  /// doesn't have one.
+  Optional<StringRef> getTypeBuilder() const;
 
   static bool classof(const AttrOrTypeDef *def);
-
-  /// Get the unique attribute name "dialect.attrname".
-  StringRef getAttrName() const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -270,11 +267,6 @@ public:
 class TypeDef : public AttrOrTypeDef {
 public:
   using AttrOrTypeDef::AttrOrTypeDef;
-
-  static bool classof(const AttrOrTypeDef *def);
-
-  /// Get the unique type name "dialect.typename".
-  StringRef getTypeName() const;
 };
 
 } // namespace tblgen

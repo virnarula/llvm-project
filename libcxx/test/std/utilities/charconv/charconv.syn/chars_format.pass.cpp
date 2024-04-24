@@ -18,9 +18,8 @@
 //   general = fixed | scientific
 // };
 
-#include <cassert>
 #include <charconv>
-#include <type_traits>
+#include <cassert>
 
 #include "test_macros.h"
 

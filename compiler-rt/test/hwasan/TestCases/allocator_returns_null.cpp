@@ -35,6 +35,8 @@
 // RUN: %env_hwasan_opts=allocator_may_return_null=1     %run %t new-nothrow 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-nnNULL
 
+// REQUIRES: stable-runtime
+
 // TODO(alekseyshl): Fix it.
 // UNSUPPORTED: android
 
@@ -87,21 +89,21 @@ int main(int argc, char **argv) {
 }
 
 // CHECK-mCRASH: malloc:
-// CHECK-mCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big {{.*}} in main
+// CHECK-mCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big
 // CHECK-cCRASH: calloc:
-// CHECK-cCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big {{.*}} in main
+// CHECK-cCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big
 // CHECK-coCRASH: calloc-overflow:
-// CHECK-coCRASH: SUMMARY: HWAddressSanitizer: calloc-overflow {{.*}} in main
+// CHECK-coCRASH: SUMMARY: HWAddressSanitizer: calloc-overflow
 // CHECK-rCRASH: realloc:
-// CHECK-rCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big {{.*}} in main
+// CHECK-rCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big
 // CHECK-mrCRASH: realloc-after-malloc:
-// CHECK-mrCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big {{.*}} in main
+// CHECK-mrCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big
 // CHECK-nCRASH: new:
-// CHECK-nCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big {{.*}} in main
+// CHECK-nCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big
 // CHECK-nCRASH-OOM: new:
-// CHECK-nCRASH-OOM: SUMMARY: HWAddressSanitizer: out-of-memory {{.*}} in main
+// CHECK-nCRASH-OOM: SUMMARY: HWAddressSanitizer: out-of-memory
 // CHECK-nnCRASH: new-nothrow:
-// CHECK-nnCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big {{.*}} in main
+// CHECK-nnCRASH: SUMMARY: HWAddressSanitizer: allocation-size-too-big
 
 // CHECK-mNULL: malloc:
 // CHECK-mNULL: errno: 12

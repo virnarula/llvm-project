@@ -20,7 +20,6 @@
 #include <fcntl.h>
 #include <fstream>
 #include <linux/perf_event.h>
-#include <optional>
 #include <sstream>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
@@ -65,25 +64,25 @@ Error IntelPTCollector::TraceStop(const TraceStopRequest &request) {
 
 /// \return
 ///   some file descriptor in /sys/fs/ associated with the cgroup of the given
-///   pid, or \a std::nullopt if the pid is not part of a cgroup.
-static std::optional<int> GetCGroupFileDescriptor(lldb::pid_t pid) {
-  static std::optional<int> fd;
+///   pid, or \a llvm::None if the pid is not part of a cgroup.
+static Optional<int> GetCGroupFileDescriptor(lldb::pid_t pid) {
+  static Optional<int> fd;
   if (fd)
     return fd;
 
   std::ifstream ifile;
   ifile.open(formatv("/proc/{0}/cgroup", pid));
   if (!ifile)
-    return std::nullopt;
+    return None;
 
   std::string line;
   while (std::getline(ifile, line)) {
     if (line.find("0:") != 0)
       continue;
 
-    std::string slice = line.substr(line.find_first_of('/'));
+    std::string slice = line.substr(line.find_first_of("/"));
     if (slice.empty())
-      return std::nullopt;
+      return None;
     std::string cgroup_file = formatv("/sys/fs/cgroup/{0}", slice);
     // This cgroup should for the duration of the target, so we don't need to
     // invoke close ourselves.
@@ -93,7 +92,7 @@ static std::optional<int> GetCGroupFileDescriptor(lldb::pid_t pid) {
       return fd;
     }
   }
-  return std::nullopt;
+  return None;
 }
 
 Error IntelPTCollector::TraceStart(const TraceIntelPTStartRequest &request) {
@@ -120,7 +119,7 @@ Error IntelPTCollector::TraceStart(const TraceIntelPTStartRequest &request) {
       effective_request.enable_tsc = true;
 
       // We try to use cgroup filtering whenever possible
-      std::optional<int> cgroup_fd;
+      Optional<int> cgroup_fd;
       if (!request.disable_cgroup_filtering.value_or(false))
         cgroup_fd = GetCGroupFileDescriptor(m_process.GetID());
 
@@ -225,7 +224,7 @@ IntelPTCollector::GetBinaryData(const TraceGetBinaryDataRequest &request) {
     return GetProcfsCpuInfo();
 
   if (m_process_trace_up) {
-    Expected<std::optional<std::vector<uint8_t>>> data =
+    Expected<Optional<std::vector<uint8_t>>> data =
         m_process_trace_up->TryGetBinaryData(request);
     if (!data)
       return data.takeError();
@@ -234,7 +233,7 @@ IntelPTCollector::GetBinaryData(const TraceGetBinaryDataRequest &request) {
   }
 
   {
-    Expected<std::optional<std::vector<uint8_t>>> data =
+    Expected<Optional<std::vector<uint8_t>>> data =
         m_thread_traces.TryGetBinaryData(request);
     if (!data)
       return data.takeError();

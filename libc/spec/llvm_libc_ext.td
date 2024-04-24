@@ -1,15 +1,10 @@
 def LLVMLibcExt : StandardSpec<"llvm_libc_ext"> {
-  HeaderSpec Strings = HeaderSpec<
-      "strings.h",
+  HeaderSpec String = HeaderSpec<
+      "string.h",
       [], // Macros
       [], // Types
       [], // Enumerations
       [
-          FunctionSpec<
-              "bcopy",
-              RetValSpec<VoidType>,
-              [ArgSpec<ConstVoidPtr>, ArgSpec<VoidPtr>, ArgSpec<SizeTType>]
-          >,
           FunctionSpec<
               "bzero",
               RetValSpec<VoidType>,
@@ -33,6 +28,7 @@ def LLVMLibcExt : StandardSpec<"llvm_libc_ext"> {
               "__assert_fail",
               RetValSpec<NoReturn>,
               [ArgSpec<ConstCharPtr>, ArgSpec<ConstCharPtr>, ArgSpec<UnsignedType>, ArgSpec<ConstCharPtr>]
+
           >,
       ]
   >;
@@ -52,7 +48,7 @@ def LLVMLibcExt : StandardSpec<"llvm_libc_ext"> {
   >;
 
   let Headers = [
-    Strings,
+    String,
     Sched,
     Assert,
   ];

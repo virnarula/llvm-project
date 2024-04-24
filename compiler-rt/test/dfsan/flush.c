@@ -1,6 +1,8 @@
 // Tests dfsan_flush().
 // RUN: %clang_dfsan %s -o %t && %run %t
 // RUN: %clang_dfsan -DORIGIN_TRACKING -mllvm -dfsan-track-origins=1 %s -o %t && %run %t
+//
+// REQUIRES: x86_64-target-arch
 
 #include <sanitizer/dfsan_interface.h>
 #include <assert.h>

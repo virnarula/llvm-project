@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 namespace {
 AST_MATCHER(StringLiteral, containsNul) {
@@ -77,4 +79,6 @@ void StringLiteralWithEmbeddedNulCheck::check(
   }
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

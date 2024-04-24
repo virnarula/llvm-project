@@ -2,8 +2,6 @@
 // omp teams.  This is an extension to OpenMP 5.2 and is enabled by default.
 
 // RUN: %libomp-compile-and-run | FileCheck %s
-// GCC has really limited OpenMP 5.2 support yet.
-// UNSUPPORTED: gcc
 
 #include <omp.h>
 #include <stdbool.h>

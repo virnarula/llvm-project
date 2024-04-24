@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 void AssignmentInIfConditionCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(translationUnitDecl(), this);
@@ -74,4 +76,6 @@ void AssignmentInIfConditionCheck::report(const Expr *AssignmentExpr) {
        DiagnosticIDs::Note);
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

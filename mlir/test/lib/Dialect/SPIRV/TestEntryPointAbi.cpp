@@ -53,14 +53,13 @@ void TestSpirvEntryPointABIPass::runOnOperation() {
   MLIRContext *context = &getContext();
   StringRef attrName = spirv::getEntryPointABIAttrName();
   for (gpu::GPUFuncOp gpuFunc : gpuModule.getOps<gpu::GPUFuncOp>()) {
-    if (!gpu::GPUDialect::isKernel(gpuFunc) ||
-        gpuFunc->getDiscardableAttr(attrName))
+    if (!gpu::GPUDialect::isKernel(gpuFunc) || gpuFunc->getAttr(attrName))
       continue;
     SmallVector<int32_t, 3> workgroupSizeVec(workgroupSize.begin(),
                                              workgroupSize.end());
     workgroupSizeVec.resize(3, 1);
     gpuFunc->setAttr(attrName,
-                     spirv::getEntryPointABIAttr(context, workgroupSizeVec));
+                     spirv::getEntryPointABIAttr(workgroupSizeVec, context));
   }
 }
 

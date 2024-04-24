@@ -1,4 +1,4 @@
-// UNSUPPORTED: target={{.*}}-zos{{.*}}, target={{.*}}-aix{{.*}}
+// UNSUPPORTED: -zos, -aix
 // RUN: %clang_cc1 %s -triple %itanium_abi_triple -emit-pch -o %t.pch
 // RUN: %clang_cc1 %s -triple %itanium_abi_triple -emit-llvm -include-pch %t.pch -o - | FileCheck %s
 
@@ -30,7 +30,7 @@ OOArray operator & (OOString, OOString);
 
 #else
 
-// We just make sure there is no crash on IRGen
+// We just make sure there is no crash on IRGen (rdar://13114142)
 // CHECK: _Z3foov()
 void foo() {
   OOString str;

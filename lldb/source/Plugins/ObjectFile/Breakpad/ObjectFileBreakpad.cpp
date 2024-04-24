@@ -11,7 +11,6 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -23,16 +22,16 @@ namespace {
 struct Header {
   ArchSpec arch;
   UUID uuid;
-  static std::optional<Header> parse(llvm::StringRef text);
+  static llvm::Optional<Header> parse(llvm::StringRef text);
 };
 } // namespace
 
-std::optional<Header> Header::parse(llvm::StringRef text) {
+llvm::Optional<Header> Header::parse(llvm::StringRef text) {
   llvm::StringRef line;
   std::tie(line, text) = text.split('\n');
   auto Module = ModuleRecord::parse(line);
   if (!Module)
-    return std::nullopt;
+    return llvm::None;
 
   llvm::Triple triple;
   triple.setArch(Module->Arch);
@@ -67,7 +66,7 @@ ObjectFile *ObjectFileBreakpad::CreateInstance(
     data_offset = 0;
   }
   auto text = toStringRef(data_sp->GetData());
-  std::optional<Header> header = Header::parse(text);
+  llvm::Optional<Header> header = Header::parse(text);
   if (!header)
     return nullptr;
 
@@ -94,7 +93,7 @@ size_t ObjectFileBreakpad::GetModuleSpecifications(
     const FileSpec &file, DataBufferSP &data_sp, offset_t data_offset,
     offset_t file_offset, offset_t length, ModuleSpecList &specs) {
   auto text = toStringRef(data_sp->GetData());
-  std::optional<Header> header = Header::parse(text);
+  llvm::Optional<Header> header = Header::parse(text);
   if (!header)
     return 0;
   ModuleSpec spec(file, std::move(header->arch));
@@ -128,7 +127,7 @@ void ObjectFileBreakpad::CreateSections(SectionList &unified_section_list) {
     return;
   m_sections_up = std::make_unique<SectionList>();
 
-  std::optional<Record::Kind> current_section;
+  llvm::Optional<Record::Kind> current_section;
   offset_t section_start;
   llvm::StringRef text = toStringRef(m_data.GetData());
   uint32_t next_section_id = 1;
@@ -149,7 +148,7 @@ void ObjectFileBreakpad::CreateSections(SectionList &unified_section_list) {
     llvm::StringRef line;
     std::tie(line, text) = text.split('\n');
 
-    std::optional<Record::Kind> next_section = Record::classify(line);
+    llvm::Optional<Record::Kind> next_section = Record::classify(line);
     if (next_section == Record::Line || next_section == Record::Inline) {
       // Line/Inline records logically belong to the preceding Func record, so
       // we put them in the same section.

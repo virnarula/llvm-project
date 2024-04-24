@@ -1,6 +1,6 @@
 // RUN: %clangxx -O0 -g %s -o %t && %run %t 2>&1 | FileCheck %s
 //
-// UNSUPPORTED: linux, target={{.*solaris.*}}
+// UNSUPPORTED: linux, solaris
 
 #include <sys/param.h>
 #include <sys/types.h>

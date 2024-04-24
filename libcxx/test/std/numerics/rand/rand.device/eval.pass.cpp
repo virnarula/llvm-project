@@ -16,7 +16,6 @@
 
 #include <random>
 #include <cassert>
-#include <string>
 #include <system_error>
 
 #include "test_macros.h"

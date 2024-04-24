@@ -249,7 +249,7 @@ public:
 template <bool cf_style>
 bool lldb_private::formatters::NSSetSummaryProvider(
     ValueObject &valobj, Stream &stream, const TypeSummaryOptions &options) {
-  static constexpr llvm::StringLiteral g_TypeHint("NSSet");
+  static ConstString g_TypeHint("NSSet");
 
   ProcessSP process_sp = valobj.GetProcessSP();
   if (!process_sp)
@@ -322,13 +322,17 @@ bool lldb_private::formatters::NSSetSummaryProvider(
       return false;
   }
 
-  llvm::StringRef prefix, suffix;
-  if (Language *language = Language::FindPlugin(options.GetLanguage()))
-    std::tie(prefix, suffix) = language->GetFormatterPrefixSuffix(g_TypeHint);
+  std::string prefix, suffix;
+  if (Language *language = Language::FindPlugin(options.GetLanguage())) {
+    if (!language->GetFormatterPrefixSuffix(valobj, g_TypeHint, prefix,
+                                            suffix)) {
+      prefix.clear();
+      suffix.clear();
+    }
+  }
 
-  stream << prefix;
-  stream.Printf("%" PRIu64 " %s%s", value, "element", value == 1 ? "" : "s");
-  stream << suffix;
+  stream.Printf("%s%" PRIu64 " %s%s%s", prefix.c_str(), value, "element",
+                value == 1 ? "" : "s", suffix.c_str());
   return true;
 }
 

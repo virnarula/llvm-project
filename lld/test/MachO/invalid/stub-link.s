@@ -1,7 +1,7 @@
 ## FIXME: This test seems to be failing on some Google Mac buildbots for
 ## unclear reasons, so it's disabled for now. See D85404 for details.
-# UNSUPPORTED: target={{.*}}-darwin{{.*}}
-# REQUIRES: target=x86{{.*}}
+# UNSUPPORTED: darwin
+# REQUIRES: x86
 
 # RUN: mkdir -p %t
 #

@@ -27,27 +27,27 @@ void Fortran::lower::genChangeTeamConstruct(
     Fortran::lower::AbstractConverter &converter,
     Fortran::lower::pft::Evaluation &,
     const Fortran::parser::ChangeTeamConstruct &) {
-  TODO(converter.getCurrentLocation(), "coarray: CHANGE TEAM construct");
+  TODO(converter.getCurrentLocation(), "CHANGE TEAM construct");
 }
 
 void Fortran::lower::genChangeTeamStmt(
     Fortran::lower::AbstractConverter &converter,
     Fortran::lower::pft::Evaluation &,
     const Fortran::parser::ChangeTeamStmt &) {
-  TODO(converter.getCurrentLocation(), "coarray: CHANGE TEAM statement");
+  TODO(converter.getCurrentLocation(), "CHANGE TEAM stmt");
 }
 
 void Fortran::lower::genEndChangeTeamStmt(
     Fortran::lower::AbstractConverter &converter,
     Fortran::lower::pft::Evaluation &,
     const Fortran::parser::EndChangeTeamStmt &) {
-  TODO(converter.getCurrentLocation(), "coarray: END CHANGE TEAM statement");
+  TODO(converter.getCurrentLocation(), "END CHANGE TEAM");
 }
 
 void Fortran::lower::genFormTeamStatement(
     Fortran::lower::AbstractConverter &converter,
     Fortran::lower::pft::Evaluation &, const Fortran::parser::FormTeamStmt &) {
-  TODO(converter.getCurrentLocation(), "coarray: FORM TEAM statement");
+  TODO(converter.getCurrentLocation(), "FORM TEAM");
 }
 
 //===----------------------------------------------------------------------===//

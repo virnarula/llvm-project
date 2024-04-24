@@ -24,7 +24,6 @@
 #include "llvm/BinaryFormat/Wasm.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Format.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -50,7 +49,7 @@ static bool ValidateModuleHeader(const DataBufferSP &data_sp) {
   return version == llvm::wasm::WasmVersion;
 }
 
-static std::optional<ConstString>
+static llvm::Optional<ConstString>
 GetWasmString(llvm::DataExtractor &data, llvm::DataExtractor::Cursor &c) {
   // A Wasm string is encoded as a vector of UTF-8 codes.
   // Vectors are encoded with their u32 length followed by the element
@@ -58,21 +57,21 @@ GetWasmString(llvm::DataExtractor &data, llvm::DataExtractor::Cursor &c) {
   uint64_t len = data.getULEB128(c);
   if (!c) {
     consumeError(c.takeError());
-    return std::nullopt;
+    return llvm::None;
   }
 
   if (len >= (uint64_t(1) << 32)) {
-    return std::nullopt;
+    return llvm::None;
   }
 
   llvm::SmallVector<uint8_t, 32> str_storage;
   data.getU8(c, str_storage, len);
   if (!c) {
     consumeError(c.takeError());
-    return std::nullopt;
+    return llvm::None;
   }
 
-  llvm::StringRef str = toStringRef(llvm::ArrayRef(str_storage));
+  llvm::StringRef str = toStringRef(makeArrayRef(str_storage));
   return ConstString(str);
 }
 
@@ -182,7 +181,7 @@ bool ObjectFileWasm::DecodeNextSection(lldb::offset_t *offset_ptr) {
     // identifying the custom section, followed by an uninterpreted sequence
     // of bytes.
     lldb::offset_t prev_offset = c.tell();
-    std::optional<ConstString> sect_name = GetWasmString(data, c);
+    llvm::Optional<ConstString> sect_name = GetWasmString(data, c);
     if (!sect_name)
       return false;
 
@@ -413,7 +412,7 @@ DataExtractor ObjectFileWasm::ReadImageData(offset_t offset, uint32_t size) {
   return data;
 }
 
-std::optional<FileSpec> ObjectFileWasm::GetExternalDebugInfoFileSpec() {
+llvm::Optional<FileSpec> ObjectFileWasm::GetExternalDebugInfoFileSpec() {
   static ConstString g_sect_name_external_debug_info("external_debug_info");
 
   for (const section_info &sect_info : m_sect_infos) {
@@ -423,12 +422,12 @@ std::optional<FileSpec> ObjectFileWasm::GetExternalDebugInfoFileSpec() {
           ReadImageData(sect_info.offset, kBufferSize);
       llvm::DataExtractor data = section_header_data.GetAsLLVM();
       llvm::DataExtractor::Cursor c(0);
-      std::optional<ConstString> symbols_url = GetWasmString(data, c);
+      llvm::Optional<ConstString> symbols_url = GetWasmString(data, c);
       if (symbols_url)
         return FileSpec(symbols_url->GetStringRef());
     }
   }
-  return std::nullopt;
+  return llvm::None;
 }
 
 void ObjectFileWasm::Dump(Stream *s) {

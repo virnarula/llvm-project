@@ -32,7 +32,7 @@ static Value sourceMaterializationCallback(OpBuilder &builder, Type type,
                                            ValueRange inputs, Location loc) {
   assert(inputs.size() == 1);
   auto inputType = inputs[0].getType();
-  if (isa<TensorType>(inputType))
+  if (inputType.isa<TensorType>())
     return nullptr;
 
   // A detensored value is converted back by creating a new tensor from its
@@ -60,7 +60,7 @@ bool shouldBeDetensored(Operation *op, TypeConverter typeConverter) {
          });
 }
 
-/// A conversion pattern for detensoring `linalg.generic` ops.
+/// A conversion patttern for detensoring `linalg.generic` ops.
 class DetensorizeGenericOp : public OpConversionPattern<GenericOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -69,7 +69,7 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     Block *originalBlock = op->getBlock();
 
-    // Gather some information about the op before inlining its region.
+    // Gather some information about the op before inling its region.
     Block *opEntryBlock = &*op.getRegion().begin();
     YieldOp yieldOp = dyn_cast<YieldOp>(op.getRegion().back().getTerminator());
 
@@ -104,7 +104,7 @@ struct FunctionNonEntryBlockConversion
   LogicalResult
   matchAndRewrite(FunctionOpInterface op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
-    rewriter.startOpModification(op);
+    rewriter.startRootUpdate(op);
     Region &region = op.getFunctionBody();
     SmallVector<TypeConverter::SignatureConversion, 2> conversions;
 
@@ -125,11 +125,11 @@ struct FunctionNonEntryBlockConversion
 
     if (failed(rewriter.convertNonEntryRegionTypes(&region, *typeConverter,
                                                    conversions))) {
-      rewriter.cancelOpModification(op);
+      rewriter.cancelRootUpdate(op);
       return failure();
     }
 
-    rewriter.finalizeOpModification(op);
+    rewriter.finalizeRootUpdate(op);
     return success();
   }
 
@@ -320,9 +320,9 @@ struct LinalgDetensorize
         //       * Add the argument to blockArgsToDetensor.
         //       * Walk the use-def chain backwards to add each predecessor's
         //       terminator-operands corresponding to currentItem to workList.
-        if (dyn_cast<BlockArgument>(currentItem)) {
+        if (currentItem.dyn_cast<BlockArgument>()) {
           BlockArgument currentItemBlockArgument =
-              cast<BlockArgument>(currentItem);
+              currentItem.cast<BlockArgument>();
           Block *ownerBlock = currentItemBlockArgument.getOwner();
 
           // Function arguments are not detensored/converted.
@@ -474,22 +474,7 @@ struct LinalgDetensorize
     DenseSet<Operation *> opsToDetensor;
     DenseMap<Operation *, DenseSet<int>> detensorableBranchOps;
     DenseSet<BlockArgument> blockArgsToDetensor;
-    FunctionOpInterface funcOp = getOperation();
-
-    if (funcOp.getFunctionBody().empty())
-      return;
-
-    // Make sure the entry block of the function doesn't contain any Linalg ops.
-    // Otherwise, it may lead to the signature of the block being changed by the
-    // dialect conversion below, which would make the function op invalid
-    // because its type shouldn't change.
-    IRRewriter rewriter(funcOp->getContext());
-    Block *entryBlock = &funcOp.getFunctionBody().front();
-    Block *postEntryBlock =
-        rewriter.splitBlock(entryBlock, entryBlock->begin());
-    rewriter.setInsertionPointToStart(entryBlock);
-    auto branch =
-        rewriter.create<cf::BranchOp>(rewriter.getUnknownLoc(), postEntryBlock);
+    FunctionOpInterface funcOp = cast<FunctionOpInterface>(getOperation());
 
     if (aggressiveMode.getValue()) {
       AggressiveDetensoringModel costModel;
@@ -568,11 +553,6 @@ struct LinalgDetensorize
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(canonPatterns))))
       signalPassFailure();
-
-    // Get rid of the dummy entry block we created in the beginning to work
-    // around dialect conversion signature rewriting.
-    rewriter.eraseOp(branch);
-    rewriter.mergeBlocks(postEntryBlock, entryBlock);
   }
 };
 } // namespace

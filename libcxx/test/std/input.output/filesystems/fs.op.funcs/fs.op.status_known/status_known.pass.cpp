@@ -6,31 +6,32 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
 // bool status_known(file_status s) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void signature_test()
+TEST_SUITE(status_known_test_suite)
+
+TEST_CASE(signature_test)
 {
     file_status s; ((void)s);
     ASSERT_SAME_TYPE(decltype(status_known(s)), bool);
     ASSERT_NOEXCEPT(status_known(s));
 }
 
-static void status_known_test()
+TEST_CASE(status_known_test)
 {
     struct TestCase {
         file_type type;
@@ -50,13 +51,8 @@ static void status_known_test()
     };
     for (auto& TC : testCases) {
         file_status s(TC.type);
-        assert(status_known(s) == TC.expect);
+        TEST_CHECK(status_known(s) == TC.expect);
     }
 }
 
-int main(int, char**) {
-    signature_test();
-    status_known_test();
-
-    return 0;
-}
+TEST_SUITE_END()

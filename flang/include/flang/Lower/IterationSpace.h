@@ -17,7 +17,6 @@
 #include "flang/Lower/StatementContext.h"
 #include "flang/Lower/SymbolMap.h"
 #include "flang/Optimizer/Builder/FIRBuilder.h"
-#include <optional>
 
 namespace llvm {
 class raw_ostream;
@@ -37,8 +36,29 @@ using FrontEndSymbol = const semantics::Symbol *;
 
 class AbstractConverter;
 
+unsigned getHashValue(FrontEndExpr x);
+bool isEqual(FrontEndExpr x, FrontEndExpr y);
 } // namespace lower
 } // namespace Fortran
+
+namespace llvm {
+template <>
+struct DenseMapInfo<Fortran::lower::FrontEndExpr> {
+  static inline Fortran::lower::FrontEndExpr getEmptyKey() {
+    return reinterpret_cast<Fortran::lower::FrontEndExpr>(~0);
+  }
+  static inline Fortran::lower::FrontEndExpr getTombstoneKey() {
+    return reinterpret_cast<Fortran::lower::FrontEndExpr>(~0 - 1);
+  }
+  static unsigned getHashValue(Fortran::lower::FrontEndExpr v) {
+    return Fortran::lower::getHashValue(v);
+  }
+  static bool isEqual(Fortran::lower::FrontEndExpr lhs,
+                      Fortran::lower::FrontEndExpr rhs) {
+    return Fortran::lower::isEqual(lhs, rhs);
+  }
+};
+} // namespace llvm
 
 namespace Fortran::lower {
 
@@ -170,7 +190,7 @@ protected:
     assert(!empty());
     stack.pop_back();
     if (empty()) {
-      stmtCtx.finalizeAndReset();
+      stmtCtx.finalize();
       vmap.clear();
     }
   }
@@ -423,8 +443,8 @@ public:
     return loadBindings.lookup(base);
   }
 
-  /// `load` must be a LHS array_load. Returns `std::nullopt` on error.
-  std::optional<size_t> findArgPosition(fir::ArrayLoadOp load);
+  /// `load` must be a LHS array_load. Returns `llvm::None` on error.
+  llvm::Optional<size_t> findArgPosition(fir::ArrayLoadOp load);
 
   bool isLHS(fir::ArrayLoadOp load) {
     return findArgPosition(load).has_value();
@@ -445,17 +465,17 @@ public:
     llvm_unreachable("inner argument value was not found");
   }
 
-  std::optional<fir::ArrayLoadOp> getLhsLoad(size_t i) {
+  llvm::Optional<fir::ArrayLoadOp> getLhsLoad(size_t i) {
     assert(i < lhsBases.size());
     if (lhsBases[counter])
       return findBinding(*lhsBases[counter]);
-    return std::nullopt;
+    return llvm::None;
   }
 
   /// Return the outermost loop in this FORALL nest.
   fir::DoLoopOp getOuterLoop() {
     assert(outerLoop.has_value());
-    return *outerLoop;
+    return outerLoop.value();
   }
 
   /// Return the statement context for the entire, outermost FORALL construct.
@@ -501,7 +521,7 @@ public:
                                        const ExplicitIterSpace &);
 
   /// Finalize the current body statement context.
-  void finalizeContext() { stmtCtx.finalizeAndReset(); }
+  void finalizeContext() { stmtCtx.finalize(); }
 
   void appendLoops(const llvm::SmallVector<fir::DoLoopOp> &loops) {
     loopStack.push_back(loops);
@@ -521,7 +541,7 @@ private:
 
   // A stack of lists of front-end symbols.
   llvm::SmallVector<llvm::SmallVector<FrontEndSymbol>> symbolStack;
-  llvm::SmallVector<std::optional<ArrayBases>> lhsBases;
+  llvm::SmallVector<llvm::Optional<ArrayBases>> lhsBases;
   llvm::SmallVector<llvm::SmallVector<ArrayBases>> rhsBases;
   llvm::DenseMap<ArrayBases, fir::ArrayLoadOp> loadBindings;
 
@@ -532,9 +552,9 @@ private:
   StatementContext stmtCtx;
   llvm::SmallVector<mlir::Value> innerArgs;
   llvm::SmallVector<mlir::Value> initialArgs;
-  std::optional<fir::DoLoopOp> outerLoop;
+  llvm::Optional<fir::DoLoopOp> outerLoop;
   llvm::SmallVector<llvm::SmallVector<fir::DoLoopOp>> loopStack;
-  std::optional<std::function<void(fir::FirOpBuilder &)>> loopCleanup;
+  llvm::Optional<std::function<void(fir::FirOpBuilder &)>> loopCleanup;
   std::size_t forallContextOpen = 0;
   std::size_t counter = 0;
 };

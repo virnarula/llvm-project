@@ -54,21 +54,16 @@ def ShapedTypeInterface : TypeInterface<"ShapedType"> {
     A shape is a list of sizes corresponding to the dimensions of the container.
     If the number of dimensions in the shape is unknown, the shape is "unranked".
     If the number of dimensions is known, the shape "ranked". The sizes of the
-    dimensions of the shape must be positive, or kDynamic (in which case the
+    dimensions of the shape must be positive, or kDynamicSize (in which case the
     size of the dimension is dynamic, or not statically known).
   }];
   let methods = [
     InterfaceMethod<[{
-      Returns a clone of this type with the given shape and element type.
-
-      If no shape is provided, the shape of this type is used. In that case, if
-      this type is unranked, so is the resulting type.
-
-      If a shape is provided, the resulting type is always ranked, even if this
-      type is unranked.
+      Returns a clone of this type with the given shape and element
+      type. If a shape is not provided, the current shape of the type is used.
     }],
     "::mlir::ShapedType", "cloneWith", (ins
-      "::std::optional<::llvm::ArrayRef<int64_t>>":$shape,
+      "::llvm::Optional<::llvm::ArrayRef<int64_t>>":$shape,
       "::mlir::Type":$elementType
     )>,
 
@@ -89,41 +84,46 @@ def ShapedTypeInterface : TypeInterface<"ShapedType"> {
   ];
 
   let extraClassDeclaration = [{
-    static constexpr int64_t kDynamic =
+    // TODO: merge these two special values in a single one used everywhere.
+    // Unfortunately, uses of `-1` have crept deep into the codebase now and are
+    // hard to track.
+    static constexpr int64_t kDynamicSize = -1;
+    static constexpr int64_t kDynamicStrideOrOffset =
         std::numeric_limits<int64_t>::min();
 
     /// Whether the given dimension size indicates a dynamic dimension.
-    static constexpr bool isDynamic(int64_t dValue) {
-      return dValue == kDynamic;
+    static constexpr bool isDynamic(int64_t dSize) {
+      return dSize == kDynamicSize;
     }
-
-    /// Whether the given shape has any size that indicates a dynamic dimension.
-    static bool isDynamicShape(ArrayRef<int64_t> dSizes) {
-      return any_of(dSizes, [](int64_t dSize) { return isDynamic(dSize); });
+    static constexpr bool isDynamicStrideOrOffset(int64_t dStrideOrOffset) {
+      return dStrideOrOffset == kDynamicStrideOrOffset;
     }
 
     /// Return the number of elements present in the given shape.
     static int64_t getNumElements(ArrayRef<int64_t> shape);
 
-    /// Return a clone of this type with the given new shape and element type.
-    /// The returned type is ranked, even if this type is unranked.
-    auto clone(::llvm::ArrayRef<int64_t> shape, Type elementType) {
-      return cloneWith(shape, elementType);
-    }
-
-    /// Return a clone of this type with the given new shape. The returned type
-    /// is ranked, even if this type is unranked.
-    auto clone(::llvm::ArrayRef<int64_t> shape) {
-      return cloneWith(shape, getElementType());
-    }
+    /// Returns the total amount of bits occupied by a value of this type. This
+    /// does not take into account any memory layout or widening constraints,
+    /// e.g. a vector<3xi57> may report to occupy 3x57=171 bit, even though in
+    /// practice it will likely be stored as in a 4xi64 vector register. Fails
+    /// with an assertion if the size cannot be computed statically, e.g. if the
+    /// type has a dynamic shape or if its elemental type does not have a known
+    /// bit width.
+    int64_t getSizeInBits() const;
   }];
 
   let extraSharedClassDeclaration = [{
-    /// Return a clone of this type with the given new element type. The
-    /// returned type is ranked if and only if this type is ranked. In that
-    /// case, the returned type has the same shape as this type.
+    /// Return a clone of this type with the given new shape and element type.
+    auto clone(::llvm::ArrayRef<int64_t> shape, Type elementType) {
+      return $_type.cloneWith(shape, elementType);
+    }
+    /// Return a clone of this type with the given new shape.
+    auto clone(::llvm::ArrayRef<int64_t> shape) {
+      return $_type.cloneWith(shape, $_type.getElementType());
+    }
+    /// Return a clone of this type with the given new element type.
     auto clone(::mlir::Type elementType) {
-      return $_type.cloneWith(/*shape=*/std::nullopt, elementType);
+      return $_type.cloneWith(/*shape=*/llvm::None, elementType);
     }
 
     /// If an element type is an integer or a float, return its width. Otherwise,
@@ -155,7 +155,7 @@ def ShapedTypeInterface : TypeInterface<"ShapedType"> {
     /// all dimensions have known size (>= 0).
     bool hasStaticShape() const {
       return $_type.hasRank() &&
-             !::mlir::ShapedType::isDynamicShape($_type.getShape());
+             llvm::none_of($_type.getShape(), ::mlir::ShapedType::isDynamic);
     }
 
     /// Returns if this type has a static shape and the shape is equal to

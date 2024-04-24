@@ -143,6 +143,10 @@ void HIPSPVToolChain::addClangTargetOptions(
        // TODO: Allow autovectorization when SPIR-V backend arrives.
        "-mllvm", "-vectorize-loops=false", "-mllvm", "-vectorize-slp=false"});
 
+  if (DriverArgs.hasFlag(options::OPT_fcuda_approx_transcendentals,
+                         options::OPT_fno_cuda_approx_transcendentals, false))
+    CC1Args.push_back("-fcuda-approx-transcendentals");
+
   // Default to "hidden" visibility, as object level linking will not be
   // supported for the foreseeable future.
   if (!DriverArgs.hasArg(options::OPT_fvisibility_EQ,
@@ -279,10 +283,10 @@ VersionTuple HIPSPVToolChain::computeMSVCVersion(const Driver *D,
 }
 
 void HIPSPVToolChain::adjustDebugInfoKind(
-    llvm::codegenoptions::DebugInfoKind &DebugInfoKind,
+    codegenoptions::DebugInfoKind &DebugInfoKind,
     const llvm::opt::ArgList &Args) const {
   // Debug info generation is disabled for SPIRV-LLVM-Translator
   // which currently aborts on the presence of DW_OP_LLVM_convert.
   // TODO: Enable debug info when the SPIR-V backend arrives.
-  DebugInfoKind = llvm::codegenoptions::NoDebugInfo;
+  DebugInfoKind = codegenoptions::NoDebugInfo;
 }

@@ -15,7 +15,6 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/XCOFF.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Endian.h"
@@ -23,8 +22,6 @@
 
 namespace llvm {
 namespace object {
-
-class xcoff_symbol_iterator;
 
 struct XCOFFFileHeader32 {
   support::ubig16_t Magic;
@@ -198,53 +195,6 @@ struct XCOFFSectionHeader64 : XCOFFSectionHeader<XCOFFSectionHeader64> {
   char Padding[4];
 };
 
-struct LoaderSectionHeader32;
-struct LoaderSectionHeader64;
-struct LoaderSectionSymbolEntry32 {
-  struct NameOffsetInStrTbl {
-    support::big32_t IsNameInStrTbl; // Zero indicates name in string table.
-    support::ubig32_t Offset;
-  };
-
-  char SymbolName[XCOFF::NameSize];
-  support::ubig32_t Value; // The virtual address of the symbol.
-  support::big16_t SectionNumber;
-  uint8_t SymbolType;
-  XCOFF::StorageClass StorageClass;
-  support::ubig32_t ImportFileID;
-  support::ubig32_t ParameterTypeCheck;
-
-  Expected<StringRef>
-  getSymbolName(const LoaderSectionHeader32 *LoaderSecHeader) const;
-};
-
-struct LoaderSectionSymbolEntry64 {
-  support::ubig64_t Value; // The virtual address of the symbol.
-  support::ubig32_t Offset;
-  support::big16_t SectionNumber;
-  uint8_t SymbolType;
-  XCOFF::StorageClass StorageClass;
-  support::ubig32_t ImportFileID;
-  support::ubig32_t ParameterTypeCheck;
-
-  Expected<StringRef>
-  getSymbolName(const LoaderSectionHeader64 *LoaderSecHeader) const;
-};
-
-struct LoaderSectionRelocationEntry32 {
-  support::ubig32_t VirtualAddr;
-  support::big32_t SymbolIndex;
-  support::ubig16_t Type;
-  support::big16_t SectionNum;
-};
-
-struct LoaderSectionRelocationEntry64 {
-  support::ubig64_t VirtualAddr;
-  support::ubig16_t Type;
-  support::big16_t SectionNum;
-  support::big32_t SymbolIndex;
-};
-
 struct LoaderSectionHeader32 {
   support::ubig32_t Version;
   support::ubig32_t NumberOfSymTabEnt;
@@ -254,18 +204,6 @@ struct LoaderSectionHeader32 {
   support::big32_t OffsetToImpid;
   support::ubig32_t LengthOfStrTbl;
   support::big32_t OffsetToStrTbl;
-
-  uint64_t getOffsetToSymTbl() const {
-    return NumberOfSymTabEnt == 0 ? 0 : sizeof(LoaderSectionHeader32);
-  }
-
-  uint64_t getOffsetToRelEnt() const {
-    // Relocation table is after Symbol table.
-    return NumberOfRelTabEnt == 0
-               ? 0
-               : sizeof(LoaderSectionHeader32) +
-                     sizeof(LoaderSectionSymbolEntry32) * NumberOfSymTabEnt;
-  }
 };
 
 struct LoaderSectionHeader64 {
@@ -279,9 +217,6 @@ struct LoaderSectionHeader64 {
   support::big64_t OffsetToStrTbl;
   support::big64_t OffsetToSymTbl;
   support::big64_t OffsetToRelEnt;
-
-  uint64_t getOffsetToSymTbl() const { return OffsetToSymTbl; }
-  uint64_t getOffsetToRelEnt() const { return OffsetToRelEnt; }
 };
 
 template <typename AddressType> struct ExceptionSectionEntry {
@@ -411,13 +346,13 @@ public:
     return Entry64->AuxType;
   }
 
+private:
   uint8_t getSymbolAlignmentAndType() const {
     return GETVALUE(SymbolAlignmentAndType);
   }
 
 #undef GETVALUE
 
-private:
   const XCOFFCsectAuxEnt32 *Entry32 = nullptr;
   const XCOFFCsectAuxEnt64 *Entry64 = nullptr;
 };
@@ -496,6 +431,20 @@ struct XCOFFSectAuxEntForDWARF64 {
 };
 
 template <typename AddressType> struct XCOFFRelocation {
+  // Masks for packing/unpacking the r_rsize field of relocations.
+
+  // The msb is used to indicate if the bits being relocated are signed or
+  // unsigned.
+  static constexpr uint8_t XR_SIGN_INDICATOR_MASK = 0x80;
+
+  // The 2nd msb is used to indicate that the binder has replaced/modified the
+  // original instruction.
+  static constexpr uint8_t XR_FIXUP_INDICATOR_MASK = 0x40;
+
+  // The remaining bits specify the bit length of the relocatable reference
+  // minus one.
+  static constexpr uint8_t XR_BIASED_LENGTH_MASK = 0x3f;
+
 public:
   AddressType VirtualAddress;
   support::ubig32_t SymbolIndex;
@@ -580,10 +529,6 @@ public:
   basic_symbol_iterator symbol_begin() const override;
   basic_symbol_iterator symbol_end() const override;
 
-  using xcoff_symbol_iterator_range = iterator_range<xcoff_symbol_iterator>;
-  xcoff_symbol_iterator_range symbols() const;
-
-  bool is64Bit() const override;
   Expected<StringRef> getSymbolName(DataRefImpl Symb) const override;
   Expected<uint64_t> getSymbolAddress(DataRefImpl Symb) const override;
   uint64_t getSymbolValueImpl(DataRefImpl Symb) const override;
@@ -626,13 +571,13 @@ public:
   uint8_t getBytesInAddress() const override;
   StringRef getFileFormatName() const override;
   Triple::ArchType getArch() const override;
-  Expected<SubtargetFeatures> getFeatures() const override;
+  SubtargetFeatures getFeatures() const override;
   Expected<uint64_t> getStartAddress() const override;
   StringRef mapDebugSectionName(StringRef Name) const override;
   bool isRelocatableObject() const override;
 
   // Below here is the non-inherited interface.
-
+  bool is64Bit() const;
   Expected<StringRef> getRawData(const char *Start, uint64_t Size,
                                  StringRef Name) const;
 
@@ -722,8 +667,6 @@ public:
                                                  uint32_t Distance);
 
   static bool classof(const Binary *B) { return B->isXCOFF(); }
-
-  std::optional<StringRef> tryGetCPUName() const override;
 }; // XCOFFObjectFile
 
 typedef struct {
@@ -768,48 +711,33 @@ struct XCOFFSymbolEntry64 {
   uint8_t NumberOfAuxEntries;
 };
 
-class XCOFFSymbolRef : public SymbolRef {
+class XCOFFSymbolRef {
 public:
   enum { NAME_IN_STR_TBL_MAGIC = 0x0 };
 
   XCOFFSymbolRef(DataRefImpl SymEntDataRef,
                  const XCOFFObjectFile *OwningObjectPtr)
-      : SymbolRef(SymEntDataRef, OwningObjectPtr) {
+      : OwningObjectPtr(OwningObjectPtr) {
     assert(OwningObjectPtr && "OwningObjectPtr cannot be nullptr!");
     assert(SymEntDataRef.p != 0 &&
            "Symbol table entry pointer cannot be nullptr!");
+
+    if (OwningObjectPtr->is64Bit())
+      Entry64 = reinterpret_cast<const XCOFFSymbolEntry64 *>(SymEntDataRef.p);
+    else
+      Entry32 = reinterpret_cast<const XCOFFSymbolEntry32 *>(SymEntDataRef.p);
   }
 
-  const XCOFFSymbolEntry32 *getSymbol32() const {
-    return reinterpret_cast<const XCOFFSymbolEntry32 *>(getRawDataRefImpl().p);
-  }
+  const XCOFFSymbolEntry32 *getSymbol32() { return Entry32; }
+  const XCOFFSymbolEntry64 *getSymbol64() { return Entry64; }
 
-  const XCOFFSymbolEntry64 *getSymbol64() const {
-    return reinterpret_cast<const XCOFFSymbolEntry64 *>(getRawDataRefImpl().p);
-  }
+  uint64_t getValue() const { return Entry32 ? getValue32() : getValue64(); }
 
-  uint64_t getValue() const {
-    return getObject()->is64Bit() ? getValue64() : getValue32();
-  }
+  uint32_t getValue32() const { return Entry32->Value; }
 
-  uint32_t getValue32() const {
-    return reinterpret_cast<const XCOFFSymbolEntry32 *>(getRawDataRefImpl().p)
-        ->Value;
-  }
+  uint64_t getValue64() const { return Entry64->Value; }
 
-  uint64_t getValue64() const {
-    return reinterpret_cast<const XCOFFSymbolEntry64 *>(getRawDataRefImpl().p)
-        ->Value;
-  }
-
-  uint64_t getSize() const {
-    return getObject()->getSymbolSize(getRawDataRefImpl());
-  }
-
-#define GETVALUE(X)                                                            \
-  getObject()->is64Bit()                                                       \
-      ? reinterpret_cast<const XCOFFSymbolEntry64 *>(getRawDataRefImpl().p)->X \
-      : reinterpret_cast<const XCOFFSymbolEntry32 *>(getRawDataRefImpl().p)->X
+#define GETVALUE(X) Entry32 ? Entry32->X : Entry64->X
 
   int16_t getSectionNumber() const { return GETVALUE(SectionNumber); }
 
@@ -834,35 +762,19 @@ public:
 #undef GETVALUE
 
   uintptr_t getEntryAddress() const {
-    return getRawDataRefImpl().p;
+    return Entry32 ? reinterpret_cast<uintptr_t>(Entry32)
+                   : reinterpret_cast<uintptr_t>(Entry64);
   }
 
   Expected<StringRef> getName() const;
-  Expected<bool> isFunction() const;
+  bool isFunction() const;
   bool isCsectSymbol() const;
   Expected<XCOFFCsectAuxRef> getXCOFFCsectAuxRef() const;
 
 private:
-  const XCOFFObjectFile *getObject() const {
-    return cast<XCOFFObjectFile>(BasicSymbolRef::getObject());
-  }
-};
-
-class xcoff_symbol_iterator : public symbol_iterator {
-public:
-  xcoff_symbol_iterator(const basic_symbol_iterator &B)
-      : symbol_iterator(B) {}
-
-  xcoff_symbol_iterator(const XCOFFSymbolRef *Symbol)
-      : symbol_iterator(*Symbol) {}
-
-  const XCOFFSymbolRef *operator->() const {
-    return static_cast<const XCOFFSymbolRef *>(symbol_iterator::operator->());
-  }
-
-  const XCOFFSymbolRef &operator*() const {
-    return static_cast<const XCOFFSymbolRef &>(symbol_iterator::operator*());
-  }
+  const XCOFFObjectFile *OwningObjectPtr;
+  const XCOFFSymbolEntry32 *Entry32 = nullptr;
+  const XCOFFSymbolEntry64 *Entry64 = nullptr;
 };
 
 class TBVectorExt {
@@ -886,20 +798,17 @@ public:
 
 class XCOFFTracebackTable {
   const uint8_t *const TBPtr;
-  bool Is64BitObj;
-  std::optional<SmallString<32>> ParmsType;
-  std::optional<uint32_t> TraceBackTableOffset;
-  std::optional<uint32_t> HandlerMask;
-  std::optional<uint32_t> NumOfCtlAnchors;
-  std::optional<SmallVector<uint32_t, 8>> ControlledStorageInfoDisp;
-  std::optional<StringRef> FunctionName;
-  std::optional<uint8_t> AllocaRegister;
-  std::optional<TBVectorExt> VecExt;
-  std::optional<uint8_t> ExtensionTable;
-  std::optional<uint64_t> EhInfoDisp;
+  Optional<SmallString<32>> ParmsType;
+  Optional<uint32_t> TraceBackTableOffset;
+  Optional<uint32_t> HandlerMask;
+  Optional<uint32_t> NumOfCtlAnchors;
+  Optional<SmallVector<uint32_t, 8>> ControlledStorageInfoDisp;
+  Optional<StringRef> FunctionName;
+  Optional<uint8_t> AllocaRegister;
+  Optional<TBVectorExt> VecExt;
+  Optional<uint8_t> ExtensionTable;
 
-  XCOFFTracebackTable(const uint8_t *Ptr, uint64_t &Size, Error &Err,
-                      bool Is64Bit = false);
+  XCOFFTracebackTable(const uint8_t *Ptr, uint64_t &Size, Error &Err);
 
 public:
   /// Parse an XCOFF Traceback Table from \a Ptr with \a Size bytes.
@@ -915,8 +824,8 @@ public:
   ///    If the XCOFF Traceback Table is not parsed successfully or there are
   ///    extra bytes that are not recognized, \a Size will be updated to be the
   ///    size up to the end of the last successfully parsed field of the table.
-  static Expected<XCOFFTracebackTable>
-  create(const uint8_t *Ptr, uint64_t &Size, bool Is64Bits = false);
+  static Expected<XCOFFTracebackTable> create(const uint8_t *Ptr,
+                                              uint64_t &Size);
   uint8_t getVersion() const;
   uint8_t getLanguageID() const;
 
@@ -949,31 +858,19 @@ public:
   uint8_t getNumberOfFPParms() const;
   bool hasParmsOnStack() const;
 
-  const std::optional<SmallString<32>> &getParmsType() const {
-    return ParmsType;
-  }
-  const std::optional<uint32_t> &getTraceBackTableOffset() const {
+  const Optional<SmallString<32>> &getParmsType() const { return ParmsType; }
+  const Optional<uint32_t> &getTraceBackTableOffset() const {
     return TraceBackTableOffset;
   }
-  const std::optional<uint32_t> &getHandlerMask() const { return HandlerMask; }
-  const std::optional<uint32_t> &getNumOfCtlAnchors() {
-    return NumOfCtlAnchors;
-  }
-  const std::optional<SmallVector<uint32_t, 8>> &
-  getControlledStorageInfoDisp() {
+  const Optional<uint32_t> &getHandlerMask() const { return HandlerMask; }
+  const Optional<uint32_t> &getNumOfCtlAnchors() { return NumOfCtlAnchors; }
+  const Optional<SmallVector<uint32_t, 8>> &getControlledStorageInfoDisp() {
     return ControlledStorageInfoDisp;
   }
-  const std::optional<StringRef> &getFunctionName() const {
-    return FunctionName;
-  }
-  const std::optional<uint8_t> &getAllocaRegister() const {
-    return AllocaRegister;
-  }
-  const std::optional<TBVectorExt> &getVectorExt() const { return VecExt; }
-  const std::optional<uint8_t> &getExtensionTable() const {
-    return ExtensionTable;
-  }
-  const std::optional<uint64_t> &getEhInfoDisp() const { return EhInfoDisp; }
+  const Optional<StringRef> &getFunctionName() const { return FunctionName; }
+  const Optional<uint8_t> &getAllocaRegister() const { return AllocaRegister; }
+  const Optional<TBVectorExt> &getVectorExt() const { return VecExt; }
+  const Optional<uint8_t> &getExtensionTable() const { return ExtensionTable; }
 };
 
 bool doesXCOFFTracebackTableBegin(ArrayRef<uint8_t> Bytes);

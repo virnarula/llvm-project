@@ -17,10 +17,9 @@
 //
 // See https://llvm.org/PR22806.
 
-#include <cassert>
-#include <memory>
 #include <tuple>
-#include <type_traits>
+#include <memory>
+#include <cassert>
 
 #include "test_macros.h"
 

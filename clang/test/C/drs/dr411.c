@@ -25,7 +25,8 @@ _Static_assert(__STDC_VERSION__ == 201112L, "");
 #elif defined(C17)
 _Static_assert(__STDC_VERSION__ == 201710L, "");
 #elif defined(C2X)
-_Static_assert(__STDC_VERSION__ == 202311L, "");
+/* FIXME: this value will change once WG14 picks the final value for C2x. */
+_Static_assert(__STDC_VERSION__ == 202000L, "");
 #else
 #error "unknown language standard version"
 #endif

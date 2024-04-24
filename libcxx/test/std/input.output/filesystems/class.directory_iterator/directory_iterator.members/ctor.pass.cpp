@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -19,18 +17,20 @@
 // directory_iterator(const path& p, error_code& ec);
 // directory_iterator(const path& p, directory_options options, error_code& ec);
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <set>
 #include <cassert>
 
-#include "assert_macros.h"
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void test_constructor_signatures()
+TEST_SUITE(directory_iterator_constructor_tests)
+
+TEST_CASE(test_constructor_signatures)
 {
     using D = directory_iterator;
 
@@ -57,7 +57,7 @@ static void test_constructor_signatures()
 
 }
 
-static void test_construction_from_bad_path()
+TEST_CASE(test_construction_from_bad_path)
 {
     static_test_env static_env;
     std::error_code ec;
@@ -69,22 +69,22 @@ static void test_construction_from_bad_path()
     {
         {
             directory_iterator it(testPath, ec);
-            assert(ec);
-            assert(it == endIt);
+            TEST_CHECK(ec);
+            TEST_CHECK(it == endIt);
         }
         {
             directory_iterator it(testPath, opts, ec);
-            assert(ec);
-            assert(it == endIt);
+            TEST_CHECK(ec);
+            TEST_CHECK(it == endIt);
         }
         {
-            TEST_THROWS_TYPE(filesystem_error, directory_iterator(testPath));
-            TEST_THROWS_TYPE(filesystem_error, directory_iterator(testPath, opts));
+            TEST_CHECK_THROW(filesystem_error, directory_iterator(testPath));
+            TEST_CHECK_THROW(filesystem_error, directory_iterator(testPath, opts));
         }
     }
 }
 
-static void access_denied_test_case()
+TEST_CASE(access_denied_test_case)
 {
     using namespace fs;
 #ifdef _WIN32
@@ -93,7 +93,7 @@ static void access_denied_test_case()
     // instead.
     const path testDir = GetWindowsInaccessibleDir();
     if (testDir.empty())
-        return;
+        TEST_UNSUPPORTED();
 #else
     scoped_test_env env;
     path const testDir = env.make_env_path("dir1");
@@ -104,7 +104,7 @@ static void access_denied_test_case()
     // Test that we can iterator over the directory before changing the perms
     {
         directory_iterator it(testDir);
-        assert(it != directory_iterator{});
+        TEST_REQUIRE(it != directory_iterator{});
     }
     // Change the permissions so we can no longer iterate
     permissions(testDir, perms::none);
@@ -115,21 +115,21 @@ static void access_denied_test_case()
     {
         std::error_code ec;
         directory_iterator it(testDir, ec);
-        assert(ec);
-        assert(it == directory_iterator{});
+        TEST_REQUIRE(ec);
+        TEST_CHECK(it == directory_iterator{});
     }
     // Check that construction does not report an error when
     // 'skip_permissions_denied' is given.
     {
         std::error_code ec;
         directory_iterator it(testDir, directory_options::skip_permission_denied, ec);
-        assert(!ec);
-        assert(it == directory_iterator{});
+        TEST_REQUIRE(!ec);
+        TEST_CHECK(it == directory_iterator{});
     }
 }
 
 
-static void access_denied_to_file_test_case()
+TEST_CASE(access_denied_to_file_test_case)
 {
     using namespace fs;
     scoped_test_env env;
@@ -144,20 +144,20 @@ static void access_denied_to_file_test_case()
     {
         std::error_code ec;
         directory_iterator it(testFile, ec);
-        assert(ec);
-        assert(it == directory_iterator{});
+        TEST_REQUIRE(ec);
+        TEST_CHECK(it == directory_iterator{});
     }
     // Check that construction still fails when 'skip_permissions_denied' is given
     // because we tried to open a file and not a directory.
     {
         std::error_code ec;
         directory_iterator it(testFile, directory_options::skip_permission_denied, ec);
-        assert(ec);
-        assert(it == directory_iterator{});
+        TEST_REQUIRE(ec);
+        TEST_CHECK(it == directory_iterator{});
     }
 }
 
-static void test_open_on_empty_directory_equals_end()
+TEST_CASE(test_open_on_empty_directory_equals_end)
 {
     scoped_test_env env;
     const path testDir = env.make_env_path("dir1");
@@ -167,16 +167,16 @@ static void test_open_on_empty_directory_equals_end()
     {
         std::error_code ec;
         directory_iterator it(testDir, ec);
-        assert(!ec);
-        assert(it == endIt);
+        TEST_CHECK(!ec);
+        TEST_CHECK(it == endIt);
     }
     {
         directory_iterator it(testDir);
-        assert(it == endIt);
+        TEST_CHECK(it == endIt);
     }
 }
 
-static void test_open_on_directory_succeeds()
+TEST_CASE(test_open_on_directory_succeeds)
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -187,18 +187,18 @@ static void test_open_on_directory_succeeds()
     {
         std::error_code ec;
         directory_iterator it(testDir, ec);
-        assert(!ec);
-        assert(it != endIt);
-        assert(dir_contents.count(*it));
+        TEST_REQUIRE(!ec);
+        TEST_CHECK(it != endIt);
+        TEST_CHECK(dir_contents.count(*it));
     }
     {
         directory_iterator it(testDir);
-        assert(it != endIt);
-        assert(dir_contents.count(*it));
+        TEST_CHECK(it != endIt);
+        TEST_CHECK(dir_contents.count(*it));
     }
 }
 
-static void test_open_on_file_fails()
+TEST_CASE(test_open_on_file_fails)
 {
     static_test_env static_env;
     const path testFile = static_env.File;
@@ -206,35 +206,35 @@ static void test_open_on_file_fails()
     {
         std::error_code ec;
         directory_iterator it(testFile, ec);
-        assert(ec);
-        assert(it == endIt);
+        TEST_REQUIRE(ec);
+        TEST_CHECK(it == endIt);
     }
     {
-        TEST_THROWS_TYPE(filesystem_error, directory_iterator(testFile));
+        TEST_CHECK_THROW(filesystem_error, directory_iterator(testFile));
     }
 }
 
-static void test_open_on_empty_string()
+TEST_CASE(test_open_on_empty_string)
 {
     const path testPath = "";
     const directory_iterator endIt{};
 
     std::error_code ec;
     directory_iterator it(testPath, ec);
-    assert(ec);
-    assert(it == endIt);
+    TEST_CHECK(ec);
+    TEST_CHECK(it == endIt);
 }
 
-static void test_open_on_dot_dir()
+TEST_CASE(test_open_on_dot_dir)
 {
     const path testPath = ".";
 
     std::error_code ec;
     directory_iterator it(testPath, ec);
-    assert(!ec);
+    TEST_CHECK(!ec);
 }
 
-static void test_open_on_symlink()
+TEST_CASE(test_open_on_symlink)
 {
     static_test_env static_env;
     const path symlinkToDir = static_env.SymlinkToDir;
@@ -247,33 +247,20 @@ static void test_open_on_symlink()
     {
         std::error_code ec;
         directory_iterator it(symlinkToDir, ec);
-        assert(!ec);
-        assert(it != endIt);
+        TEST_REQUIRE(!ec);
+        TEST_CHECK(it != endIt);
         path const& entry = *it;
-        assert(dir_contents.count(entry.filename()));
+        TEST_CHECK(dir_contents.count(entry.filename()));
     }
     {
         std::error_code ec;
         directory_iterator it(symlinkToDir,
                               directory_options::follow_directory_symlink, ec);
-        assert(!ec);
-        assert(it != endIt);
+        TEST_REQUIRE(!ec);
+        TEST_CHECK(it != endIt);
         path const& entry = *it;
-        assert(dir_contents.count(entry.filename()));
+        TEST_CHECK(dir_contents.count(entry.filename()));
     }
 }
 
-int main(int, char**) {
-    test_constructor_signatures();
-    test_construction_from_bad_path();
-    access_denied_test_case();
-    access_denied_to_file_test_case();
-    test_open_on_empty_directory_equals_end();
-    test_open_on_directory_succeeds();
-    test_open_on_file_fails();
-    test_open_on_empty_string();
-    test_open_on_dot_dir();
-    test_open_on_symlink();
-
-    return 0;
-}
+TEST_SUITE_END()

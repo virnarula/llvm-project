@@ -17,6 +17,8 @@ namespace llvm {
 namespace xray {
 namespace {
 
+using ::testing::ElementsAre;
+using ::testing::Not;
 using ::testing::SizeIs;
 
 TEST(FDRBlockVerifierTest, ValidBlocksV3) {

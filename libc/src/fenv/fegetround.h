@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_FENV_FEGETROUND_H
 #define LLVM_LIBC_SRC_FENV_FEGETROUND_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fegetround();
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_FENV_FEGETROUND_H

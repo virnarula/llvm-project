@@ -17,7 +17,6 @@
 #include "clang/Tooling/DependencyScanning/ModuleDepCollector.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
-#include <optional>
 #include <string>
 
 namespace clang {
@@ -31,7 +30,7 @@ class DependencyScanningWorkerFilesystem;
 
 /// A command-line tool invocation that is part of building a TU.
 ///
-/// \see TranslationUnitDeps::Commands.
+/// \see FullDependencies::Commands.
 struct Command {
   std::string Executable;
   std::vector<std::string> Arguments;
@@ -41,11 +40,7 @@ class DependencyConsumer {
 public:
   virtual ~DependencyConsumer() {}
 
-  virtual void handleProvidedAndRequiredStdCXXModules(
-      std::optional<P1689ModuleInfo> Provided,
-      std::vector<P1689ModuleInfo> Requires) {}
-
-  virtual void handleBuildCommand(Command Cmd) {}
+  virtual void handleBuildCommand(Command Cmd) = 0;
 
   virtual void
   handleDependencyOutputOpts(const DependencyOutputOptions &Opts) = 0;
@@ -56,16 +51,7 @@ public:
 
   virtual void handleModuleDependency(ModuleDeps MD) = 0;
 
-  virtual void handleDirectModuleDependency(ModuleID MD) = 0;
-
   virtual void handleContextHash(std::string Hash) = 0;
-};
-
-/// Dependency scanner callbacks that are used during scanning to influence the
-/// behaviour of the scan - for example, to customize the scanned invocations.
-class DependencyActionController {
-public:
-  virtual ~DependencyActionController();
 
   virtual std::string lookupModuleOutput(const ModuleID &ID,
                                          ModuleOutputKind Kind) = 0;
@@ -92,15 +78,14 @@ public:
   bool computeDependencies(StringRef WorkingDirectory,
                            const std::vector<std::string> &CommandLine,
                            DependencyConsumer &DepConsumer,
-                           DependencyActionController &Controller,
                            DiagnosticConsumer &DiagConsumer,
-                           std::optional<StringRef> ModuleName = std::nullopt);
+                           llvm::Optional<StringRef> ModuleName = None);
   /// \returns A \c StringError with the diagnostic output if clang errors
   /// occurred, success otherwise.
-  llvm::Error computeDependencies(
-      StringRef WorkingDirectory, const std::vector<std::string> &CommandLine,
-      DependencyConsumer &Consumer, DependencyActionController &Controller,
-      std::optional<StringRef> ModuleName = std::nullopt);
+  llvm::Error computeDependencies(StringRef WorkingDirectory,
+                                  const std::vector<std::string> &CommandLine,
+                                  DependencyConsumer &Consumer,
+                                  llvm::Optional<StringRef> ModuleName = None);
 
   bool shouldEagerLoadModules() const { return EagerLoadModules; }
 
@@ -116,7 +101,7 @@ private:
   llvm::IntrusiveRefCntPtr<DependencyScanningWorkerFilesystem> DepFS;
   ScanningOutputFormat Format;
   /// Whether to optimize the modules' command-line arguments.
-  ScanningOptimizations OptimizeArgs;
+  bool OptimizeArgs;
   /// Whether to set up command-lines to load PCM files eagerly.
   bool EagerLoadModules;
 };

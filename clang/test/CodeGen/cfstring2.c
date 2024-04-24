@@ -1,4 +1,4 @@
-// UNSUPPORTED: target={{.*}}-zos{{.*}}, target={{.*}}-aix{{.*}}
+// UNSUPPORTED: -zos, -aix
 // RUN: %clang_cc1 -emit-llvm %s -o %t
 
 typedef const struct __CFString * CFStringRef;
@@ -9,5 +9,6 @@ void f(void) {
   CFSTR("Hello, World!");
 }
 
+// rdar://6151192
 void *G = CFSTR("yo joe");
 

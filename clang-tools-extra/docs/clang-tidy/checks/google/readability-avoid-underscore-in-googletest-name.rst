@@ -3,8 +3,8 @@
 google-readability-avoid-underscore-in-googletest-name
 ======================================================
 
-Checks whether there are underscores in googletest test suite names and test
-names in test macros:
+Checks whether there are underscores in googletest test and test case names in
+test macros:
 
 - ``TEST``
 - ``TEST_F``
@@ -18,17 +18,17 @@ For example:
 
 .. code-block:: c++
 
-  TEST(TestSuiteName, Illegal_TestName) {}
-  TEST(Illegal_TestSuiteName, TestName) {}
+  TEST(TestCaseName, Illegal_TestName) {}
+  TEST(Illegal_TestCaseName, TestName) {}
 
-would trigger the check. `Underscores are not allowed`_ in test suite name nor
-test names.
+would trigger the check. `Underscores are not allowed`_ in test names nor test
+case names.
 
-The ``DISABLED_`` prefix, which may be used to
-`disable test suites and individual tests`_, is removed from the test suite name
-and test name before checking for underscores.
+The ``DISABLED_`` prefix, which may be used to `disable individual tests`_, is
+ignored when checking test names, but the rest of the rest of the test name is
+still checked.
 
 This check does not propose any fixes.
 
 .. _Underscores are not allowed: https://google.github.io/googletest/faq.html#why-should-test-suite-names-and-test-names-not-contain-underscore
-.. _disable test suites and individual tests: https://google.github.io/googletest/advanced.html#temporarily-disabling-tests
+.. _disable individual tests: https://google.github.io/googletest/advanced.html#temporarily-disabling-tests

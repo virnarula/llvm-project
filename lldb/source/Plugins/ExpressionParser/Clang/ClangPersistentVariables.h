@@ -15,7 +15,6 @@
 #include "ClangModulesDeclVendor.h"
 
 #include "lldb/Expression/ExpressionVariable.h"
-#include <optional>
 
 namespace lldb_private {
 
@@ -31,16 +30,16 @@ class TypeSystemClang;
 /// A list of variables that can be accessed and updated by any expression.  See
 /// ClangPersistentVariable for more discussion.  Also provides an increasing,
 /// 0-based counter for naming result variables.
-class ClangPersistentVariables
-    : public llvm::RTTIExtends<ClangPersistentVariables,
-                               PersistentExpressionState> {
+class ClangPersistentVariables : public PersistentExpressionState {
 public:
-  // LLVM RTTI support
-  static char ID;
-
   ClangPersistentVariables(std::shared_ptr<Target> target_sp);
 
   ~ClangPersistentVariables() override = default;
+
+  // llvm casting support
+  static bool classof(const PersistentExpressionState *pv) {
+    return pv->getKind() == PersistentExpressionState::eKindClang;
+  }
 
   std::shared_ptr<ClangASTImporter> GetClangASTImporter();
   std::shared_ptr<ClangModulesDeclVendor> GetClangModulesDeclVendor();
@@ -66,11 +65,11 @@ public:
     return name;
   }
 
-  std::optional<CompilerType>
+  llvm::Optional<CompilerType>
   GetCompilerTypeFromPersistentDecl(ConstString type_name) override;
 
   void RegisterPersistentDecl(ConstString name, clang::NamedDecl *decl,
-                              std::shared_ptr<TypeSystemClang> ctx);
+                              TypeSystemClang *ctx);
 
   clang::NamedDecl *GetPersistentDecl(ConstString name);
 
@@ -98,7 +97,7 @@ private:
     /// The persistent decl.
     clang::NamedDecl *m_decl = nullptr;
     /// The TypeSystemClang for the ASTContext of m_decl.
-    lldb::TypeSystemWP m_context;
+    TypeSystemClang *m_context = nullptr;
   };
 
   typedef llvm::DenseMap<const char *, PersistentDecl> PersistentDeclMap;

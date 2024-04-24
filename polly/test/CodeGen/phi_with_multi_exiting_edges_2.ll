@@ -8,7 +8,7 @@
 ; CHECK:   %result = phi float [ %result.ph.merge, %polly.merge_new_and_old ]
 ; CHECK:   ret float %result
 
-define float @foo(ptr %A, i64 %param) {
+define float @foo(float* %A, i64 %param) {
 entry:
   br label %entry.split
 
@@ -19,18 +19,18 @@ entry.split:
 loopA:
   %indvarA = phi i64 [0, %entry.split], [%indvar.nextA, %loopA]
   %indvar.nextA = add i64 %indvarA, 1
-  %valA = load float, ptr %A
+  %valA = load float, float* %A
   %sumA = fadd float %valA, %valA
-  store float %valA, ptr %A
+  store float %valA, float* %A
   %cndA = icmp eq i64 %indvar.nextA, 100
   br i1 %cndA, label %next, label %loopA
 
 loopB:
   %indvarB = phi i64 [0, %entry.split], [%indvar.nextB, %loopB]
   %indvar.nextB = add i64 %indvarB, 1
-  %valB = load float, ptr %A
+  %valB = load float, float* %A
   %sumB = fadd float %valB, %valB
-  store float %valB, ptr %A
+  store float %valB, float* %A
   %cndB = icmp eq i64 %indvar.nextB, 100
   br i1 %cndB, label %next, label %loopB
 

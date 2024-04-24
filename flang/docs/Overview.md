@@ -6,47 +6,23 @@
   
 -->
 
+# Intro
+This document goes briefly over compiler phases in Flang. It focuses on the
+internal implementation and as such, it is intended for Flang developers rather
+than end-users.
+
 # Overview of Compiler Phases
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
-The Flang compiler transforms Fortran source code into an executable file. 
-This transformation proceeds in three high level phases -- analysis, lowering,
-and code generation/linking.
 
-The first high level phase (analysis) transforms Fortran source code into a
-decorated parse tree and a symbol table.  During this phase, all user
-related errors are detected and reported.
-
-The second high level phase (lowering), changes the decorated parse tree and
-symbol table into the Fortran Intermediate Representation (FIR), which is a
-dialect of LLVM's Multi-Level Intermediate Representation or MLIR.  It then
-runs a series of passes on the FIR code which verify its validity, perform a
-series of optimizations, and finally transform it into LLVM's Intermediate
-Representation, or LLVM IR
-
-The third high level phase generates machine code and invokes a linker to
-produce an executable file.
-
-This document describes the first two high level phases.  Each of these is
-described in more detailed phases.
-
-Each detailed phase is described -- its inputs and outputs along with how to
-produce a readable version of the outputs.
-
-Each detailed phase produces either correct output or fatal errors.
-
-# Analysis
-
-This high level phase validates that the program is correct and creates all of
-the information needed for lowering.
+Each phase produces either correct output or fatal errors.
 
 ## Prescan and Preprocess
 
-See [Preprocessing.md](Preprocessing.md).
+See: [Preprocessing.md](Preprocessing.md).
 
 **Input:** Fortran source and header files, command line macro definitions,
   set of enabled compiler directives (to be treated as directives rather than
@@ -56,135 +32,82 @@ See [Preprocessing.md](Preprocessing.md).
 - A "cooked" character stream: the entire program as a contiguous stream of
   normalized Fortran source.
   Extraneous whitespace and comments are removed (except comments that are
-  compiler directives that are not disabled) and case is normalized.  Also,
-  directives are processed and macros expanded.
+  compiler directives that are not disabled) and case is normalized.
 - Provenance information mapping each character back to the source it came from.
-  This is used in subsequent phases that need source locations.  This includes
-  error messages, optimization reports, and debugging information.
+  This is used in subsequent phases to issue errors messages that refer to source locations.
 
 **Entry point:** `parser::Parsing::Prescan`
 
-**Commands:** 
- - `flang-new -fc1 -E src.f90` dumps the cooked character stream
- - `flang-new -fc1 -fdebug-dump-provenance src.f90` dumps provenance
-   information
+**Command:** `flang-new -fc1 -E src.f90` dumps the cooked character stream
 
-## Parsing
+## Parse
 
-**Input:** Cooked character stream
+**Input:** Cooked character stream.
 
-**Output:** A parse tree for each Fortran program unit in the source code
-representing a syntactically correct program, rooted at the program unit.  See:
-[Parsing.md](Parsing.md) and [ParserCombinators.md](ParserCombinators.md).
+**Output:** A parse tree representing a syntactically correct program,
+  rooted at a `parser::Program`.
+  See: [Parsing.md](Parsing.md) and [ParserCombinators.md](ParserCombinators.md).
 
 **Entry point:** `parser::Parsing::Parse`
 
-**Commands:**
-  - `flang-new -fc1 -fdebug-dump-parse-tree-no-sema src.f90` dumps the parse tree
+**Command:**
+  - `flang-new -fc1 -fdebug-dump-parse-tree src.f90` dumps the parse tree
   - `flang-new -fc1 -fdebug-unparse src.f90` converts the parse tree to normalized Fortran
-  - `flang-new -fc1 -fdebug-dump-parsing-log src.f90` runs an instrumented parse and dumps the log
-  - `flang-new -fc1 -fdebug-measure-parse-tree src.f90` measures the parse tree
 
-## Semantic processing
+## Validate Labels and Canonicalize Do Statements
 
-**Input:** the parse tree, the cooked character stream, and provenance
-information
+**Input:** Parse tree.
 
-**Output:** 
-* a symbol table
-* modified parse tree
-* module files, (see: [ModFiles.md](ModFiles.md))
-* the intrinsic procedure table
-* the target characteristics
-* the runtime derived type derived type tables (see: [RuntimeTypeInfo.md](RuntimeTypeInfo.md))
+**Output:** The parse tree with label constraints and construct names checked,
+  and each `LabelDoStmt` converted to a `NonLabelDoStmt`.
+  See: [LabelResolution.md](LabelResolution.md).
 
-**Entry point:** `semantics::Semantics::Perform`
+**Entry points:** `semantics::ValidateLabels`, `parser::CanonicalizeDo`
 
-For more detail on semantic analysis, see: [Semantics.md](Semantics.md).
-Semantic processing performs several tasks: 
-* validates labels, see: [LabelResolution.md](LabelResolution.md).
-* canonicalizes DO statements, 
-* canonicalizes OpenACC and OpenMP code
-* resolves names, building a tree of scopes and symbols
-* rewrites the parse tree to correct parsing mistakes (when needed) once semantic information is available to clarify the program's meaning
-* checks the validity of declarations
-* analyzes expressions and statements, emitting error messages where appropriate
-* creates module files if the source code contains modules, 
-  see [ModFiles.md](ModFiles.md).
+## Resolve Names
 
-In the course of semantic analysis, the compiler:
-* creates the symbol table
-* decorates the parse tree with semantic information (such as pointers into the symbol table)
-* creates the intrinsic procedure table
-* folds constant expressions
+**Input:** Parse tree (without `LabelDoStmt`) and `.mod` files from compilation
+  of USEd modules.
 
-At the end of semantic processing, all validation of the user's program is complete.  This is the last detailed phase of analysis processing.
+**Output:**
+- Tree of scopes populated with symbols and types
+- Parse tree with some refinements:
+  - each `parser::Name::symbol` field points to one of the symbols
+  - each `parser::TypeSpec::declTypeSpec` field points to one of the types
+  - array element references that were parsed as function references or
+    statement functions are corrected
 
-**Commands:**
-  - `flang-new -fc1 -fdebug-dump-parse-tree src.f90` dumps the parse tree after semantic analysis
-  - `flang-new -fc1 -fdebug-dump-symbols src.f90` dumps the symbol table
-  - `flang-new -fc1 -fdebug-dump-all src.f90` dumps both the parse tree and the symbol table
+**Entry points:** `semantics::ResolveNames`, `semantics::RewriteParseTree`
 
-# Lowering
+**Command:** `flang-new -fc1 -fdebug-dump-symbols src.f90` dumps the
+  tree of scopes and symbols in each scope
 
-Lowering takes the parse tree and symbol table produced by analysis and
-produces LLVM IR.
+## Check DO CONCURRENT Constraints
 
-## Create the lowering bridge
+**Input:** Parse tree with names resolved.
 
-**Inputs:** 
-  - the parse tree
-  - the symbol table
-  - The default KINDs for intrinsic types (specified by default or command line option)
-  - The intrinsic procedure table (created in semantics processing)
-  - The target characteristics (created during semantics processing)
-  - The cooked character stream
-  - The target triple -- CPU type, vendor, operating system
-  - The mapping between Fortran KIND values to FIR KIND values
+**Output:** Parse tree with semantically correct DO CONCURRENT loops.
 
-The lowering bridge is a container that holds all of the information needed for lowering.
+## Write Module Files
 
-**Output:** A container with all of the information needed for lowering
+**Input:** Parse tree with names resolved.
 
-**Entry point:** lower::LoweringBridge::create
+**Output:** For each module and submodule, a `.mod` file containing a minimal
+  Fortran representation suitable for compiling program units that depend on it.
+  See [ModFiles.md](ModFiles.md).
 
-## Initial lowering
+## Analyze Expressions and Assignments
 
-**Input:** the lowering bridge
+**Input:** Parse tree with names resolved.
 
-**Output:** A Fortran IR (FIR) representation of the program.
+**Output:** Parse tree with `parser::Expr::typedExpr` filled in and semantic
+  checks performed on all expressions and assignment statements.
 
-**Entry point:** `lower::LoweringBridge::lower`
+**Entry points**: `semantics::AnalyzeExpressions`, `semantics::AnalyzeAssignments`
 
-The compiler then takes the information in the lowering bridge and creates a
-pre-FIR tree or PFT.  The PFT is a list of programs and modules.  The programs
-and modules contain lists of function-like units.  The function-like units
-contain a list of evaluations.  All of these contain pointers back into the
-parse tree.  The compiler walks the PFT generating FIR.
+## Produce the Intermediate Representation
 
-**Commands:**
-  - `flang-new -fc1 -fdebug-dump-pft src.f90` dumps the pre-FIR tree
-  - `flang-new -fc1 -emit-mlir src.f90` dumps the FIR to the files src.mlir
+**Input:** Parse tree with names and labels resolved.
 
-## Transformation passes
-
-**Input:** initial version of the FIR code
-
-**Output:** An LLVM IR representation of the program
-
-**Entry point:** `mlir::PassManager::run`
-
-The compiler then runs a series of passes over the FIR code.  The first is a
-verification pass.  It's followed by a series of transformation passes that
-perform various optimizations and transformations.  The final pass creates an
-LLVM IR representation of the program.
-
-**Commands:**
-  - `flang-new -mmlir --mlir-print-ir-after-all -S src.f90` dumps the FIR code after each pass to standard error
-  - `flang-new -fc1 -emit-llvm src.f90` dumps the LLVM IR to src.ll
-
-# Object code generation and linking
-
-After the LLVM IR is created, the flang driver invokes LLVM's existing
-infrastructure to generate object code and invoke a linker to create the
-executable file.
+**Output:** An intermediate representation of the executable program.
+  See [FortranIR.md](FortranIR.md).

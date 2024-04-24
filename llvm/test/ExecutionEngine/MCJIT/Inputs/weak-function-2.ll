@@ -3,7 +3,7 @@ entry:
   ret i32 0
 }
 
-define ptr @bar() {
+define i8* @bar() {
 entry:
-  ret ptr @baz
+  ret i8* bitcast (i32 ()* @baz to i8*)
 }

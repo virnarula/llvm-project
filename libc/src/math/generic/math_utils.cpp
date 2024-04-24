@@ -8,7 +8,7 @@
 
 #include "math_utils.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 constexpr float XFlowValues<float>::OVERFLOW_VALUE = 0x1p97f;
 constexpr float XFlowValues<float>::UNDERFLOW_VALUE = 0x1p-95f;
@@ -18,4 +18,4 @@ constexpr double XFlowValues<double>::OVERFLOW_VALUE = 0x1p769;
 constexpr double XFlowValues<double>::UNDERFLOW_VALUE = 0x1p-767;
 constexpr double XFlowValues<double>::MAY_UNDERFLOW_VALUE = 0x1.8p-538;
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

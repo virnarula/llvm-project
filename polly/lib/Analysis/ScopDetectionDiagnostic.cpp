@@ -638,7 +638,8 @@ bool ReportNonSimpleMemoryAccess::classof(const RejectReason *RR) {
 
 ReportAlias::ReportAlias(Instruction *Inst, AliasSet &AS)
     : RejectReason(RejectReasonKind::Alias), Inst(Inst) {
-  append_range(Pointers, AS.getPointers());
+  for (const auto &I : AS)
+    Pointers.push_back(I.getValue());
 }
 
 std::string ReportAlias::formatInvalidAlias(std::string Prefix,

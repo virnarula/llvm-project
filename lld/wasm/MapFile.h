@@ -11,9 +11,11 @@
 
 #include "llvm/ADT/ArrayRef.h"
 
-namespace lld::wasm {
+namespace lld {
+namespace wasm {
 class OutputSection;
 void writeMapFile(llvm::ArrayRef<OutputSection *> outputSections);
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld
 
 #endif

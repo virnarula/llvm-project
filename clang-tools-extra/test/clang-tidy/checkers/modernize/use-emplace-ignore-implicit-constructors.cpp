@@ -1,7 +1,8 @@
 // RUN: %check_clang_tidy %s modernize-use-emplace %t -- \
 // RUN:   -config="{CheckOptions: \
-// RUN:             {modernize-use-emplace.IgnoreImplicitConstructors: \
-// RUN:                true}}"
+// RUN:             [{key: modernize-use-emplace.IgnoreImplicitConstructors, \
+// RUN:               value: true}] \
+// RUN:             }"
 
 namespace std {
 template <typename>

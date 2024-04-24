@@ -14,9 +14,11 @@
 #include "llvm/BinaryFormat/AMDGPUMetadataVerifier.h"
 
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/MsgPackDocument.h"
 
+#include <map>
 #include <utility>
 
 namespace llvm {
@@ -55,7 +57,7 @@ bool MetadataVerifier::verifyInteger(msgpack::DocNode &Node) {
 
 bool MetadataVerifier::verifyArray(
     msgpack::DocNode &Node, function_ref<bool(msgpack::DocNode &)> verifyNode,
-    std::optional<size_t> Size) {
+    Optional<size_t> Size) {
   if (!Node.isArray())
     return false;
   auto &Array = Node.getArray();
@@ -134,7 +136,6 @@ bool MetadataVerifier::verifyKernelArgs(msgpack::DocNode &Node) {
                                .Case("hidden_default_queue", true)
                                .Case("hidden_completion_action", true)
                                .Case("hidden_multigrid_sync_arg", true)
-                               .Case("hidden_dynamic_lds_size", true)
                                .Case("hidden_private_base", true)
                                .Case("hidden_shared_base", true)
                                .Case("hidden_queue_ptr", true)
@@ -262,8 +263,6 @@ bool MetadataVerifier::verifyKernel(msgpack::DocNode &Node) {
   if (!verifyScalarEntry(KernelMap, ".uses_dynamic_stack", false,
                          msgpack::Type::Boolean))
     return false;
-  if (!verifyIntegerEntry(KernelMap, ".workgroup_processor_mode", false))
-    return false;
   if (!verifyIntegerEntry(KernelMap, ".kernarg_segment_align", true))
     return false;
   if (!verifyIntegerEntry(KernelMap, ".wavefront_size", true))
@@ -278,9 +277,6 @@ bool MetadataVerifier::verifyKernel(msgpack::DocNode &Node) {
     return false;
   if (!verifyIntegerEntry(KernelMap, ".vgpr_spill_count", false))
     return false;
-  if (!verifyIntegerEntry(KernelMap, ".uniform_work_group_size", false))
-    return false;
-
 
   return true;
 }

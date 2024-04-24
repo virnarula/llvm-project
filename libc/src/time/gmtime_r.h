@@ -11,10 +11,12 @@
 
 #include <time.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 struct tm *gmtime_r(const time_t *timer, struct tm *result);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_TIME_GMTIME_R_H
+
+#include "include/time.h"

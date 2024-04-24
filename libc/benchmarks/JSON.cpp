@@ -21,7 +21,6 @@
 #include <chrono>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -87,7 +86,7 @@ static Error fromJson(const json::Value &V, MaybeAlign &Out) {
                              "Can't parse Align, not an Integer");
   const int64_t Value = *MaybeInt;
   if (!Value) {
-    Out = std::nullopt;
+    Out = None;
     return Error::success();
   }
   if (isPowerOf2_64(Value)) {
@@ -105,11 +104,11 @@ static Error fromJson(const json::Value &V,
                              "Can't parse BenchmarkLog, not a String");
   const auto String = *V.getAsString();
   auto Parsed =
-      llvm::StringSwitch<std::optional<libc_benchmarks::BenchmarkLog>>(String)
+      llvm::StringSwitch<Optional<libc_benchmarks::BenchmarkLog>>(String)
           .Case("None", libc_benchmarks::BenchmarkLog::None)
           .Case("Last", libc_benchmarks::BenchmarkLog::Last)
           .Case("Full", libc_benchmarks::BenchmarkLog::Full)
-          .Default(std::nullopt);
+          .Default(None);
   if (!Parsed)
     return createStringError(errc::io_error,
                              Twine("Can't parse BenchmarkLog, invalid value '")

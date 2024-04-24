@@ -9,11 +9,12 @@
 
 declare void @use(i32)
 
-define void @f_0(ptr align 4 dereferenceable(1024) %ptr) nofree nosync {
+define void @f_0(i8* align 4 dereferenceable(1024) %ptr) nofree nosync {
 ; CHECK-LABEL: @f_0(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PTR_GEP:%.*]] = getelementptr i8, ptr [[PTR:%.*]], i32 32
-; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[PTR_GEP]], align 4
+; CHECK-NEXT:    [[PTR_GEP:%.*]] = getelementptr i8, i8* [[PTR:%.*]], i32 32
+; CHECK-NEXT:    [[PTR_I32:%.*]] = bitcast i8* [[PTR_GEP]] to i32*
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[PTR_I32]], align 4
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    call void @use(i32 0)
@@ -23,24 +24,26 @@ define void @f_0(ptr align 4 dereferenceable(1024) %ptr) nofree nosync {
 
 
 entry:
-  %ptr.gep = getelementptr i8, ptr %ptr, i32 32
+  %ptr.gep = getelementptr i8, i8* %ptr, i32 32
+  %ptr.i32 = bitcast i8* %ptr.gep to i32*
   br label %loop
 
 loop:
   call void @use(i32 0)
-  %val = load i32, ptr %ptr.gep, !invariant.load !{}
+  %val = load i32, i32* %ptr.i32, !invariant.load !{}
   call void @use(i32 %val)
   br label %loop
 }
 
-define void @f_1(ptr align 4 dereferenceable_or_null(1024) %ptr) nofree nosync {
+define void @f_1(i8* align 4 dereferenceable_or_null(1024) %ptr) nofree nosync {
 ; CHECK-LABEL: @f_1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PTR_GEP:%.*]] = getelementptr i8, ptr [[PTR:%.*]], i32 32
-; CHECK-NEXT:    [[PTR_IS_NULL:%.*]] = icmp eq ptr [[PTR]], null
+; CHECK-NEXT:    [[PTR_GEP:%.*]] = getelementptr i8, i8* [[PTR:%.*]], i32 32
+; CHECK-NEXT:    [[PTR_I32:%.*]] = bitcast i8* [[PTR_GEP]] to i32*
+; CHECK-NEXT:    [[PTR_IS_NULL:%.*]] = icmp eq i8* [[PTR]], null
 ; CHECK-NEXT:    br i1 [[PTR_IS_NULL]], label [[LEAVE:%.*]], label [[LOOP_PREHEADER:%.*]]
 ; CHECK:       loop.preheader:
-; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[PTR_GEP]], align 4
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[PTR_I32]], align 4
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    call void @use(i32 0)
@@ -50,14 +53,15 @@ define void @f_1(ptr align 4 dereferenceable_or_null(1024) %ptr) nofree nosync {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %ptr.gep = getelementptr i8, ptr %ptr, i32 32
-  %ptr_is_null = icmp eq ptr %ptr, null
+  %ptr.gep = getelementptr i8, i8* %ptr, i32 32
+  %ptr.i32 = bitcast i8* %ptr.gep to i32*
+  %ptr_is_null = icmp eq i8* %ptr, null
   br i1 %ptr_is_null, label %leave, label %loop
 
 
 loop:
   call void @use(i32 0)
-  %val = load i32, ptr %ptr.gep, !invariant.load !{}
+  %val = load i32, i32* %ptr.i32, !invariant.load !{}
   call void @use(i32 %val)
   br label %loop
 
@@ -65,17 +69,18 @@ leave:
   ret void
 }
 
-define void @f_2(ptr align 4 dereferenceable_or_null(1024) %ptr) {
+define void @f_2(i8* align 4 dereferenceable_or_null(1024) %ptr) {
 ; CHECK-LABEL: @f_2(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PTR_GEP:%.*]] = getelementptr i8, ptr [[PTR:%.*]], i32 30
-; CHECK-NEXT:    [[PTR_IS_NULL:%.*]] = icmp eq ptr [[PTR]], null
+; CHECK-NEXT:    [[PTR_GEP:%.*]] = getelementptr i8, i8* [[PTR:%.*]], i32 30
+; CHECK-NEXT:    [[PTR_I32:%.*]] = bitcast i8* [[PTR_GEP]] to i32*
+; CHECK-NEXT:    [[PTR_IS_NULL:%.*]] = icmp eq i8* [[PTR]], null
 ; CHECK-NEXT:    br i1 [[PTR_IS_NULL]], label [[LEAVE:%.*]], label [[LOOP_PREHEADER:%.*]]
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    call void @use(i32 0)
-; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[PTR_GEP]], align 4, !invariant.load !0
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[PTR_I32]], align 4, !invariant.load !0
 ; CHECK-NEXT:    call void @use(i32 [[VAL]])
 ; CHECK-NEXT:    br label [[LOOP]]
 ; CHECK:       leave:
@@ -86,13 +91,14 @@ entry:
   ;; Can't hoist, since the alignment does not work out -- (<4 byte
   ;; aligned> + 30) is not necessarily 4 byte aligned.
 
-  %ptr.gep = getelementptr i8, ptr %ptr, i32 30
-  %ptr_is_null = icmp eq ptr %ptr, null
+  %ptr.gep = getelementptr i8, i8* %ptr, i32 30
+  %ptr.i32 = bitcast i8* %ptr.gep to i32*
+  %ptr_is_null = icmp eq i8* %ptr, null
   br i1 %ptr_is_null, label %leave, label %loop
 
 loop:
   call void @use(i32 0)
-  %val = load i32, ptr %ptr.gep, !invariant.load !{}
+  %val = load i32, i32* %ptr.i32, !invariant.load !{}
   call void @use(i32 %val)
   br label %loop
 
@@ -100,11 +106,11 @@ leave:
   ret void
 }
 
-define void @checkLaunder(ptr align 4 dereferenceable(1024) %p) nofree nosync {
+define void @checkLaunder(i8* align 4 dereferenceable(1024) %p) nofree nosync {
 ; CHECK-LABEL: @checkLaunder(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[L:%.*]] = call ptr @llvm.launder.invariant.group.p0(ptr [[P:%.*]])
-; CHECK-NEXT:    [[VAL:%.*]] = load i8, ptr [[L]], align 1
+; CHECK-NEXT:    [[L:%.*]] = call i8* @llvm.launder.invariant.group.p0i8(i8* [[P:%.*]])
+; CHECK-NEXT:    [[VAL:%.*]] = load i8, i8* [[L]], align 1
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    call void @use(i32 0)
@@ -113,16 +119,16 @@ define void @checkLaunder(ptr align 4 dereferenceable(1024) %p) nofree nosync {
 ;
 
 entry:
-  %l = call ptr @llvm.launder.invariant.group.p0(ptr %p)
+  %l = call i8* @llvm.launder.invariant.group.p0i8(i8* %p)
   br label %loop
 
 loop:
   call void @use(i32 0)
-  %val = load i8, ptr %l, !invariant.load !{}
+  %val = load i8, i8* %l, !invariant.load !{}
   call void @use8(i8 %val)
   br label %loop
 }
 
-declare ptr @llvm.launder.invariant.group.p0(ptr)
+declare i8* @llvm.launder.invariant.group.p0i8(i8*)
 
 declare void @use8(i8)

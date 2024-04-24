@@ -26,11 +26,3 @@ uptr TagMemory(uptr p, uptr size, tag_t tag) {
 }
 
 }  // namespace __hwasan
-
-// --- Implementation of LSan-specific functions --- {{{1
-namespace __lsan {
-bool WordIsPoisoned(uptr addr) {
-  // Fixme: implement actual tag checking.
-  return false;
-}
-}  // namespace __lsan

@@ -17,7 +17,7 @@ namespace {
 class ARMAsmBackendWinCOFF : public ARMAsmBackend {
 public:
   ARMAsmBackendWinCOFF(const Target &T, bool isThumb)
-      : ARMAsmBackend(T, isThumb, llvm::endianness::little) {}
+      : ARMAsmBackend(T, isThumb, support::little) {}
   std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override {
     return createARMWinCOFFObjectWriter();

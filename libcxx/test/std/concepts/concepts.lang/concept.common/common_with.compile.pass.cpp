@@ -990,3 +990,5 @@ struct common_type<const volatile int&, const volatile CommonWithIntButRefLong&>
     : common_type<CommonWithIntButRefLong&, int&> {};
 } // namespace std
 static_assert(CheckCommonWith<CommonWithIntButRefLong, int>());
+
+int main(int, char**) { return 0; }

@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Support/MathExtras.h"
@@ -162,7 +163,7 @@ public:
 
   void addEntry(const InputSection *isec, uint64_t offset) {
     if (config->isPic)
-      locations.emplace_back(isec, offset);
+      locations.push_back({isec, offset});
   }
 
 private:
@@ -174,7 +175,7 @@ struct BindingEntry {
   int64_t addend;
   Location target;
   BindingEntry(int64_t addend, Location target)
-      : addend(addend), target(target) {}
+      : addend(addend), target(std::move(target)) {}
 };
 
 template <class Sym>
@@ -336,7 +337,7 @@ public:
 private:
   std::vector<Defined *> symbols;
   std::vector<uint32_t> offsets;
-  Symbol *objcMsgSend = nullptr;
+  int objcMsgSendGotIndex = 0;
 };
 
 // Note that this section may also be targeted by non-lazy bindings. In
@@ -531,6 +532,18 @@ public:
   void writeTo(uint8_t *buf) const override;
   uint32_t getBlockCount() const;
   void writeHashes(uint8_t *buf) const;
+};
+
+class BitcodeBundleSection final : public SyntheticSection {
+public:
+  BitcodeBundleSection();
+  uint64_t getSize() const override { return xarSize; }
+  void finalize() override;
+  void writeTo(uint8_t *buf) const override;
+
+private:
+  llvm::SmallString<261> xarPath;
+  uint64_t xarSize;
 };
 
 class CStringSection : public SyntheticSection {

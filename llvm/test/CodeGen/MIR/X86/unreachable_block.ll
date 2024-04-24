@@ -34,15 +34,15 @@
 ; CHECK-NEXT: successors:
 ; CHECK-NOT: %bb.{{[0-9]+}}.split.true
 ; CHECK-LABEL: bb.{{[0-9]+}}.split.true:
-define void @foo(ptr %bar) {
+define void @foo(i32* %bar) {
   br i1 undef, label %true, label %false
 true:
-  %v = load i32, ptr %bar
+  %v = load i32, i32* %bar
   br label %split.true
 false:
   unreachable
 split.true:
   %vInc = add i32 %v, 1
-  store i32 %vInc, ptr %bar
+  store i32 %vInc, i32* %bar
   ret void
 }

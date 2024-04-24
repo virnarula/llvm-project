@@ -15,9 +15,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -40,7 +38,7 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
 
   LogicalResult matchAndRewrite(OpTy dimOp,
                                 PatternRewriter &rewriter) const override {
-    OpResult dimValue = dyn_cast<OpResult>(dimOp.getSource());
+    OpResult dimValue = dimOp.getSource().template dyn_cast<OpResult>();
     if (!dimValue)
       return failure();
     auto shapedTypeOp =
@@ -48,7 +46,7 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
     if (!shapedTypeOp)
       return failure();
 
-    std::optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex)
       return failure();
 
@@ -61,14 +59,14 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
       return failure();
 
     Value resultShape = reifiedResultShapes[dimValue.getResultNumber()];
-    auto resultShapeType = dyn_cast<RankedTensorType>(resultShape.getType());
-    if (!resultShapeType || !isa<IndexType>(resultShapeType.getElementType()))
+    auto resultShapeType = resultShape.getType().dyn_cast<RankedTensorType>();
+    if (!resultShapeType || !resultShapeType.getElementType().isa<IndexType>())
       return failure();
 
     Location loc = dimOp->getLoc();
     rewriter.replaceOpWithNewOp<tensor::ExtractOp>(
         dimOp, resultShape,
-        rewriter.create<arith::ConstantIndexOp>(loc, *dimIndex).getResult());
+        rewriter.createOrFold<arith::ConstantIndexOp>(loc, *dimIndex));
     return success();
   }
 };
@@ -82,24 +80,33 @@ struct DimOfReifyRankedShapedTypeOpInterface : public OpRewritePattern<OpTy> {
 
   LogicalResult matchAndRewrite(OpTy dimOp,
                                 PatternRewriter &rewriter) const override {
-    OpResult dimValue = dyn_cast<OpResult>(dimOp.getSource());
+    OpResult dimValue = dimOp.getSource().template dyn_cast<OpResult>();
     if (!dimValue)
       return failure();
-    std::optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    auto rankedShapeTypeOp =
+        dyn_cast<ReifyRankedShapedTypeOpInterface>(dimValue.getOwner());
+    if (!rankedShapeTypeOp)
+      return failure();
+
+    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex)
       return failure();
 
-    ReifiedRankedShapedTypeDims reifiedResultShapes;
-    if (failed(reifyResultShapes(rewriter, dimValue.getOwner(),
-                                 reifiedResultShapes)))
+    SmallVector<SmallVector<Value>> reifiedResultShapes;
+    if (failed(
+            rankedShapeTypeOp.reifyResultShapes(rewriter, reifiedResultShapes)))
       return failure();
+
+    if (reifiedResultShapes.size() != rankedShapeTypeOp->getNumResults())
+      return failure();
+
     unsigned resultNumber = dimValue.getResultNumber();
-    // Do not apply pattern if the IR is invalid (dim out of bounds).
-    if ((size_t)(*dimIndex) >= reifiedResultShapes[resultNumber].size())
-      return rewriter.notifyMatchFailure(dimOp, "dimension is out of bounds");
-    Value replacement = getValueOrCreateConstantIndexOp(
-        rewriter, dimOp.getLoc(), reifiedResultShapes[resultNumber][*dimIndex]);
-    rewriter.replaceOp(dimOp, replacement);
+    auto sourceType = dimValue.getType().dyn_cast<RankedTensorType>();
+    if (reifiedResultShapes[resultNumber].size() !=
+        static_cast<size_t>(sourceType.getRank()))
+      return failure();
+
+    rewriter.replaceOp(dimOp, reifiedResultShapes[resultNumber][*dimIndex]);
     return success();
   }
 };
@@ -124,7 +131,7 @@ struct ResolveShapedTypeResultDimsPass final
 
 } // namespace
 
-void memref::populateResolveRankedShapedTypeResultDimsPatterns(
+void memref::populateResolveRankedShapeTypeResultDimsPatterns(
     RewritePatternSet &patterns) {
   patterns.add<DimOfReifyRankedShapedTypeOpInterface<memref::DimOp>,
                DimOfReifyRankedShapedTypeOpInterface<tensor::DimOp>>(
@@ -141,16 +148,18 @@ void memref::populateResolveShapedTypeResultDimsPatterns(
 
 void ResolveRankedShapeTypeResultDimsPass::runOnOperation() {
   RewritePatternSet patterns(&getContext());
-  memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns);
-  if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+  memref::populateResolveRankedShapeTypeResultDimsPatterns(patterns);
+  if (failed(applyPatternsAndFoldGreedily(getOperation()->getRegions(),
+                                          std::move(patterns))))
     return signalPassFailure();
 }
 
 void ResolveShapedTypeResultDimsPass::runOnOperation() {
   RewritePatternSet patterns(&getContext());
-  memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns);
+  memref::populateResolveRankedShapeTypeResultDimsPatterns(patterns);
   memref::populateResolveShapedTypeResultDimsPatterns(patterns);
-  if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+  if (failed(applyPatternsAndFoldGreedily(getOperation()->getRegions(),
+                                          std::move(patterns))))
     return signalPassFailure();
 }
 

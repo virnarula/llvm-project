@@ -12,14 +12,11 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <optional>
 
 #include "AppleObjCRuntime.h"
 #include "lldb/lldb-private.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
-
-#include "llvm/ADT/BitVector.h"
 
 class RemoteNXMapTable;
 
@@ -37,8 +34,6 @@ public:
   CreateInstance(Process *process, lldb::LanguageType language);
 
   static llvm::StringRef GetPluginNameStatic() { return "apple-objc-v2"; }
-
-  LanguageRuntime *GetPreferredLanguageRuntime(ValueObject &in_value) override;
 
   static char ID;
 
@@ -65,12 +60,12 @@ public:
     return ObjCRuntimeVersions::eAppleObjC_V2;
   }
 
-  size_t GetByteOffsetForIvar(CompilerType &parent_ast_type,
+  size_t GetByteOffsetForIvar(CompilerType &parent_qual_type,
                               const char *ivar_name) override;
 
   void UpdateISAToDescriptorMapIfNeeded() override;
 
-  ClassDescriptorSP GetClassDescriptor(ValueObject &valobj) override;
+  ClassDescriptorSP GetClassDescriptor(ValueObject &in_value) override;
 
   ClassDescriptorSP GetClassDescriptorFromISA(ObjCISA isa) override;
 
@@ -100,11 +95,17 @@ public:
   void GetValuesForGlobalCFBooleans(lldb::addr_t &cf_true,
                                     lldb::addr_t &cf_false) override;
 
-  void ModulesDidLoad(const ModuleList &module_list) override;
-
-  bool IsSharedCacheImageLoaded(uint16_t image_index);
-
-  std::optional<uint64_t> GetSharedCacheImageHeaderVersion();
+  // none of these are valid ISAs - we use them to infer the type
+  // of tagged pointers - if we have something meaningful to say
+  // we report an actual type - otherwise, we just say tagged
+  // there is no connection between the values here and the tagged pointers map
+  static const ObjCLanguageRuntime::ObjCISA g_objc_Tagged_ISA = 1;
+  static const ObjCLanguageRuntime::ObjCISA g_objc_Tagged_ISA_NSAtom = 2;
+  static const ObjCLanguageRuntime::ObjCISA g_objc_Tagged_ISA_NSNumber = 3;
+  static const ObjCLanguageRuntime::ObjCISA g_objc_Tagged_ISA_NSDateTS = 4;
+  static const ObjCLanguageRuntime::ObjCISA g_objc_Tagged_ISA_NSManagedObject =
+      5;
+  static const ObjCLanguageRuntime::ObjCISA g_objc_Tagged_ISA_NSDate = 6;
 
 protected:
   lldb::BreakpointResolverSP
@@ -285,24 +286,18 @@ private:
 
   struct DescriptorMapUpdateResult {
     bool m_update_ran;
-    bool m_retry_update;
     uint32_t m_num_found;
 
-    DescriptorMapUpdateResult(bool ran, bool retry, uint32_t found) {
+    DescriptorMapUpdateResult(bool ran, uint32_t found) {
       m_update_ran = ran;
-
-      m_retry_update = retry;
-
       m_num_found = found;
     }
 
-    static DescriptorMapUpdateResult Fail() { return {false, false, 0}; }
+    static DescriptorMapUpdateResult Fail() { return {false, 0}; }
 
     static DescriptorMapUpdateResult Success(uint32_t found) {
-      return {true, false, found};
+      return {true, found};
     }
-
-    static DescriptorMapUpdateResult Retry() { return {false, true, 0}; }
   };
 
   /// Abstraction to read the Objective-C class info.
@@ -384,35 +379,6 @@ private:
     lldb::addr_t m_args = LLDB_INVALID_ADDRESS;
   };
 
-  class SharedCacheImageHeaders {
-  public:
-    static std::unique_ptr<SharedCacheImageHeaders>
-    CreateSharedCacheImageHeaders(AppleObjCRuntimeV2 &runtime);
-
-    void SetNeedsUpdate() { m_needs_update = true; }
-
-    bool IsImageLoaded(uint16_t image_index);
-
-    uint64_t GetVersion();
-
-  private:
-    SharedCacheImageHeaders(AppleObjCRuntimeV2 &runtime,
-                            lldb::addr_t headerInfoRWs_ptr, uint32_t count,
-                            uint32_t entsize)
-        : m_runtime(runtime), m_headerInfoRWs_ptr(headerInfoRWs_ptr),
-          m_loaded_images(count, false), m_version(0), m_count(count),
-          m_entsize(entsize), m_needs_update(true) {}
-    llvm::Error UpdateIfNeeded();
-
-    AppleObjCRuntimeV2 &m_runtime;
-    lldb::addr_t m_headerInfoRWs_ptr;
-    llvm::BitVector m_loaded_images;
-    uint64_t m_version;
-    uint32_t m_count;
-    uint32_t m_entsize;
-    bool m_needs_update;
-  };
-
   AppleObjCRuntimeV2(Process *process, const lldb::ModuleSP &objc_module_sp);
 
   ObjCISA GetPointerISA(ObjCISA isa);
@@ -429,7 +395,6 @@ private:
                                uint32_t num_class_infos);
 
   enum class SharedCacheWarningReason {
-    eExpressionUnableToRun,
     eExpressionExecutionFailure,
     eNotEnoughClassesRead
   };
@@ -472,9 +437,8 @@ private:
   EncodingToTypeSP m_encoding_to_type_sp;
   std::once_flag m_no_classes_cached_warning;
   std::once_flag m_no_expanded_cache_warning;
-  std::optional<std::pair<lldb::addr_t, lldb::addr_t>> m_CFBoolean_values;
+  llvm::Optional<std::pair<lldb::addr_t, lldb::addr_t>> m_CFBoolean_values;
   uint64_t m_realized_class_generation_count;
-  std::unique_ptr<SharedCacheImageHeaders> m_shared_cache_image_headers_up;
 };
 
 } // namespace lldb_private

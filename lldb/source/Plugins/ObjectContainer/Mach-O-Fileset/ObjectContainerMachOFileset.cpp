@@ -15,7 +15,6 @@
 #include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/DataBuffer.h"
 #include "lldb/Utility/Stream.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -96,7 +95,7 @@ static uint32_t MachHeaderSizeFromMagic(uint32_t magic) {
   }
 }
 
-static std::optional<mach_header> ParseMachOHeader(DataExtractor &data) {
+static llvm::Optional<mach_header> ParseMachOHeader(DataExtractor &data) {
   lldb::offset_t offset = 0;
   mach_header header;
   header.magic = data.GetU32(&offset);
@@ -136,7 +135,7 @@ static std::optional<mach_header> ParseMachOHeader(DataExtractor &data) {
 static bool
 ParseFileset(DataExtractor &data, mach_header header,
              std::vector<ObjectContainerMachOFileset::Entry> &entries,
-             std::optional<lldb::addr_t> load_addr = std::nullopt) {
+             llvm::Optional<lldb::addr_t> load_addr = llvm::None) {
   lldb::offset_t offset = MachHeaderSizeFromMagic(header.magic);
   lldb::offset_t slide = 0;
   for (uint32_t i = 0; i < header.ncmds; ++i) {
@@ -158,7 +157,7 @@ ParseFileset(DataExtractor &data, mach_header header,
     if (lc.cmd == LC_FILESET_ENTRY) {
       fileset_entry_command entry;
       data.CopyData(load_cmd_offset, sizeof(fileset_entry_command), &entry);
-      lldb::offset_t entry_id_offset = load_cmd_offset + entry.entry_id.offset;
+      lldb::offset_t entry_id_offset = load_cmd_offset + entry.entry_id;
       const char *id = data.GetCStr(&entry_id_offset);
       entries.emplace_back(entry.vmaddr + slide, entry.fileoff,
                            std::string(id));
@@ -173,7 +172,7 @@ ParseFileset(DataExtractor &data, mach_header header,
 bool ObjectContainerMachOFileset::ParseHeader(
     DataExtractor &data, const lldb_private::FileSpec &file,
     lldb::offset_t file_offset, std::vector<Entry> &entries) {
-  std::optional<mach_header> header = ParseMachOHeader(data);
+  llvm::Optional<mach_header> header = ParseMachOHeader(data);
 
   if (!header)
     return false;
@@ -197,7 +196,7 @@ bool ObjectContainerMachOFileset::ParseHeader() {
 
   std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
 
-  std::optional<mach_header> header = ParseMachOHeader(m_data);
+  llvm::Optional<mach_header> header = ParseMachOHeader(m_data);
   if (!header)
     return false;
 

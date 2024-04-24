@@ -10,7 +10,6 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 AffineValueMap::AffineValueMap(AffineMap map, ValueRange operands,
                                ValueRange results)

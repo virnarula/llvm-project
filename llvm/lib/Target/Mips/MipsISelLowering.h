@@ -21,7 +21,6 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
@@ -29,9 +28,12 @@
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/MachineValueType.h"
 #include "llvm/Target/TargetMachine.h"
 #include <algorithm>
+#include <cassert>
 #include <deque>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -522,7 +524,7 @@ class TargetRegisterClass;
                           unsigned Flag) const;
 
     // Lower Operand helpers
-    SDValue LowerCallResult(SDValue Chain, SDValue InGlue,
+    SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
                             CallingConv::ID CallConv, bool isVarArg,
                             const SmallVectorImpl<ISD::InputArg> &Ins,
                             const SDLoc &dl, SelectionDAG &DAG,
@@ -639,18 +641,19 @@ class TargetRegisterClass;
     /// vector.  If it is invalid, don't add anything to Ops. If hasMemory is
     /// true it means one of the asm constraint of the inline asm instruction
     /// being processed is 'm'.
-    void LowerAsmOperandForConstraint(SDValue Op, StringRef Constraint,
+    void LowerAsmOperandForConstraint(SDValue Op,
+                                      std::string &Constraint,
                                       std::vector<SDValue> &Ops,
                                       SelectionDAG &DAG) const override;
 
-    InlineAsm::ConstraintCode
+    unsigned
     getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
       if (ConstraintCode == "o")
-        return InlineAsm::ConstraintCode::o;
+        return InlineAsm::Constraint_o;
       if (ConstraintCode == "R")
-        return InlineAsm::ConstraintCode::R;
+        return InlineAsm::Constraint_R;
       if (ConstraintCode == "ZC")
-        return InlineAsm::ConstraintCode::ZC;
+        return InlineAsm::Constraint_ZC;
       return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
     }
 

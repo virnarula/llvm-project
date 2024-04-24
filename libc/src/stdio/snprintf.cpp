@@ -10,12 +10,13 @@
 
 #include "src/__support/arg_list.h"
 #include "src/stdio/printf_core/printf_main.h"
+#include "src/stdio/printf_core/string_writer.h"
 #include "src/stdio/printf_core/writer.h"
 
 #include <stdarg.h>
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, snprintf,
                    (char *__restrict buffer, size_t buffsz,
@@ -26,13 +27,16 @@ LLVM_LIBC_FUNCTION(int, snprintf,
                                  // and pointer semantics, as well as handling
                                  // destruction automatically.
   va_end(vlist);
-  printf_core::WriteBuffer wb(buffer, (buffsz > 0 ? buffsz - 1 : 0));
-  printf_core::Writer writer(&wb);
+  printf_core::StringWriter str_writer(buffer, (buffsz > 0 ? buffsz - 1 : 0));
+  printf_core::Writer writer(reinterpret_cast<void *>(&str_writer),
+                             printf_core::StringWriter::write_str,
+                             printf_core::StringWriter::write_chars,
+                             printf_core::StringWriter::write_char);
 
   int ret_val = printf_core::printf_main(&writer, format, args);
   if (buffsz > 0) // if the buffsz is 0 the buffer may be a null pointer.
-    wb.buff[wb.buff_cur] = '\0';
+    str_writer.terminate();
   return ret_val;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

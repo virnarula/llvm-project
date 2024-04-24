@@ -1,6 +1,6 @@
 // RUN: %clang_analyze_cc1 -analyzer-checker=core -std=c++11 -verify %s
 
-// PR12871
+// radar://11485149, PR12871
 class PlotPoint {
   bool valid;
 };
@@ -11,6 +11,7 @@ PlotPoint limitedFit () {
   return fit0;
 }
 
+// radar://11487541, NamespaceAlias
 namespace boost {namespace filesystem3 {
 class path {
 public:
@@ -31,13 +32,13 @@ void radar11487541() {
   fs::path p;
 }
 
-// PR12873
+// PR12873 radar://11499139
 void testFloatInitializer() {
   const float ysize={0.015}, xsize={0.01};
 }
 
 
-// PR12874
+// PR12874, radar://11487525
 template<class T> struct addr_impl_ref {
   T & v_;
   inline addr_impl_ref( T & v ): v_( v ) {
@@ -57,14 +58,14 @@ void testRadar11487525_1(){
   addressof(s);
 }
 
-// Don't crash on CK_LValueBitCast.
+// radar://11487525 Don't crash on CK_LValueBitCast.
 bool begin(double *it) {
   typedef bool type[25];
   bool *a = reinterpret_cast<type &>(*( reinterpret_cast<char *>( it )));
   return *a;
 }
 
-// Don't crash on "assuming" a ComoundVal.
+// radar://14164698 Don't crash on "assuming" a ComoundVal.
 class JSONWireProtocolInputStream {
 public:
   virtual ~JSONWireProtocolInputStream();

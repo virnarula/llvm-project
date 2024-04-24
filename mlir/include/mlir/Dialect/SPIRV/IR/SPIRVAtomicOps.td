@@ -14,20 +14,8 @@
 #ifndef MLIR_DIALECT_SPIRV_IR_ATOMIC_OPS
 #define MLIR_DIALECT_SPIRV_IR_ATOMIC_OPS
 
-include "mlir/Dialect/SPIRV/IR/SPIRVBase.td"
-include "mlir/Interfaces/SideEffectInterfaces.td"
-
-class PointeeTypeMatchTrait<string pointer, string name>
-    : TypesMatchWith<
-      "`" # name # "` type matches pointee type of " # "`" # pointer # "`",
-      pointer, name, "llvm::cast<PointerType>($_self).getPointeeType()">;
-
-// -----
-
-class SPIRV_AtomicUpdateOp<string mnemonic, list<Trait> traits = []>
-    : SPIRV_Op<mnemonic,
-               !listconcat(traits,
-                           [PointeeTypeMatchTrait<"pointer", "result">])> {
+class SPIRV_AtomicUpdateOp<string mnemonic, list<Trait> traits = []> :
+  SPIRV_Op<mnemonic, traits> {
   let arguments = (ins
     SPIRV_AnyPtr:$pointer,
     SPIRV_ScopeAttr:$memory_scope,
@@ -37,19 +25,10 @@ class SPIRV_AtomicUpdateOp<string mnemonic, list<Trait> traits = []>
   let results = (outs
     SPIRV_Integer:$result
   );
-
-  let assemblyFormat = [{
-    $memory_scope $semantics operands attr-dict `:` type($pointer)
-  }];
-
-  let hasCustomAssemblyFormat = 0;
 }
 
-class SPIRV_AtomicUpdateWithValueOp<string mnemonic, list<Trait> traits = []>
-    : SPIRV_Op<mnemonic, !listconcat(traits, [
-                 PointeeTypeMatchTrait<"pointer", "value">,
-                 PointeeTypeMatchTrait<"pointer", "result">,
-               ])> {
+class SPIRV_AtomicUpdateWithValueOp<string mnemonic, list<Trait> traits = []> :
+  SPIRV_Op<mnemonic, traits> {
   let arguments = (ins
     SPIRV_AnyPtr:$pointer,
     SPIRV_ScopeAttr:$memory_scope,
@@ -61,11 +40,11 @@ class SPIRV_AtomicUpdateWithValueOp<string mnemonic, list<Trait> traits = []>
     SPIRV_Integer:$result
   );
 
-  let assemblyFormat = [{
-    $memory_scope $semantics operands attr-dict `:` type($pointer)
-  }];
-
-  let hasCustomAssemblyFormat = 0;
+  let builders = [
+    OpBuilder<(ins "Value":$pointer, "::mlir::spirv::Scope":$scope,
+      "::mlir::spirv::MemorySemantics":$memory, "Value":$value),
+    [{build($_builder, $_state, value.getType(), pointer, scope, memory, value);}]>
+  ];
 }
 
 // -----
@@ -94,10 +73,20 @@ def SPIRV_AtomicAndOp : SPIRV_AtomicUpdateWithValueOp<"AtomicAnd", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    scope ::= `"CrossDevice"` | `"Device"` | `"Workgroup"` | ...
+
+    memory-semantics ::= `"None"` | `"Acquire"` | "Release"` | ...
+
+    atomic-and-op ::=
+        `spirv.AtomicAnd` scope memory-semantics
+                        ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicAnd <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicAnd "Device" "None" %pointer, %value :
                        !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -105,11 +94,7 @@ def SPIRV_AtomicAndOp : SPIRV_AtomicUpdateWithValueOp<"AtomicAnd", []> {
 
 // -----
 
-def SPIRV_AtomicCompareExchangeOp : SPIRV_Op<"AtomicCompareExchange", [
-  PointeeTypeMatchTrait<"pointer", "result">,
-  PointeeTypeMatchTrait<"pointer", "value">,
-  PointeeTypeMatchTrait<"pointer", "comparator">,
-]> {
+def SPIRV_AtomicCompareExchangeOp : SPIRV_Op<"AtomicCompareExchange", []> {
   let summary = [{
     Perform the following steps atomically with respect to any other atomic
     accesses within Scope to the same location:
@@ -144,10 +129,17 @@ def SPIRV_AtomicCompareExchangeOp : SPIRV_Op<"AtomicCompareExchange", [
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-compare-exchange-op ::=
+        `spirv.AtomicCompareExchange` scope memory-semantics memory-semantics
+                                    ssa-use `,` ssa-use `,` ssa-use
+                                    `:` spv-pointer-type
+    ```mlir
+
     #### Example:
 
     ```
-    %0 = spirv.AtomicCompareExchange <Workgroup> <Acquire> <None>
+    %0 = spirv.AtomicCompareExchange "Workgroup" "Acquire" "None"
                                     %pointer, %value, %comparator
                                     : !spirv.ptr<i32, WorkGroup>
     ```
@@ -165,23 +157,11 @@ def SPIRV_AtomicCompareExchangeOp : SPIRV_Op<"AtomicCompareExchange", [
   let results = (outs
     SPIRV_Integer:$result
   );
-
-  let assemblyFormat = [{
-    $memory_scope $equal_semantics $unequal_semantics operands attr-dict `:`
-      type($pointer)
-  }];
-
-  let hasCustomAssemblyFormat = 0;
-  let hasVerifier = 0;
 }
 
 // -----
 
-def SPIRV_AtomicCompareExchangeWeakOp : SPIRV_Op<"AtomicCompareExchangeWeak", [
-  PointeeTypeMatchTrait<"pointer", "result">,
-  PointeeTypeMatchTrait<"pointer", "value">,
-  PointeeTypeMatchTrait<"pointer", "comparator">,
-]> {
+def SPIRV_AtomicCompareExchangeWeakOp : SPIRV_Op<"AtomicCompareExchangeWeak", []> {
   let summary = "Deprecated (use OpAtomicCompareExchange).";
 
   let description = [{
@@ -191,10 +171,17 @@ def SPIRV_AtomicCompareExchangeWeakOp : SPIRV_Op<"AtomicCompareExchangeWeak", [
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-compare-exchange-weak-op ::=
+        `spirv.AtomicCompareExchangeWeak` scope memory-semantics memory-semantics
+                                        ssa-use `,` ssa-use `,` ssa-use
+                                        `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicCompareExchangeWeak <Workgroup> <Acquire> <None>
+    %0 = spirv.AtomicCompareExchangeWeak "Workgroup" "Acquire" "None"
                                        %pointer, %value, %comparator
                                        : !spirv.ptr<i32, WorkGroup>
     ```
@@ -219,22 +206,11 @@ def SPIRV_AtomicCompareExchangeWeakOp : SPIRV_Op<"AtomicCompareExchangeWeak", [
   let results = (outs
     SPIRV_Integer:$result
   );
-
-  let assemblyFormat = [{
-    $memory_scope $equal_semantics $unequal_semantics operands attr-dict `:`
-      type($pointer)
-  }];
-
-  let hasCustomAssemblyFormat = 0;
-  let hasVerifier = 0;
 }
 
 // -----
 
-def SPIRV_AtomicExchangeOp : SPIRV_Op<"AtomicExchange", [
-  PointeeTypeMatchTrait<"pointer", "value">,
-  PointeeTypeMatchTrait<"pointer", "result">,
-]> {
+def SPIRV_AtomicExchangeOp : SPIRV_Op<"AtomicExchange", []> {
   let summary = [{
     Perform the following steps atomically with respect to any other atomic
     accesses within Scope to the same location:
@@ -258,10 +234,16 @@ def SPIRV_AtomicExchangeOp : SPIRV_Op<"AtomicExchange", [
 
     <!-- End of AutoGen section -->
 
+     ```
+    atomic-exchange-op ::=
+        `spirv.AtomicCompareExchange` scope memory-semantics
+                                    ssa-use `,` ssa-use `:` spv-pointer-type
+    ```mlir
+
     #### Example:
 
-    ```mlir
-    %0 = spirv.AtomicExchange <Workgroup> <Acquire> %pointer, %value,
+    ```
+    %0 = spirv.AtomicExchange "Workgroup" "Acquire" %pointer, %value,
                             : !spirv.ptr<i32, WorkGroup>
     ```
   }];
@@ -276,21 +258,11 @@ def SPIRV_AtomicExchangeOp : SPIRV_Op<"AtomicExchange", [
   let results = (outs
     SPIRV_Numerical:$result
   );
-
-  let assemblyFormat = [{
-    $memory_scope $semantics operands attr-dict `:` type($pointer)
-  }];
-
-  let hasCustomAssemblyFormat = 0;
-  let hasVerifier = 0;
 }
 
 // -----
 
-def SPIRV_EXTAtomicFAddOp : SPIRV_ExtVendorOp<"AtomicFAdd", [
-  PointeeTypeMatchTrait<"pointer", "result">,
-  PointeeTypeMatchTrait<"pointer", "value">,
-]> {
+def SPIRV_EXTAtomicFAddOp : SPIRV_ExtVendorOp<"AtomicFAdd", []> {
   let summary = "TBD";
 
   let description = [{
@@ -316,12 +288,18 @@ def SPIRV_EXTAtomicFAddOp : SPIRV_ExtVendorOp<"AtomicFAdd", [
 
     Memory must be a valid memory Scope.
 
+    ```
+    atomic-fadd-op ::=
+        `spirv.EXT.AtomicFAdd` scope memory-semantics
+                            ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.EXT.AtomicFAdd <Device> <None> %pointer, %value :
+    %0 = spirv.EXT.AtomicFAdd "Device" "None" %pointer, %value :
                            !spirv.ptr<f32, StorageBuffer>
-    ```
+    ```mlir
   }];
 
   let availability = [
@@ -341,10 +319,6 @@ def SPIRV_EXTAtomicFAddOp : SPIRV_ExtVendorOp<"AtomicFAdd", [
   let results = (outs
     SPIRV_Float:$result
   );
-
-  let assemblyFormat = [{
-    $memory_scope $semantics operands attr-dict `:` type($pointer)
-  }];
 }
 
 // -----
@@ -373,10 +347,16 @@ def SPIRV_AtomicIAddOp : SPIRV_AtomicUpdateWithValueOp<"AtomicIAdd", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-iadd-op ::=
+        `spirv.AtomicIAdd` scope memory-semantics
+                         ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicIAdd <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicIAdd "Device" "None" %pointer, %value :
                         !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -407,10 +387,16 @@ def SPIRV_AtomicIDecrementOp : SPIRV_AtomicUpdateOp<"AtomicIDecrement", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-idecrement-op ::=
+        `spirv.AtomicIDecrement` scope memory-semantics ssa-use
+                               `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicIDecrement <Device> <None> %pointer :
+    %0 = spirv.AtomicIDecrement "Device" "None" %pointer :
                               !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -440,10 +426,16 @@ def SPIRV_AtomicIIncrementOp : SPIRV_AtomicUpdateOp<"AtomicIIncrement", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-iincrement-op ::=
+        `spirv.AtomicIIncrement` scope memory-semantics ssa-use
+                               `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicIncrement <Device> <None> %pointer :
+    %0 = spirv.AtomicIncrement "Device" "None" %pointer :
                              !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -476,10 +468,16 @@ def SPIRV_AtomicISubOp : SPIRV_AtomicUpdateWithValueOp<"AtomicISub", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-isub-op ::=
+        `spirv.AtomicISub` scope memory-semantics
+                         ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicISub <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicISub "Device" "None" %pointer, %value :
                         !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -511,10 +509,16 @@ def SPIRV_AtomicOrOp : SPIRV_AtomicUpdateWithValueOp<"AtomicOr", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-or-op ::=
+        `spirv.AtomicOr` scope memory-semantics
+                       ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicOr <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicOr "Device" "None" %pointer, %value :
                       !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -547,10 +551,16 @@ def SPIRV_AtomicSMaxOp : SPIRV_AtomicUpdateWithValueOp<"AtomicSMax", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-smax-op ::=
+        `spirv.AtomicSMax` scope memory-semantics
+                         ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicSMax <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicSMax "Device" "None" %pointer, %value :
                         !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -583,10 +593,16 @@ def SPIRV_AtomicSMinOp : SPIRV_AtomicUpdateWithValueOp<"AtomicSMin", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-smin-op ::=
+        `spirv.AtomicSMin` scope memory-semantics
+                         ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicSMin <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicSMin "Device" "None" %pointer, %value :
                         !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -619,10 +635,16 @@ def SPIRV_AtomicUMaxOp : SPIRV_AtomicUpdateWithValueOp<"AtomicUMax", [UnsignedOp
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-umax-op ::=
+        `spirv.AtomicUMax` scope memory-semantics
+                         ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicUMax <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicUMax "Device" "None" %pointer, %value :
                         !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -655,10 +677,16 @@ def SPIRV_AtomicUMinOp : SPIRV_AtomicUpdateWithValueOp<"AtomicUMin", [UnsignedOp
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-umin-op ::=
+        `spirv.AtomicUMin` scope memory-semantics
+                         ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicUMin <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicUMin "Device" "None" %pointer, %value :
                         !spirv.ptr<i32, StorageBuffer>
     ```
   }];
@@ -691,10 +719,16 @@ def SPIRV_AtomicXorOp : SPIRV_AtomicUpdateWithValueOp<"AtomicXor", []> {
 
     <!-- End of AutoGen section -->
 
+    ```
+    atomic-xor-op ::=
+        `spirv.AtomicXor` scope memory-semantics
+                        ssa-use `,` ssa-use `:` spv-pointer-type
+    ```
+
     #### Example:
 
     ```mlir
-    %0 = spirv.AtomicXor <Device> <None> %pointer, %value :
+    %0 = spirv.AtomicXor "Device" "None" %pointer, %value :
                        !spirv.ptr<i32, StorageBuffer>
     ```
   }];

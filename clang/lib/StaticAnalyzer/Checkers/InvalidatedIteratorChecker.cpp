@@ -31,14 +31,14 @@ class InvalidatedIteratorChecker
                    check::PreStmt<ArraySubscriptExpr>,
                    check::PreStmt<MemberExpr>> {
 
-  const BugType InvalidatedBugType{this, "Iterator invalidated",
-                                   "Misuse of STL APIs"};
+  std::unique_ptr<BugType> InvalidatedBugType;
 
-  void verifyAccess(CheckerContext &C, SVal Val) const;
-  void reportBug(StringRef Message, SVal Val, CheckerContext &C,
-                 ExplodedNode *ErrNode) const;
-
+  void verifyAccess(CheckerContext &C, const SVal &Val) const;
+  void reportBug(const StringRef &Message, const SVal &Val,
+                 CheckerContext &C, ExplodedNode *ErrNode) const;
 public:
+  InvalidatedIteratorChecker();
+
   void checkPreCall(const CallEvent &Call, CheckerContext &C) const;
   void checkPreStmt(const UnaryOperator *UO, CheckerContext &C) const;
   void checkPreStmt(const BinaryOperator *BO, CheckerContext &C) const;
@@ -48,6 +48,11 @@ public:
 };
 
 } //namespace
+
+InvalidatedIteratorChecker::InvalidatedIteratorChecker() {
+  InvalidatedBugType.reset(
+      new BugType(this, "Iterator invalidated", "Misuse of STL APIs"));
+}
 
 void InvalidatedIteratorChecker::checkPreCall(const CallEvent &Call,
                                               CheckerContext &C) const {
@@ -109,8 +114,7 @@ void InvalidatedIteratorChecker::checkPreStmt(const MemberExpr *ME,
   verifyAccess(C, BaseVal);
 }
 
-void InvalidatedIteratorChecker::verifyAccess(CheckerContext &C,
-                                              SVal Val) const {
+void InvalidatedIteratorChecker::verifyAccess(CheckerContext &C, const SVal &Val) const {
   auto State = C.getState();
   const auto *Pos = getIteratorPosition(State, Val);
   if (Pos && !Pos->isValid()) {
@@ -122,11 +126,11 @@ void InvalidatedIteratorChecker::verifyAccess(CheckerContext &C,
   }
 }
 
-void InvalidatedIteratorChecker::reportBug(StringRef Message, SVal Val,
-                                           CheckerContext &C,
+void InvalidatedIteratorChecker::reportBug(const StringRef &Message,
+                                           const SVal &Val, CheckerContext &C,
                                            ExplodedNode *ErrNode) const {
-  auto R = std::make_unique<PathSensitiveBugReport>(InvalidatedBugType, Message,
-                                                    ErrNode);
+  auto R = std::make_unique<PathSensitiveBugReport>(*InvalidatedBugType,
+                                                    Message, ErrNode);
   R->markInteresting(Val);
   C.emitReport(std::move(R));
 }

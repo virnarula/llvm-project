@@ -9,7 +9,7 @@
 #ifndef __LLVM_LIBC_MACROS_SYS_MMAN_MACROS_H
 #define __LLVM_LIBC_MACROS_SYS_MMAN_MACROS_H
 
-#ifdef __linux__
+#ifdef __unix__
 #include "linux/sys-mman-macros.h"
 #endif
 

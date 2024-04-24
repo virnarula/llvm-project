@@ -2,9 +2,9 @@
 
 .arch_extension sme
 .arch_extension nosme
-zero {za}
+smstart
 // CHECK: error: instruction requires: sme
-// CHECK-NEXT: zero {za}
+// CHECK-NEXT: smstart
 
 .arch_extension sme-f64f64
 .arch_extension nosme-f64f64
@@ -20,9 +20,9 @@ addha za0.d, p0/m, p0/m, z0.d
 
 .arch armv9-a+sme
 .arch armv9-a+nosme
-zero {za}
+smstart
 // CHECK: error: instruction requires: sme
-// CHECK-NEXT: zero {za}
+// CHECK-NEXT: smstart
 
 .arch armv9-a+sme-f64f64
 .arch armv9-a+nosme-f64f64

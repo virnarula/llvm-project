@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/FlowSensitive/Value.h"
-#include "clang/Analysis/FlowSensitive/Arena.h"
 #include "clang/Analysis/FlowSensitive/StorageLocation.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -19,14 +18,16 @@ using namespace clang;
 using namespace dataflow;
 
 TEST(ValueTest, EquivalenceReflexive) {
-  IntegerValue V;
+  StructValue V;
   EXPECT_TRUE(areEquivalentValues(V, V));
 }
 
-TEST(ValueTest, DifferentIntegerValuesNotEquivalent) {
-  IntegerValue V1;
-  IntegerValue V2;
-  EXPECT_FALSE(areEquivalentValues(V1, V2));
+TEST(ValueTest, AliasedReferencesEquivalent) {
+  auto L = ScalarStorageLocation(QualType());
+  ReferenceValue V1(L);
+  ReferenceValue V2(L);
+  EXPECT_TRUE(areEquivalentValues(V1, V2));
+  EXPECT_TRUE(areEquivalentValues(V2, V1));
 }
 
 TEST(ValueTest, AliasedPointersEquivalent) {
@@ -38,54 +39,36 @@ TEST(ValueTest, AliasedPointersEquivalent) {
 }
 
 TEST(ValueTest, TopsEquivalent) {
-  Arena A;
-  TopBoolValue V1(A.makeAtomRef(Atom(0)));
-  TopBoolValue V2(A.makeAtomRef(Atom(1)));
+  TopBoolValue V1;
+  TopBoolValue V2;
   EXPECT_TRUE(areEquivalentValues(V1, V2));
   EXPECT_TRUE(areEquivalentValues(V2, V1));
 }
 
-// The framework does not (currently) consider equivalence for values with
-// properties, leaving such to individual analyses.
-TEST(ValueTest, ValuesWithSamePropsDifferent) {
-  Arena A;
-  TopBoolValue Prop(A.makeAtomRef(Atom(0)));
-  TopBoolValue V1(A.makeAtomRef(Atom(2)));
-  TopBoolValue V2(A.makeAtomRef(Atom(3)));
-  V1.setProperty("foo", Prop);
-  V2.setProperty("foo", Prop);
-  EXPECT_FALSE(areEquivalentValues(V1, V2));
-  EXPECT_FALSE(areEquivalentValues(V2, V1));
-}
-
-TEST(ValueTest, ValuesWithDifferentPropsDifferent) {
-  Arena A;
-  TopBoolValue Prop1(A.makeAtomRef(Atom(0)));
-  TopBoolValue Prop2(A.makeAtomRef(Atom(1)));
-  TopBoolValue V1(A.makeAtomRef(Atom(2)));
-  TopBoolValue V2(A.makeAtomRef(Atom(3)));
+TEST(ValueTest, EquivalentValuesWithDifferentPropsEquivalent) {
+  TopBoolValue Prop1;
+  TopBoolValue Prop2;
+  TopBoolValue V1;
+  TopBoolValue V2;
   V1.setProperty("foo", Prop1);
   V2.setProperty("bar", Prop2);
-  EXPECT_FALSE(areEquivalentValues(V1, V2));
-  EXPECT_FALSE(areEquivalentValues(V2, V1));
-}
-
-TEST(ValueTest, ValuesWithDifferentNumberPropsDifferent) {
-  Arena A;
-  TopBoolValue Prop(A.makeAtomRef(Atom(0)));
-  TopBoolValue V1(A.makeAtomRef(Atom(2)));
-  TopBoolValue V2(A.makeAtomRef(Atom(3)));
-  // Only set a property on `V1`.
-  V1.setProperty("foo", Prop);
-  EXPECT_FALSE(areEquivalentValues(V1, V2));
-  EXPECT_FALSE(areEquivalentValues(V2, V1));
+  EXPECT_TRUE(areEquivalentValues(V1, V2));
+  EXPECT_TRUE(areEquivalentValues(V2, V1));
 }
 
 TEST(ValueTest, DifferentKindsNotEquivalent) {
-  Arena A;
   auto L = ScalarStorageLocation(QualType());
-  PointerValue V1(L);
-  TopBoolValue V2(A.makeAtomRef(Atom(0)));
+  ReferenceValue V1(L);
+  TopBoolValue V2;
+  EXPECT_FALSE(areEquivalentValues(V1, V2));
+  EXPECT_FALSE(areEquivalentValues(V2, V1));
+}
+
+TEST(ValueTest, NotAliasedReferencesNotEquivalent) {
+  auto L1 = ScalarStorageLocation(QualType());
+  ReferenceValue V1(L1);
+  auto L2 = ScalarStorageLocation(QualType());
+  ReferenceValue V2(L2);
   EXPECT_FALSE(areEquivalentValues(V1, V2));
   EXPECT_FALSE(areEquivalentValues(V2, V1));
 }

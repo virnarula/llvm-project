@@ -12,13 +12,12 @@ concept C2 = true;
 
 template<typename T>
 bool f() {
-  // CHECK: requires (T t) { t++; { t++ } noexcept -> C; { t++ } -> C2<int>; typename T::a; requires T::val; requires C<typename T::val> || (C<typename T::val> || C<T>); };
+  // CHECK: requires (T t) { t++; { t++ } noexcept -> C; { t++ } -> C2<int>; typename T::a; requires T::val; };
   return requires (T t) {
     t++;
     { t++ } noexcept -> C;
     { t++ } -> C2<int>;
     typename T::a;
     requires T::val;
-    requires C<typename T::val> || (C<typename T::val> || C<T>);
   };
 }

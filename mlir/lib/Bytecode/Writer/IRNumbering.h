@@ -18,7 +18,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringMap.h"
-#include <cstdint>
 
 namespace mlir {
 class BytecodeDialectInterface;
@@ -127,22 +126,6 @@ struct DialectNumbering {
 };
 
 //===----------------------------------------------------------------------===//
-// Operation Numbering
-//===----------------------------------------------------------------------===//
-
-/// This class represents the numbering entry of an operation.
-struct OperationNumbering {
-  OperationNumbering(unsigned number) : number(number) {}
-
-  /// The number assigned to this operation.
-  unsigned number;
-
-  /// A flag indicating if this operation's regions are isolated. If unset, the
-  /// operation isn't yet known to be isolated.
-  std::optional<bool> isIsolatedFromAbove;
-};
-
-//===----------------------------------------------------------------------===//
 // IRNumberingState
 //===----------------------------------------------------------------------===//
 
@@ -150,7 +133,7 @@ struct OperationNumbering {
 /// emission.
 class IRNumberingState {
 public:
-  IRNumberingState(Operation *op, const BytecodeWriterConfig &config);
+  IRNumberingState(Operation *op);
 
   /// Return the numbered dialects.
   auto getDialects() {
@@ -168,10 +151,6 @@ public:
   unsigned getNumber(Block *block) {
     assert(blockIDs.count(block) && "block not numbered");
     return blockIDs[block];
-  }
-  unsigned getNumber(Operation *op) {
-    assert(operations.count(op) && "operation not numbered");
-    return operations[op]->number;
   }
   unsigned getNumber(OperationName opName) {
     assert(opNames.count(opName) && "opName not numbered");
@@ -202,22 +181,10 @@ public:
     return blockOperationCounts[block];
   }
 
-  /// Return if the given operation is isolated from above.
-  bool isIsolatedFromAbove(Operation *op) {
-    assert(operations.count(op) && "operation not numbered");
-    return operations[op]->isIsolatedFromAbove.value_or(false);
-  }
-
-  /// Get the set desired bytecode version to emit.
-  int64_t getDesiredBytecodeVersion() const;
-  
 private:
   /// This class is used to provide a fake dialect writer for numbering nested
   /// attributes and types.
   struct NumberingDialectWriter;
-
-  /// Compute the global numbering state for the given root operation.
-  void computeGlobalNumberingState(Operation *rootOp);
 
   /// Number the given IR unit for bytecode emission.
   void number(Attribute attr);
@@ -237,7 +204,6 @@ private:
 
   /// Mapping from IR to the respective numbering entries.
   DenseMap<Attribute, AttributeNumbering *> attrs;
-  DenseMap<Operation *, OperationNumbering *> operations;
   DenseMap<OperationName, OpNameNumbering *> opNames;
   DenseMap<Type, TypeNumbering *> types;
   DenseMap<Dialect *, DialectNumbering *> registeredDialects;
@@ -254,7 +220,6 @@ private:
   /// Allocators used for the various numbering entries.
   llvm::SpecificBumpPtrAllocator<AttributeNumbering> attrAllocator;
   llvm::SpecificBumpPtrAllocator<DialectNumbering> dialectAllocator;
-  llvm::SpecificBumpPtrAllocator<OperationNumbering> opAllocator;
   llvm::SpecificBumpPtrAllocator<OpNameNumbering> opNameAllocator;
   llvm::SpecificBumpPtrAllocator<DialectResourceNumbering> resourceAllocator;
   llvm::SpecificBumpPtrAllocator<TypeNumbering> typeAllocator;
@@ -271,9 +236,6 @@ private:
 
   /// The next value ID to assign when numbering.
   unsigned nextValueID = 0;
-
-  // Configuration: useful to query the required version to emit.
-  const BytecodeWriterConfig &config;
 };
 } // namespace detail
 } // namespace bytecode

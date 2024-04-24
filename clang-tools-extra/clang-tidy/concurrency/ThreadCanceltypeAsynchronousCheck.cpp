@@ -13,13 +13,15 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::concurrency {
+namespace clang {
+namespace tidy {
+namespace concurrency {
 
 void ThreadCanceltypeAsynchronousCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       callExpr(
-          callee(functionDecl(hasName("::pthread_setcanceltype"))),
-          argumentCountIs(2),
+          allOf(callee(functionDecl(hasName("::pthread_setcanceltype"))),
+                argumentCountIs(2)),
           hasArgument(0, isExpandedFromMacro("PTHREAD_CANCEL_ASYNCHRONOUS")))
           .bind("setcanceltype"),
       this);
@@ -32,4 +34,6 @@ void ThreadCanceltypeAsynchronousCheck::check(
                                    "be 'PTHREAD_CANCEL_ASYNCHRONOUS'");
 }
 
-} // namespace clang::tidy::concurrency
+} // namespace concurrency
+} // namespace tidy
+} // namespace clang

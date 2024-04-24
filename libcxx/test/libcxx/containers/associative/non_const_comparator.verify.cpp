@@ -23,7 +23,7 @@ struct BadCompare {
   }
 };
 
-void f() {
+int main(int, char**) {
   static_assert(!std::__invokable<BadCompare const&, int const&, int const&>::value, "");
   static_assert(std::__invokable<BadCompare&, int const&, int const&>::value, "");
 
@@ -45,4 +45,6 @@ void f() {
     using C = std::multimap<long, int, BadCompare>;
     C s;
   }
+
+  return 0;
 }

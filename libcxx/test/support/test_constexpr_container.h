@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef SUPPORT_TEST_CONSTEXPR_CONTAINER_H
 #define SUPPORT_TEST_CONSTEXPR_CONTAINER_H
 
@@ -14,7 +13,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <utility>
 
 #include "test_macros.h"
@@ -35,7 +33,7 @@ public:
     constexpr iterator end() { return data_ + size_; }
     constexpr const_iterator begin() const { return data_; }
     constexpr const_iterator end() const { return data_ + size_; }
-    constexpr std::size_t size() const { return size_; }
+    constexpr size_t size() const { return size_; }
     constexpr const T& front() const { assert(size_ >= 1); return data_[0]; }
     constexpr const T& back() const { assert(size_ >= 1); return data_[size_-1]; }
 

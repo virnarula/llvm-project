@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 namespace {
 
@@ -51,4 +53,6 @@ void MissingHashCheck::check(const MatchFinder::MatchResult &Result) {
       << ID;
 }
 
-} // namespace clang::tidy::objc
+} // namespace objc
+} // namespace tidy
+} // namespace clang

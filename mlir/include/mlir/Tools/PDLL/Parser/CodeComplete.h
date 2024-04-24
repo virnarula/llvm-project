@@ -11,7 +11,6 @@
 
 #include "mlir/Support/LLVM.h"
 #include "llvm/Support/SourceMgr.h"
-#include <optional>
 
 namespace mlir {
 namespace pdll {
@@ -49,9 +48,12 @@ public:
 
   /// Signal code completion for a constraint name with an optional decl scope.
   /// `currentType` is the current type of the variable that will use the
-  /// constraint, or nullptr if a type is unknown. `allowInlineTypeConstraints`
-  /// enables inline type constraints for Attr/Value/ValueRange.
+  /// constraint, or nullptr if a type is unknown. `allowNonCoreConstraints`
+  /// indicates if user defined constraints are allowed in the completion
+  /// results. `allowInlineTypeConstraints` enables inline type constraints for
+  /// Attr/Value/ValueRange.
   virtual void codeCompleteConstraintName(ast::Type currentType,
+                                          bool allowNonCoreConstraints,
                                           bool allowInlineTypeConstraints,
                                           const ast::DeclScope *scope);
 
@@ -77,12 +79,12 @@ public:
 
   /// Signal code completion for the signature of an operation's operands.
   virtual void
-  codeCompleteOperationOperandsSignature(std::optional<StringRef> opName,
+  codeCompleteOperationOperandsSignature(Optional<StringRef> opName,
                                          unsigned currentNumOperands) {}
 
   /// Signal code completion for the signature of an operation's results.
   virtual void
-  codeCompleteOperationResultsSignature(std::optional<StringRef> opName,
+  codeCompleteOperationResultsSignature(Optional<StringRef> opName,
                                         unsigned currentNumResults) {}
 
 protected:

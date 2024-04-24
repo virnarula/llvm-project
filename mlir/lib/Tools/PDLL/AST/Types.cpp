@@ -9,7 +9,6 @@
 #include "mlir/Tools/PDLL/AST/Types.h"
 #include "TypeDetail.h"
 #include "mlir/Tools/PDLL/AST/Context.h"
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::pdll;
@@ -70,18 +69,16 @@ ConstraintType ConstraintType::get(Context &context) {
 // OperationType
 //===----------------------------------------------------------------------===//
 
-OperationType OperationType::get(Context &context,
-                                 std::optional<StringRef> name,
+OperationType OperationType::get(Context &context, Optional<StringRef> name,
                                  const ods::Operation *odsOp) {
   return context.getTypeUniquer().get<ImplTy>(
       /*initFn=*/function_ref<void(ImplTy *)>(),
       std::make_pair(name.value_or(""), odsOp));
 }
 
-std::optional<StringRef> OperationType::getName() const {
+Optional<StringRef> OperationType::getName() const {
   StringRef name = getImplAs<ImplTy>()->getValue().first;
-  return name.empty() ? std::optional<StringRef>()
-                      : std::optional<StringRef>(name);
+  return name.empty() ? Optional<StringRef>() : Optional<StringRef>(name);
 }
 
 const ods::Operation *OperationType::getODSOperation() const {

@@ -7,15 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/signal/sigaltstack.h"
-#include "src/errno/libc_errno.h"
 #include "src/signal/linux/signal_utils.h"
 
 #include "src/__support/common.h"
 
+#include <errno.h>
 #include <signal.h>
 #include <sys/syscall.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, sigaltstack,
                    (const stack_t *__restrict ss, stack_t *__restrict oss)) {
@@ -25,21 +25,21 @@ LLVM_LIBC_FUNCTION(int, sigaltstack,
       // Flags cannot have anything other than SS_DISABLE set.
       // We do the type-casting to unsigned because the |ss_flags|
       // field of stack_t is of type "int".
-      libc_errno = EINVAL;
+      errno = EINVAL;
       return -1;
     }
     if (ss->ss_size < MINSIGSTKSZ) {
-      libc_errno = ENOMEM;
+      errno = ENOMEM;
       return -1;
     }
   }
 
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(SYS_sigaltstack, ss, oss);
+  int ret = __llvm_libc::syscall_impl(SYS_sigaltstack, ss, oss);
   if (ret < 0) {
-    libc_errno = -ret;
+    errno = -ret;
     return -1;
   }
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

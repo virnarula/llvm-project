@@ -2,7 +2,7 @@
 
 // FIXME: This test fails on clang-stage2-cmake-RgSan,
 // see also https://reviews.llvm.org/D62445#1613268
-// UNSUPPORTED: target={{.*darwin.*}}
+// UNSUPPORTED: darwin
 
 // RUN: %clang_analyze_cc1 -verify %s \
 // RUN:   -load %llvmshlibdir/SampleAnalyzerPlugin%pluginext \

@@ -3,21 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
-load("//:workspace_root.bzl", "workspace_root")
 load("//llvm:tblgen.bzl", "gentbl")
 load("//llvm:binary_alias.bzl", "binary_alias")
 load("//llvm:cc_plugin_library.bzl", "cc_plugin_library")
-load(
-    "//:vars.bzl",
-    "LLVM_VERSION",
-    "LLVM_VERSION_MAJOR",
-    "LLVM_VERSION_MINOR",
-    "LLVM_VERSION_PATCH",
-)
 
 package(
     default_visibility = ["//visibility:public"],
-    features = ["layering_check"],
 )
 
 licenses(["notice"])
@@ -134,7 +125,6 @@ gentbl(
     td_file = "include/clang/Basic/arm_sve.td",
     td_srcs = [
         "include/clang/Basic/arm_sve.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
     ],
 )
 
@@ -148,7 +138,6 @@ gentbl(
     td_file = "include/clang/Basic/arm_sve.td",
     td_srcs = [
         "include/clang/Basic/arm_sve.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
     ],
 )
 
@@ -162,7 +151,6 @@ gentbl(
     td_file = "include/clang/Basic/arm_sve.td",
     td_srcs = [
         "include/clang/Basic/arm_sve.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
     ],
 )
 
@@ -176,91 +164,6 @@ gentbl(
     td_file = "include/clang/Basic/arm_sve.td",
     td_srcs = [
         "include/clang/Basic/arm_sve.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "basic_arm_sve_streaming_attrs_gen",
-    tbl_outs = [(
-        "-gen-arm-sve-streaming-attrs",
-        "include/clang/Basic/arm_sve_streaming_attrs.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sve.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sve.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "basic_arm_sme_builtins_gen",
-    tbl_outs = [(
-        "-gen-arm-sme-builtins",
-        "include/clang/Basic/arm_sme_builtins.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sme.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sme.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "basic_arm_sme_builtin_cg_gen",
-    tbl_outs = [(
-        "-gen-arm-sme-builtin-codegen",
-        "include/clang/Basic/arm_sme_builtin_cg.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sme.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sme.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "basic_arm_sme_builtins_za_state_gen",
-    tbl_outs = [(
-        "-gen-arm-sme-builtin-za-state",
-        "include/clang/Basic/arm_sme_builtins_za_state.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sme.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sme.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "basic_arm_sme_sema_rangechecks_gen",
-    tbl_outs = [(
-        "-gen-arm-sme-sema-rangechecks",
-        "include/clang/Basic/arm_sme_sema_rangechecks.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sme.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sme.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "basic_arm_sme_streaming_attrs_gen",
-    tbl_outs = [(
-        "-gen-arm-sme-streaming-attrs",
-        "include/clang/Basic/arm_sme_streaming_attrs.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sme.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sme.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
     ],
 )
 
@@ -316,7 +219,6 @@ gentbl(
     td_file = "include/clang/Basic/riscv_vector.td",
     td_srcs = [
         "include/clang/Basic/riscv_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
     ],
 )
 
@@ -330,7 +232,6 @@ gentbl(
     td_file = "include/clang/Basic/riscv_vector.td",
     td_srcs = [
         "include/clang/Basic/riscv_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
     ],
 )
 
@@ -344,49 +245,6 @@ gentbl(
     td_file = "include/clang/Basic/riscv_vector.td",
     td_srcs = [
         "include/clang/Basic/riscv_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
-    ],
-)
-
-gentbl(
-    name = "basic_riscv_sifive_vector_builtins_gen",
-    tbl_outs = [(
-        "-gen-riscv-sifive-vector-builtins",
-        "include/clang/Basic/riscv_sifive_vector_builtins.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/riscv_sifive_vector.td",
-    td_srcs = [
-        "include/clang/Basic/riscv_sifive_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
-    ],
-)
-
-gentbl(
-    name = "basic_riscv_sifive_vector_builtin_cg_gen",
-    tbl_outs = [(
-        "-gen-riscv-sifive-vector-builtin-codegen",
-        "include/clang/Basic/riscv_sifive_vector_builtin_cg.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/riscv_sifive_vector.td",
-    td_srcs = [
-        "include/clang/Basic/riscv_sifive_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
-    ],
-)
-
-gentbl(
-    name = "basic_riscv_sifive_vector_builtin_sema_gen",
-    tbl_outs = [(
-        "-gen-riscv-sifive-vector-builtin-sema",
-        "include/clang/Basic/riscv_sifive_vector_builtin_sema.inc",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/riscv_sifive_vector.td",
-    td_srcs = [
-        "include/clang/Basic/riscv_sifive_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
     ],
 )
 
@@ -461,10 +319,6 @@ gentbl(
             "-gen-clang-attr-subject-match-rule-list",
             "include/clang/Basic/AttrSubMatchRulesList.inc",
         ),
-        (
-            "-gen-clang-regular-keyword-attr-info",
-            "include/clang/Basic/RegularKeywordAttrInfo.inc",
-        ),
     ],
     tblgen = ":clang-tblgen",
     td_file = "include/clang/Basic/Attr.td",
@@ -505,17 +359,11 @@ genrule(
     name = "basic_version_gen",
     outs = ["include/clang/Basic/Version.inc"],
     cmd = (
-        "echo '#define CLANG_VERSION {vers}' >> $@\n" +
-        "echo '#define CLANG_VERSION_MAJOR {major}' >> $@\n" +
-        "echo '#define CLANG_VERSION_MAJOR_STRING \"{major}\"' >> $@\n" +
-        "echo '#define CLANG_VERSION_MINOR {minor}' >> $@\n" +
-        "echo '#define CLANG_VERSION_PATCHLEVEL {patch}' >> $@\n" +
-        "echo '#define CLANG_VERSION_STRING \"{vers}git\"' >> $@\n"
-    ).format(
-        major = LLVM_VERSION_MAJOR,
-        minor = LLVM_VERSION_MINOR,
-        patch = LLVM_VERSION_PATCH,
-        vers = LLVM_VERSION,
+        "echo '#define CLANG_VERSION 16.0.0' >> $@\n" +
+        "echo '#define CLANG_VERSION_MAJOR 16' >> $@\n" +
+        "echo '#define CLANG_VERSION_MINOR 0' >> $@\n" +
+        "echo '#define CLANG_VERSION_PATCHLEVEL 0' >> $@\n" +
+        "echo '#define CLANG_VERSION_STRING \"16.0.0\"' >> $@\n"
     ),
 )
 
@@ -543,14 +391,6 @@ genrule(
     cmd = "echo '#undef CLANG_REVISION' > $@",
 )
 
-py_binary(
-    name = "bundle_resources",
-    srcs = [
-        "utils/bundle_resources.py",
-    ],
-    main = "utils/bundle_resources.py",
-)
-
 # A hacky library to expose some internal headers of the `basic` library to its
 # own implementation source files using a stripped include prefix rather than
 # file-relative-inclusion. This is inherently non-modular as these headers will
@@ -567,8 +407,8 @@ cc_library(
 cc_library(
     name = "basic",
     srcs = [
-        "include/VCSVersion.inc",
         "include/clang/Basic/Version.inc",
+        "include/VCSVersion.inc",
     ] + glob([
         "lib/Basic/*.cpp",
         "lib/Basic/*.c",
@@ -590,8 +430,6 @@ cc_library(
         "include/clang/Basic/arm_mve_builtin_aliases.inc",
         "include/clang/Basic/arm_mve_builtin_cg.inc",
         "include/clang/Basic/arm_mve_builtin_sema.inc",
-        "include/clang/Basic/arm_sme_builtins.inc",
-        "include/clang/Basic/arm_sme_builtin_cg.inc",
         "include/clang/Basic/arm_neon.inc",
         "include/clang/Basic/AttrHasAttributeImpl.inc",
         "include/clang/Basic/AttrList.inc",
@@ -621,27 +459,21 @@ cc_library(
         ":basic_arm_mve_inc_gen",
         ":basic_arm_mve_sema_gen",
         ":basic_arm_neon_inc_gen",
-        ":basic_arm_sme_builtin_cg_gen",
-        ":basic_arm_sme_builtins_gen",
         ":basic_arm_sve_builtins_gen",
         ":basic_arm_sve_typeflags_gen",
         ":basic_attr_gen",
         ":basic_internal_headers",
-        ":basic_riscv_sifive_vector_builtins_gen",
         ":basic_riscv_vector_builtin_cg_gen",
         ":basic_riscv_vector_builtins_gen",
         ":config",
         ":diagnostic_defs_gen",
         ":sema_attr_gen",
         "//llvm:Core",
-        "//llvm:FrontendDebug",
-        "//llvm:FrontendDriver",
         "//llvm:FrontendOpenMP",
         "//llvm:Instrumentation",
         "//llvm:MC",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TargetParser",
         "//llvm:config",
     ],
 )
@@ -660,7 +492,6 @@ cc_library(
         ":basic",
         ":config",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -690,14 +521,6 @@ gentbl(
         (
             "-gen-clang-attr-impl",
             "include/clang/AST/AttrImpl.inc",
-        ),
-        (
-            "-gen-clang-attr-can-print-left-list",
-            "include/clang/Basic/AttrLeftSideCanPrintList.inc",
-        ),
-        (
-            "-gen-clang-attr-must-print-left-list",
-            "include/clang/Basic/AttrLeftSideMustPrintList.inc",
         ),
     ],
     tblgen = ":clang-tblgen",
@@ -878,8 +701,6 @@ gentbl(
     ],
 )
 
-workspace_root(name = "workspace_root")
-
 cc_library(
     name = "ast",
     srcs = glob([
@@ -904,8 +725,8 @@ cc_library(
         # least bad approach. Using `includes` is *specifically* problematic for
         # this library because it contains files that collide easily with system
         # headers such as `CXXABI.h`.
-        "-I$(GENDIR)/$(WORKSPACE_ROOT)/clang/lib/AST",
-        "-I$(GENDIR)/$(WORKSPACE_ROOT)/clang/lib/AST/Interp",
+        "-I$(GENDIR)/external/llvm-project/clang/lib/AST",
+        "-I$(GENDIR)/external/llvm-project/clang/lib/AST/Interp",
     ],
     textual_hdrs = [
         "include/clang/AST/AttrImpl.inc",
@@ -925,9 +746,6 @@ cc_library(
     ] + glob([
         "include/clang/AST/*.def",
     ]),
-    toolchains = [
-        ":workspace_root",
-    ],
     deps = [
         ":ast_attr_gen",
         ":ast_comment_command_info_gen",
@@ -946,10 +764,8 @@ cc_library(
         ":type_nodes_gen",
         "//llvm:BinaryFormat",
         "//llvm:Core",
-        "//llvm:FrontendHLSL",
         "//llvm:FrontendOpenMP",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -977,18 +793,6 @@ cc_library(
     ],
 )
 
-genrule(
-    name = "analysis_htmllogger_gen",
-    srcs = [
-        "lib/Analysis/FlowSensitive/HTMLLogger.html",
-        "lib/Analysis/FlowSensitive/HTMLLogger.css",
-        "lib/Analysis/FlowSensitive/HTMLLogger.js",
-    ],
-    outs = ["lib/Analysis/FlowSensitive/HTMLLogger.inc"],
-    cmd = "$(location :bundle_resources) $@ $(SRCS)",
-    tools = [":bundle_resources"],
-)
-
 cc_library(
     name = "analysis",
     srcs = glob([
@@ -996,16 +800,11 @@ cc_library(
         "lib/Analysis/FlowSensitive/*.cpp",
         "lib/Analysis/*.cpp",
         "lib/Analysis/*.h",
-    ]) + [
-        ":analysis_htmllogger_gen",
-    ],
+    ]),
     hdrs = glob([
         "include/clang/Analysis/**/*.h",
     ]),
-    includes = [
-        "include",
-        "lib/Analysis/FlowSensitive",
-    ],
+    includes = ["include"],
     textual_hdrs = glob([
         "include/clang/Analysis/**/*.def",
     ]),
@@ -1075,19 +874,12 @@ cc_library(
     ],
     deps = [
         ":analysis",
-        ":apinotes",
         ":ast",
         ":basic",
         ":basic_arm_cde_aliases_gen",
         ":basic_arm_cde_sema_gen",
-        ":basic_arm_sme_builtins_gen",
-        ":basic_arm_sme_builtins_za_state_gen",
-        ":basic_arm_sme_sema_rangechecks_gen",
-        ":basic_arm_sme_streaming_attrs_gen",
         ":basic_arm_sve_builtins_gen",
         ":basic_arm_sve_sema_rangechecks_gen",
-        ":basic_arm_sve_streaming_attrs_gen",
-        ":basic_riscv_sifive_vector_builtin_sema_gen",
         ":basic_riscv_vector_builtin_sema_gen",
         ":edit",
         ":lex",
@@ -1103,7 +895,6 @@ cc_library(
         "//llvm:MC",
         "//llvm:MCParser",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -1217,9 +1008,8 @@ cc_library(
     deps = [
         ":basic",
         ":frontend",
-        "//llvm:MC",
         "//llvm:Support",
-        "//third-party/unittest:gtest",
+        "//llvm:gtest",
     ],
 )
 
@@ -1265,7 +1055,6 @@ cc_library(
         ":tooling_core",
         "//llvm:Option",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -1273,13 +1062,12 @@ cc_library(
     name = "tooling_inclusions",
     srcs = glob([
         "lib/Tooling/Inclusions/**/*.cpp",
-        "lib/Tooling/Inclusions/**/*.inc",
     ]),
     hdrs = glob([
         "include/clang/Tooling/Inclusions/**/*.h",
+        "include/clang/Tooling/Inclusions/**/*.inc",
     ]),
     deps = [
-        ":ast",
         ":basic",
         ":lex",
         ":rewrite",
@@ -1348,13 +1136,11 @@ cc_library(
     deps = [
         ":basic",
         ":codegen",
-        ":driver",
         ":frontend",
         ":lex",
         ":serialization",
         ":tooling",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -1390,14 +1176,12 @@ cc_library(
     srcs = glob(["lib/CrossTU/*.cpp"]),
     hdrs = glob(["include/clang/CrossTU/*.h"]),
     deps = [
-        ":analysis",
         ":ast",
         ":basic",
         ":frontend",
         ":index",
         "//llvm:Option",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -1411,10 +1195,7 @@ cc_library(
     ),
     hdrs = [
         "lib/Format/FormatTokenLexer.h",
-        "lib/Format/FormatTokenSource.h",
         "lib/Format/Macros.h",
-        "lib/Format/QualifierAlignmentFixer.h",
-        "lib/Format/UnwrappedLineParser.h",
     ] + glob([
         "include/clang/Format/*.h",
     ]),
@@ -1568,7 +1349,7 @@ cc_library(
         "lib/Driver",
     ],
     linkopts = select({
-        "@platforms//os:windows": ["version.lib"],
+        "@bazel_tools//src/conditions:windows": ["version.lib"],
         "//conditions:default": [],
     }),
     textual_hdrs = glob([
@@ -1582,15 +1363,11 @@ cc_library(
         ":parse",
         ":static_analyzer_checkers_gen",
         "//llvm:BinaryFormat",
-        "//llvm:FrontendDebug",
-        "//llvm:Instrumentation",
         "//llvm:MC",
-        "//llvm:Object",
         "//llvm:Option",
         "//llvm:ProfileData",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TargetParser",
         "//llvm:WindowsDriver",
         "//llvm:config",
     ],
@@ -1662,7 +1439,6 @@ gentbl(
     td_file = "include/clang/Basic/arm_sve.td",
     td_srcs = [
         "include/clang/Basic/arm_sve.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
     ],
 )
 
@@ -1681,38 +1457,6 @@ gentbl(
 )
 
 gentbl(
-    name = "headers_arm_sme_gen",
-    copts = [
-        "-Wno-implicit-fallthrough",
-        "-Wno-error=frame-larger-than=",
-    ],
-    tbl_outs = [(
-        "-gen-arm-sme-header",
-        "lib/Headers/arm_sme.h",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_sme.td",
-    td_srcs = [
-        "include/clang/Basic/arm_sme.td",
-        "include/clang/Basic/arm_sve_sme_incl.td",
-    ],
-)
-
-gentbl(
-    name = "headers_arm_vector_type_gen",
-    tbl_outs = [(
-        "-gen-arm-vector-type",
-        "lib/Headers/arm_vector_types.h",
-    )],
-    tblgen = ":clang-tblgen",
-    td_file = "include/clang/Basic/arm_neon.td",
-    td_srcs = [
-        "include/clang/Basic/arm_neon.td",
-        "include/clang/Basic/arm_neon_incl.td",
-    ],
-)
-
-gentbl(
     name = "headers_riscv_vector",
     tbl_outs = [(
         "-gen-riscv-vector-header",
@@ -1722,7 +1466,6 @@ gentbl(
     td_file = "include/clang/Basic/riscv_vector.td",
     td_srcs = [
         "include/clang/Basic/riscv_vector.td",
-        "include/clang/Basic/riscv_vector_common.td",
     ],
 )
 
@@ -1733,7 +1476,6 @@ builtin_headers = glob(
     ["lib/Headers/**/*.h"],
     exclude = [
         # FIXME: They are not handled in CMake side.
-        "lib/Headers/openmp_wrappers/stdlib.h",
         "lib/Headers/openmp_wrappers/time.h",
         "lib/Headers/ppc_wrappers/nmmintrin.h",
     ],
@@ -1743,8 +1485,6 @@ builtin_headers = glob(
     "lib/Headers/arm_mve.h",
     "lib/Headers/arm_neon.h",
     "lib/Headers/arm_sve.h",
-    "lib/Headers/arm_sme.h",
-    "lib/Headers/arm_vector_types.h",
     "lib/Headers/arm_bf16.h",
     "lib/Headers/module.modulemap",
     "lib/Headers/riscv_vector.h",
@@ -1762,15 +1502,12 @@ genrule(
     outs = [hdr.replace("lib/Headers/", "staging/include/") for hdr in builtin_headers],
     cmd = """
        for src in $(SRCS); do
-         relsrc=$${src#*"$(WORKSPACE_ROOT)"/clang/lib/Headers}
+         relsrc=$${src/*external\\/llvm-project\\/clang\\/lib\\/Headers\\/}
          target=$(@D)/staging/include/$$relsrc
          mkdir -p $$(dirname $$target)
          cp $$src $$target
        done""",
     output_to_bindir = 1,
-    toolchains = [
-        ":workspace_root",
-    ],
 )
 
 cc_library(
@@ -1789,7 +1526,6 @@ cc_library(
         "include/clang/Frontend/*.def",
     ]),
     deps = [
-        ":apinotes",
         ":ast",
         ":basic",
         ":config",
@@ -1806,15 +1542,12 @@ cc_library(
         "//llvm:BitstreamReader",
         "//llvm:BitstreamWriter",
         "//llvm:Core",
-        "//llvm:FrontendDebug",
         "//llvm:Linker",
         "//llvm:MC",
         "//llvm:Option",
         "//llvm:ProfileData",
-        "//llvm:Remarks",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TargetParser",
         "//llvm:config",
     ],
 )
@@ -1866,38 +1599,28 @@ cc_library(
         "//llvm:AllTargetsCodeGens",
         "//llvm:Core",
         "//llvm:ExecutionEngine",
-        "//llvm:MC",
         "//llvm:Option",
-        "//llvm:OrcDebugging",
         "//llvm:OrcJIT",
-        "//llvm:OrcShared",
-        "//llvm:OrcTargetProcess",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TargetParser",
     ],
 )
 
 cc_library(
     name = "codegen",
     srcs = glob([
-        "lib/CodeGen/**/*.cpp",
-        "lib/CodeGen/**/*.h",
+        "lib/CodeGen/*.cpp",
+        "lib/CodeGen/*.h",
     ]),
     hdrs = glob(["include/clang/CodeGen/*.h"]),
     copts = ["$(STACK_FRAME_UNLIMITED)"],
-    includes = [
-        "include",
-        "lib/CodeGen",
-    ],
+    includes = ["include"],
     deps = [
         ":analysis",
         ":ast",
         ":basic",
         ":basic_arm_cde_cg_gen",
-        ":basic_arm_sme_builtin_cg_gen",
         ":basic_arm_sve_builtin_cg_gen",
-        ":basic_riscv_sifive_vector_builtin_cg_gen",
         ":basic_riscv_vector_builtin_cg_gen",
         ":driver",
         ":frontend",
@@ -1906,24 +1629,18 @@ cc_library(
         ":type_nodes_gen",
         "//llvm:AllTargetsAsmParsers",
         "//llvm:Analysis",
-        "//llvm:BinaryFormat",
         "//llvm:BitReader",
         "//llvm:BitWriter",
         "//llvm:BitstreamReader",
         "//llvm:CodeGen",
-        "//llvm:CodeGenTypes",
         "//llvm:Core",
         "//llvm:Coroutines",
         "//llvm:Coverage",
         "//llvm:DebugInfoDWARF",
         "//llvm:Demangle",
-        "//llvm:FrontendDriver",
         "//llvm:FrontendHLSL",
-        "//llvm:FrontendOffloading",
         "//llvm:FrontendOpenMP",
-        "//llvm:HipStdPar",
         "//llvm:IPO",
-        "//llvm:IRPrinter",
         "//llvm:IRReader",
         "//llvm:InstCombine",
         "//llvm:Instrumentation",
@@ -1937,7 +1654,6 @@ cc_library(
         "//llvm:Scalar",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TargetParser",
         "//llvm:TransformUtils",
     ],
 )
@@ -2034,7 +1750,6 @@ cc_library(
         "//llvm:BitstreamWriter",
         "//llvm:FrontendOpenMP",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -2083,7 +1798,6 @@ cc_library(
         ":static_analyzer_checkers",
         ":static_analyzer_core",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -2102,7 +1816,6 @@ cc_library(
         ":codegen",
         ":config",
         ":driver",
-        ":extract_api",
         ":frontend",
         ":index",
         ":lex",
@@ -2124,7 +1837,7 @@ cc_plugin_library(
     ]),
     hdrs = glob(["include/clang-c/*.h"]),
     copts = select({
-        "@platforms//os:windows": ["-D_CINDEX_LIB_"],
+        "@bazel_tools//src/conditions:windows": ["-D_CINDEX_LIB_"],
         "//conditions:default": [],
     }),
     strip_include_prefix = "include",
@@ -2135,7 +1848,6 @@ cc_plugin_library(
         ":codegen",
         ":config",
         ":driver",
-        ":extract_api",
         ":frontend",
         ":index",
         ":lex",
@@ -2192,22 +1904,6 @@ cc_binary(
     ],
 )
 
-cc_library(
-    name = "apinotes",
-    srcs = glob([
-        "lib/APINotes/*.cpp",
-        "lib/APINotes/*.h",
-    ]),
-    hdrs = glob(["include/clang/APINotes/*.h"]),
-    deps = [
-        ":basic",
-        "//llvm:BitWriter",
-        "//llvm:BitstreamReader",
-        "//llvm:BitstreamWriter",
-        "//llvm:Support",
-    ],
-)
-
 cc_binary(
     name = "arcmt-test",
     testonly = 1,
@@ -2229,7 +1925,7 @@ cc_binary(
     testonly = 1,
     srcs = ["tools/c-arcmt-test/c-arcmt-test.c"],
     copts = select({
-        "@platforms//os:windows": [],
+        "@bazel_tools//src/conditions:windows": [],
         "//conditions:default": ["-std=gnu99"],
     }),
     stamp = 0,
@@ -2259,7 +1955,6 @@ cc_binary(
         ":parse",
         "//llvm:Core",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -2310,7 +2005,6 @@ cc_library(
         "//llvm:Option",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TargetParser",
         "//llvm:config",
     ],
 )
@@ -2386,7 +2080,6 @@ cc_binary(
     name = "clang-format",
     srcs = [
         "tools/clang-format/ClangFormat.cpp",
-        "lib/Format/MatchFilePath.h",
     ],
     stamp = 0,
     deps = [
@@ -2415,74 +2108,11 @@ cc_binary(
     stamp = 0,
     deps = [
         ":basic",
-        ":driver",
         ":tooling",
         "//llvm:BitWriter",
         "//llvm:Core",
         "//llvm:Object",
         "//llvm:Support",
-        "//llvm:TargetParser",
-    ],
-)
-
-cc_binary(
-    name = "clang-offload-packager",
-    srcs = glob(["tools/clang-offload-packager/*.cpp"]),
-    stamp = 0,
-    deps = [
-        ":basic",
-        "//llvm:BinaryFormat",
-        "//llvm:Object",
-        "//llvm:Support",
-    ],
-)
-
-gentbl(
-    name = "linker_wrapper_opts_gen",
-    tbl_outs = [(
-        "-gen-opt-parser-defs",
-        "tools/clang-linker-wrapper/LinkerWrapperOpts.inc",
-    )],
-    tblgen = "//llvm:llvm-tblgen",
-    td_file = "tools/clang-linker-wrapper/LinkerWrapperOpts.td",
-    td_srcs = [
-        "tools/clang-linker-wrapper/LinkerWrapperOpts.td",
-        "//llvm:include/llvm/Option/OptParser.td",
-    ],
-)
-
-cc_binary(
-    name = "clang-linker-wrapper",
-    srcs = [
-        "tools/clang-linker-wrapper/ClangLinkerWrapper.cpp",
-    ],
-    copts = [
-        "-I$(GENDIR)/$(WORKSPACE_ROOT)/clang/tools/clang-linker-wrapper",
-    ],
-    stamp = 0,
-    toolchains = [
-        ":workspace_root",
-    ],
-    deps = [
-        ":basic",
-        ":linker_wrapper_opts_gen",
-        "//llvm:AllTargetsAsmParsers",
-        "//llvm:Analysis",
-        "//llvm:BinaryFormat",
-        "//llvm:BitWriter",
-        "//llvm:CodeGen",
-        "//llvm:Core",
-        "//llvm:FrontendOffloading",
-        "//llvm:IRReader",
-        "//llvm:LTO",
-        "//llvm:MC",
-        "//llvm:Object",
-        "//llvm:Option",
-        "//llvm:Passes",
-        "//llvm:Support",
-        "//llvm:Target",
-        "//llvm:TargetParser",
-        "//llvm:TransformUtils",
     ],
 )
 
@@ -2528,8 +2158,6 @@ cc_binary(
         ":basic",
         ":frontend",
         ":interpreter",
-        ":lex",
-        ":sema",
         ":tooling",
         "//llvm:Core",
         "//llvm:LineEditor",
@@ -2553,39 +2181,16 @@ cc_binary(
     ],
 )
 
-gentbl(
-    name = "ScanDepsTableGen",
-    strip_include_prefix = "tools/clang-scan-deps",
-    tbl_outs = [(
-        "-gen-opt-parser-defs",
-        "tools/clang-scan-deps/Opts.inc",
-    )],
-    tblgen = "//llvm:llvm-tblgen",
-    td_file = "tools/clang-scan-deps/Opts.td",
-    td_srcs = ["//llvm:include/llvm/Option/OptParser.td"],
-)
-
-expand_template(
-    name = "clang-scan-deps-main",
-    out = "clang-scan-deps-driver.cpp",
-    substitutions = {
-        "@TOOL_NAME@": "clang_scan_deps",
-    },
-    template = "//llvm:cmake/modules/llvm-driver-template.cpp.in",
-)
-
 cc_binary(
     name = "clang-scan-deps",
-    srcs = glob(["tools/clang-scan-deps/*.cpp"]) + ["clang-scan-deps-driver.cpp"],
+    srcs = glob(["tools/clang-scan-deps/*.cpp"]),
     stamp = 0,
     deps = [
-        ":ScanDepsTableGen",
         ":driver",
         ":frontend",
         ":tooling",
         ":tooling_dependency_scanning",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )
 
@@ -2602,9 +2207,7 @@ cc_library(
         ":basic",
         ":frontend",
         ":index",
-        ":lex",
         "//llvm:Option",
         "//llvm:Support",
-        "//llvm:TargetParser",
     ],
 )

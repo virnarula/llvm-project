@@ -89,6 +89,8 @@ public:
   llvm::LoadInst *CreateAlignedLoad(llvm::Type *Ty, llvm::Value *Addr,
                                     CharUnits Align,
                                     const llvm::Twine &Name = "") {
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(Ty));
     return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
   }
 
@@ -118,38 +120,56 @@ public:
   /// Emit a load from an i1 flag variable.
   llvm::LoadInst *CreateFlagLoad(llvm::Value *Addr,
                                  const llvm::Twine &Name = "") {
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(getInt1Ty()));
     return CreateAlignedLoad(getInt1Ty(), Addr, CharUnits::One(), Name);
   }
 
   /// Emit a store to an i1 flag variable.
   llvm::StoreInst *CreateFlagStore(bool Value, llvm::Value *Addr) {
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(getInt1Ty()));
     return CreateAlignedStore(getInt1(Value), Addr, CharUnits::One());
   }
 
+  // Temporarily use old signature; clang will be updated to an Address overload
+  // in a subsequent patch.
   llvm::AtomicCmpXchgInst *
-  CreateAtomicCmpXchg(Address Addr, llvm::Value *Cmp, llvm::Value *New,
+  CreateAtomicCmpXchg(llvm::Value *Ptr, llvm::Value *Cmp, llvm::Value *New,
                       llvm::AtomicOrdering SuccessOrdering,
                       llvm::AtomicOrdering FailureOrdering,
                       llvm::SyncScope::ID SSID = llvm::SyncScope::System) {
     return CGBuilderBaseTy::CreateAtomicCmpXchg(
-        Addr.getPointer(), Cmp, New, Addr.getAlignment().getAsAlign(),
-        SuccessOrdering, FailureOrdering, SSID);
+        Ptr, Cmp, New, llvm::MaybeAlign(), SuccessOrdering, FailureOrdering,
+        SSID);
   }
 
+  // Temporarily use old signature; clang will be updated to an Address overload
+  // in a subsequent patch.
   llvm::AtomicRMWInst *
-  CreateAtomicRMW(llvm::AtomicRMWInst::BinOp Op, Address Addr, llvm::Value *Val,
-                  llvm::AtomicOrdering Ordering,
+  CreateAtomicRMW(llvm::AtomicRMWInst::BinOp Op, llvm::Value *Ptr,
+                  llvm::Value *Val, llvm::AtomicOrdering Ordering,
                   llvm::SyncScope::ID SSID = llvm::SyncScope::System) {
-    return CGBuilderBaseTy::CreateAtomicRMW(Op, Addr.getPointer(), Val,
-                                            Addr.getAlignment().getAsAlign(),
+    return CGBuilderBaseTy::CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(),
                                             Ordering, SSID);
   }
 
   using CGBuilderBaseTy::CreateAddrSpaceCast;
   Address CreateAddrSpaceCast(Address Addr, llvm::Type *Ty,
                               const llvm::Twine &Name = "") {
-    return Addr.withPointer(CreateAddrSpaceCast(Addr.getPointer(), Ty, Name),
-                            Addr.isKnownNonNull());
+    assert(cast<llvm::PointerType>(Ty)->isOpaqueOrPointeeTypeMatches(
+               Addr.getElementType()) &&
+           "Should not change the element type");
+    return Addr.withPointer(CreateAddrSpaceCast(Addr.getPointer(), Ty, Name));
+  }
+
+  /// Cast the element type of the given address to a different type,
+  /// preserving information like the alignment and address space.
+  Address CreateElementBitCast(Address Addr, llvm::Type *Ty,
+                               const llvm::Twine &Name = "") {
+    auto *PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
+    return Address(CreateBitCast(Addr.getPointer(), PtrTy, Name), Ty,
+                   Addr.getAlignment());
   }
 
   using CGBuilderBaseTy::CreatePointerBitCastOrAddrSpaceCast;
@@ -158,7 +178,7 @@ public:
                                               const llvm::Twine &Name = "") {
     llvm::Value *Ptr =
         CreatePointerBitCastOrAddrSpaceCast(Addr.getPointer(), Ty, Name);
-    return Address(Ptr, ElementTy, Addr.getAlignment(), Addr.isKnownNonNull());
+    return Address(Ptr, ElementTy, Addr.getAlignment());
   }
 
   /// Given
@@ -179,7 +199,7 @@ public:
     return Address(
         CreateStructGEP(Addr.getElementType(), Addr.getPointer(), Index, Name),
         ElTy->getElementType(Index),
-        Addr.getAlignment().alignmentAtOffset(Offset), Addr.isKnownNonNull());
+        Addr.getAlignment().alignmentAtOffset(Offset));
   }
 
   /// Given
@@ -201,8 +221,7 @@ public:
         CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                           {getSize(CharUnits::Zero()), getSize(Index)}, Name),
         ElTy->getElementType(),
-        Addr.getAlignment().alignmentAtOffset(Index * EltSize),
-        Addr.isKnownNonNull());
+        Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
   /// Given
@@ -218,8 +237,8 @@ public:
 
     return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                                      getSize(Index), Name),
-                   ElTy, Addr.getAlignment().alignmentAtOffset(Index * EltSize),
-                   Addr.isKnownNonNull());
+                   ElTy,
+                   Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
   /// Given
@@ -236,8 +255,7 @@ public:
     return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
                              getSize(Index), Name),
                    Addr.getElementType(),
-                   Addr.getAlignment().alignmentAtOffset(Index * EltSize),
-                   NotKnownNonNull);
+                   Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
   /// Create GEP with single dynamic index. The address alignment is reduced
@@ -252,7 +270,7 @@ public:
     return Address(
         CreateGEP(Addr.getElementType(), Addr.getPointer(), Index, Name),
         Addr.getElementType(),
-        Addr.getAlignment().alignmentOfArrayElement(EltSize), NotKnownNonNull);
+        Addr.getAlignment().alignmentOfArrayElement(EltSize));
   }
 
   /// Given a pointer to i8, adjust it by a given constant offset.
@@ -262,8 +280,7 @@ public:
     return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                                      getSize(Offset), Name),
                    Addr.getElementType(),
-                   Addr.getAlignment().alignmentAtOffset(Offset),
-                   Addr.isKnownNonNull());
+                   Addr.getAlignment().alignmentAtOffset(Offset));
   }
   Address CreateConstByteGEP(Address Addr, CharUnits Offset,
                              const llvm::Twine &Name = "") {
@@ -271,8 +288,7 @@ public:
     return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
                              getSize(Offset), Name),
                    Addr.getElementType(),
-                   Addr.getAlignment().alignmentAtOffset(Offset),
-                   NotKnownNonNull);
+                   Addr.getAlignment().alignmentAtOffset(Offset));
   }
 
   using CGBuilderBaseTy::CreateConstInBoundsGEP2_32;
@@ -289,8 +305,7 @@ public:
       llvm_unreachable("offset of GEP with constants is always computable");
     return Address(GEP, GEP->getResultElementType(),
                    Addr.getAlignment().alignmentAtOffset(
-                       CharUnits::fromQuantity(Offset.getSExtValue())),
-                   Addr.isKnownNonNull());
+                       CharUnits::fromQuantity(Offset.getSExtValue())));
   }
 
   using CGBuilderBaseTy::CreateMemCpy;
@@ -354,8 +369,7 @@ public:
 
   using CGBuilderBaseTy::CreateLaunderInvariantGroup;
   Address CreateLaunderInvariantGroup(Address Addr) {
-    return Addr.withPointer(CreateLaunderInvariantGroup(Addr.getPointer()),
-                            Addr.isKnownNonNull());
+    return Addr.withPointer(CreateLaunderInvariantGroup(Addr.getPointer()));
   }
 };
 

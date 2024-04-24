@@ -1,8 +1,6 @@
 // RUN: %clang_cc1 -verify -fopenmp -ferror-limit 100 %s -Wuninitialized
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -ferror-limit 100 %s -Wuninitialized
 
 // RUN: %clang_cc1 -verify -fopenmp-simd -ferror-limit 100 %s -Wuninitialized
-// RUN: %clang_cc1 -verify -fopenmp-version=51 -fopenmp-simd -ferror-limit 100 %s -Wuninitialized
 
 void foo() {
 }

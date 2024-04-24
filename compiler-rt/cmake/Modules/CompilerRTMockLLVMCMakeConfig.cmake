@@ -46,13 +46,8 @@ function(compiler_rt_mock_llvm_cmake_config_set_target_triple)
     if ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang|GNU")
       # Note: Clang also supports `-print-target-triple` but gcc doesn't
       # support this flag.
-      set(DUMPMACHINE_ARG -dumpmachine)
-      if(MSVC)
-        # Use /clang:-dumpmachine for clang-cl.
-        set(DUMPMACHINE_ARG /clang:-dumpmachine)
-      endif()
       execute_process(
-        COMMAND "${CMAKE_C_COMPILER}" ${DUMPMACHINE_ARG}
+        COMMAND "${CMAKE_C_COMPILER}" -dumpmachine
         RESULT_VARIABLE HAD_ERROR
         OUTPUT_VARIABLE COMPILER_OUTPUT
         OUTPUT_STRIP_TRAILING_WHITESPACE)

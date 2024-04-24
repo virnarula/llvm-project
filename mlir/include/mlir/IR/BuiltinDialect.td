@@ -34,7 +34,6 @@ def Builtin_Dialect : Dialect {
 
   public:
   }];
-
 }
 
 #endif // BUILTIN_BASE

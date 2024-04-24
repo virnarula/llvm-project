@@ -10,13 +10,15 @@
 
 // [utility.underlying], to_underlying
 // template <class T>
-//     constexpr underlying_type_t<T> to_underlying( T value ) noexcept; // C++23
+//     constexpr underlying_type_t<T> to_underlying( T value ) noexcept; // C++2b
 
 #include <utility>
 
 struct S {};
 
-void f() {
+int main(int, char**) {
   std::to_underlying(125); // expected-error {{no matching function for call}}
   std::to_underlying(S{}); // expected-error {{no matching function for call}}
+
+  return 0;
 }

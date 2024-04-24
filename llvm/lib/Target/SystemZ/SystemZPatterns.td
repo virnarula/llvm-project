@@ -145,11 +145,12 @@ multiclass BlockLoadStore<SDPatternOperator load, ValueType vt,
 }
 
 // Record that INSN is a LOAD AND TEST that can be used to compare
-// registers in CLS against zero.
+// registers in CLS against zero.  The instruction has separate R1 and R2
+// operands, but they must be the same when the instruction is used like this.
 multiclass CompareZeroFP<Instruction insn, RegisterOperand cls> {
-  def : Pat<(z_any_fcmp cls:$reg, (fpimm0)), (insn cls:$reg)>;
+  def : Pat<(z_any_fcmp cls:$reg, (fpimm0)), (insn cls:$reg, cls:$reg)>;
   // The sign of the zero makes no difference.
-  def : Pat<(z_any_fcmp cls:$reg, (fpimmneg0)), (insn cls:$reg)>;
+  def : Pat<(z_any_fcmp cls:$reg, (fpimmneg0)), (insn cls:$reg, cls:$reg)>;
 }
 
 // Use INSN for performing binary operation OPERATION of type VT

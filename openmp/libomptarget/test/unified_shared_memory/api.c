@@ -1,10 +1,10 @@
-// RUN: %libomptarget-compile-generic
-// RUN: env HSA_XNACK=1 \
-// RUN: %libomptarget-run-generic | %fcheck-generic
+// RUN: %libomptarget-compile-run-and-check-generic
 // XFAIL: nvptx64-nvidia-cuda
 // XFAIL: nvptx64-nvidia-cuda-LTO
 
-// REQUIRES: unified_shared_memory
+// Fails on amdgpu with error: GPU Memory Error
+// UNSUPPORTED: amdgcn-amd-amdhsa
+// UNSUPPORTED: amdgcn-amd-amdhsa-LTO
 
 #include <omp.h>
 #include <stdio.h>

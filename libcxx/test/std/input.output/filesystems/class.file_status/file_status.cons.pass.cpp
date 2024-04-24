@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -15,14 +15,14 @@
 // explicit file_status() noexcept;
 // explicit file_status(file_type, perms prms = perms::unknown) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_convertible.h"
 
 #include "test_macros.h"
-namespace fs = std::filesystem;
+
 
 int main(int, char**) {
  using namespace fs;

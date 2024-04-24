@@ -8,7 +8,6 @@ add_lld_library(lldMinGW
   LINK_COMPONENTS
   Option
   Support
-  TargetParser
 
   LINK_LIBS
   lldCOFF

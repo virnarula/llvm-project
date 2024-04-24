@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 UseBoolLiteralsCheck::UseBoolLiteralsCheck(StringRef Name,
                                            ClangTidyContext *Context)
@@ -72,4 +74,6 @@ void UseBoolLiteralsCheck::check(const MatchFinder::MatchResult &Result) {
         Expression->getSourceRange(), LiteralBooleanValue ? "true" : "false");
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

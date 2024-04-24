@@ -25,7 +25,6 @@
 #include "NativeProcessFreeBSD.h"
 #include "Plugins/Process/Utility/RegisterContextFreeBSD_i386.h"
 #include "Plugins/Process/Utility/RegisterContextFreeBSD_x86_64.h"
-#include <optional>
 
 using namespace lldb_private;
 using namespace lldb_private::process_freebsd;
@@ -300,7 +299,7 @@ NativeRegisterContextFreeBSD_x86_64::GetRegisterSet(uint32_t set_index) const {
   }
 }
 
-std::optional<NativeRegisterContextFreeBSD_x86_64::RegSetKind>
+llvm::Optional<NativeRegisterContextFreeBSD_x86_64::RegSetKind>
 NativeRegisterContextFreeBSD_x86_64::GetSetForNativeRegNum(
     uint32_t reg_num) const {
   switch (GetRegisterInfoInterface().GetTargetArchitecture().GetMachine()) {
@@ -312,9 +311,9 @@ NativeRegisterContextFreeBSD_x86_64::GetSetForNativeRegNum(
     if (reg_num >= k_first_avx_i386 && reg_num <= k_last_avx_i386)
       return YMMRegSet;
     if (reg_num >= k_first_mpxr_i386 && reg_num <= k_last_mpxr_i386)
-      return std::nullopt; // MPXR
+      return llvm::None; // MPXR
     if (reg_num >= k_first_mpxc_i386 && reg_num <= k_last_mpxc_i386)
-      return std::nullopt; // MPXC
+      return llvm::None; // MPXC
     if (reg_num >= k_first_dbr_i386 && reg_num <= k_last_dbr_i386)
       return DBRegSet; // DBR
     break;
@@ -326,9 +325,9 @@ NativeRegisterContextFreeBSD_x86_64::GetSetForNativeRegNum(
     if (reg_num >= k_first_avx_x86_64 && reg_num <= k_last_avx_x86_64)
       return YMMRegSet;
     if (reg_num >= k_first_mpxr_x86_64 && reg_num <= k_last_mpxr_x86_64)
-      return std::nullopt; // MPXR
+      return llvm::None; // MPXR
     if (reg_num >= k_first_mpxc_x86_64 && reg_num <= k_last_mpxc_x86_64)
-      return std::nullopt; // MPXC
+      return llvm::None; // MPXC
     if (reg_num >= k_first_dbr_x86_64 && reg_num <= k_last_dbr_x86_64)
       return DBRegSet; // DBR
     break;
@@ -426,7 +425,7 @@ NativeRegisterContextFreeBSD_x86_64::ReadRegister(const RegisterInfo *reg_info,
     return error;
   }
 
-  std::optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
+  llvm::Optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
   if (!opt_set) {
     // This is likely an internal register for lldb use only and should not be
     // directly queried.
@@ -435,7 +434,7 @@ NativeRegisterContextFreeBSD_x86_64::ReadRegister(const RegisterInfo *reg_info,
     return error;
   }
 
-  RegSetKind set = opt_set.value();
+  RegSetKind set = opt_set.getValue();
   error = ReadRegisterSet(set);
   if (error.Fail())
     return error;
@@ -454,7 +453,7 @@ NativeRegisterContextFreeBSD_x86_64::ReadRegister(const RegisterInfo *reg_info,
     break;
   }
   case YMMRegSet: {
-    std::optional<YMMSplitPtr> ymm_reg = GetYMMSplitReg(reg);
+    llvm::Optional<YMMSplitPtr> ymm_reg = GetYMMSplitReg(reg);
     if (!ymm_reg) {
       error.SetErrorStringWithFormat(
           "register \"%s\" not supported by CPU/kernel", reg_info->name);
@@ -492,7 +491,7 @@ Status NativeRegisterContextFreeBSD_x86_64::WriteRegister(
     return error;
   }
 
-  std::optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
+  llvm::Optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
   if (!opt_set) {
     // This is likely an internal register for lldb use only and should not be
     // directly queried.
@@ -501,7 +500,7 @@ Status NativeRegisterContextFreeBSD_x86_64::WriteRegister(
     return error;
   }
 
-  RegSetKind set = opt_set.value();
+  RegSetKind set = opt_set.getValue();
   error = ReadRegisterSet(set);
   if (error.Fail())
     return error;
@@ -519,7 +518,7 @@ Status NativeRegisterContextFreeBSD_x86_64::WriteRegister(
     break;
   }
   case YMMRegSet: {
-    std::optional<YMMSplitPtr> ymm_reg = GetYMMSplitReg(reg);
+    llvm::Optional<YMMSplitPtr> ymm_reg = GetYMMSplitReg(reg);
     if (!ymm_reg) {
       error.SetErrorStringWithFormat(
           "register \"%s\" not supported by CPU/kernel", reg_info->name);
@@ -630,11 +629,11 @@ NativeRegisterContextFreeBSD_x86_64::GetOffsetRegSetData(RegSetKind set,
   return base + (reg_offset - m_regset_offsets[set]);
 }
 
-std::optional<NativeRegisterContextFreeBSD_x86_64::YMMSplitPtr>
+llvm::Optional<NativeRegisterContextFreeBSD_x86_64::YMMSplitPtr>
 NativeRegisterContextFreeBSD_x86_64::GetYMMSplitReg(uint32_t reg) {
   uint32_t offset = m_xsave_offsets[YMMRegSet];
   if (offset == LLDB_INVALID_XSAVE_OFFSET)
-    return std::nullopt;
+    return llvm::None;
 
   uint32_t reg_index;
   switch (GetRegisterInfoInterface().GetTargetArchitecture().GetMachine()) {

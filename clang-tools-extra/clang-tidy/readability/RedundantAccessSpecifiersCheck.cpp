@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 void RedundantAccessSpecifiersCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -75,4 +77,6 @@ void RedundantAccessSpecifiersCheck::check(
   }
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

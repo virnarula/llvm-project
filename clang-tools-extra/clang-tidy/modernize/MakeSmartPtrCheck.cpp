@@ -14,7 +14,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 namespace {
 
@@ -96,18 +98,14 @@ void MakeSmartPtrCheck::registerMatchers(ast_matchers::MatchFinder *Finder) {
       this);
 
   Finder->addMatcher(
-      traverse(
-          TK_AsIs,
-          cxxMemberCallExpr(
-              unless(isInTemplateInstantiation()),
-              hasArgument(0, cxxNewExpr(CanCallCtor, unless(IsPlacement))
-                                 .bind(NewExpression)),
-              callee(cxxMethodDecl(hasName("reset"))),
-              anyOf(thisPointerType(getSmartPointerTypeMatcher()),
-                    on(ignoringImplicit(anyOf(
-                        hasType(getSmartPointerTypeMatcher()),
-                        hasType(pointsTo(getSmartPointerTypeMatcher())))))))
-              .bind(ResetCall)),
+      traverse(TK_AsIs,
+               cxxMemberCallExpr(
+                   thisPointerType(getSmartPointerTypeMatcher()),
+                   callee(cxxMethodDecl(hasName("reset"))),
+                   hasArgument(0, cxxNewExpr(CanCallCtor, unless(IsPlacement))
+                                      .bind(NewExpression)),
+                   unless(isInTemplateInstantiation()))
+                   .bind(ResetCall)),
       this);
 }
 
@@ -323,7 +321,7 @@ bool MakeSmartPtrCheck::replaceNew(DiagnosticBuilder &Diag,
     return false;
   };
   switch (New->getInitializationStyle()) {
-  case CXXNewInitializationStyle::None: {
+  case CXXNewExpr::NoInit: {
     if (ArraySizeExpr.empty()) {
       Diag << FixItHint::CreateRemoval(SourceRange(NewStart, NewEnd));
     } else {
@@ -334,7 +332,7 @@ bool MakeSmartPtrCheck::replaceNew(DiagnosticBuilder &Diag,
     }
     break;
   }
-  case CXXNewInitializationStyle::Parens: {
+  case CXXNewExpr::CallInit: {
     // FIXME: Add fixes for constructors with parameters that can be created
     // with a C++11 braced-init-list (e.g. std::vector, std::map).
     // Unlike ordinal cases, braced list can not be deduced in
@@ -371,7 +369,7 @@ bool MakeSmartPtrCheck::replaceNew(DiagnosticBuilder &Diag,
     }
     break;
   }
-  case CXXNewInitializationStyle::Braces: {
+  case CXXNewExpr::ListInit: {
     // Range of the substring that we do not want to remove.
     SourceRange InitRange;
     if (const auto *NewConstruct = New->getConstructExpr()) {
@@ -441,4 +439,6 @@ void MakeSmartPtrCheck::insertHeader(DiagnosticBuilder &Diag, FileID FD) {
   Diag << Inserter.createIncludeInsertion(FD, MakeSmartPtrFunctionHeader);
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

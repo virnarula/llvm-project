@@ -29,8 +29,7 @@
   !ERROR: Duplicate IOSTAT specifier
   endfile(iostat=stat2, err=9, unit=10, iostat=stat8, iomsg=msg1)
 
-  !ERROR: IOMSG variable 'const_msg' is not definable
-  !BECAUSE: '"d"' is not a variable or pointer
+  !ERROR: IOMSG variable 'const_msg' must be definable
   flush(iomsg=const_msg, unit=10, iostat=stat8, err=9)
 
   !ERROR: REWIND statement must have a UNIT number specifier

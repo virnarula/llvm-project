@@ -89,26 +89,29 @@ public:
 
   /// Check for string equality.  This is more efficient than compare() when
   /// the relative ordering of inequal strings isn't needed.
-  [[nodiscard]] bool equals(StringRef RHS) const { return str().equals(RHS); }
+  bool equals(StringRef RHS) const {
+    return str().equals(RHS);
+  }
 
   /// Check for string equality, ignoring case.
-  [[nodiscard]] bool equals_insensitive(StringRef RHS) const {
+  bool equals_insensitive(StringRef RHS) const {
     return str().equals_insensitive(RHS);
   }
 
-  /// compare - Compare two strings; the result is negative, zero, or positive
-  /// if this string is lexicographically less than, equal to, or greater than
-  /// the \p RHS.
-  [[nodiscard]] int compare(StringRef RHS) const { return str().compare(RHS); }
+  /// Compare two strings; the result is -1, 0, or 1 if this string is
+  /// lexicographically less than, equal to, or greater than the \p RHS.
+  int compare(StringRef RHS) const {
+    return str().compare(RHS);
+  }
 
   /// compare_insensitive - Compare two strings, ignoring case.
-  [[nodiscard]] int compare_insensitive(StringRef RHS) const {
+  int compare_insensitive(StringRef RHS) const {
     return str().compare_insensitive(RHS);
   }
 
   /// compare_numeric - Compare two strings, treating sequences of digits as
   /// numbers.
-  [[nodiscard]] int compare_numeric(StringRef RHS) const {
+  int compare_numeric(StringRef RHS) const {
     return str().compare_numeric(RHS);
   }
 
@@ -116,14 +119,14 @@ public:
   /// @name String Predicates
   /// @{
 
-  /// starts_with - Check if this string starts with the given \p Prefix.
-  [[nodiscard]] bool starts_with(StringRef Prefix) const {
-    return str().starts_with(Prefix);
+  /// startswith - Check if this string starts with the given \p Prefix.
+  bool startswith(StringRef Prefix) const {
+    return str().startswith(Prefix);
   }
 
-  /// ends_with - Check if this string ends with the given \p Suffix.
-  [[nodiscard]] bool ends_with(StringRef Suffix) const {
-    return str().ends_with(Suffix);
+  /// endswith - Check if this string ends with the given \p Suffix.
+  bool endswith(StringRef Suffix) const {
+    return str().endswith(Suffix);
   }
 
   /// @}
@@ -134,7 +137,7 @@ public:
   ///
   /// \return - The index of the first occurrence of \p C, or npos if not
   /// found.
-  [[nodiscard]] size_t find(char C, size_t From = 0) const {
+  size_t find(char C, size_t From = 0) const {
     return str().find(C, From);
   }
 
@@ -142,7 +145,7 @@ public:
   ///
   /// \returns The index of the first occurrence of \p Str, or npos if not
   /// found.
-  [[nodiscard]] size_t find(StringRef Str, size_t From = 0) const {
+  size_t find(StringRef Str, size_t From = 0) const {
     return str().find(Str, From);
   }
 
@@ -150,7 +153,7 @@ public:
   ///
   /// \returns The index of the last occurrence of \p C, or npos if not
   /// found.
-  [[nodiscard]] size_t rfind(char C, size_t From = StringRef::npos) const {
+  size_t rfind(char C, size_t From = StringRef::npos) const {
     return str().rfind(C, From);
   }
 
@@ -158,11 +161,13 @@ public:
   ///
   /// \returns The index of the last occurrence of \p Str, or npos if not
   /// found.
-  [[nodiscard]] size_t rfind(StringRef Str) const { return str().rfind(Str); }
+  size_t rfind(StringRef Str) const {
+    return str().rfind(Str);
+  }
 
   /// Find the first character in the string that is \p C, or npos if not
   /// found. Same as find.
-  [[nodiscard]] size_t find_first_of(char C, size_t From = 0) const {
+  size_t find_first_of(char C, size_t From = 0) const {
     return str().find_first_of(C, From);
   }
 
@@ -170,13 +175,13 @@ public:
   /// not found.
   ///
   /// Complexity: O(size() + Chars.size())
-  [[nodiscard]] size_t find_first_of(StringRef Chars, size_t From = 0) const {
+  size_t find_first_of(StringRef Chars, size_t From = 0) const {
     return str().find_first_of(Chars, From);
   }
 
   /// Find the first character in the string that is not \p C or npos if not
   /// found.
-  [[nodiscard]] size_t find_first_not_of(char C, size_t From = 0) const {
+  size_t find_first_not_of(char C, size_t From = 0) const {
     return str().find_first_not_of(C, From);
   }
 
@@ -184,15 +189,13 @@ public:
   /// \p Chars, or npos if not found.
   ///
   /// Complexity: O(size() + Chars.size())
-  [[nodiscard]] size_t find_first_not_of(StringRef Chars,
-                                         size_t From = 0) const {
+  size_t find_first_not_of(StringRef Chars, size_t From = 0) const {
     return str().find_first_not_of(Chars, From);
   }
 
   /// Find the last character in the string that is \p C, or npos if not
   /// found.
-  [[nodiscard]] size_t find_last_of(char C,
-                                    size_t From = StringRef::npos) const {
+  size_t find_last_of(char C, size_t From = StringRef::npos) const {
     return str().find_last_of(C, From);
   }
 
@@ -200,8 +203,8 @@ public:
   /// found.
   ///
   /// Complexity: O(size() + Chars.size())
-  [[nodiscard]] size_t find_last_of(StringRef Chars,
-                                    size_t From = StringRef::npos) const {
+  size_t find_last_of(
+      StringRef Chars, size_t From = StringRef::npos) const {
     return str().find_last_of(Chars, From);
   }
 
@@ -210,11 +213,15 @@ public:
   /// @{
 
   /// Return the number of occurrences of \p C in the string.
-  [[nodiscard]] size_t count(char C) const { return str().count(C); }
+  size_t count(char C) const {
+    return str().count(C);
+  }
 
   /// Return the number of non-overlapped occurrences of \p Str in the
   /// string.
-  [[nodiscard]] size_t count(StringRef Str) const { return str().count(Str); }
+  size_t count(StringRef Str) const {
+    return str().count(Str);
+  }
 
   /// @}
   /// @name Substring Operations
@@ -229,8 +236,7 @@ public:
   /// \param N The number of characters to included in the substring. If \p N
   /// exceeds the number of characters remaining in the string, the string
   /// suffix (starting with \p Start) will be returned.
-  [[nodiscard]] StringRef substr(size_t Start,
-                                 size_t N = StringRef::npos) const {
+  StringRef substr(size_t Start, size_t N = StringRef::npos) const {
     return str().substr(Start, N);
   }
 
@@ -244,16 +250,14 @@ public:
   /// substring. If this is npos, or less than \p Start, or exceeds the
   /// number of characters remaining in the string, the string suffix
   /// (starting with \p Start) will be returned.
-  [[nodiscard]] StringRef slice(size_t Start, size_t End) const {
+  StringRef slice(size_t Start, size_t End) const {
     return str().slice(Start, End);
   }
 
   // Extra methods.
 
   /// Explicit conversion to StringRef.
-  [[nodiscard]] StringRef str() const {
-    return StringRef(this->data(), this->size());
-  }
+  StringRef str() const { return StringRef(this->data(), this->size()); }
 
   // TODO: Make this const, if it's safe...
   const char* c_str() {

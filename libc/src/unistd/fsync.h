@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_UNISTD_FSYNC_H
 #define LLVM_LIBC_SRC_UNISTD_FSYNC_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fsync(int fd);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_FSYNC_H

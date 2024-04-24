@@ -15,7 +15,6 @@
 #include "RetainCountChecker.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -166,12 +165,13 @@ static bool shouldGenerateNote(llvm::raw_string_ostream &os,
 
 /// Finds argument index of the out paramter in the call @c S
 /// corresponding to the symbol @c Sym.
-/// If none found, returns std::nullopt.
-static std::optional<unsigned>
-findArgIdxOfSymbol(ProgramStateRef CurrSt, const LocationContext *LCtx,
-                   SymbolRef &Sym, std::optional<CallEventRef<>> CE) {
+/// If none found, returns None.
+static Optional<unsigned> findArgIdxOfSymbol(ProgramStateRef CurrSt,
+                                             const LocationContext *LCtx,
+                                             SymbolRef &Sym,
+                                             Optional<CallEventRef<>> CE) {
   if (!CE)
-    return std::nullopt;
+    return None;
 
   for (unsigned Idx = 0; Idx < (*CE)->getNumArgs(); Idx++)
     if (const MemRegion *MR = (*CE)->getArgSVal(Idx).getAsRegion())
@@ -179,25 +179,25 @@ findArgIdxOfSymbol(ProgramStateRef CurrSt, const LocationContext *LCtx,
         if (CurrSt->getSVal(MR, TR->getValueType()).getAsSymbol() == Sym)
           return Idx;
 
-  return std::nullopt;
+  return None;
 }
 
-static std::optional<std::string> findMetaClassAlloc(const Expr *Callee) {
+static Optional<std::string> findMetaClassAlloc(const Expr *Callee) {
   if (const auto *ME = dyn_cast<MemberExpr>(Callee)) {
     if (ME->getMemberDecl()->getNameAsString() != "alloc")
-      return std::nullopt;
+      return None;
     const Expr *This = ME->getBase()->IgnoreParenImpCasts();
     if (const auto *DRE = dyn_cast<DeclRefExpr>(This)) {
       const ValueDecl *VD = DRE->getDecl();
       if (VD->getNameAsString() != "metaClass")
-        return std::nullopt;
+        return None;
 
       if (const auto *RD = dyn_cast<CXXRecordDecl>(VD->getDeclContext()))
         return RD->getNameAsString();
 
     }
   }
-  return std::nullopt;
+  return None;
 }
 
 static std::string findAllocatedObjectName(const Stmt *S, QualType QT) {
@@ -234,8 +234,8 @@ static void generateDiagnosticsForCallLike(ProgramStateRef CurrSt,
     os << "Operator 'new'";
   } else {
     assert(isa<ObjCMessageExpr>(S));
-    CallEventRef<ObjCMethodCall> Call = Mgr.getObjCMethodCall(
-        cast<ObjCMessageExpr>(S), CurrSt, LCtx, {nullptr, 0});
+    CallEventRef<ObjCMethodCall> Call =
+        Mgr.getObjCMethodCall(cast<ObjCMessageExpr>(S), CurrSt, LCtx);
 
     switch (Call->getMessageKind()) {
     case OCM_Message:
@@ -250,7 +250,7 @@ static void generateDiagnosticsForCallLike(ProgramStateRef CurrSt,
     }
   }
 
-  std::optional<CallEventRef<>> CE = Mgr.getCall(S, CurrSt, LCtx, {nullptr, 0});
+  Optional<CallEventRef<>> CE = Mgr.getCall(S, CurrSt, LCtx);
   auto Idx = findArgIdxOfSymbol(CurrSt, LCtx, Sym, CE);
 
   // If index is not found, we assume that the symbol was returned.
@@ -602,17 +602,16 @@ RefCountReportVisitor::VisitNode(const ExplodedNode *N, BugReporterContext &BRC,
   return std::move(P);
 }
 
-static std::optional<std::string> describeRegion(const MemRegion *MR) {
+static Optional<std::string> describeRegion(const MemRegion *MR) {
   if (const auto *VR = dyn_cast_or_null<VarRegion>(MR))
     return std::string(VR->getDecl()->getName());
   // Once we support more storage locations for bindings,
   // this would need to be improved.
-  return std::nullopt;
+  return None;
 }
 
 using Bindings = llvm::SmallVector<std::pair<const MemRegion *, SVal>, 4>;
 
-namespace {
 class VarBindingsCollector : public StoreManager::BindingsHandler {
   SymbolRef Sym;
   Bindings &Result;
@@ -633,7 +632,6 @@ public:
     return true;
   }
 };
-} // namespace
 
 Bindings getAllVarBindingsForSymbol(ProgramStateManager &Manager,
                                     const ExplodedNode *Node, SymbolRef Sym) {
@@ -730,7 +728,7 @@ static AllocationInfo GetAllocationSite(ProgramStateManager &StateMgr,
   const LocationContext *InterestingMethodContext = nullptr;
   if (InitMethodContext) {
     const ProgramPoint AllocPP = AllocationNode->getLocation();
-    if (std::optional<StmtPoint> SP = AllocPP.getAs<StmtPoint>())
+    if (Optional<StmtPoint> SP = AllocPP.getAs<StmtPoint>())
       if (const ObjCMessageExpr *ME = SP->getStmtAs<ObjCMessageExpr>())
         if (ME->getMethodFamily() == OMF_alloc)
           InterestingMethodContext = InitMethodContext;
@@ -773,7 +771,7 @@ RefLeakReportVisitor::getEndPath(BugReporterContext &BRC,
 
   os << "Object leaked: ";
 
-  std::optional<std::string> RegionDescription = describeRegion(LastBinding);
+  Optional<std::string> RegionDescription = describeRegion(LastBinding);
   if (RegionDescription) {
     os << "object allocated and stored into '" << *RegionDescription << '\'';
   } else {
@@ -786,6 +784,9 @@ RefLeakReportVisitor::getEndPath(BugReporterContext &BRC,
   assert(RV);
 
   if (RV->getKind() == RefVal::ErrorLeakReturned) {
+    // FIXME: Per comments in rdar://6320065, "create" only applies to CF
+    // objects.  Only "copy", "alloc", "retain" and "new" transfer ownership
+    // to the caller for NS objects.
     const Decl *D = &EndN->getCodeDecl();
 
     os << (isa<ObjCMethodDecl>(D) ? " is returned from a method "
@@ -916,7 +917,7 @@ void RefLeakReport::createDescription(CheckerContext &Ctx) {
   llvm::raw_string_ostream os(Description);
   os << "Potential leak of an object";
 
-  std::optional<std::string> RegionDescription =
+  Optional<std::string> RegionDescription =
       describeRegion(AllocBindingToReport);
   if (RegionDescription) {
     os << " stored into '" << *RegionDescription << '\'';
@@ -968,7 +969,7 @@ void RefLeakReport::findBindingToReport(CheckerContext &Ctx,
     // Let's pick one of them at random (if there is something to pick from).
     AllocBindingToReport = AllVarBindings[0].first;
 
-    // Because 'AllocBindingToReport' is not the same as
+    // Because 'AllocBindingToReport' is not the the same as
     // 'AllocFirstBinding', we need to explain how the leaking object
     // got from one to another.
     //

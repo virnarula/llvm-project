@@ -13,7 +13,8 @@
 #include "SIMDIntrinsicsCheck.h"
 #include "StdAllocatorConstCheck.h"
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace portability {
 
 class PortabilityModule : public ClangTidyModule {
@@ -38,4 +39,5 @@ static ClangTidyModuleRegistry::Add<PortabilityModule>
 // and thus register the PortabilityModule.
 volatile int PortabilityModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

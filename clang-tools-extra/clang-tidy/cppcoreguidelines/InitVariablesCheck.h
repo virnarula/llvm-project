@@ -13,7 +13,9 @@
 #include "../utils/IncludeInserter.h"
 #include "../utils/OptionsUtils.h"
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 /// Find uninitialized local variables.
 ///
@@ -33,6 +35,8 @@ private:
   const StringRef MathHeader;
 };
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CPPCOREGUIDELINES_INITVARIABLESCHECK_H

@@ -11,9 +11,9 @@
 
 #include "Config.h"
 #include "lld/Common/LLVM.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/Wasm.h"
-#include <optional>
 
 namespace lld {
 namespace wasm {
@@ -25,9 +25,6 @@ extern const char *defaultModule;
 
 // The name under which to import or export the wasm table.
 extern const char *functionTableName;
-
-// The name under which to import or export the wasm memory.
-extern const char *memoryName;
 
 using llvm::wasm::WasmSymbolType;
 
@@ -114,7 +111,6 @@ public:
   void setOutputSymbolIndex(uint32_t index);
 
   WasmSymbolType getWasmType() const;
-  bool isImported() const;
   bool isExported() const;
   bool isExportedExplicit() const;
 
@@ -136,8 +132,7 @@ protected:
   Symbol(StringRef name, Kind k, uint32_t flags, InputFile *f)
       : name(name), file(f), symbolKind(k), referenced(!config->gcSections),
         requiresGOT(false), isUsedInRegularObj(false), forceExport(false),
-        forceImport(false), canInline(false), traced(false), isStub(false),
-        flags(flags) {}
+        canInline(false), traced(false), isStub(false), flags(flags) {}
 
   StringRef name;
   InputFile *file;
@@ -162,8 +157,6 @@ public:
   // -e/--export command line flag)
   bool forceExport : 1;
 
-  bool forceImport : 1;
-
   // False if LTO shouldn't inline whatever this symbol points to. If a symbol
   // is overwritten after LTO, LTO shouldn't inline the symbol because it
   // doesn't know the final contents of the symbol.
@@ -182,8 +175,8 @@ public:
 
   uint32_t flags;
 
-  std::optional<StringRef> importName;
-  std::optional<StringRef> importModule;
+  llvm::Optional<StringRef> importName;
+  llvm::Optional<StringRef> importModule;
 };
 
 class FunctionSymbol : public Symbol {
@@ -234,8 +227,8 @@ public:
 
 class UndefinedFunction : public FunctionSymbol {
 public:
-  UndefinedFunction(StringRef name, std::optional<StringRef> importName,
-                    std::optional<StringRef> importModule, uint32_t flags,
+  UndefinedFunction(StringRef name, llvm::Optional<StringRef> importName,
+                    llvm::Optional<StringRef> importModule, uint32_t flags,
                     InputFile *file = nullptr,
                     const WasmSignature *type = nullptr,
                     bool isCalledDirectly = true)
@@ -368,8 +361,8 @@ public:
 
 class UndefinedGlobal : public GlobalSymbol {
 public:
-  UndefinedGlobal(StringRef name, std::optional<StringRef> importName,
-                  std::optional<StringRef> importModule, uint32_t flags,
+  UndefinedGlobal(StringRef name, llvm::Optional<StringRef> importName,
+                  llvm::Optional<StringRef> importModule, uint32_t flags,
                   InputFile *file = nullptr,
                   const WasmGlobalType *type = nullptr)
       : GlobalSymbol(name, UndefinedGlobalKind, flags, file, type) {
@@ -417,8 +410,8 @@ public:
 
 class UndefinedTable : public TableSymbol {
 public:
-  UndefinedTable(StringRef name, std::optional<StringRef> importName,
-                 std::optional<StringRef> importModule, uint32_t flags,
+  UndefinedTable(StringRef name, llvm::Optional<StringRef> importName,
+                 llvm::Optional<StringRef> importModule, uint32_t flags,
                  InputFile *file, const WasmTableType *type)
       : TableSymbol(name, UndefinedTableKind, flags, file, type) {
     this->importName = importName;
@@ -475,8 +468,8 @@ public:
 
 class UndefinedTag : public TagSymbol {
 public:
-  UndefinedTag(StringRef name, std::optional<StringRef> importName,
-               std::optional<StringRef> importModule, uint32_t flags,
+  UndefinedTag(StringRef name, llvm::Optional<StringRef> importName,
+               llvm::Optional<StringRef> importModule, uint32_t flags,
                InputFile *file = nullptr, const WasmSignature *sig = nullptr)
       : TagSymbol(name, UndefinedTagKind, flags, file, sig) {
     this->importName = importName;
@@ -486,9 +479,9 @@ public:
   static bool classof(const Symbol *s) { return s->kind() == UndefinedTagKind; }
 };
 
-// LazySymbol symbols represent symbols in object files between --start-lib and
-// --end-lib options. LLD also handles traditional archives as if all the files
-// in the archive are surrounded by --start-lib and --end-lib.
+// LazySymbol represents a symbol that is not yet in the link, but we know where
+// to find it if needed. If the resolver finds both Undefined and Lazy for the
+// same name, it will ask the Lazy to load a file.
 //
 // A special complication is the handling of weak undefined symbols. They should
 // not load a file, but we have to remember we have seen both the weak undefined
@@ -497,12 +490,14 @@ public:
 // symbols into consideration.
 class LazySymbol : public Symbol {
 public:
-  LazySymbol(StringRef name, uint32_t flags, InputFile *file)
-      : Symbol(name, LazyKind, flags, file) {}
+  LazySymbol(StringRef name, uint32_t flags, InputFile *file,
+             const llvm::object::Archive::Symbol &sym)
+      : Symbol(name, LazyKind, flags, file), archiveSymbol(sym) {}
 
   static bool classof(const Symbol *s) { return s->kind() == LazyKind; }
-  void extract();
+  void fetch();
   void setWeak();
+  MemoryBufferRef getMemberBuffer();
 
   // Lazy symbols can have a signature because they can replace an
   // UndefinedFunction in which case we need to be able to preserve the
@@ -510,6 +505,9 @@ public:
   // TODO(sbc): This repetition of the signature field is inelegant.  Revisit
   // the use of class hierarchy to represent symbol taxonomy.
   const WasmSignature *signature = nullptr;
+
+private:
+  llvm::object::Archive::Symbol archiveSymbol;
 };
 
 // linker-generated symbols
@@ -576,11 +574,6 @@ struct WasmSym {
   // Function that applies relocations to wasm globals post-instantiation.
   // Unlike __wasm_apply_data_relocs this needs to run on every thread.
   static DefinedFunction *applyGlobalRelocs;
-
-  // __wasm_apply_tls_relocs
-  // Like applyDataRelocs but for TLS section.  These must be delayed until
-  // __wasm_init_tls.
-  static DefinedFunction *applyTLSRelocs;
 
   // __wasm_apply_global_tls_relocs
   // Like applyGlobalRelocs but for globals that hold TLS addresses.  These
@@ -660,7 +653,6 @@ T *replaceSymbol(Symbol *s, ArgT &&... arg) {
   T *s2 = new (s) T(std::forward<ArgT>(arg)...);
   s2->isUsedInRegularObj = symCopy.isUsedInRegularObj;
   s2->forceExport = symCopy.forceExport;
-  s2->forceImport = symCopy.forceImport;
   s2->canInline = symCopy.canInline;
   s2->traced = symCopy.traced;
   s2->referenced = symCopy.referenced;

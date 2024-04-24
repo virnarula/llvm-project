@@ -11,7 +11,6 @@
 
 #include "atomic_helpers.h"
 #include "common.h"
-#include "thread_annotations.h"
 
 #include <string.h>
 
@@ -21,10 +20,10 @@
 
 namespace scudo {
 
-class CAPABILITY("mutex") HybridMutex {
+class HybridMutex {
 public:
-  bool tryLock() TRY_ACQUIRE(true);
-  NOINLINE void lock() ACQUIRE() {
+  bool tryLock();
+  NOINLINE void lock() {
     if (LIKELY(tryLock()))
       return;
       // The compiler may try to fully unroll the loop, ending up in a
@@ -35,41 +34,17 @@ public:
 #pragma nounroll
 #endif
     for (u8 I = 0U; I < NumberOfTries; I++) {
-      delayLoop();
+      yieldProcessor(NumberOfYields);
       if (tryLock())
         return;
     }
     lockSlow();
   }
-  void unlock() RELEASE();
-
-  // TODO(chiahungduan): In general, we may want to assert the owner of lock as
-  // well. Given the current uses of HybridMutex, it's acceptable without
-  // asserting the owner. Re-evaluate this when we have certain scenarios which
-  // requires a more fine-grained lock granularity.
-  ALWAYS_INLINE void assertHeld() ASSERT_CAPABILITY(this) {
-    if (SCUDO_DEBUG)
-      assertHeldImpl();
-  }
+  void unlock();
 
 private:
-  void delayLoop() {
-    // The value comes from the average time spent in accessing caches (which
-    // are the fastest operations) so that we are unlikely to wait too long for
-    // fast operations.
-    constexpr u32 SpinTimes = 16;
-    volatile u32 V = 0;
-    for (u32 I = 0; I < SpinTimes; ++I) {
-      u32 Tmp = V + 1;
-      V = Tmp;
-    }
-  }
-
-  void assertHeldImpl();
-
-  // TODO(chiahungduan): Adapt this value based on scenarios. E.g., primary and
-  // secondary allocator have different allocation times.
-  static constexpr u8 NumberOfTries = 32U;
+  static constexpr u8 NumberOfTries = 8U;
+  static constexpr u8 NumberOfYields = 8U;
 
 #if SCUDO_LINUX
   atomic_u32 M = {};
@@ -77,13 +52,13 @@ private:
   sync_mutex_t M = {};
 #endif
 
-  void lockSlow() ACQUIRE();
+  void lockSlow();
 };
 
-class SCOPED_CAPABILITY ScopedLock {
+class ScopedLock {
 public:
-  explicit ScopedLock(HybridMutex &M) ACQUIRE(M) : Mutex(M) { Mutex.lock(); }
-  ~ScopedLock() RELEASE() { Mutex.unlock(); }
+  explicit ScopedLock(HybridMutex &M) : Mutex(M) { Mutex.lock(); }
+  ~ScopedLock() { Mutex.unlock(); }
 
 private:
   HybridMutex &Mutex;

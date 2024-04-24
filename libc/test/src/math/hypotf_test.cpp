@@ -14,18 +14,17 @@
 using LlvmLibcHypotfTest = HypotTestTemplate<float>;
 
 TEST_F(LlvmLibcHypotfTest, SpecialNumbers) {
-  test_special_numbers(&LIBC_NAMESPACE::hypotf);
+  test_special_numbers(&__llvm_libc::hypotf);
 }
 
 TEST_F(LlvmLibcHypotfTest, SubnormalRange) {
-  test_subnormal_range(&LIBC_NAMESPACE::hypotf);
+  test_subnormal_range(&__llvm_libc::hypotf);
 }
 
 TEST_F(LlvmLibcHypotfTest, NormalRange) {
-  test_normal_range(&LIBC_NAMESPACE::hypotf);
+  test_normal_range(&__llvm_libc::hypotf);
 }
 
 TEST_F(LlvmLibcHypotfTest, TrickyInputs) {
-  test_input_list(&LIBC_NAMESPACE::hypotf, N_HARD_TO_ROUND,
-                  HYPOTF_HARD_TO_ROUND);
+  test_input_list(&__llvm_libc::hypotf, N_HARD_TO_ROUND, HYPOTF_HARD_TO_ROUND);
 }

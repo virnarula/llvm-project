@@ -429,10 +429,15 @@ void ASTResultSynthesizer::MaybeRecordPersistentType(TypeDecl *D) {
     return;
 
   StringRef name = D->getName();
-  if (name.empty() || name.front() != '$')
+
+  if (name.size() == 0 || name[0] != '$')
     return;
 
-  LLDB_LOG(GetLog(LLDBLog::Expressions), "Recording persistent type {0}", name);
+  Log *log = GetLog(LLDBLog::Expressions);
+
+  ConstString name_cs(name.str().c_str());
+
+  LLDB_LOGF(log, "Recording persistent type %s\n", name_cs.GetCString());
 
   m_decls.push_back(D);
 }
@@ -444,10 +449,15 @@ void ASTResultSynthesizer::RecordPersistentDecl(NamedDecl *D) {
     return;
 
   StringRef name = D->getName();
-  if (name.empty())
+
+  if (name.size() == 0)
     return;
 
-  LLDB_LOG(GetLog(LLDBLog::Expressions), "Recording persistent decl {0}", name);
+  Log *log = GetLog(LLDBLog::Expressions);
+
+  ConstString name_cs(name.str().c_str());
+
+  LLDB_LOGF(log, "Recording persistent decl %s\n", name_cs.GetCString());
 
   m_decls.push_back(D);
 }
@@ -460,14 +470,15 @@ void ASTResultSynthesizer::CommitPersistentDecls() {
 
   auto *persistent_vars = llvm::cast<ClangPersistentVariables>(state);
 
-  lldb::TypeSystemClangSP scratch_ts_sp = ScratchTypeSystemClang::GetForTarget(
+  TypeSystemClang *scratch_ctx = ScratchTypeSystemClang::GetForTarget(
       m_target, m_ast_context->getLangOpts());
 
   for (clang::NamedDecl *decl : m_decls) {
     StringRef name = decl->getName();
+    ConstString name_cs(name.str().c_str());
 
     Decl *D_scratch = persistent_vars->GetClangASTImporter()->DeportDecl(
-        &scratch_ts_sp->getASTContext(), decl);
+        &scratch_ctx->getASTContext(), decl);
 
     if (!D_scratch) {
       Log *log = GetLog(LLDBLog::Expressions);
@@ -485,8 +496,8 @@ void ASTResultSynthesizer::CommitPersistentDecls() {
     }
 
     if (NamedDecl *NamedDecl_scratch = dyn_cast<NamedDecl>(D_scratch))
-      persistent_vars->RegisterPersistentDecl(ConstString(name),
-                                              NamedDecl_scratch, scratch_ts_sp);
+      persistent_vars->RegisterPersistentDecl(name_cs, NamedDecl_scratch,
+                                              scratch_ctx);
   }
 }
 

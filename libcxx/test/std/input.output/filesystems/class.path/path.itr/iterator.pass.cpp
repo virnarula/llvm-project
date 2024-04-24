@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -19,43 +18,13 @@
 //      path(InputIterator first, InputIterator last);
 
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <cassert>
 #include <iterator>
 #include <type_traits>
 
 #include "test_macros.h"
-namespace fs = std::filesystem;
-
-template <class Iter1, class Iter2>
-bool checkCollectionsEqual(
-    Iter1 start1, Iter1 const end1
-  , Iter2 start2, Iter2 const end2
-  )
-{
-    while (start1 != end1 && start2 != end2) {
-        if (*start1 != *start2) {
-            return false;
-        }
-        ++start1; ++start2;
-    }
-    return (start1 == end1 && start2 == end2);
-}
-
-template <class Iter1, class Iter2>
-bool checkCollectionsEqualBackwards(
-    Iter1 const start1, Iter1 end1
-  , Iter2 const start2, Iter2 end2
-  )
-{
-    while (start1 != end1 && start2 != end2) {
-        --end1; --end2;
-        if (*end1 != *end2) {
-            return false;
-        }
-    }
-    return (start1 == end1 && start2 == end2);
-}
+#include "filesystem_test_helper.h"
 
 void checkIteratorConcepts() {
   using namespace fs;

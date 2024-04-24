@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_CEILF_H
 #define LLVM_LIBC_SRC_MATH_CEILF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 float ceilf(float x);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_CEILF_H

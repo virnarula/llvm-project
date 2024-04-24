@@ -17,7 +17,6 @@
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-types.h"
-#include "llvm/Support/JSON.h"
 
 #include <memory>
 #include <vector>
@@ -98,13 +97,6 @@ public:
 
 protected:
   collection m_sections;
-};
-
-struct JSONSection {
-  std::string name;
-  std::optional<lldb::SectionType> type;
-  std::optional<uint64_t> address;
-  std::optional<uint64_t> size;
 };
 
 class Section : public std::enable_shared_from_this<Section>,
@@ -294,17 +286,5 @@ private:
 };
 
 } // namespace lldb_private
-
-namespace llvm {
-namespace json {
-
-bool fromJSON(const llvm::json::Value &value,
-              lldb_private::JSONSection &section, llvm::json::Path path);
-
-bool fromJSON(const llvm::json::Value &value, lldb::SectionType &type,
-              llvm::json::Path path);
-
-} // namespace json
-} // namespace llvm
 
 #endif // LLDB_CORE_SECTION_H

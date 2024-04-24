@@ -8,13 +8,14 @@
 
 #include "src/string/bcmp.h"
 #include "src/__support/common.h"
-#include "src/string/memory_utils/inline_bcmp.h"
+#include "src/string/memory_utils/bcmp_implementations.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, bcmp,
                    (const void *lhs, const void *rhs, size_t count)) {
-  return inline_bcmp(lhs, rhs, count);
+  return inline_bcmp(static_cast<const char *>(lhs),
+                     static_cast<const char *>(rhs), count);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

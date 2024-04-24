@@ -9,14 +9,14 @@ define i32 @test(i8 %C, i16 %S) {
 	ret i32 %Y
 }
 
-define void @FP(ptr %F) {
+define void @FP(void (i32)* %F) {
 	%X = call i32 @test( i8 123, i16 1024 )		; <i32> [#uses=1]
 	call void %F( i32 %X )
 	ret void
 }
 
 define i32 @main() {
-	call void @FP( ptr @exit )
+	call void @FP( void (i32)* @exit )
 	ret i32 1
 }
 

@@ -4,7 +4,7 @@ module m
   interface i
     !ERROR: 'var' is not a procedure
     procedure :: sub, var
-    !ERROR: 'bad' is not a procedure
+    !ERROR: Procedure 'bad' not found
     procedure :: bad
   end interface
   interface operator(.foo.)
@@ -12,7 +12,7 @@ module m
     procedure :: var
     !ERROR: OPERATOR(.foo.) procedure 'sub' must be a function
     procedure :: sub
-    !ERROR: 'bad' is not a procedure
+    !ERROR: Procedure 'bad' not found
     procedure :: bad
   end interface
 contains

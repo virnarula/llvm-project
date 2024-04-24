@@ -30,7 +30,6 @@
 #include "lldb/Utility/StreamString.h"
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 using namespace lldb;
@@ -56,7 +55,7 @@ public:
   ~BreakpointOptionGroup() override = default;
 
   llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-    return llvm::ArrayRef(g_breakpoint_modify_options);
+    return llvm::makeArrayRef(g_breakpoint_modify_options);
   }
 
   Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
@@ -111,24 +110,24 @@ public:
     } break;
     case 't': {
       lldb::tid_t thread_id = LLDB_INVALID_THREAD_ID;
-      if (option_arg == "current") {
-        if (!execution_context) {
-          error.SetErrorStringWithFormat("No context to determine current "
-                                         "thread");
-        } else {
-          ThreadSP ctx_thread_sp = execution_context->GetThreadSP();
-          if (!ctx_thread_sp || !ctx_thread_sp->IsValid()) {
-            error.SetErrorStringWithFormat("No currently selected thread");
+      if (option_arg[0] != '\0') {
+        if (option_arg == "current") {
+          if (!execution_context) {
+            error.SetErrorStringWithFormat("No context to determine current "
+                                           "thread");
           } else {
-            thread_id = ctx_thread_sp->GetID();
+            ThreadSP ctx_thread_sp = execution_context->GetThreadSP();
+            if (!ctx_thread_sp || !ctx_thread_sp->IsValid()) {
+              error.SetErrorStringWithFormat("No currently selected thread");
+            } else {
+              thread_id = ctx_thread_sp->GetID();
+            }
           }
-        }
-      } else if (option_arg.getAsInteger(0, thread_id)) {
-        error.SetErrorStringWithFormat("invalid thread id string '%s'",
-                                       option_arg.str().c_str());
+        } else if (option_arg.getAsInteger(0, thread_id))
+          error.SetErrorStringWithFormat("invalid thread id string '%s'",
+                                         option_arg.str().c_str());
       }
-      if (thread_id != LLDB_INVALID_THREAD_ID)
-        m_bp_opts.SetThreadID(thread_id);
+      m_bp_opts.SetThreadID(thread_id);
     } break;
     case 'T':
       m_bp_opts.GetThreadSpec()->SetName(option_arg.str().c_str());
@@ -138,12 +137,12 @@ public:
       break;
     case 'x': {
       uint32_t thread_index = UINT32_MAX;
-      if (option_arg.getAsInteger(0, thread_index)) {
-        error.SetErrorStringWithFormat("invalid thread index string '%s'",
-                                       option_arg.str().c_str());
-      } else {
-        m_bp_opts.GetThreadSpec()->SetIndex(thread_index);
+      if (option_arg[0] != '\n') {
+        if (option_arg.getAsInteger(0, thread_index))
+          error.SetErrorStringWithFormat("invalid thread index string '%s'",
+                                         option_arg.str().c_str());
       }
+      m_bp_opts.GetThreadSpec()->SetIndex(thread_index);
     } break;
     default:
       llvm_unreachable("Unimplemented option");
@@ -186,7 +185,7 @@ public:
   ~BreakpointDummyOptionGroup() override = default;
 
   llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-    return llvm::ArrayRef(g_breakpoint_dummy_options);
+    return llvm::makeArrayRef(g_breakpoint_dummy_options);
   }
 
   Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
@@ -497,7 +496,7 @@ public:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_breakpoint_set_options);
+      return llvm::makeArrayRef(g_breakpoint_set_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -528,7 +527,7 @@ public:
   };
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget(m_dummy_options.m_use_dummy);
 
     // The following are the various types of breakpoints that could be set:
@@ -577,12 +576,12 @@ protected:
       if (num_files == 0) {
         if (!GetDefaultFile(target, file, result)) {
           result.AppendError("No file supplied and no default file available.");
-          return;
+          return false;
         }
       } else if (num_files > 1) {
         result.AppendError("Only one file at a time is allowed for file and "
                            "line breakpoints.");
-        return;
+        return false;
       } else
         file = m_options.m_filenames.GetFileSpecAtIndex(0);
 
@@ -603,8 +602,8 @@ protected:
       //  will track the load location of the library.
       size_t num_modules_specified = m_options.m_modules.GetSize();
       if (num_modules_specified == 1) {
-        const FileSpec &file_spec =
-            m_options.m_modules.GetFileSpecAtIndex(0);
+        const FileSpec *file_spec =
+            m_options.m_modules.GetFileSpecPointerAtIndex(0);
         bp_sp = target.CreateAddressInModuleBreakpoint(
             m_options.m_load_addr, internal, file_spec, m_options.m_hardware);
       } else if (num_modules_specified == 0) {
@@ -613,7 +612,7 @@ protected:
       } else {
         result.AppendError("Only one shared library can be specified for "
                            "address breakpoints.");
-        return;
+        return false;
       }
       break;
     }
@@ -647,7 +646,7 @@ protected:
             result.AppendWarning(
                 "Function name regex does not accept glob patterns.");
         }
-        return;
+        return false;
       }
 
       bp_sp = target.CreateFuncRegexBreakpoint(
@@ -664,7 +663,7 @@ protected:
         if (!GetDefaultFile(target, file, result)) {
           result.AppendError(
               "No files provided and could not find default file.");
-          return;
+          return false;
         } else {
           m_options.m_filenames.Append(file);
         }
@@ -675,7 +674,7 @@ protected:
         result.AppendErrorWithFormat(
             "Source text regular expression could not be compiled: \"%s\"",
             llvm::toString(std::move(err)).c_str());
-        return;
+        return false;
       }
       bp_sp = target.CreateSourceRegexBreakpoint(
           &(m_options.m_modules), &(m_options.m_filenames),
@@ -693,7 +692,7 @@ protected:
             "Error setting extra exception arguments: %s",
             precond_error.AsCString());
         target.RemoveBreakpointByID(bp_sp->GetID());
-        return;
+        return false;
       }
     } break;
     case eSetTypeScripted: {
@@ -707,7 +706,7 @@ protected:
         result.AppendErrorWithFormat(
             "Error setting extra exception arguments: %s", error.AsCString());
         target.RemoveBreakpointByID(bp_sp->GetID());
-        return;
+        return false;
       }
     } break;
     default:
@@ -726,7 +725,7 @@ protected:
             result.AppendErrorWithFormat("Invalid breakpoint name: %s",
                                          name.c_str());
             target.RemoveBreakpointByID(bp_sp->GetID());
-            return;
+            return false;
           }
         }
       }
@@ -753,6 +752,8 @@ protected:
     } else if (!bp_sp) {
       result.AppendError("Breakpoint creation failed: No breakpoint created.");
     }
+
+    return result.Succeeded();
   }
 
 private:
@@ -826,14 +827,15 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
   Options *GetOptions() override { return &m_options; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget(m_dummy_opts.m_use_dummy);
 
     std::unique_lock<std::recursive_mutex> lock;
@@ -866,6 +868,8 @@ protected:
         }
       }
     }
+
+    return result.Succeeded();
   }
 
 private:
@@ -897,12 +901,13 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget();
 
     std::unique_lock<std::recursive_mutex> lock;
@@ -914,7 +919,7 @@ protected:
 
     if (num_breakpoints == 0) {
       result.AppendError("No breakpoints exist to be enabled.");
-      return;
+      return false;
     }
 
     if (command.empty()) {
@@ -959,6 +964,8 @@ protected:
         result.SetStatus(eReturnStatusSuccessFinishNoResult);
       }
     }
+
+    return result.Succeeded();
   }
 };
 
@@ -1009,12 +1016,13 @@ the second re-enables the first location.");
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget();
     std::unique_lock<std::recursive_mutex> lock;
     target.GetBreakpointList().GetListMutex(lock);
@@ -1024,7 +1032,7 @@ protected:
 
     if (num_breakpoints == 0) {
       result.AppendError("No breakpoints exist to be disabled.");
-      return;
+      return false;
     }
 
     if (command.empty()) {
@@ -1070,6 +1078,8 @@ protected:
         result.SetStatus(eReturnStatusSuccessFinishNoResult);
       }
     }
+
+    return result.Succeeded();
   }
 };
 
@@ -1148,7 +1158,7 @@ public:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_breakpoint_list_options);
+      return llvm::makeArrayRef(g_breakpoint_list_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -1160,7 +1170,7 @@ public:
   };
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget(m_options.m_use_dummy);
 
     const BreakpointList &breakpoints =
@@ -1173,7 +1183,7 @@ protected:
     if (num_breakpoints == 0) {
       result.AppendMessage("No breakpoints currently set.");
       result.SetStatus(eReturnStatusSuccessFinishNoResult);
-      return;
+      return true;
     }
 
     Stream &output_stream = result.GetOutputStream();
@@ -1208,6 +1218,8 @@ protected:
         result.AppendError("Invalid breakpoint ID.");
       }
     }
+
+    return result.Succeeded();
   }
 
 private:
@@ -1269,7 +1281,7 @@ public:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_breakpoint_clear_options);
+      return llvm::makeArrayRef(g_breakpoint_clear_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -1279,7 +1291,7 @@ public:
   };
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget();
 
     // The following are the various types of breakpoints that could be
@@ -1300,7 +1312,7 @@ protected:
     // Early return if there's no breakpoint at all.
     if (num_breakpoints == 0) {
       result.AppendError("Breakpoint clear: No breakpoint cleared.");
-      return;
+      return result.Succeeded();
     }
 
     // Find matching breakpoints and delete them.
@@ -1347,6 +1359,8 @@ protected:
     } else {
       result.AppendError("Breakpoint clear: No breakpoint cleared.");
     }
+
+    return result.Succeeded();
   }
 
 private:
@@ -1379,8 +1393,9 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
   Options *GetOptions() override { return &m_options; }
@@ -1423,7 +1438,7 @@ public:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_breakpoint_delete_options);
+      return llvm::makeArrayRef(g_breakpoint_delete_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -1433,7 +1448,7 @@ public:
   };
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget(m_options.m_use_dummy);
     result.Clear();
     
@@ -1446,7 +1461,7 @@ protected:
 
     if (num_breakpoints == 0) {
       result.AppendError("No breakpoints exist to be deleted.");
-      return;
+      return false;
     }
 
     // Handle the delete all breakpoints case:
@@ -1463,7 +1478,7 @@ protected:
             (uint64_t)num_breakpoints, num_breakpoints > 1 ? "s" : "");
       }
       result.SetStatus(eReturnStatusSuccessFinishNoResult);
-      return;
+      return result.Succeeded();
     }
  
     // Either we have some kind of breakpoint specification(s),
@@ -1479,7 +1494,7 @@ protected:
             command, &target, result, &excluded_bp_ids,
             BreakpointName::Permissions::PermissionKinds::deletePerm);
         if (!result.Succeeded())
-          return;
+          return false;
       }
 
       for (auto breakpoint_sp : breakpoints.Breakpoints()) {
@@ -1492,14 +1507,14 @@ protected:
       }
       if (valid_bp_ids.GetSize() == 0) {
         result.AppendError("No disabled breakpoints.");
-        return;
+        return false;
       }
     } else {
       CommandObjectMultiwordBreakpoint::VerifyBreakpointOrLocationIDs(
           command, &target, result, &valid_bp_ids,
           BreakpointName::Permissions::PermissionKinds::deletePerm);
       if (!result.Succeeded())
-        return;
+        return false;
     }
     
     int delete_count = 0;
@@ -1530,6 +1545,7 @@ protected:
         "%d breakpoints deleted; %d breakpoint locations disabled.\n",
         delete_count, disable_count);
     result.SetStatus(eReturnStatusSuccessFinishNoResult);
+    return result.Succeeded();
   }
 
 private:
@@ -1548,7 +1564,7 @@ public:
   ~BreakpointNameOptionGroup() override = default;
 
   llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-    return llvm::ArrayRef(g_breakpoint_name_options);
+    return llvm::makeArrayRef(g_breakpoint_name_options);
   }
 
   Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
@@ -1608,7 +1624,7 @@ public:
   ~BreakpointAccessOptionGroup() override = default;
 
   llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-    return llvm::ArrayRef(g_breakpoint_access_options);
+    return llvm::makeArrayRef(g_breakpoint_access_options);
   }
   Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                         ExecutionContext *execution_context) override {
@@ -1696,12 +1712,12 @@ public:
   Options *GetOptions() override { return &m_option_group; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
 
     const size_t argc = command.GetArgumentCount();
     if (argc == 0) {
       result.AppendError("No names provided.");
-      return;
+      return false;
     }
 
     Target &target = GetSelectedOrDummyTarget(false);
@@ -1715,20 +1731,19 @@ protected:
       if (!BreakpointID::StringIsBreakpointName(entry.ref(), error)) {
         result.AppendErrorWithFormat("Invalid breakpoint name: %s - %s",
                                      entry.c_str(), error.AsCString());
-        return;
+        return false;
       }
     }
     // Now configure them, we already pre-checked the names so we don't need to
     // check the error:
     BreakpointSP bp_sp;
     if (m_bp_id.m_breakpoint.OptionWasSet()) {
-      lldb::break_id_t bp_id =
-          m_bp_id.m_breakpoint.GetValueAs<uint64_t>().value_or(0);
+      lldb::break_id_t bp_id = m_bp_id.m_breakpoint.GetUInt64Value();
       bp_sp = target.GetBreakpointByID(bp_id);
       if (!bp_sp) {
         result.AppendErrorWithFormatv("Could not find specified breakpoint {0}",
                                       bp_id);
-        return;
+        return false;
       }
     }
 
@@ -1739,10 +1754,7 @@ protected:
       if (!bp_name)
         continue;
       if (m_bp_id.m_help_string.OptionWasSet())
-        bp_name->SetHelp(m_bp_id.m_help_string.GetValueAs<llvm::StringRef>()
-                             .value_or("")
-                             .str()
-                             .c_str());
+        bp_name->SetHelp(m_bp_id.m_help_string.GetStringValue().str().c_str());
 
       if (bp_sp)
         target.ConfigureBreakpointName(*bp_name, bp_sp->GetOptions(),
@@ -1752,6 +1764,7 @@ protected:
                                        m_bp_opts.GetBreakpointOptions(),
                                        m_access_options.GetPermissions());
     }
+    return true;
   }
 
 private:
@@ -1785,17 +1798,18 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
   Options *GetOptions() override { return &m_option_group; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     if (!m_name_options.m_name.OptionWasSet()) {
       result.AppendError("No name option provided.");
-      return;
+      return false;
     }
 
     Target &target =
@@ -1809,7 +1823,7 @@ protected:
     size_t num_breakpoints = breakpoints.GetSize();
     if (num_breakpoints == 0) {
       result.AppendError("No breakpoints, cannot add names.");
-      return;
+      return false;
     }
 
     // Particular breakpoint selected; disable that breakpoint.
@@ -1821,7 +1835,7 @@ protected:
     if (result.Succeeded()) {
       if (valid_bp_ids.GetSize() == 0) {
         result.AppendError("No breakpoints specified, cannot add names.");
-        return;
+        return false;
       }
       size_t num_valid_ids = valid_bp_ids.GetSize();
       const char *bp_name = m_name_options.m_name.GetCurrentValue();
@@ -1834,6 +1848,8 @@ protected:
         target.AddNameToBreakpoint(bp_sp, bp_name, error);
       }
     }
+
+    return true;
   }
 
 private:
@@ -1866,17 +1882,18 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
   Options *GetOptions() override { return &m_option_group; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     if (!m_name_options.m_name.OptionWasSet()) {
       result.AppendError("No name option provided.");
-      return;
+      return false;
     }
 
     Target &target =
@@ -1890,7 +1907,7 @@ protected:
     size_t num_breakpoints = breakpoints.GetSize();
     if (num_breakpoints == 0) {
       result.AppendError("No breakpoints, cannot delete names.");
-      return;
+      return false;
     }
 
     // Particular breakpoint selected; disable that breakpoint.
@@ -1902,7 +1919,7 @@ protected:
     if (result.Succeeded()) {
       if (valid_bp_ids.GetSize() == 0) {
         result.AppendError("No breakpoints specified, cannot delete names.");
-        return;
+        return false;
       }
       ConstString bp_name(m_name_options.m_name.GetCurrentValue());
       size_t num_valid_ids = valid_bp_ids.GetSize();
@@ -1913,6 +1930,8 @@ protected:
         target.RemoveNameFromBreakpoint(bp_sp, bp_name);
       }
     }
+
+    return true;
   }
 
 private:
@@ -1937,7 +1956,7 @@ public:
   Options *GetOptions() override { return &m_option_group; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target =
         GetSelectedOrDummyTarget(m_name_options.m_use_dummy.GetCurrentValue());
 
@@ -1987,6 +2006,7 @@ protected:
         }
       }
     }
+    return true;
   }
 
 private:
@@ -2167,7 +2187,7 @@ public:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_breakpoint_read_options);
+      return llvm::makeArrayRef(g_breakpoint_read_options);
     }
 
     void HandleOptionArgumentCompletion(
@@ -2178,12 +2198,13 @@ public:
 
       switch (GetDefinitions()[opt_defs_index].short_option) {
       case 'f':
-        lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-            interpreter, lldb::eDiskFileCompletion, request, nullptr);
+        CommandCompletions::InvokeCommonCompletionCallbacks(
+            interpreter, CommandCompletions::eDiskFileCompletion, request,
+            nullptr);
         break;
 
       case 'N':
-        std::optional<FileSpec> file_spec;
+        llvm::Optional<FileSpec> file_spec;
         const llvm::StringRef dash_f("-f");
         for (int arg_idx = 0; arg_idx < opt_arg_pos; arg_idx++) {
           if (dash_f == request.GetParsedLine().GetArgumentAtIndex(arg_idx)) {
@@ -2235,9 +2256,9 @@ public:
           size_t num_names = names_array->GetSize();
 
           for (size_t i = 0; i < num_names; i++) {
-            if (std::optional<llvm::StringRef> maybe_name =
-                    names_array->GetItemAtIndexAsString(i))
-              request.TryCompleteCurrentArg(*maybe_name);
+            llvm::StringRef name;
+            if (names_array->GetItemAtIndexAsString(i, name))
+              request.TryCompleteCurrentArg(name);
           }
         }
       }
@@ -2248,7 +2269,7 @@ public:
   };
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget();
 
     std::unique_lock<std::recursive_mutex> lock;
@@ -2262,7 +2283,7 @@ protected:
 
     if (!error.Success()) {
       result.AppendError(error.AsCString());
-      return;
+      return false;
     }
 
     Stream &output_stream = result.GetOutputStream();
@@ -2283,6 +2304,7 @@ protected:
                              false);
       }
     }
+    return result.Succeeded();
   }
 
 private:
@@ -2316,8 +2338,9 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eBreakpointCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eBreakpointCompletion,
+        request, nullptr);
   }
 
   Options *GetOptions() override { return &m_options; }
@@ -2353,7 +2376,7 @@ public:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_breakpoint_write_options);
+      return llvm::makeArrayRef(g_breakpoint_write_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -2363,7 +2386,7 @@ public:
   };
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target &target = GetSelectedOrDummyTarget();
 
     std::unique_lock<std::recursive_mutex> lock;
@@ -2377,7 +2400,7 @@ protected:
 
       if (!result.Succeeded()) {
         result.SetStatus(eReturnStatusFailed);
-        return;
+        return false;
       }
     }
     FileSpec file_spec(m_options.m_filename);
@@ -2388,6 +2411,7 @@ protected:
       result.AppendErrorWithFormat("error serializing breakpoints: %s.",
                                    error.AsCString());
     }
+    return result.Succeeded();
   }
 
 private:
@@ -2488,48 +2512,44 @@ void CommandObjectMultiwordBreakpoint::VerifyIDs(
   // breakpoint ids in the range, and shove all of those breakpoint id strings
   // into TEMP_ARGS.
 
-  if (llvm::Error err = BreakpointIDList::FindAndReplaceIDRanges(
-          args, target, allow_locations, purpose, temp_args)) {
-    result.SetError(std::move(err));
-    return;
-  }
-  result.SetStatus(eReturnStatusSuccessFinishNoResult);
+  BreakpointIDList::FindAndReplaceIDRanges(args, target, allow_locations,
+                                           purpose, result, temp_args);
 
   // NOW, convert the list of breakpoint id strings in TEMP_ARGS into an actual
   // BreakpointIDList:
 
-  for (llvm::StringRef temp_arg : temp_args.GetArgumentArrayRef())
-    if (auto bp_id = BreakpointID::ParseCanonicalReference(temp_arg))
-      valid_ids->AddBreakpointID(*bp_id);
+  valid_ids->InsertStringArray(temp_args.GetArgumentArrayRef(), result);
 
   // At this point,  all of the breakpoint ids that the user passed in have
   // been converted to breakpoint IDs and put into valid_ids.
 
-  // Now that we've converted everything from args into a list of breakpoint
-  // ids, go through our tentative list of breakpoint id's and verify that
-  // they correspond to valid/currently set breakpoints.
+  if (result.Succeeded()) {
+    // Now that we've converted everything from args into a list of breakpoint
+    // ids, go through our tentative list of breakpoint id's and verify that
+    // they correspond to valid/currently set breakpoints.
 
-  const size_t count = valid_ids->GetSize();
-  for (size_t i = 0; i < count; ++i) {
-    BreakpointID cur_bp_id = valid_ids->GetBreakpointIDAtIndex(i);
-    Breakpoint *breakpoint =
-        target->GetBreakpointByID(cur_bp_id.GetBreakpointID()).get();
-    if (breakpoint != nullptr) {
-      const size_t num_locations = breakpoint->GetNumLocations();
-      if (static_cast<size_t>(cur_bp_id.GetLocationID()) > num_locations) {
-        StreamString id_str;
-        BreakpointID::GetCanonicalReference(
-            &id_str, cur_bp_id.GetBreakpointID(), cur_bp_id.GetLocationID());
+    const size_t count = valid_ids->GetSize();
+    for (size_t i = 0; i < count; ++i) {
+      BreakpointID cur_bp_id = valid_ids->GetBreakpointIDAtIndex(i);
+      Breakpoint *breakpoint =
+          target->GetBreakpointByID(cur_bp_id.GetBreakpointID()).get();
+      if (breakpoint != nullptr) {
+        const size_t num_locations = breakpoint->GetNumLocations();
+        if (static_cast<size_t>(cur_bp_id.GetLocationID()) > num_locations) {
+          StreamString id_str;
+          BreakpointID::GetCanonicalReference(
+              &id_str, cur_bp_id.GetBreakpointID(), cur_bp_id.GetLocationID());
+          i = valid_ids->GetSize() + 1;
+          result.AppendErrorWithFormat(
+              "'%s' is not a currently valid breakpoint/location id.\n",
+              id_str.GetData());
+        }
+      } else {
         i = valid_ids->GetSize() + 1;
         result.AppendErrorWithFormat(
-            "'%s' is not a currently valid breakpoint/location id.\n",
-            id_str.GetData());
+            "'%d' is not a currently valid breakpoint ID.\n",
+            cur_bp_id.GetBreakpointID());
       }
-    } else {
-      i = valid_ids->GetSize() + 1;
-      result.AppendErrorWithFormat(
-          "'%d' is not a currently valid breakpoint ID.\n",
-          cur_bp_id.GetBreakpointID());
     }
   }
 }

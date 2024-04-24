@@ -16,7 +16,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::darwin {
+namespace clang {
+namespace tidy {
+namespace darwin {
 
 void DispatchOnceNonstaticCheck::registerMatchers(MatchFinder *Finder) {
   // Find variables without static or global storage. VarDecls do not include
@@ -55,4 +57,6 @@ void DispatchOnceNonstaticCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::darwin
+} // namespace darwin
+} // namespace tidy
+} // namespace clang

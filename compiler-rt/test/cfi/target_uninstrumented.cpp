@@ -3,7 +3,7 @@
 // RUN: %run %t 2>&1 | FileCheck %s
 
 // REQUIRES: cxxabi
-// UNSUPPORTED: target={{.*windows-msvc.*}}
+// UNSUPPORTED: windows-msvc
 
 #include <stdio.h>
 #include <string.h>

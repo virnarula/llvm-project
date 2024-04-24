@@ -18,7 +18,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 namespace {
 bool isOverrideMethod(const FunctionDecl *Function) {
@@ -123,12 +125,10 @@ UnusedParametersCheck::~UnusedParametersCheck() = default;
 UnusedParametersCheck::UnusedParametersCheck(StringRef Name,
                                              ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      StrictMode(Options.getLocalOrGlobal("StrictMode", false)),
-      IgnoreVirtual(Options.get("IgnoreVirtual", false)) {}
+      StrictMode(Options.getLocalOrGlobal("StrictMode", false)) {}
 
 void UnusedParametersCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "StrictMode", StrictMode);
-  Options.store(Opts, "IgnoreVirtual", IgnoreVirtual);
 }
 
 void UnusedParametersCheck::warnOnUnusedParameter(
@@ -178,12 +178,9 @@ void UnusedParametersCheck::check(const MatchFinder::MatchResult &Result) {
   const auto *Function = Result.Nodes.getNodeAs<FunctionDecl>("function");
   if (!Function->hasWrittenPrototype() || Function->isTemplateInstantiation())
     return;
-  if (const auto *Method = dyn_cast<CXXMethodDecl>(Function)) {
-    if (IgnoreVirtual && Method->isVirtual())
-      return;
+  if (const auto *Method = dyn_cast<CXXMethodDecl>(Function))
     if (Method->isLambdaStaticInvoker())
       return;
-  }
   for (unsigned I = 0, E = Function->getNumParams(); I != E; ++I) {
     const auto *Param = Function->getParamDecl(I);
     if (Param->isUsed() || Param->isReferenced() || !Param->getDeclName() ||
@@ -201,4 +198,6 @@ void UnusedParametersCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

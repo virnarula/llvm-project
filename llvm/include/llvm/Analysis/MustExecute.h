@@ -25,8 +25,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionPrecedenceTracking.h"
-#include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -528,10 +528,10 @@ private:
   ///}
 
   /// Map to cache isGuaranteedToTransferExecutionToSuccessor results.
-  DenseMap<const BasicBlock *, std::optional<bool>> BlockTransferMap;
+  DenseMap<const BasicBlock *, Optional<bool>> BlockTransferMap;
 
   /// Map to cache containsIrreducibleCFG results.
-  DenseMap<const Function *, std::optional<bool>> IrreducibleControlMap;
+  DenseMap<const Function*, Optional<bool>> IrreducibleControlMap;
 
   /// Map from instructions to associated must be executed iterators.
   DenseMap<const Instruction *, std::unique_ptr<MustBeExecutedIterator>>
@@ -547,7 +547,6 @@ class MustExecutePrinterPass : public PassInfoMixin<MustExecutePrinterPass> {
 public:
   MustExecutePrinterPass(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-  static bool isRequired() { return true; }
 };
 
 class MustBeExecutedContextPrinterPass
@@ -557,7 +556,6 @@ class MustBeExecutedContextPrinterPass
 public:
   MustBeExecutedContextPrinterPass(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-  static bool isRequired() { return true; }
 };
 
 } // namespace llvm

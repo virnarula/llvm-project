@@ -3,6 +3,6 @@
 
 
 define void @foo() {
-  bitcast ptr null to ptr
+  bitcast i32* null to i32*
   ret void
 }

@@ -26,10 +26,10 @@
 
 #include "support/Context.h"
 #include "llvm/ADT/FunctionExtras.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 #include <functional>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -56,7 +56,7 @@ struct Config {
   struct CDBSearchSpec {
     enum { Ancestors, FixedDir, NoCDBSearch } Policy = Ancestors;
     // Absolute, native slashes, no trailing slash.
-    std::optional<std::string> FixedCDBPath;
+    llvm::Optional<std::string> FixedCDBPath;
   };
 
   /// Controls how the compile command for the current file is determined.
@@ -65,7 +65,7 @@ struct Config {
     std::vector<llvm::unique_function<void(std::vector<std::string> &) const>>
         Edits;
     /// Where to search for compilation databases for this file's flags.
-    CDBSearchSpec CDBSearch = {CDBSearchSpec::Ancestors, std::nullopt};
+    CDBSearchSpec CDBSearch = {CDBSearchSpec::Ancestors, llvm::None};
   } CompileFlags;
 
   enum class BackgroundPolicy { Build, Skip };
@@ -88,12 +88,7 @@ struct Config {
     bool StandardLibrary = true;
   } Index;
 
-  enum class IncludesPolicy {
-    /// Diagnose missing and unused includes.
-    Strict,
-    None,
-  };
-  enum class FastCheckPolicy { Strict, Loose, None };
+  enum UnusedIncludesPolicy { Strict, None };
   /// Controls warnings and errors when parsing code.
   struct {
     bool SuppressAll = false;
@@ -101,14 +96,12 @@ struct Config {
 
     /// Configures what clang-tidy checks to run and options to use with them.
     struct {
-      // A comma-separated list of globs specify which clang-tidy checks to run.
+      // A comma-seperated list of globs specify which clang-tidy checks to run.
       std::string Checks;
       llvm::StringMap<std::string> CheckOptions;
-      FastCheckPolicy FastCheckFilter = FastCheckPolicy::Strict;
     } ClangTidy;
 
-    IncludesPolicy UnusedIncludes = IncludesPolicy::Strict;
-    IncludesPolicy MissingIncludes = IncludesPolicy::None;
+    UnusedIncludesPolicy UnusedIncludes = None;
 
     /// IncludeCleaner will not diagnose usages of these headers matched by
     /// these regexes.
@@ -146,17 +139,7 @@ struct Config {
     bool Parameters = true;
     bool DeducedTypes = true;
     bool Designators = true;
-    bool BlockEnd = false;
-    // Limit the length of type names in inlay hints. (0 means no limit)
-    uint32_t TypeNameLimit = 32;
   } InlayHints;
-
-  struct {
-    /// Controls highlighting kinds that are disabled.
-    std::vector<std::string> DisabledKinds;
-    /// Controls highlighting modifiers that are disabled.
-    std::vector<std::string> DisabledModifiers;
-  } SemanticTokens;
 };
 
 } // namespace clangd

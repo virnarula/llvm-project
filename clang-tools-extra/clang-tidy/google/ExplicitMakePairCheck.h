@@ -11,7 +11,10 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::google::build {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace build {
 
 /// Check that `make_pair`'s template arguments are deduced.
 ///
@@ -33,6 +36,9 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::google::build
+} // namespace build
+} // namespace google
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_GOOGLE_EXPLICITMAKEPAIRCHECK_H

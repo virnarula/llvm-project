@@ -46,7 +46,6 @@
 #include "llvm/Support/WithColor.h"
 
 #include <cstdio>
-#include <optional>
 #include <thread>
 
 using namespace lldb;
@@ -141,7 +140,7 @@ static cl::opt<std::string> InputFile(cl::Positional, cl::desc("<input file>"),
                                       cl::Required, cl::sub(SymTabSubcommand));
 
 /// Validate that the options passed make sense.
-static std::optional<llvm::Error> validate();
+static llvm::Optional<llvm::Error> validate();
 
 /// Transforms the selected mangling preference into a Mangled::NamePreference
 static Mangled::NamePreference getNamePreference();
@@ -290,8 +289,8 @@ int lldb_assert(Debugger &Dbg);
 } // namespace assert
 } // namespace opts
 
-llvm::SmallVector<CompilerContext, 4> parseCompilerContext() {
-  llvm::SmallVector<CompilerContext, 4> result;
+std::vector<CompilerContext> parseCompilerContext() {
+  std::vector<CompilerContext> result;
   if (opts::symbols::CompilerContext.empty())
     return result;
 
@@ -322,10 +321,10 @@ llvm::SmallVector<CompilerContext, 4> parseCompilerContext() {
     }
     result.push_back({kind, ConstString{value}});
   }
-  outs() << "Search context: {";
-  lldb_private::StreamString s;
-  llvm::interleaveComma(result, s, [&](auto &ctx) { ctx.Dump(s); });
-  outs() << s.GetString().str() << "}\n";
+  outs() << "Search context: {\n";
+  for (auto entry: result)
+    entry.Dump();
+  outs() << "}\n";
 
   return result;
 }
@@ -466,7 +465,6 @@ static lldb::DescriptionLevel GetDescriptionLevel() {
 Error opts::symbols::findFunctions(lldb_private::Module &Module) {
   SymbolFile &Symfile = *Module.GetSymbolFile();
   SymbolContextList List;
-  auto compiler_context = parseCompilerContext();
   if (!File.empty()) {
     assert(Line != 0);
 
@@ -499,9 +497,6 @@ Error opts::symbols::findFunctions(lldb_private::Module &Module) {
     assert(RE.IsValid());
     List.Clear();
     Symfile.FindFunctions(RE, true, List);
-  } else if (!compiler_context.empty()) {
-    List.Clear();
-    Module.FindFunctions(compiler_context, getFunctionNameFlags(), {}, List);
   } else {
     Expected<CompilerDeclContext> ContextOr = getDeclContext(Symfile);
     if (!ContextOr)
@@ -581,33 +576,29 @@ Error opts::symbols::findTypes(lldb_private::Module &Module) {
   Expected<CompilerDeclContext> ContextOr = getDeclContext(Symfile);
   if (!ContextOr)
     return ContextOr.takeError();
+  const CompilerDeclContext &ContextPtr =
+      ContextOr->IsValid() ? *ContextOr : CompilerDeclContext();
 
-  TypeResults results;
-  if (!Name.empty()) {
-    if (ContextOr->IsValid()) {
-      TypeQuery query(*ContextOr, ConstString(Name),
-                      TypeQueryOptions::e_module_search);
-      if (!Language.empty())
-        query.AddLanguage(Language::GetLanguageTypeFromString(Language));
-      Symfile.FindTypes(query, results);
-    } else {
-      TypeQuery query(Name);
-      if (!Language.empty())
-        query.AddLanguage(Language::GetLanguageTypeFromString(Language));
-      Symfile.FindTypes(query, results);
-    }
-  } else {
-    TypeQuery query(parseCompilerContext(), TypeQueryOptions::e_module_search);
-    if (!Language.empty())
-      query.AddLanguage(Language::GetLanguageTypeFromString(Language));
-    Symfile.FindTypes(query, results);
-  }
-  outs() << formatv("Found {0} types:\n", results.GetTypeMap().GetSize());
+  LanguageSet languages;
+  if (!Language.empty())
+    languages.Insert(Language::GetLanguageTypeFromString(Language));
+
+  DenseSet<SymbolFile *> SearchedFiles;
+  TypeMap Map;
+  if (!Name.empty())
+    Symfile.FindTypes(ConstString(Name), ContextPtr, UINT32_MAX, SearchedFiles,
+                      Map);
+  else
+    Module.FindTypes(parseCompilerContext(), languages, SearchedFiles, Map);
+
+  outs() << formatv("Found {0} types:\n", Map.GetSize());
   StreamString Stream;
   // Resolve types to force-materialize typedef types.
-  for (const auto &type_sp : results.GetTypeMap().Types())
-    type_sp->GetFullCompilerType();
-  results.GetTypeMap().Dump(&Stream, false, GetDescriptionLevel());
+  Map.ForEach([&](TypeSP &type) {
+    type->GetFullCompilerType();
+    return false;
+  });
+  Map.Dump(&Stream, false, GetDescriptionLevel());
   outs() << Stream.GetData() << "\n";
   return Error::success();
 }
@@ -667,13 +658,13 @@ Error opts::symbols::dumpAST(lldb_private::Module &Module) {
   if (!symfile)
     return make_string_error("Module has no symbol file.");
 
-  auto type_system_or_err =
+  llvm::Expected<TypeSystem &> type_system_or_err =
       symfile->GetTypeSystemForLanguage(eLanguageTypeC_plus_plus);
   if (!type_system_or_err)
     return make_string_error("Can't retrieve TypeSystemClang");
 
-  auto ts = *type_system_or_err;
-  auto *clang_ast_ctx = llvm::dyn_cast_or_null<TypeSystemClang>(ts.get());
+  auto *clang_ast_ctx =
+      llvm::dyn_cast_or_null<TypeSystemClang>(&type_system_or_err.get());
   if (!clang_ast_ctx)
     return make_string_error("Retrieved TypeSystem was not a TypeSystemClang");
 
@@ -695,12 +686,13 @@ Error opts::symbols::dumpEntireClangAST(lldb_private::Module &Module) {
   if (!symfile)
     return make_string_error("Module has no symbol file.");
 
-  auto type_system_or_err =
+  llvm::Expected<TypeSystem &> type_system_or_err =
       symfile->GetTypeSystemForLanguage(eLanguageTypeObjC_plus_plus);
   if (!type_system_or_err)
     return make_string_error("Can't retrieve TypeSystemClang");
-  auto ts = *type_system_or_err;
-  auto *clang_ast_ctx = llvm::dyn_cast_or_null<TypeSystemClang>(ts.get());
+
+  auto *clang_ast_ctx =
+      llvm::dyn_cast_or_null<TypeSystemClang>(&type_system_or_err.get());
   if (!clang_ast_ctx)
     return make_string_error("Retrieved TypeSystem was not a TypeSystemClang");
 
@@ -869,7 +861,7 @@ Expected<Error (*)(lldb_private::Module &)> opts::symbols::getAction() {
   llvm_unreachable("Unsupported symbol action.");
 }
 
-std::optional<llvm::Error> opts::symtab::validate() {
+llvm::Optional<llvm::Error> opts::symtab::validate() {
   if (ManglingPreference != ManglingPreference::None &&
       FindSymbolsByRegex.empty())
     return make_string_error("Mangling preference set but no regex specified.");
@@ -892,7 +884,7 @@ static Mangled::NamePreference opts::symtab::getNamePreference() {
 
 int opts::symtab::handleSymtabCommand(Debugger &Dbg) {
   if (auto error = validate()) {
-    logAllUnhandledErrors(std::move(*error), WithColor::error(), "");
+    logAllUnhandledErrors(std::move(error.value()), WithColor::error(), "");
     return 1;
   }
 

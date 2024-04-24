@@ -19,11 +19,20 @@ target_link_libraries(CoreTests
   LLVMBOLTRewrite
   )
 
-foreach (tgt ${BOLT_TARGETS_TO_BUILD})
+if ("AArch64" IN_LIST LLVM_TARGETS_TO_BUILD)
   include_directories(
-    ${LLVM_MAIN_SRC_DIR}/lib/Target/${tgt}
-    ${LLVM_BINARY_DIR}/lib/Target/${tgt}
+    ${LLVM_MAIN_SRC_DIR}/lib/Target/AArch64
+    ${LLVM_BINARY_DIR}/lib/Target/AArch64
   )
-  string(TOUPPER "${tgt}" upper)
-  target_compile_definitions(CoreTests PRIVATE "${upper}_AVAILABLE")
-endforeach()
+
+  target_compile_definitions(CoreTests PRIVATE AARCH64_AVAILABLE)
+endif()
+
+if ("X86" IN_LIST LLVM_TARGETS_TO_BUILD)
+  include_directories(
+    ${LLVM_MAIN_SRC_DIR}/lib/Target/X86
+    ${LLVM_BINARY_DIR}/lib/Target/X86
+  )
+
+  target_compile_definitions(CoreTests PRIVATE X86_AVAILABLE)
+endif()

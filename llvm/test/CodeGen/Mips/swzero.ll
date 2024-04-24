@@ -2,18 +2,19 @@
 
 %struct.unaligned = type <{ i32 }>
 
-define void @zero_u(ptr nocapture %p) nounwind {
+define void @zero_u(%struct.unaligned* nocapture %p) nounwind {
 entry:
 ; CHECK: swl $zero
 ; CHECK: swr $zero
-  store i32 0, ptr %p, align 1
+  %x = getelementptr inbounds %struct.unaligned, %struct.unaligned* %p, i32 0, i32 0
+  store i32 0, i32* %x, align 1
   ret void
 }
 
-define void @zero_a(ptr nocapture %p) nounwind {
+define void @zero_a(i32* nocapture %p) nounwind {
 entry:
 ; CHECK: sw $zero
-  store i32 0, ptr %p, align 4
+  store i32 0, i32* %p, align 4
   ret void
 }
 

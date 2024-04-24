@@ -1,4 +1,4 @@
-add_custom_target(libc_fenv_unittests)
+add_libc_testsuite(libc_fenv_unittests)
 
 add_libc_unittest(
   rounding_mode_test
@@ -94,7 +94,6 @@ if (NOT (LLVM_USE_SANITIZER OR (${LIBC_TARGET_OS} STREQUAL "windows")
   # and MacOS.
   add_fp_unittest(
     enabled_exceptions_test
-    UNIT_TEST_ONLY
     SUITE
       libc_fenv_unittests
     SRCS
@@ -105,13 +104,10 @@ if (NOT (LLVM_USE_SANITIZER OR (${LIBC_TARGET_OS} STREQUAL "windows")
       libc.src.fenv.feraiseexcept
       libc.src.fenv.fetestexcept
       libc.src.__support.FPUtil.fenv_impl
-    LINK_LIBRARIES
-      LibcFPExceptionHelpers
   )
 
   add_fp_unittest(
     feholdexcept_test
-    UNIT_TEST_ONLY
     SUITE
       libc_fenv_unittests
     SRCS
@@ -120,7 +116,5 @@ if (NOT (LLVM_USE_SANITIZER OR (${LIBC_TARGET_OS} STREQUAL "windows")
       libc.include.fenv
       libc.src.fenv.feholdexcept
       libc.src.__support.FPUtil.fenv_impl
-    LINK_LIBRARIES
-      LibcFPExceptionHelpers
   )
 endif()

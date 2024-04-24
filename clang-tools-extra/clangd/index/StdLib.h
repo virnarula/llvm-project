@@ -26,7 +26,6 @@
 #include "index/Symbol.h"
 #include "support/ThreadsafeFS.h"
 #include "llvm/ADT/StringRef.h"
-#include <optional>
 #include <string>
 
 namespace clang {
@@ -67,7 +66,7 @@ public:
   // Returns the location where the standard library was found.
   //
   // This function is threadsafe.
-  std::optional<StdLibLocation> add(const LangOptions &, const HeaderSearch &);
+  llvm::Optional<StdLibLocation> add(const LangOptions &, const HeaderSearch &);
 
   // Indicates whether a built index should be used.
   // It should not be used if a newer version has subsequently been added.

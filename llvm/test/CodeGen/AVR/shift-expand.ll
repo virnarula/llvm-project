@@ -8,17 +8,8 @@
 target datalayout = "e-P1-p:16:8-i8:8-i16:8-i32:8-i64:8-f32:8-f64:8-n8-a:8"
 target triple = "avr"
 
-define i16 @shl16(i16 %value, i16 %amount) addrspace(1) {
-; CHECK-LABEL: @shl16(
-; CHECK-NEXT:    [[RESULT:%.*]] = shl i16 [[VALUE:%.*]], [[AMOUNT:%.*]]
-; CHECK-NEXT:    ret i16 [[RESULT]]
-;
-  %result = shl i16 %value, %amount
-  ret i16 %result
-}
-
-define i32 @shl32(i32 %value, i32 %amount) addrspace(1) {
-; CHECK-LABEL: @shl32(
+define i32 @shl(i32 %value, i32 %amount) addrspace(1) {
+; CHECK-LABEL: @shl(
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[AMOUNT:%.*]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
@@ -37,39 +28,8 @@ define i32 @shl32(i32 %value, i32 %amount) addrspace(1) {
   ret i32 %result
 }
 
-define i40 @shl40(i40 %value, i40 %amount) addrspace(1) {
-; CHECK-LABEL: @shl40(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i40 [[AMOUNT:%.*]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
-; CHECK-NEXT:    br i1 [[TMP2]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
-; CHECK:       shift.loop:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i8 [ [[TMP1]], [[TMP0:%.*]] ], [ [[TMP5:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i40 [ [[VALUE:%.*]], [[TMP0]] ], [ [[TMP6:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP5]] = sub i8 [[TMP3]], 1
-; CHECK-NEXT:    [[TMP6]] = shl i40 [[TMP4]], 1
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i8 [[TMP5]], 0
-; CHECK-NEXT:    br i1 [[TMP7]], label [[SHIFT_DONE]], label [[SHIFT_LOOP]]
-; CHECK:       shift.done:
-; CHECK-NEXT:    [[TMP8:%.*]] = phi i40 [ [[VALUE]], [[TMP0]] ], [ [[TMP6]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    ret i40 [[TMP8]]
-;
-  %result = shl i40 %value, %amount
-  ret i40 %result
-}
-
-; ------------------------------------------------------------------------------
-
-define i16 @lshr16(i16 %value, i16 %amount) addrspace(1) {
-; CHECK-LABEL: @lshr16(
-; CHECK-NEXT:    [[RESULT:%.*]] = lshr i16 [[VALUE:%.*]], [[AMOUNT:%.*]]
-; CHECK-NEXT:    ret i16 [[RESULT]]
-;
-  %result = lshr i16 %value, %amount
-  ret i16 %result
-}
-
-define i32 @lshr32(i32 %value, i32 %amount) addrspace(1) {
-; CHECK-LABEL: @lshr32(
+define i32 @lshr(i32 %value, i32 %amount) addrspace(1) {
+; CHECK-LABEL: @lshr(
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[AMOUNT:%.*]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
@@ -88,73 +48,42 @@ define i32 @lshr32(i32 %value, i32 %amount) addrspace(1) {
   ret i32 %result
 }
 
-define i40 @lshr40(i40 %value, i40 %amount) addrspace(1) {
-; CHECK-LABEL: @lshr40(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i40 [[AMOUNT:%.*]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
-; CHECK-NEXT:    br i1 [[TMP2]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
+define i32 @ashr(i32 %0, i32 %1) addrspace(1) {
+; CHECK-LABEL: @ashr(
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[TMP1:%.*]] to i8
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i8 [[TMP3]], 0
+; CHECK-NEXT:    br i1 [[TMP4]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
 ; CHECK:       shift.loop:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i8 [ [[TMP1]], [[TMP0:%.*]] ], [ [[TMP5:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i40 [ [[VALUE:%.*]], [[TMP0]] ], [ [[TMP6:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP5]] = sub i8 [[TMP3]], 1
-; CHECK-NEXT:    [[TMP6]] = lshr i40 [[TMP4]], 1
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i8 [[TMP5]], 0
-; CHECK-NEXT:    br i1 [[TMP7]], label [[SHIFT_DONE]], label [[SHIFT_LOOP]]
+; CHECK-NEXT:    [[TMP5:%.*]] = phi i8 [ [[TMP3]], [[TMP2:%.*]] ], [ [[TMP7:%.*]], [[SHIFT_LOOP]] ]
+; CHECK-NEXT:    [[TMP6:%.*]] = phi i32 [ [[TMP0:%.*]], [[TMP2]] ], [ [[TMP8:%.*]], [[SHIFT_LOOP]] ]
+; CHECK-NEXT:    [[TMP7]] = sub i8 [[TMP5]], 1
+; CHECK-NEXT:    [[TMP8]] = ashr i32 [[TMP6]], 1
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq i8 [[TMP7]], 0
+; CHECK-NEXT:    br i1 [[TMP9]], label [[SHIFT_DONE]], label [[SHIFT_LOOP]]
 ; CHECK:       shift.done:
-; CHECK-NEXT:    [[TMP8:%.*]] = phi i40 [ [[VALUE]], [[TMP0]] ], [ [[TMP6]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    ret i40 [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = phi i32 [ [[TMP0]], [[TMP2]] ], [ [[TMP8]], [[SHIFT_LOOP]] ]
+; CHECK-NEXT:    ret i32 [[TMP10]]
 ;
-  %result = lshr i40 %value, %amount
+  %3 = ashr i32 %0, %1
+  ret i32 %3
+}
+
+; This function is not modified because it is not an i32.
+define i40 @shl40(i40 %value, i40 %amount) addrspace(1) {
+; CHECK-LABEL: @shl40(
+; CHECK-NEXT:    [[RESULT:%.*]] = shl i40 [[VALUE:%.*]], [[AMOUNT:%.*]]
+; CHECK-NEXT:    ret i40 [[RESULT]]
+;
+  %result = shl i40 %value, %amount
   ret i40 %result
 }
 
-; ------------------------------------------------------------------------------
-
-define i16 @ashr16(i16 %value, i16 %amount) addrspace(1) {
-; CHECK-LABEL: @ashr16(
-; CHECK-NEXT:    [[RESULT:%.*]] = ashr i16 [[VALUE:%.*]], [[AMOUNT:%.*]]
-; CHECK-NEXT:    ret i16 [[RESULT]]
+; This function isn't either, although perhaps it should.
+define i24 @shl24(i24 %value, i24 %amount) addrspace(1) {
+; CHECK-LABEL: @shl24(
+; CHECK-NEXT:    [[RESULT:%.*]] = shl i24 [[VALUE:%.*]], [[AMOUNT:%.*]]
+; CHECK-NEXT:    ret i24 [[RESULT]]
 ;
-  %result = ashr i16 %value, %amount
-  ret i16 %result
-}
-
-define i32 @ashr32(i32 %value, i32 %amount) addrspace(1) {
-; CHECK-LABEL: @ashr32(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[AMOUNT:%.*]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
-; CHECK-NEXT:    br i1 [[TMP2]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
-; CHECK:       shift.loop:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i8 [ [[TMP1]], [[TMP0:%.*]] ], [ [[TMP5:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i32 [ [[VALUE:%.*]], [[TMP0]] ], [ [[TMP6:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP5]] = sub i8 [[TMP3]], 1
-; CHECK-NEXT:    [[TMP6]] = ashr i32 [[TMP4]], 1
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i8 [[TMP5]], 0
-; CHECK-NEXT:    br i1 [[TMP7]], label [[SHIFT_DONE]], label [[SHIFT_LOOP]]
-; CHECK:       shift.done:
-; CHECK-NEXT:    [[TMP8:%.*]] = phi i32 [ [[VALUE]], [[TMP0]] ], [ [[TMP6]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    ret i32 [[TMP8]]
-;
-  %result = ashr i32 %value, %amount
-  ret i32 %result
-}
-
-define i40 @ashr40(i40 %value, i40 %amount) addrspace(1) {
-; CHECK-LABEL: @ashr40(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i40 [[AMOUNT:%.*]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
-; CHECK-NEXT:    br i1 [[TMP2]], label [[SHIFT_DONE:%.*]], label [[SHIFT_LOOP:%.*]]
-; CHECK:       shift.loop:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i8 [ [[TMP1]], [[TMP0:%.*]] ], [ [[TMP5:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i40 [ [[VALUE:%.*]], [[TMP0]] ], [ [[TMP6:%.*]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    [[TMP5]] = sub i8 [[TMP3]], 1
-; CHECK-NEXT:    [[TMP6]] = ashr i40 [[TMP4]], 1
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i8 [[TMP5]], 0
-; CHECK-NEXT:    br i1 [[TMP7]], label [[SHIFT_DONE]], label [[SHIFT_LOOP]]
-; CHECK:       shift.done:
-; CHECK-NEXT:    [[TMP8:%.*]] = phi i40 [ [[VALUE]], [[TMP0]] ], [ [[TMP6]], [[SHIFT_LOOP]] ]
-; CHECK-NEXT:    ret i40 [[TMP8]]
-;
-  %result = ashr i40 %value, %amount
-  ret i40 %result
+  %result = shl i24 %value, %amount
+  ret i24 %result
 }

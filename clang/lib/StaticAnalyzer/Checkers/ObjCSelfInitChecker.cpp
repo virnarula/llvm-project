@@ -61,13 +61,13 @@ class ObjCSelfInitChecker : public Checker<  check::PostObjCMessage,
                                              check::PostCall,
                                              check::Location,
                                              check::Bind > {
-  const BugType BT{this, "Missing \"self = [(super or self) init...]\"",
-                   categories::CoreFoundationObjectiveC};
+  mutable std::unique_ptr<BugType> BT;
 
   void checkForInvalidSelf(const Expr *E, CheckerContext &C,
                            const char *errorStr) const;
 
 public:
+  ObjCSelfInitChecker() {}
   void checkPostObjCMessage(const ObjCMethodCall &Msg, CheckerContext &C) const;
   void checkPostStmt(const ObjCIvarRefExpr *E, CheckerContext &C) const;
   void checkPreStmt(const ReturnStmt *S, CheckerContext &C) const;
@@ -157,7 +157,10 @@ void ObjCSelfInitChecker::checkForInvalidSelf(const Expr *E, CheckerContext &C,
   if (!N)
     return;
 
-  C.emitReport(std::make_unique<PathSensitiveBugReport>(BT, errorStr, N));
+  if (!BT)
+    BT.reset(new BugType(this, "Missing \"self = [(super or self) init...]\"",
+                         categories::CoreFoundationObjectiveC));
+  C.emitReport(std::make_unique<PathSensitiveBugReport>(*BT, errorStr, N));
 }
 
 void ObjCSelfInitChecker::checkPostObjCMessage(const ObjCMethodCall &Msg,
@@ -359,17 +362,18 @@ void ObjCSelfInitChecker::printState(raw_ostream &Out, ProgramStateRef State,
   }
 
   Out << NL;
-  for (auto [Sym, Flag] : FlagMap) {
-    Out << Sym << " : ";
+  for (SelfFlagTy::iterator I = FlagMap.begin(), E = FlagMap.end();
+       I != E; ++I) {
+    Out << I->first << " : ";
 
-    if (Flag == SelfFlag_None)
+    if (I->second == SelfFlag_None)
       Out << "none";
 
-    if (Flag & SelfFlag_Self)
+    if (I->second & SelfFlag_Self)
       Out << "self variable";
 
-    if (Flag & SelfFlag_InitRes) {
-      if (Flag != SelfFlag_InitRes)
+    if (I->second & SelfFlag_InitRes) {
+      if (I->second != SelfFlag_InitRes)
         Out << " | ";
       Out << "result of init method";
     }

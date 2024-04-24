@@ -28,6 +28,7 @@
 #include <ranges>
 
 #include "almost_satisfies_types.h"
+#include "boolean_testable.h"
 #include "test_iterators.h"
 
 // SFINAE tests.
@@ -61,8 +62,8 @@ static_assert(!HasPartialSortR<UncheckedRange<int*, SentinelForNotWeaklyEquality
 static_assert(!HasPartialSortR<UncheckedRange<int*>, BadComparator>);
 static_assert(!HasPartialSortR<UncheckedRange<const int*>>); // Doesn't satisfy `sortable`.
 
-template <class Iter, class Sent, std::size_t N>
-constexpr void test_one(std::array<int, N> input, std::size_t mid_index, std::array<int, N> sorted) {
+template <class Iter, class Sent, size_t N>
+constexpr void test_one(std::array<int, N> input, size_t mid_index, std::array<int, N> sorted) {
   { // (iterator, sentinel) overload.
     auto partially_sorted = input;
     auto begin = Iter(partially_sorted.data());
@@ -88,12 +89,12 @@ constexpr void test_one(std::array<int, N> input, std::size_t mid_index, std::ar
   }
 }
 
-template <class Iter, class Sent, std::size_t N>
+template <class Iter, class Sent, size_t N>
 constexpr void test_all_subsequences(std::array<int, N> input) {
   auto sorted = input;
   std::sort(sorted.begin(), sorted.end());
 
-  for (std::size_t n = 0; n <= N; ++n) {
+  for (size_t n = 0; n <= N; ++n) {
     test_one<Iter, Sent, N>(input, n, sorted);
   }
 }

@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include <string>
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 /// Random number generator must be seeded properly.
 ///
@@ -20,7 +22,7 @@ namespace clang::tidy::cert {
 /// constant expression is a security vulnerability.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/cert/msc51-cpp.html
+/// http://clang.llvm.org/extra/clang-tidy/checks/cert/properly-seeded-random-generator.html
 class ProperlySeededRandomGeneratorCheck : public ClangTidyCheck {
 public:
   ProperlySeededRandomGeneratorCheck(StringRef Name, ClangTidyContext *Context);
@@ -37,6 +39,8 @@ private:
   SmallVector<StringRef, 5> DisallowedSeedTypes;
 };
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CERT_PROPERLY_SEEDED_RANDOM_GENERATOR_H

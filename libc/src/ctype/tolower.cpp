@@ -11,10 +11,14 @@
 
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // TODO: Currently restricted to default locale.
 // These should be extended using locale information.
-LLVM_LIBC_FUNCTION(int, tolower, (int c)) { return internal::tolower(c); }
+LLVM_LIBC_FUNCTION(int, tolower, (int c)) {
+  if (internal::isupper(c))
+    return c + ('a' - 'A');
+  return c;
+}
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

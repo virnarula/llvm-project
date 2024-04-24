@@ -189,8 +189,6 @@ public:
   explicit AssumptionPrinterPass(raw_ostream &OS) : OS(OS) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-
-  static bool isRequired() { return true; }
 };
 
 /// An immutable pass that tracks lazily created \c AssumptionCache

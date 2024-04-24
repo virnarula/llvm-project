@@ -1,7 +1,6 @@
-; REQUIRES: have_tflite
+; REQUIRES: have_tf_api
 ; RUN: opt -enable-ml-inliner=development -passes=scc-oz-module-inliner \
-; RUN:     -training-log=%t -S < %s 
-; RUN: %python %S/../../../../lib/Analysis/models/log_reader.py %t | FileCheck %s 
+; RUN:     -training-log=- -tfutils-text-log  -S < %s | FileCheck %s 
 
 define i32 @top() {
     %a = call i32 @to_be_deleted()
@@ -18,7 +17,16 @@ define i32 @externally_visible() {
     ret i32 2
 }
 
-; CHECK: observation: 0
-; CHECK: inlining_decision: 1
-; CHECK: observation: 1
-; CHECK: inlining_decision: 1
+; CHECK:        key: "inlining_decision"
+; CHECK-NEXT:   value {
+; CHECK-NEXT:     feature {
+; CHECK-NEXT:       int64_list {
+; CHECK-NEXT:         value: 1
+; CHECK-NEXT:       }
+; CHECK-NEXT:     }
+; CHECK-NEXT:     feature {
+; CHECK-NEXT:       int64_list {
+; CHECK-NEXT:         value: 1
+; CHECK-NEXT:       }
+; CHECK-NEXT:     }
+; CHECK-NEXT:   }

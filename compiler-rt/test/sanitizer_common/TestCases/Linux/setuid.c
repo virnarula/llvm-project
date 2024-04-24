@@ -4,7 +4,7 @@
 // the unsupported flag.
 // https://llvm.org/bugs/show_bug.cgi?id=25799
 //
-// UNSUPPORTED: target=powerpc64-unknown-linux-gnu{{.*}}
+// UNSUPPORTED: powerpc64-unknown-linux-gnu
 
 #include <pthread.h>
 #include <stdio.h>

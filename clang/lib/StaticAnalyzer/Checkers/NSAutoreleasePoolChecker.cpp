@@ -31,8 +31,7 @@ using namespace ento;
 namespace {
 class NSAutoreleasePoolChecker
   : public Checker<check::PreObjCMessage> {
-  const BugType BT{this, "Use -drain instead of -release",
-                   "API Upgrade (Apple)"};
+  mutable std::unique_ptr<BugType> BT;
   mutable Selector releaseS;
 
 public:
@@ -58,6 +57,10 @@ void NSAutoreleasePoolChecker::checkPreObjCMessage(const ObjCMethodCall &msg,
   if (msg.getSelector() != releaseS)
     return;
 
+  if (!BT)
+    BT.reset(new BugType(this, "Use -drain instead of -release",
+                         "API Upgrade (Apple)"));
+
   ExplodedNode *N = C.generateNonFatalErrorNode();
   if (!N) {
     assert(0);
@@ -65,7 +68,7 @@ void NSAutoreleasePoolChecker::checkPreObjCMessage(const ObjCMethodCall &msg,
   }
 
   auto Report = std::make_unique<PathSensitiveBugReport>(
-      BT,
+      *BT,
       "Use -drain instead of -release when using NSAutoreleasePool and "
       "garbage collection",
       N);
@@ -77,7 +80,7 @@ void ento::registerNSAutoreleasePoolChecker(CheckerManager &mgr) {
   mgr.registerChecker<NSAutoreleasePoolChecker>();
 }
 
-bool ento::shouldRegisterNSAutoreleasePoolChecker(const CheckerManager &mgr) {
+bool ento::shouldRegisterNSAutoreleasePoolChecker(const CheckerManager &mgr) { 
   const LangOptions &LO = mgr.getLangOpts();
   return LO.getGC() != LangOptions::NonGC;
 }

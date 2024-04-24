@@ -14,13 +14,13 @@
 #include <errno.h>
 #include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, pthread_key_delete, (pthread_key_t key)) {
-  if (LIBC_NAMESPACE::tss_key_delete(key))
+  if (__llvm_libc::tss_key_delete(key))
     return 0;
   else
     return EINVAL;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

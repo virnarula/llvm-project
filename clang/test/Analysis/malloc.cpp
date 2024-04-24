@@ -41,6 +41,7 @@ void checkThatMallocCheckerIsRunning() {
   malloc(4);
 } // expected-warning{{leak}}
 
+// Test for radar://11110132.
 struct Foo {
     mutable void* m_data;
     Foo(void* data) : m_data(data) {}
@@ -51,7 +52,7 @@ Foo aFunction() {
 
 // Assume that functions which take a function pointer can free memory even if
 // they are defined in system headers and take the const pointer to the
-// allocated memory.
+// allocated memory. (radar://11160612)
 // Test default parameter.
 int const_ptr_and_callback_def_param(int, const char*, int n, void(*)(void*) = free);
 void r11160612_3() {

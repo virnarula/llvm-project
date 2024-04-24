@@ -13,12 +13,13 @@
 #include "Feature.h"
 #include "TestFS.h"
 #include "clang/Basic/DiagnosticSema.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <optional>
 #include <string>
 
 namespace clang {
@@ -246,19 +247,22 @@ TEST_F(ConfigCompileTests, PathSpecMatch) {
 }
 
 TEST_F(ConfigCompileTests, DiagnosticsIncludeCleaner) {
-  // Defaults to Strict.
+  // Defaults to None.
   EXPECT_TRUE(compileAndApply());
-  EXPECT_EQ(Conf.Diagnostics.UnusedIncludes, Config::IncludesPolicy::Strict);
+  EXPECT_EQ(Conf.Diagnostics.UnusedIncludes,
+            Config::UnusedIncludesPolicy::None);
 
   Frag = {};
   Frag.Diagnostics.UnusedIncludes.emplace("None");
   EXPECT_TRUE(compileAndApply());
-  EXPECT_EQ(Conf.Diagnostics.UnusedIncludes, Config::IncludesPolicy::None);
+  EXPECT_EQ(Conf.Diagnostics.UnusedIncludes,
+            Config::UnusedIncludesPolicy::None);
 
   Frag = {};
   Frag.Diagnostics.UnusedIncludes.emplace("Strict");
   EXPECT_TRUE(compileAndApply());
-  EXPECT_EQ(Conf.Diagnostics.UnusedIncludes, Config::IncludesPolicy::Strict);
+  EXPECT_EQ(Conf.Diagnostics.UnusedIncludes,
+            Config::UnusedIncludesPolicy::Strict);
 
   Frag = {};
   EXPECT_TRUE(Conf.Diagnostics.Includes.IgnoreHeader.empty())
@@ -432,7 +436,7 @@ TEST_F(ConfigCompileTests, ExternalBlockDisablesBackgroundIndex) {
 
 TEST_F(ConfigCompileTests, ExternalBlockMountPoint) {
   auto GetFrag = [](llvm::StringRef Directory,
-                    std::optional<const char *> MountPoint) {
+                    llvm::Optional<const char *> MountPoint) {
     Fragment Frag;
     Frag.Source.Directory = Directory.str();
     Fragment::IndexBlock::ExternalBlock External;
@@ -467,7 +471,7 @@ TEST_F(ConfigCompileTests, ExternalBlockMountPoint) {
   EXPECT_THAT(Conf.Index.External.MountPoint, FooPath);
 
   // None defaults to ".".
-  Frag = GetFrag(FooPath, std::nullopt);
+  Frag = GetFrag(FooPath, llvm::None);
   compileAndApply();
   ASSERT_THAT(Diags.Diagnostics, IsEmpty());
   ASSERT_EQ(Conf.Index.External.Kind, Config::ExternalIndexSpec::File);

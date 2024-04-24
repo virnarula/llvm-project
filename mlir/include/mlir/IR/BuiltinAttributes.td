@@ -18,6 +18,7 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/BuiltinDialect.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/OpAsmInterface.td"
+include "mlir/IR/SubElementInterfaces.td"
 
 // TODO: Currently the attributes defined in this file are prefixed with
 // `Builtin_`.  This is to differentiate the attributes here with the ones in
@@ -25,18 +26,17 @@ include "mlir/IR/OpAsmInterface.td"
 // to this file instead.
 
 // Base class for Builtin dialect attributes.
-class Builtin_Attr<string name, string attrMnemonic, list<Trait> traits = [],
+class Builtin_Attr<string name, list<Trait> traits = [],
                    string baseCppClass = "::mlir::Attribute">
     : AttrDef<Builtin_Dialect, name, traits, baseCppClass> {
   let mnemonic = ?;
-  let attrName = "builtin." # attrMnemonic;
 }
 
 //===----------------------------------------------------------------------===//
 // AffineMapAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_AffineMapAttr : Builtin_Attr<"AffineMap", "affine_map", [
+def Builtin_AffineMapAttr : Builtin_Attr<"AffineMap", [
     MemRefLayoutAttrInterface
   ]> {
   let summary = "An Attribute containing an AffineMap object";
@@ -71,7 +71,9 @@ def Builtin_AffineMapAttr : Builtin_Attr<"AffineMap", "affine_map", [
 // ArrayAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_ArrayAttr : Builtin_Attr<"Array", "array"> {
+def Builtin_ArrayAttr : Builtin_Attr<"Array", [
+    DeclareAttrInterfaceMethods<SubElementAttrInterface>
+  ]> {
   let summary = "A collection of other Attribute values";
   let description = [{
     Syntax:
@@ -117,8 +119,8 @@ def Builtin_ArrayAttr : Builtin_Attr<"Array", "array"> {
     public:
       explicit attr_value_iterator(ArrayAttr::iterator it)
           : llvm::mapped_iterator<ArrayAttr::iterator, AttrTy (*)(Attribute)>(
-                it, [](Attribute attr) { return ::llvm::cast<AttrTy>(attr); }) {}
-      AttrTy operator*() const { return ::llvm::cast<AttrTy>(*this->I); }
+                it, [](Attribute attr) { return attr.cast<AttrTy>(); }) {}
+      AttrTy operator*() const { return (*this->I).template cast<AttrTy>(); }
     };
 
   public:
@@ -153,7 +155,8 @@ def Builtin_DenseArrayRawDataParameter : ArrayRefParameter<
   }];
 }
 
-def Builtin_DenseArray : Builtin_Attr<"DenseArray", "dense_array"> {
+def Builtin_DenseArray : Builtin_Attr<
+    "DenseArray", [ElementsAttrInterface, TypedAttrInterface]> {
   let summary = "A dense array of integer or floating point elements.";
   let description = [{
     A dense array attribute is an attribute that represents a dense array of
@@ -192,26 +195,43 @@ def Builtin_DenseArray : Builtin_Attr<"DenseArray", "dense_array"> {
   }];
 
   let parameters = (ins
-    "Type":$elementType,
-    "int64_t":$size,
+    AttributeSelfTypeParameter<"", "RankedTensorType">:$type,
     Builtin_DenseArrayRawDataParameter:$rawData
   );
 
   let builders = [
-    AttrBuilderWithInferredContext<(ins "Type":$elementType, "unsigned":$size,
+    AttrBuilderWithInferredContext<(ins "RankedTensorType":$type,
                                         "ArrayRef<char>":$rawData), [{
-      return $_get(elementType.getContext(), elementType, size, rawData);
+      return $_get(type.getContext(), type, rawData);
     }]>,
   ];
 
-  let genVerifyDecl = 1;
-
   let extraClassDeclaration = [{
-    /// Get the number of elements in the array.
-    int64_t size() const { return getSize(); }
-    /// Return true if there are no elements in the dense array.
-    bool empty() const { return !size(); }
+    /// Allow implicit conversion to ElementsAttr.
+    operator ElementsAttr() const {
+      return *this ? cast<ElementsAttr>() : nullptr;
+    }
+
+    /// ElementsAttr implementation.
+    using ContiguousIterableTypesT =
+        std::tuple<bool, int8_t, int16_t, int32_t, int64_t, float, double>;
+    FailureOr<const bool *>
+    try_value_begin_impl(OverloadToken<bool>) const;
+    FailureOr<const int8_t *>
+    try_value_begin_impl(OverloadToken<int8_t>) const;
+    FailureOr<const int16_t *>
+    try_value_begin_impl(OverloadToken<int16_t>) const;
+    FailureOr<const int32_t *>
+    try_value_begin_impl(OverloadToken<int32_t>) const;
+    FailureOr<const int64_t *>
+    try_value_begin_impl(OverloadToken<int64_t>) const;
+    FailureOr<const float *>
+    try_value_begin_impl(OverloadToken<float>) const;
+    FailureOr<const double *>
+    try_value_begin_impl(OverloadToken<double>) const;
   }];
+
+  let genVerifyDecl = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -219,7 +239,7 @@ def Builtin_DenseArray : Builtin_Attr<"DenseArray", "dense_array"> {
 //===----------------------------------------------------------------------===//
 
 def Builtin_DenseIntOrFPElementsAttr : Builtin_Attr<
-    "DenseIntOrFPElements", "dense_int_or_fp_elements", [ElementsAttrInterface],
+    "DenseIntOrFPElements", [ElementsAttrInterface, TypedAttrInterface],
     "DenseElementsAttr"
   > {
   let summary = "An Attribute containing a dense multi-dimensional array of "
@@ -360,7 +380,7 @@ def Builtin_DenseIntOrFPElementsAttr : Builtin_Attr<
 //===----------------------------------------------------------------------===//
 
 def Builtin_DenseStringElementsAttr : Builtin_Attr<
-    "DenseStringElements", "dense_string_elements", [ElementsAttrInterface],
+    "DenseStringElements", [ElementsAttrInterface, TypedAttrInterface],
     "DenseElementsAttr"
   > {
   let summary = "An Attribute containing a dense multi-dimensional array of "
@@ -430,8 +450,9 @@ def Builtin_DenseStringElementsAttr : Builtin_Attr<
 // DenseResourceElementsAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_DenseResourceElementsAttr : Builtin_Attr<"DenseResourceElements",
-    "dense_resource_elements", [ElementsAttrInterface]> {
+def Builtin_DenseResourceElementsAttr : Builtin_Attr<"DenseResourceElements", [
+    ElementsAttrInterface, TypedAttrInterface
+  ]> {
   let summary = "An Attribute containing a dense multi-dimensional array "
                 "backed by a resource";
   let description = [{
@@ -454,15 +475,9 @@ def Builtin_DenseResourceElementsAttr : Builtin_Attr<"DenseResourceElements",
     Examples:
 
     ```mlir
-    "example.user_op"() {attr = dense_resource<blob1> : tensor<3xi64> } : () -> ()
-
-    {-#
-    dialect_resources: {
-        builtin: {
-          blob1: "0x08000000010000000000000002000000000000000300000000000000"
-        }
-      }
-    #-}
+    // A tensor referencing a builtin dialect resource, `resource_1`, with two
+    // unsigned i32 elements.
+    dense_resource<resource_1> : tensor<2xui32>
     ```
   }];
   let parameters = (ins
@@ -472,20 +487,21 @@ def Builtin_DenseResourceElementsAttr : Builtin_Attr<"DenseResourceElements",
   let builders = [
     AttrBuilderWithInferredContext<(ins
       "ShapedType":$type, "DenseResourceElementsHandle":$handle
-    )>,
+    )>
+  ];
+  let extraClassDeclaration = [{
+  protected:
     /// A builder that inserts a new resource into the builtin dialect's blob
     /// manager using the provided blob. The handle of the inserted blob is used
     /// when building the attribute. The provided `blobName` is used as a hint
     /// for the key of the new handle for the `blob` resource, but may be
     /// changed if necessary to ensure uniqueness during insertion.
-    /// This base class builder does no element type specific size or alignment 
-    /// checking. Use the typed subclasses for more safety unless if performing
-    /// generic operations.
-    AttrBuilderWithInferredContext<(ins
-      "ShapedType":$type, "StringRef":$blobName, "AsmResourceBlob":$blob
-    )>
-  ];
+    static DenseResourceElementsAttr get(
+      ShapedType type, StringRef blobName, AsmResourceBlob blob
+    );
 
+  public:
+  }];
   let skipDefaultBuilders = 1;
 }
 
@@ -493,7 +509,9 @@ def Builtin_DenseResourceElementsAttr : Builtin_Attr<"DenseResourceElements",
 // DictionaryAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_DictionaryAttr : Builtin_Attr<"Dictionary", "dictionary"> {
+def Builtin_DictionaryAttr : Builtin_Attr<"Dictionary", [
+    DeclareAttrInterfaceMethods<SubElementAttrInterface>
+  ]> {
   let summary = "An dictionary of named Attribute values";
   let description = [{
     Syntax:
@@ -516,7 +534,7 @@ def Builtin_DictionaryAttr : Builtin_Attr<"Dictionary", "dictionary"> {
   }];
   let parameters = (ins ArrayRefParameter<"NamedAttribute", "">:$value);
   let builders = [
-    AttrBuilder<(ins CArg<"ArrayRef<NamedAttribute>", "std::nullopt">:$value)>
+    AttrBuilder<(ins CArg<"ArrayRef<NamedAttribute>", "llvm::None">:$value)>
   ];
   let extraClassDeclaration = [{
     using ValueType = ArrayRef<NamedAttribute>;
@@ -530,9 +548,9 @@ def Builtin_DictionaryAttr : Builtin_Attr<"Dictionary", "dictionary"> {
     Attribute get(StringRef name) const;
     Attribute get(StringAttr name) const;
 
-    /// Return the specified named attribute if present, std::nullopt otherwise.
-    std::optional<NamedAttribute> getNamed(StringRef name) const;
-    std::optional<NamedAttribute> getNamed(StringAttr name) const;
+    /// Return the specified named attribute if present, None otherwise.
+    Optional<NamedAttribute> getNamed(StringRef name) const;
+    Optional<NamedAttribute> getNamed(StringAttr name) const;
 
     /// Return whether the specified attribute is present.
     bool contains(StringRef name) const;
@@ -558,17 +576,17 @@ def Builtin_DictionaryAttr : Builtin_Attr<"Dictionary", "dictionary"> {
     static bool sortInPlace(SmallVectorImpl<NamedAttribute> &array);
 
     /// Returns an entry with a duplicate name in `array`, if it exists, else
-    /// returns std::nullopt. If `isSorted` is true, the array is assumed to be
+    /// returns llvm::None. If `isSorted` is true, the array is assumed to be
     /// sorted else it will be sorted in place before finding the duplicate entry.
-    static std::optional<NamedAttribute>
+    static Optional<NamedAttribute>
     findDuplicate(SmallVectorImpl<NamedAttribute> &array, bool isSorted);
 
     /// Return the specified attribute if present and is an instance of
     /// `AttrClass`, null otherwise.
     template<typename AttrClass, typename NameClass>
     AttrClass getAs(NameClass &&name) const {
-      return llvm::dyn_cast_or_null<AttrClass>(
-               get(std::forward<NameClass>(name)));
+      return get(std::forward<NameClass>(name))
+        .template dyn_cast_or_null<AttrClass>();
     }
 
   private:
@@ -591,7 +609,7 @@ def Builtin_DictionaryAttr : Builtin_Attr<"Dictionary", "dictionary"> {
 // FloatAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_FloatAttr : Builtin_Attr<"Float", "float", [TypedAttrInterface]> {
+def Builtin_FloatAttr : Builtin_Attr<"Float", [TypedAttrInterface]> {
   let summary = "An Attribute containing a floating-point value";
   let description = [{
     Syntax:
@@ -627,13 +645,13 @@ def Builtin_FloatAttr : Builtin_Attr<"Float", "float", [TypedAttrInterface]> {
       return $_get(type.getContext(), type, value);
     }]>,
     AttrBuilderWithInferredContext<(ins "Type":$type, "double":$value), [{
-      if (type.isF64() || !::llvm::isa<FloatType>(type))
+      if (type.isF64() || !type.isa<FloatType>())
         return $_get(type.getContext(), type, APFloat(value));
 
       // This handles, e.g., F16 because there is no APFloat constructor for it.
       bool unused;
       APFloat val(value);
-      val.convert(::llvm::cast<FloatType>(type).getFloatSemantics(),
+      val.convert(type.cast<FloatType>().getFloatSemantics(),
                   APFloat::rmNearestTiesToEven, &unused);
       return $_get(type.getContext(), type, val);
     }]>
@@ -654,8 +672,7 @@ def Builtin_FloatAttr : Builtin_Attr<"Float", "float", [TypedAttrInterface]> {
 // IntegerAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_IntegerAttr : Builtin_Attr<"Integer", "integer",
-    [TypedAttrInterface]> {
+def Builtin_IntegerAttr : Builtin_Attr<"Integer", [TypedAttrInterface]> {
   let summary = "An Attribute containing a integer value";
   let description = [{
     Syntax:
@@ -701,7 +718,7 @@ def Builtin_IntegerAttr : Builtin_Attr<"Integer", "integer",
         return $_get(type.getContext(), type, apValue);
       }
 
-      IntegerType intTy = ::llvm::cast<IntegerType>(type);
+      IntegerType intTy = type.cast<IntegerType>();
       APInt apValue(intTy.getWidth(), value, intTy.isSignedInteger());
       return $_get(type.getContext(), type, apValue);
     }]>
@@ -743,7 +760,7 @@ def Builtin_IntegerAttr : Builtin_Attr<"Integer", "integer",
 // IntegerSetAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_IntegerSetAttr : Builtin_Attr<"IntegerSet", "integer_set"> {
+def Builtin_IntegerSetAttr : Builtin_Attr<"IntegerSet"> {
   let summary = "An Attribute containing an IntegerSet object";
   let description = [{
     Syntax:
@@ -772,8 +789,7 @@ def Builtin_IntegerSetAttr : Builtin_Attr<"IntegerSet", "integer_set"> {
 // OpaqueAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_OpaqueAttr : Builtin_Attr<"Opaque", "opaque",
-    [TypedAttrInterface]> {
+def Builtin_OpaqueAttr : Builtin_Attr<"Opaque", [TypedAttrInterface]> {
   let summary = "An opaque representation of another Attribute";
   let description = [{
     Syntax:
@@ -811,7 +827,7 @@ def Builtin_OpaqueAttr : Builtin_Attr<"Opaque", "opaque",
 //===----------------------------------------------------------------------===//
 
 def Builtin_SparseElementsAttr : Builtin_Attr<
-    "SparseElements", "sparse_elements", [ElementsAttrInterface]
+    "SparseElements", [ElementsAttrInterface, TypedAttrInterface]
   > {
   let summary = "An opaque representation of a multi-dimensional array";
   let description = [{
@@ -855,11 +871,11 @@ def Builtin_SparseElementsAttr : Builtin_Attr<
                                         "DenseElementsAttr":$values), [{
       assert(indices.getType().getElementType().isInteger(64) &&
              "expected sparse indices to be 64-bit integer values");
-      assert((::llvm::isa<RankedTensorType, VectorType>(type)) &&
+      assert((type.isa<RankedTensorType, VectorType>()) &&
              "type must be ranked tensor or vector");
       assert(type.hasStaticShape() && "type must have static shape");
       return $_get(type.getContext(), type,
-                   ::llvm::cast<DenseIntElementsAttr>(indices), values);
+                   indices.cast<DenseIntElementsAttr>(), values);
     }]>,
   ];
   let extraClassDeclaration = [{
@@ -912,7 +928,7 @@ def Builtin_SparseElementsAttr : Builtin_Attr<
     template <typename T>
     std::enable_if_t<std::is_base_of<Attribute, T>::value, T>
     getZeroValue() const {
-      return ::llvm::cast<T>(getZeroAttr());
+      return getZeroAttr().template cast<T>();
     }
     /// Get a zero for an APInt.
     template <typename T>
@@ -966,7 +982,7 @@ def Builtin_SparseElementsAttr : Builtin_Attr<
 // StridedLayoutAttr
 //===----------------------------------------------------------------------===//
 
-def StridedLayoutAttr : Builtin_Attr<"StridedLayout", "strided_layout",
+def StridedLayoutAttr : Builtin_Attr<"StridedLayout",
     [DeclareAttrInterfaceMethods<MemRefLayoutAttrInterface,
                                  ["verifyLayout"]>]> {
   let summary = "An Attribute representing a strided layout of a shaped type";
@@ -993,7 +1009,7 @@ def StridedLayoutAttr : Builtin_Attr<"StridedLayout", "strided_layout",
     Strides must be positive and the offset must be non-negative. Both the
     strides and the offset may be _dynamic_, i.e. their value may not be known
     at compile time. This is expressed as a `?` in the assembly syntax and as
-    `ShapedType::kDynamic` in the code. Stride and offset values
+    `ShapedType::kDynamicStrideOrOffset` in the code. Stride and offset values
     must satisfy the constraints above at runtime, the behavior is undefined
     otherwise.
 
@@ -1020,8 +1036,7 @@ def StridedLayoutAttr : Builtin_Attr<"StridedLayout", "strided_layout",
 // StringAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_StringAttr : Builtin_Attr<"String", "string",
-    [TypedAttrInterface]> {
+def Builtin_StringAttr : Builtin_Attr<"String", [TypedAttrInterface]> {
   let summary = "An Attribute containing a string";
   let description = [{
     Syntax:
@@ -1072,9 +1087,6 @@ def Builtin_StringAttr : Builtin_Attr<"String", "string",
     /// Return the number of bytes in this string.
     size_t size() const { return getValue().size(); }
 
-    /// Return whether the string is empty.
-    bool empty() const { return getValue().empty(); }
-
     /// Iterate over the underlying string data.
     StringRef::iterator begin() const { return getValue().begin(); }
     StringRef::iterator end() const { return getValue().end(); }
@@ -1102,7 +1114,9 @@ def Builtin_StringAttr : Builtin_Attr<"String", "string",
 // SymbolRefAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_SymbolRefAttr : Builtin_Attr<"SymbolRef", "symbol_ref"> {
+def Builtin_SymbolRefAttr : Builtin_Attr<"SymbolRef", [
+    DeclareAttrInterfaceMethods<SubElementAttrInterface>
+  ]> {
   let summary = "An Attribute containing a symbolic reference to an Operation";
   let description = [{
     Syntax:
@@ -1117,6 +1131,13 @@ def Builtin_SymbolRefAttr : Builtin_Attr<"SymbolRef", "symbol_ref"> {
     the nearest parent operation containing the `OpTrait::SymbolTable` trait. It
     may optionally contain a set of nested references that further resolve to a
     symbol nested within a different symbol table.
+
+    This attribute can only be held internally by
+    [array attributes](#array-attribute),
+    [dictionary attributes](#dictionary-attribute)(including the top-level
+    operation attribute dictionary) as well as attributes exposing it via
+    the `SubElementAttrInterface` interface. Symbol reference attributes
+    nested in types are currently not supported.
 
     **Rationale:** Identifying accesses to global data is critical to
     enabling efficient multi-threaded compilation. Restricting global
@@ -1168,7 +1189,9 @@ def Builtin_SymbolRefAttr : Builtin_Attr<"SymbolRef", "symbol_ref"> {
 // TypeAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_TypeAttr : Builtin_Attr<"Type", "type"> {
+def Builtin_TypeAttr : Builtin_Attr<"Type", [
+    DeclareAttrInterfaceMethods<SubElementAttrInterface>
+  ]> {
   let summary = "An Attribute containing a Type";
   let description = [{
     Syntax:
@@ -1201,7 +1224,7 @@ def Builtin_TypeAttr : Builtin_Attr<"Type", "type"> {
 // UnitAttr
 //===----------------------------------------------------------------------===//
 
-def Builtin_UnitAttr : Builtin_Attr<"Unit", "unit"> {
+def Builtin_UnitAttr : Builtin_Attr<"Unit"> {
   let summary = "An Attribute value of `unit` type";
   let description = [{
     Syntax:

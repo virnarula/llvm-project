@@ -1,6 +1,7 @@
 // Tests UAF detection where Allocate/Deallocate/Use
 // happen in separate threads.
 // RUN: %clang_hwasan %s -o %t && not %run %t 2>&1 | FileCheck %s
+// REQUIRES: stable-runtime
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -32,7 +33,7 @@ void *Use(void *arg) {
   // CHECK: Cause: use-after-free
   // CHECK: freed by thread T2 here
   // CHECK: in Deallocate
-  // CHECK: previously allocated by thread T1 here:
+  // CHECK: previously allocated here:
   // CHECK: in Allocate
   // CHECK-DAG: Thread: T2 0x
   // CHECK-DAG: Thread: T3 0x

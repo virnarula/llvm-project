@@ -12,14 +12,11 @@
 #include "lldb/Expression/DWARFExpression.h"
 #include "lldb/Utility/RangeMap.h"
 #include "lldb/lldb-private.h"
+#include "llvm/ADT/Optional.h"
+
+class DWARFUnit;
 
 namespace lldb_private {
-
-namespace plugin {
-namespace dwarf {
-class DWARFUnit;
-} // namespace dwarf
-} // namespace plugin
 
 /// \class DWARFExpressionList DWARFExpressionList.h
 /// "lldb/Expression/DWARFExpressionList.h" Encapsulates a range map from file
@@ -28,14 +25,13 @@ class DWARFExpressionList {
 public:
   DWARFExpressionList() = default;
 
-  DWARFExpressionList(lldb::ModuleSP module_sp,
-                      const plugin::dwarf::DWARFUnit *dwarf_cu,
+  DWARFExpressionList(lldb::ModuleSP module_sp, const DWARFUnit *dwarf_cu,
                       lldb::addr_t func_file_addr)
       : m_module_wp(module_sp), m_dwarf_cu(dwarf_cu),
         m_func_file_addr(func_file_addr) {}
 
   DWARFExpressionList(lldb::ModuleSP module_sp, DWARFExpression expr,
-                      const plugin::dwarf::DWARFUnit *dwarf_cu)
+                      const DWARFUnit *dwarf_cu)
       : m_module_wp(module_sp), m_dwarf_cu(dwarf_cu) {
     AddExpression(0, LLDB_INVALID_ADDRESS, expr);
   }
@@ -141,7 +137,7 @@ private:
   /// The DWARF compile unit this expression belongs to. It is used to evaluate
   /// values indexing into the .debug_addr section (e.g. DW_OP_GNU_addr_index,
   /// DW_OP_GNU_const_index)
-  const plugin::dwarf::DWARFUnit *m_dwarf_cu = nullptr;
+  const DWARFUnit *m_dwarf_cu = nullptr;
 
   // Function base file address.
   lldb::addr_t m_func_file_addr = LLDB_INVALID_ADDRESS;

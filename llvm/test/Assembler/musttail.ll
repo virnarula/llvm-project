@@ -4,11 +4,11 @@
 
 %struct.A = type { i32 }
 
-declare ptr @f(ptr, ...)
+declare i8* @f(i8*, ...)
 
-define ptr @f_thunk(ptr %this, ...) {
-  %rv = musttail call ptr (ptr, ...) @f(ptr %this, ...)
-  ret ptr %rv
+define i8* @f_thunk(i8* %this, ...) {
+  %rv = musttail call i8* (i8*, ...) @f(i8* %this, ...)
+  ret i8* %rv
 }
-; CHECK-LABEL: define ptr @f_thunk(ptr %this, ...)
-; CHECK: %rv = musttail call ptr (ptr, ...) @f(ptr %this, ...)
+; CHECK-LABEL: define i8* @f_thunk(i8* %this, ...)
+; CHECK: %rv = musttail call i8* (i8*, ...) @f(i8* %this, ...)

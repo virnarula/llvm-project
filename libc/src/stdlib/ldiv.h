@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <stdlib.h>
+
 #ifndef LLVM_LIBC_SRC_STDLIB_LDIV_H
 #define LLVM_LIBC_SRC_STDLIB_LDIV_H
 
-#include <stdlib.h>
-
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 ldiv_t ldiv(long x, long y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDLIB_LDIV_H

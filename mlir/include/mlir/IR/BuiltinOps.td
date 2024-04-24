@@ -58,13 +58,13 @@ def ModuleOp : Builtin_Op<"module", [
   let regions = (region SizedRegion<1>:$bodyRegion);
 
   let assemblyFormat = "($sym_name^)? attr-dict-with-keyword $bodyRegion";
-  let builders = [OpBuilder<(ins CArg<"std::optional<StringRef>", "{}">:$name)>];
+  let builders = [OpBuilder<(ins CArg<"Optional<StringRef>", "{}">:$name)>];
   let extraClassDeclaration = [{
     /// Construct a module from the given location with an optional name.
-    static ModuleOp create(Location loc, std::optional<StringRef> name = std::nullopt);
+    static ModuleOp create(Location loc, Optional<StringRef> name = llvm::None);
 
     /// Return the name of this module if present.
-    std::optional<StringRef> getName() { return getSymName(); }
+    Optional<StringRef> getName() { return getSymName(); }
 
     //===------------------------------------------------------------------===//
     // SymbolOpInterface Methods
@@ -99,7 +99,7 @@ def ModuleOp : Builtin_Op<"module", [
 //===----------------------------------------------------------------------===//
 
 def UnrealizedConversionCastOp : Builtin_Op<"unrealized_conversion_cast", [
-    Pure
+    DeclareOpInterfaceMethods<CastOpInterface>, Pure
   ]> {
   let summary = "An unrealized conversion from one set of types to another";
   let description = [{
@@ -141,7 +141,6 @@ def UnrealizedConversionCastOp : Builtin_Op<"unrealized_conversion_cast", [
     ($inputs^ `:` type($inputs))? `to` type($outputs) attr-dict
   }];
   let hasFolder = 1;
-  let hasVerifier = 1;
 }
 
 #endif // BUILTIN_OPS

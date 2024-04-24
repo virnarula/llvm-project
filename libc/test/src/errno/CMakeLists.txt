@@ -1,8 +1,8 @@
-if(NOT LLVM_LIBC_FULL_BUILD OR LIBC_TARGET_ARCHITECTURE_IS_GPU)
+if(NOT LLVM_LIBC_FULL_BUILD)
   return()
 endif()
 
-add_custom_target(libc_errno_unittests)
+add_libc_testsuite(libc_errno_unittests)
 
 add_libc_unittest(
   errno_test

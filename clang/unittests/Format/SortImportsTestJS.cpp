@@ -111,8 +111,8 @@ TEST_F(SortImportsTestJS, WrappedImportStatements) {
 TEST_F(SortImportsTestJS, SeparateMainCodeBody) {
   verifySort("import {sym} from 'a';"
              "\n"
-             "let x = 1;",
-             "import {sym} from 'a'; let x = 1;");
+             "let x = 1;\n",
+             "import {sym} from 'a'; let x = 1;\n");
 }
 
 TEST_F(SortImportsTestJS, Comments) {
@@ -123,17 +123,17 @@ TEST_F(SortImportsTestJS, Comments) {
              "/** @fileoverview This is a great file. */\n"
              "import {sym} from 'b';  // from //foo:bar\n"
              "// A very important import follows.\n"
-             "import {sym} from 'a';  /* more comments */");
+             "import {sym} from 'a';  /* more comments */\n");
   verifySort("import {sym} from 'a';\n"
              "import {sym} from 'b';\n"
              "\n"
              "/** Comment on variable. */\n"
-             "const x = 1;",
+             "const x = 1;\n",
              "import {sym} from 'b';\n"
              "import {sym} from 'a';\n"
              "\n"
              "/** Comment on variable. */\n"
-             "const x = 1;");
+             "const x = 1;\n");
 }
 
 TEST_F(SortImportsTestJS, SortStar) {
@@ -142,26 +142,26 @@ TEST_F(SortImportsTestJS, SortStar) {
              "import * as bar from 'b';\n",
              "import {sym} from 'a';\n"
              "import * as foo from 'a';\n"
-             "import * as bar from 'b';");
+             "import * as bar from 'b';\n");
 }
 
 TEST_F(SortImportsTestJS, AliasesSymbols) {
   verifySort("import {sym1 as alias1} from 'b';\n"
              "import {sym2 as alias2, sym3 as alias3} from 'c';\n",
              "import {sym2 as alias2, sym3 as alias3} from 'c';\n"
-             "import {sym1 as alias1} from 'b';");
+             "import {sym1 as alias1} from 'b';\n");
 }
 
 TEST_F(SortImportsTestJS, SortSymbols) {
   verifySort("import {sym1, sym2 as a, sym3} from 'b';\n",
-             "import {sym2 as a, sym1, sym3} from 'b';");
+             "import {sym2 as a, sym1, sym3} from 'b';\n");
   verifySort("import {sym1 /* important! */, /*!*/ sym2 as a} from 'b';\n",
-             "import {/*!*/ sym2 as a, sym1 /* important! */} from 'b';");
+             "import {/*!*/ sym2 as a, sym1 /* important! */} from 'b';\n");
   verifySort("import {sym1, sym2} from 'b';\n", "import {\n"
                                                 "  sym2 \n"
                                                 ",\n"
                                                 " sym1 \n"
-                                                "} from 'b';");
+                                                "} from 'b';\n");
 }
 
 TEST_F(SortImportsTestJS, GroupImports) {
@@ -173,13 +173,13 @@ TEST_F(SortImportsTestJS, GroupImports) {
              "import {b} from './relative/path';\n"
              "import {b} from './relative/path/nested';\n"
              "\n"
-             "let x = 1;",
+             "let x = 1;\n",
              "import {b} from './relative/path/nested';\n"
              "import {b} from './relative/path';\n"
              "import {b} from '../parent/nested';\n"
              "import {b} from '../parent';\n"
              "import {a} from 'absolute';\n"
-             "let x = 1;");
+             "let x = 1;\n");
 }
 
 TEST_F(SortImportsTestJS, Exports) {
@@ -193,7 +193,7 @@ TEST_F(SortImportsTestJS, Exports) {
              "export {S};\n"
              "\n"
              "let x = 1;\n"
-             "export y = 1;",
+             "export y = 1;\n",
              "export {R} from './relative';\n"
              "import {T} from './cpath';\n"
              "export {S};\n"
@@ -201,12 +201,12 @@ TEST_F(SortImportsTestJS, Exports) {
              "import {S} from 'bpath';\n"
              "export {P} from '../parent';\n"
              "let x = 1;\n"
-             "export y = 1;");
+             "export y = 1;\n");
   verifySort("import {S} from 'bpath';\n"
              "\n"
              "export {T} from 'epath';\n",
              "export {T} from 'epath';\n"
-             "import {S} from 'bpath';");
+             "import {S} from 'bpath';\n");
 }
 
 TEST_F(SortImportsTestJS, SideEffectImports) {
@@ -219,7 +219,7 @@ TEST_F(SortImportsTestJS, SideEffectImports) {
              "import {R} from './relative';\n"
              "import 'ZZside-effect';\n"
              "import {A} from 'absolute';\n"
-             "import 'AAside-effect';");
+             "import 'AAside-effect';\n");
 }
 
 TEST_F(SortImportsTestJS, AffectedRange) {
@@ -262,7 +262,7 @@ TEST_F(SortImportsTestJS, SortingCanShrink) {
 }
 
 TEST_F(SortImportsTestJS, TrailingComma) {
-  verifySort("import {A, B,} from 'aa';\n", "import {B, A,} from 'aa';");
+  verifySort("import {A, B,} from 'aa';\n", "import {B, A,} from 'aa';\n");
 }
 
 TEST_F(SortImportsTestJS, SortCaseInsensitive) {
@@ -308,7 +308,7 @@ TEST_F(SortImportsTestJS, SortDefaultImports) {
   verifySort("import {A} from 'a';\n"
              "import {default as B} from 'b';\n",
              "import {default as B} from 'b';\n"
-             "import {A} from 'a';");
+             "import {A} from 'a';\n");
 }
 
 TEST_F(SortImportsTestJS, MergeImports) {
@@ -316,12 +316,12 @@ TEST_F(SortImportsTestJS, MergeImports) {
   verifySort("import {X, Y} from 'a';\n"
              "import {Z} from 'z';\n"
              "\n"
-             "X + Y + Z;",
+             "X + Y + Z;\n",
              "import {X} from 'a';\n"
              "import {Z} from 'z';\n"
              "import {Y} from 'a';\n"
              "\n"
-             "X + Y + Z;");
+             "X + Y + Z;\n");
 
   // merge only, no resorting.
   verifySort("import {A, B} from 'foo';\n", "import {A} from 'foo';\n"
@@ -333,15 +333,15 @@ TEST_F(SortImportsTestJS, MergeImports) {
 
   // ignores import *
   verifySort("import * as foo from 'foo';\n"
-             "import {A} from 'foo';",
+             "import {A} from 'foo';\n",
              "import   * as foo from 'foo';\n"
-             "import {A} from 'foo';");
+             "import {A} from 'foo';\n");
 
   // ignores default import
   verifySort("import X from 'foo';\n"
-             "import {A} from 'foo';",
+             "import {A} from 'foo';\n",
              "import    X from 'foo';\n"
-             "import {A} from 'foo';");
+             "import {A} from 'foo';\n");
 
   // keeps comments
   // known issue: loses the 'also a' comment.
@@ -350,7 +350,7 @@ TEST_F(SortImportsTestJS, MergeImports) {
              "// z\n"
              "import {Z} from 'z';\n"
              "\n"
-             "X + Y + Z;",
+             "X + Y + Z;\n",
              "// a\n"
              "import {/* y */ Y} from 'a';\n"
              "// z\n"
@@ -358,7 +358,7 @@ TEST_F(SortImportsTestJS, MergeImports) {
              "// also a\n"
              "import {/* x */ X} from 'a';\n"
              "\n"
-             "X + Y + Z;");
+             "X + Y + Z;\n");
 
   // do not merge imports and exports
   verifySort("import {A} from 'foo';\n"
@@ -375,18 +375,18 @@ TEST_F(SortImportsTestJS, MergeImports) {
              "\n"
              "import {bar} from './a';\n",
              "import {bar} from './a';\n"
-             "import './a';");
+             "import './a';\n");
 }
 
 TEST_F(SortImportsTestJS, RespectsClangFormatOff) {
   verifySort("// clang-format off\n"
              "import {B} from './b';\n"
              "import {A} from './a';\n"
-             "// clang-format on",
+             "// clang-format on\n",
              "// clang-format off\n"
              "import {B} from './b';\n"
              "import {A} from './a';\n"
-             "// clang-format on");
+             "// clang-format on\n");
 
   verifySort("import {A} from './sorted1_a';\n"
              "import {B} from './sorted1_b';\n"
@@ -403,15 +403,15 @@ TEST_F(SortImportsTestJS, RespectsClangFormatOff) {
              "import {A} from './unsorted_a';\n"
              "// clang-format on\n"
              "import {B} from './sorted2_b';\n"
-             "import {A} from './sorted2_a';");
+             "import {A} from './sorted2_a';\n");
 
   // Boundary cases
-  verifySort("// clang-format on", "// clang-format on");
-  verifySort("// clang-format off", "// clang-format off");
+  verifySort("// clang-format on\n", "// clang-format on\n");
+  verifySort("// clang-format off\n", "// clang-format off\n");
   verifySort("// clang-format on\n"
-             "// clang-format off",
+             "// clang-format off\n",
              "// clang-format on\n"
-             "// clang-format off");
+             "// clang-format off\n");
   verifySort("// clang-format off\n"
              "// clang-format on\n"
              "import {A} from './a';\n"
@@ -419,7 +419,7 @@ TEST_F(SortImportsTestJS, RespectsClangFormatOff) {
              "// clang-format off\n"
              "// clang-format on\n"
              "import {B} from './b';\n"
-             "import {A} from './a';");
+             "import {A} from './a';\n");
   // section ends with comment
   verifySort("// clang-format on\n"
              "import {A} from './a';\n"
@@ -427,12 +427,12 @@ TEST_F(SortImportsTestJS, RespectsClangFormatOff) {
              "import {C} from './c';\n"
              "\n" // inserted empty line is working as intended: splits imports
                   // section from main code body
-             "// clang-format off",
+             "// clang-format off\n",
              "// clang-format on\n"
              "import {C} from './c';\n"
              "import {B} from './b';\n"
              "import {A} from './a';\n"
-             "// clang-format off");
+             "// clang-format off\n");
 }
 
 TEST_F(SortImportsTestJS, RespectsClangFormatOffInNamedImports) {
@@ -455,71 +455,14 @@ TEST_F(SortImportsTestJS, ImportEqAliases) {
              "\n"
              "export {Z};\n"
              "\n"
-             "console.log(Z);",
+             "console.log(Z);\n",
              "import {A} from 'foo';\n"
              "import Z = A.C;\n"
              "export {Z};\n"
              "import {B} from 'bar';\n"
              "import Y = B.C.Z;\n"
              "\n"
-             "console.log(Z);");
-}
-
-TEST_F(SortImportsTestJS, ImportExportType) {
-  verifySort("import type {sym} from 'a';\n"
-             "import {type sym} from 'b';\n"
-             "import {sym} from 'c';\n"
-             "import type sym from 'd';\n"
-             "import type * as sym from 'e';\n"
-             "\n"
-             "let x = 1;",
-             "import {sym} from 'c';\n"
-             "import type {sym} from 'a';\n"
-             "import type * as sym from 'e';\n"
-             "import type sym from 'd';\n"
-             "import {type sym} from 'b';\n"
-             "let x = 1;");
-
-  // Symbols within import statement
-  verifySort("import {type sym1, type sym2 as a, sym3} from 'b';\n",
-             "import {type sym2 as a, type sym1, sym3} from 'b';");
-
-  // Merging
-  verifySort("import {X, type Z} from 'a';\n"
-             "import type {Y} from 'a';\n"
-             "\n"
-             "X + Y + Z;",
-             "import {X} from 'a';\n"
-             "import {type Z} from 'a';\n"
-             "import type {Y} from 'a';\n"
-             "\n"
-             "X + Y + Z;");
-
-  // Merging: empty imports
-  verifySort("import type {A} from 'foo';\n", "import type {} from 'foo';\n"
-                                              "import type {A} from 'foo';");
-
-  // Merging: exports
-  verifySort("export {A, type B} from 'foo';\n",
-             "export {A} from 'foo';\n"
-             "export   {type B} from 'foo';");
-
-  // `export type X = Y;` should terminate import sorting. The following export
-  // statements should therefore not merge.
-  verifySort("export type A = B;\n"
-             "export {X};\n"
-             "export {Y};",
-             "export type A = B;\n"
-             "export {X};\n"
-             "export {Y};");
-}
-
-TEST_F(SortImportsTestJS, TemplateKeyword) {
-  // Reproduces issue where importing "template" disables imports sorting.
-  verifySort("import {template} from './a';\n"
-             "import {b} from './b';\n",
-             "import {b} from './b';\n"
-             "import {template} from './a';");
+             "console.log(Z);\n");
 }
 
 } // end namespace

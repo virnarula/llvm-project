@@ -37,20 +37,20 @@ template <size_t Size>
 struct Memset {
   static constexpr size_t SIZE = Size;
 
-  LIBC_INLINE static void block(Ptr dst, uint8_t value) {
+  static inline void block(Ptr dst, uint8_t value) {
     // Implement me
   }
 
-  LIBC_INLINE static void tail(Ptr dst, uint8_t value, size_t count) {
+  static inline void tail(Ptr dst, uint8_t value, size_t count) {
     block(dst + count - SIZE, value);
   }
 
-  LIBC_INLINE static void head_tail(Ptr dst, uint8_t value, size_t count) {
+  static inline void head_tail(Ptr dst, uint8_t value, size_t count) {
     block(dst, value);
     tail(dst, value, count);
   }
 
-  LIBC_INLINE static void loop_and_tail(Ptr dst, uint8_t value, size_t count) {
+  static inline void loop_and_tail(Ptr dst, uint8_t value, size_t count) {
     size_t offset = 0;
     do {
       block(dst + offset, value);

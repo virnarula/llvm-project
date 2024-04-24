@@ -13,10 +13,11 @@
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceManager.h"
-#include <optional>
 #include <set>
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 // UsingInserter adds using declarations for |QualifiedName| to the surrounding
 // function.
@@ -25,9 +26,9 @@ class UsingInserter {
 public:
   UsingInserter(const SourceManager &SourceMgr);
 
-  // Creates a \p using declaration fixit. Returns ``std::nullopt`` on error
+  // Creates a \p using declaration fixit. Returns ``llvm::None`` on error
   // or if the using declaration already exists.
-  std::optional<FixItHint>
+  llvm::Optional<FixItHint>
   createUsingDeclaration(ASTContext &Context, const Stmt &Statement,
                          llvm::StringRef QualifiedName);
 
@@ -37,10 +38,12 @@ public:
                                llvm::StringRef QualifiedName);
 
 private:
-  using NameInFunction = std::pair<const FunctionDecl *, std::string>;
+  typedef std::pair<const FunctionDecl *, std::string> NameInFunction;
   const SourceManager &SourceMgr;
   std::set<NameInFunction> AddedUsing;
 };
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_USINGINSERTER_H

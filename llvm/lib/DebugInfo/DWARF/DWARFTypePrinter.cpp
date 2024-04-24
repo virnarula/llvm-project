@@ -8,7 +8,7 @@ void DWARFTypePrinter::appendTypeTagName(dwarf::Tag T) {
   StringRef TagStr = TagString(T);
   static constexpr StringRef Prefix = "DW_TAG_";
   static constexpr StringRef Suffix = "_type";
-  if (!TagStr.starts_with(Prefix) || !TagStr.ends_with(Suffix))
+  if (!TagStr.startswith(Prefix) || !TagStr.endswith(Suffix))
     return;
   OS << TagStr.substr(Prefix.size(),
                       TagStr.size() - (Prefix.size() + Suffix.size()))
@@ -19,23 +19,23 @@ void DWARFTypePrinter::appendArrayType(const DWARFDie &D) {
   for (const DWARFDie &C : D.children()) {
     if (C.getTag() != DW_TAG_subrange_type)
       continue;
-    std::optional<uint64_t> LB;
-    std::optional<uint64_t> Count;
-    std::optional<uint64_t> UB;
-    std::optional<unsigned> DefaultLB;
-    if (std::optional<DWARFFormValue> L = C.find(DW_AT_lower_bound))
+    Optional<uint64_t> LB;
+    Optional<uint64_t> Count;
+    Optional<uint64_t> UB;
+    Optional<unsigned> DefaultLB;
+    if (Optional<DWARFFormValue> L = C.find(DW_AT_lower_bound))
       LB = L->getAsUnsignedConstant();
-    if (std::optional<DWARFFormValue> CountV = C.find(DW_AT_count))
+    if (Optional<DWARFFormValue> CountV = C.find(DW_AT_count))
       Count = CountV->getAsUnsignedConstant();
-    if (std::optional<DWARFFormValue> UpperV = C.find(DW_AT_upper_bound))
+    if (Optional<DWARFFormValue> UpperV = C.find(DW_AT_upper_bound))
       UB = UpperV->getAsUnsignedConstant();
-    if (std::optional<DWARFFormValue> LV =
+    if (Optional<DWARFFormValue> LV =
             D.getDwarfUnit()->getUnitDIE().find(DW_AT_language))
-      if (std::optional<uint64_t> LC = LV->getAsUnsignedConstant())
+      if (Optional<uint64_t> LC = LV->getAsUnsignedConstant())
         if ((DefaultLB =
                  LanguageLowerBound(static_cast<dwarf::SourceLanguage>(*LC))))
           if (LB && *LB == *DefaultLB)
-            LB = std::nullopt;
+            LB = None;
     if (!LB && !Count && !UB)
       OS << "[]";
     else if (!LB && (Count || UB) && DefaultLB)
@@ -181,7 +181,8 @@ DWARFTypePrinter::appendUnqualifiedNameBefore(DWARFDie D,
     Word = true;
     StringRef Name = NamePtr;
     static constexpr StringRef MangledPrefix = "_STN|";
-    if (Name.consume_front(MangledPrefix)) {
+    if (Name.startswith(MangledPrefix)) {
+      Name = Name.drop_front(MangledPrefix.size());
       auto Separator = Name.find('|');
       assert(Separator != StringRef::npos);
       StringRef BaseName = Name.substr(0, Separator);
@@ -190,12 +191,12 @@ DWARFTypePrinter::appendUnqualifiedNameBefore(DWARFDie D,
         *OriginalFullName = (BaseName + TemplateArgs).str();
       Name = BaseName;
     } else
-      EndedWithTemplate = Name.ends_with(">");
+      EndedWithTemplate = Name.endswith(">");
     OS << Name;
     // This check would be insufficient for operator overloads like
     // "operator>>" - but for now Clang doesn't try to simplify them, so this
     // is OK. Add more nuanced operator overload handling here if/when needed.
-    if (Name.ends_with(">"))
+    if (Name.endswith(">"))
       break;
     if (!appendTemplateParameters(D))
       break;
@@ -423,11 +424,11 @@ bool DWARFTypePrinter::appendTemplateParameters(DWARFDie D,
             OS << (char)Val;
             OS << "'";
           } else if (Val < 256)
-            OS << llvm::format("'\\x%02" PRIx64 "'", Val);
+            OS << to_string(llvm::format("'\\x%02x'", Val));
           else if (Val <= 0xFFFF)
-            OS << llvm::format("'\\u%04" PRIx64 "'", Val);
+            OS << to_string(llvm::format("'\\u%04x'", Val));
           else
-            OS << llvm::format("'\\U%08" PRIx64 "'", Val);
+            OS << to_string(llvm::format("'\\U%08x'", Val));
         }
       }
       continue;
@@ -618,9 +619,6 @@ void DWARFTypePrinter::appendSubroutineNameAfter(
       break;
     case CallingConvention::DW_CC_LLVM_X86RegCall:
       OS << " __attribute__((regcall))";
-      break;
-    case CallingConvention::DW_CC_LLVM_M68kRTD:
-      OS << " __attribute__((m68k_rtd))";
       break;
     }
   }

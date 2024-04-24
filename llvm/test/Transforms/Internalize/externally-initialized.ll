@@ -1,3 +1,4 @@
+; RUN: opt < %s -internalize -S | FileCheck %s
 ; RUN: opt < %s -passes=internalize -S | FileCheck %s
 
 ; CHECK: @G0

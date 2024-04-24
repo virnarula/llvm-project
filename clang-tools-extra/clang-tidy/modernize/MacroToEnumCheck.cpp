@@ -18,7 +18,9 @@
 #include <cctype>
 #include <string>
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 static bool hasOnlyComments(SourceLocation Loc, const LangOptions &Options,
                             StringRef Text) {
@@ -93,11 +95,12 @@ using MacroList = SmallVector<EnumMacro>;
 enum class IncludeGuard { None, FileChanged, IfGuard, DefineGuard };
 
 struct FileState {
-  FileState() = default;
+  FileState()
+      : ConditionScopes(0), LastLine(0), GuardScanner(IncludeGuard::None) {}
 
-  int ConditionScopes = 0;
-  unsigned int LastLine = 0;
-  IncludeGuard GuardScanner = IncludeGuard::None;
+  int ConditionScopes;
+  unsigned int LastLine;
+  IncludeGuard GuardScanner;
   SourceLocation LastMacroLocation;
 };
 
@@ -116,7 +119,7 @@ public:
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override {
     clearCurrentEnum(HashLoc);
@@ -484,7 +487,7 @@ void MacroToEnumCallbacks::fixEnumMacro(const MacroList &MacroList) const {
       Check->diag(Begin, "replace macro with enum")
       << FixItHint::CreateInsertion(Begin, "enum {\n");
 
-  for (size_t I = 0U; I < MacroList.size(); ++I) {
+  for (size_t I = 0u; I < MacroList.size(); ++I) {
     const EnumMacro &Macro = MacroList[I];
     SourceLocation DefineEnd =
         Macro.Directive->getMacroInfo()->getDefinitionLoc();
@@ -553,4 +556,6 @@ void MacroToEnumCheck::check(
     PPCallback->invalidateRange(Range);
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

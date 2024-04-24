@@ -12,7 +12,6 @@
 
 #include "elfnix_platform.h"
 #include "common.h"
-#include "compiler.h"
 #include "error.h"
 #include "wrapper_function_utils.h"
 
@@ -34,13 +33,8 @@ ORC_RT_JIT_DISPATCH_TAG(__orc_rt_elfnix_symbol_lookup_tag)
 
 // eh-frame registration functions, made available via aliases
 // installed by the Platform
-extern "C" void __register_frame(const void *);
-extern "C" void __deregister_frame(const void *);
-
-extern "C" void
-__unw_add_dynamic_eh_frame_section(const void *) ORC_RT_WEAK_IMPORT;
-extern "C" void
-__unw_remove_dynamic_eh_frame_section(const void *) ORC_RT_WEAK_IMPORT;
+extern "C" void __orc_rt_register_eh_frame_section(const void *);
+extern "C" void __orc_rt_deregister_eh_frame_section(const void *);
 
 namespace {
 
@@ -102,7 +96,8 @@ public:
   static ELFNixPlatformRuntimeState &get();
   static void destroy();
 
-  ELFNixPlatformRuntimeState(void *DSOHandle);
+  ELFNixPlatformRuntimeState(void *DSOHandle)
+      : PlatformJDDSOHandle(DSOHandle) {}
 
   // Delete copy and move constructors.
   ELFNixPlatformRuntimeState(const ELFNixPlatformRuntimeState &) = delete;
@@ -148,10 +143,6 @@ private:
 
   void *PlatformJDDSOHandle;
 
-  // Frame registration functions:
-  void (*registerEHFrameSection)(const void *) = nullptr;
-  void (*deregisterEHFrameSection)(const void *) = nullptr;
-
   // FIXME: Move to thread-state.
   std::string DLFcnError;
 
@@ -180,22 +171,11 @@ void ELFNixPlatformRuntimeState::destroy() {
   delete MOPS;
 }
 
-ELFNixPlatformRuntimeState::ELFNixPlatformRuntimeState(void *DSOHandle)
-    : PlatformJDDSOHandle(DSOHandle) {
-  if (__unw_add_dynamic_eh_frame_section &&
-      __unw_remove_dynamic_eh_frame_section) {
-    registerEHFrameSection = __unw_add_dynamic_eh_frame_section;
-    deregisterEHFrameSection = __unw_remove_dynamic_eh_frame_section;
-  } else {
-    registerEHFrameSection = __register_frame;
-    deregisterEHFrameSection = __deregister_frame;
-  }
-}
-
 Error ELFNixPlatformRuntimeState::registerObjectSections(
     ELFNixPerObjectSectionsToRegister POSR) {
   if (POSR.EHFrameSection.Start)
-    registerEHFrameSection(POSR.EHFrameSection.Start.toPtr<const char *>());
+    __orc_rt_register_eh_frame_section(
+        POSR.EHFrameSection.Start.toPtr<const char *>());
 
   if (POSR.ThreadDataSection.Start) {
     if (auto Err = registerThreadDataSection(
@@ -209,7 +189,8 @@ Error ELFNixPlatformRuntimeState::registerObjectSections(
 Error ELFNixPlatformRuntimeState::deregisterObjectSections(
     ELFNixPerObjectSectionsToRegister POSR) {
   if (POSR.EHFrameSection.Start)
-    deregisterEHFrameSection(POSR.EHFrameSection.Start.toPtr<const char *>());
+    __orc_rt_deregister_eh_frame_section(
+        POSR.EHFrameSection.Start.toPtr<const char *>());
 
   return Error::success();
 }
@@ -470,7 +451,7 @@ void destroyELFNixTLVMgr(void *ELFNixTLVMgr) {
 //                             JIT entry points
 //------------------------------------------------------------------------------
 
-ORC_RT_INTERFACE orc_rt_CWrapperFunctionResult
+ORC_RT_INTERFACE __orc_rt_CWrapperFunctionResult
 __orc_rt_elfnix_platform_bootstrap(char *ArgData, size_t ArgSize) {
   return WrapperFunction<void(uint64_t)>::handle(
              ArgData, ArgSize,
@@ -481,14 +462,14 @@ __orc_rt_elfnix_platform_bootstrap(char *ArgData, size_t ArgSize) {
       .release();
 }
 
-ORC_RT_INTERFACE orc_rt_CWrapperFunctionResult
+ORC_RT_INTERFACE __orc_rt_CWrapperFunctionResult
 __orc_rt_elfnix_platform_shutdown(char *ArgData, size_t ArgSize) {
   ELFNixPlatformRuntimeState::destroy();
   return WrapperFunctionResult().release();
 }
 
 /// Wrapper function for registering metadata on a per-object basis.
-ORC_RT_INTERFACE orc_rt_CWrapperFunctionResult
+ORC_RT_INTERFACE __orc_rt_CWrapperFunctionResult
 __orc_rt_elfnix_register_object_sections(char *ArgData, size_t ArgSize) {
   return WrapperFunction<SPSError(SPSELFNixPerObjectSectionsToRegister)>::
       handle(ArgData, ArgSize,
@@ -500,7 +481,7 @@ __orc_rt_elfnix_register_object_sections(char *ArgData, size_t ArgSize) {
 }
 
 /// Wrapper for releasing per-object metadat.
-ORC_RT_INTERFACE orc_rt_CWrapperFunctionResult
+ORC_RT_INTERFACE __orc_rt_CWrapperFunctionResult
 __orc_rt_elfnix_deregister_object_sections(char *ArgData, size_t ArgSize) {
   return WrapperFunction<SPSError(SPSELFNixPerObjectSectionsToRegister)>::
       handle(ArgData, ArgSize,
@@ -536,7 +517,7 @@ ORC_RT_INTERFACE ptrdiff_t ___orc_rt_elfnix_tlsdesc_resolver_impl(
   return TLVPtr - ThreadPointer;
 }
 
-ORC_RT_INTERFACE orc_rt_CWrapperFunctionResult
+ORC_RT_INTERFACE __orc_rt_CWrapperFunctionResult
 __orc_rt_elfnix_create_pthread_key(char *ArgData, size_t ArgSize) {
   return WrapperFunction<SPSExpected<uint64_t>(void)>::handle(
              ArgData, ArgSize,

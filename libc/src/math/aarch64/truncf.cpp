@@ -9,7 +9,7 @@
 #include "src/math/truncf.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(float, truncf, (float x)) {
   float y;
@@ -17,4 +17,4 @@ LLVM_LIBC_FUNCTION(float, truncf, (float x)) {
   return y;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

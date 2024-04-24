@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_HYPOTF_H
 #define LLVM_LIBC_SRC_MATH_HYPOTF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 float hypotf(float x, float y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_HYPOTF_H

@@ -107,9 +107,7 @@ protected:
 
   const lldb_private::Address *operator->() const;
 
-#ifndef SWIG
   friend bool LLDB_API operator==(const SBAddress &lhs, const SBAddress &rhs);
-#endif
 
   lldb_private::Address *get();
 
@@ -125,9 +123,7 @@ private:
   std::unique_ptr<lldb_private::Address> m_opaque_up;
 };
 
-#ifndef SWIG
 bool LLDB_API operator==(const SBAddress &lhs, const SBAddress &rhs);
-#endif
 
 } // namespace lldb
 

@@ -12,8 +12,7 @@ define hidden void @f() {
 !0 = !{i32 2, !"Dwarf Version", i32 4}
 !1 = !{i32 2, !"Debug Info Version", i32 3}
 !5 = distinct !{!5, !14, !15, !"fake loop metadata"}
-; CHECK-STRIP: ![[MD:.*]] = distinct !{![[MD]], !{{[0-9]+}}, !{{[0-9]+}}, !"fake loop metadata"}
-; CHECK-STRIP-NOT: DILocation
+; CHECK-STRIP: ![[MD:.*]] = distinct !{![[MD]], !{{[0-9]+}}, !"fake loop metadata"}
 !7 = distinct !DISubprogram(name: "f", scope: !8, file: !8, line: 1324, type: !9, scopeLine: 1324, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !11)
 !8 = !DIFile(filename: "/", directory: "f.cpp")
 !9 = !DISubroutineType(types: !10)

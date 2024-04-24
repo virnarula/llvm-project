@@ -7,14 +7,14 @@ define void @foo(i32 %arg) {
 entry:
   %before = alloca i32
   call void @llvm.metadata(metadata i32 %arg)
-  call void @llvm.metadata(metadata ptr %after)
-  call void @llvm.metadata(metadata ptr %before)
+  call void @llvm.metadata(metadata i32* %after)
+  call void @llvm.metadata(metadata i32* %before)
   %after = alloca i32
   ret void
 
 ; CHECK: %before = alloca i32
 ; CHECK: call void @llvm.metadata(metadata i32 %arg)
-; CHECK: call void @llvm.metadata(metadata ptr %after)
-; CHECK: call void @llvm.metadata(metadata ptr %before)
+; CHECK: call void @llvm.metadata(metadata i32* %after)
+; CHECK: call void @llvm.metadata(metadata i32* %before)
 ; CHECK: %after = alloca i32
 }

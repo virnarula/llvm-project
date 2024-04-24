@@ -1,4 +1,4 @@
-extern char f() __attribute__((const));
+extern void f() __attribute__((const));
 
 struct S {
   struct {

@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_FENV_FEDISABLEEXCEPT_H
 #define LLVM_LIBC_SRC_FENV_FEDISABLEEXCEPT_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fedisableexcept(int);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_FENV_FEDISABLEEXCEPT_H

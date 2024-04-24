@@ -1,6 +1,2 @@
-add_subdirectory(DebugExtension)
 add_subdirectory(IR)
-add_subdirectory(LoopExtension)
-add_subdirectory(PDLExtension)
 add_subdirectory(Transforms)
-add_subdirectory(Utils)

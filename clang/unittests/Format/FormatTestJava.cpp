@@ -6,25 +6,47 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "FormatTestBase.h"
+#include "FormatTestUtils.h"
+#include "clang/Format/Format.h"
+#include "llvm/Support/Debug.h"
+#include "gtest/gtest.h"
 
 #define DEBUG_TYPE "format-test"
 
 namespace clang {
 namespace format {
-namespace test {
-namespace {
 
-class FormatTestJava : public test::FormatTestBase {
+class FormatTestJava : public ::testing::Test {
 protected:
-  FormatStyle getDefaultStyle() const override {
-    return getGoogleStyle(FormatStyle::LK_Java);
+  static std::string format(llvm::StringRef Code, unsigned Offset,
+                            unsigned Length, const FormatStyle &Style) {
+    LLVM_DEBUG(llvm::errs() << "---\n");
+    LLVM_DEBUG(llvm::errs() << Code << "\n\n");
+    std::vector<tooling::Range> Ranges(1, tooling::Range(Offset, Length));
+    tooling::Replacements Replaces = reformat(Style, Code, Ranges);
+    auto Result = applyAllReplacements(Code, Replaces);
+    EXPECT_TRUE(static_cast<bool>(Result));
+    LLVM_DEBUG(llvm::errs() << "\n" << *Result << "\n\n");
+    return *Result;
+  }
+
+  static std::string
+  format(llvm::StringRef Code,
+         const FormatStyle &Style = getGoogleStyle(FormatStyle::LK_Java)) {
+    return format(Code, 0, Code.size(), Style);
   }
 
   static FormatStyle getStyleWithColumns(unsigned ColumnLimit) {
     FormatStyle Style = getGoogleStyle(FormatStyle::LK_Java);
     Style.ColumnLimit = ColumnLimit;
     return Style;
+  }
+
+  static void verifyFormat(
+      llvm::StringRef Code,
+      const FormatStyle &Style = getGoogleStyle(FormatStyle::LK_Java)) {
+    EXPECT_EQ(Code.str(), format(Code, Style)) << "Expected code is not stable";
+    EXPECT_EQ(Code.str(), format(test::messUp(Code), Style));
   }
 };
 
@@ -221,7 +243,7 @@ TEST_F(FormatTestJava, EnumDeclarations) {
                "\"cccccccccccccccccccccccc\"),\n"
                "  SECOND_ENUM(\"a\", \"b\", \"c\");\n"
                "  private VeryLongEnum(String a, String b, String c) {}\n"
-               "}");
+               "}\n");
 }
 
 TEST_F(FormatTestJava, ArrayInitializers) {
@@ -543,9 +565,10 @@ TEST_F(FormatTestJava, FormatsLambdas) {
 }
 
 TEST_F(FormatTestJava, BreaksStringLiterals) {
-  verifyFormat("x = \"some text \"\n"
-               "    + \"other\";",
-               "x = \"some text other\";", getStyleWithColumns(18));
+  // FIXME: String literal breaking is currently disabled for Java and JS, as it
+  // requires strings to be merged using "+" which we don't support.
+  EXPECT_EQ("\"some text other\";",
+            format("\"some text other\";", getStyleWithColumns(14)));
 }
 
 TEST_F(FormatTestJava, AlignsBlockComments) {
@@ -603,22 +626,5 @@ TEST_F(FormatTestJava, ShortFunctions) {
                Style);
 }
 
-TEST_F(FormatTestJava, ConfigurableSpacesInSquareBrackets) {
-  FormatStyle Spaces = getLLVMStyle(FormatStyle::LK_Java);
-
-  verifyFormat("Object[] arguments", Spaces);
-  verifyFormat("final Class<?>[] types = new Class<?>[numElements];", Spaces);
-  verifyFormat("types[i] = arguments[i].getClass();", Spaces);
-
-  Spaces.SpacesInSquareBrackets = true;
-
-  verifyFormat("Object[ ] arguments", Spaces);
-  verifyFormat("final Class<?>[ ] types = new Class<?>[ numElements ];",
-               Spaces);
-  verifyFormat("types[ i ] = arguments[ i ].getClass();", Spaces);
-}
-
-} // namespace
-} // namespace test
 } // namespace format
-} // namespace clang
+} // end namespace clang

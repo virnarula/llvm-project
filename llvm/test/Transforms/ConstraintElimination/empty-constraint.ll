@@ -6,10 +6,12 @@
 
 define i1 @test_1_always_false(i32 %A, i32 %B) {
 ; CHECK-LABEL: @test_1_always_false(
+; CHECK-NEXT:    [[C_1:%.*]] = icmp ugt i32 [[A:%.*]], [[A]]
 ; CHECK-NEXT:    br i1 false, label [[IF_END_I16:%.*]], label [[IF_THEN_I10:%.*]]
 ; CHECK:       if.then.i10:
 ; CHECK-NEXT:    ret i1 false
 ; CHECK:       if.end.i16:
+; CHECK-NEXT:    [[C_2:%.*]] = icmp ugt i32 [[A]], [[A]]
 ; CHECK-NEXT:    ret i1 false
 ;
   %c.1 = icmp ugt i32 %A, %A
@@ -30,6 +32,7 @@ define i1 @test_2_always_true(i32 %A, i32 %B) {
 ; CHECK:       if.then.i10:
 ; CHECK-NEXT:    ret i1 false
 ; CHECK:       if.end.i16:
+; CHECK-NEXT:    [[C_2:%.*]] = icmp uge i32 [[A]], [[A]]
 ; CHECK-NEXT:    ret i1 true
 ;
   %c.1 = icmp uge i32 %A, %B

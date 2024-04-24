@@ -46,8 +46,7 @@ def InstC : Instruction {
 }
 
 // CHECK: #ifdef GET_INSTRINFO_OPERAND_TYPE
-// CHECK: static const uint{{.*}}_t Offsets[] = {
-// CHECK: static const {{.*}} OpcodeOperandTypes[] = {
+// CHECK: OpcodeOperandTypes[] = {
 // CHECK:        /* InstA */
 // CHECK-NEXT:   OpA, OpB, i32imm,
 // CHECK-NEXT:   /* InstB */

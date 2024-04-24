@@ -1,5 +1,4 @@
 # RUN: llvm-exegesis -mode=latency -opcode-name=ADD | FileCheck %s
-# REQUIRES: exegesis-can-execute-mips, exegesis-can-measure-latency
 
 CHECK:      ---
 CHECK-NEXT: mode: latency

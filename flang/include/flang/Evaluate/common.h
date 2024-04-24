@@ -9,7 +9,6 @@
 #ifndef FORTRAN_EVALUATE_COMMON_H_
 #define FORTRAN_EVALUATE_COMMON_H_
 
-#include "flang/Common/Fortran-features.h"
 #include "flang/Common/Fortran.h"
 #include "flang/Common/default-kinds.h"
 #include "flang/Common/enum-set.h"
@@ -216,27 +215,22 @@ template <typename A> class Expr;
 class FoldingContext {
 public:
   FoldingContext(const common::IntrinsicTypeDefaultKinds &d,
-      const IntrinsicProcTable &t, const TargetCharacteristics &c,
-      const common::LanguageFeatureControl &lfc)
-      : defaults_{d}, intrinsics_{t}, targetCharacteristics_{c},
-        languageFeatures_{lfc} {}
+      const IntrinsicProcTable &t, const TargetCharacteristics &c)
+      : defaults_{d}, intrinsics_{t}, targetCharacteristics_{c} {}
   FoldingContext(const parser::ContextualMessages &m,
       const common::IntrinsicTypeDefaultKinds &d, const IntrinsicProcTable &t,
-      const TargetCharacteristics &c, const common::LanguageFeatureControl &lfc)
-      : messages_{m}, defaults_{d}, intrinsics_{t}, targetCharacteristics_{c},
-        languageFeatures_{lfc} {}
+      const TargetCharacteristics &c)
+      : messages_{m}, defaults_{d}, intrinsics_{t}, targetCharacteristics_{c} {}
   FoldingContext(const FoldingContext &that)
       : messages_{that.messages_}, defaults_{that.defaults_},
         intrinsics_{that.intrinsics_},
         targetCharacteristics_{that.targetCharacteristics_},
-        pdtInstance_{that.pdtInstance_}, impliedDos_{that.impliedDos_},
-        languageFeatures_{that.languageFeatures_} {}
+        pdtInstance_{that.pdtInstance_}, impliedDos_{that.impliedDos_} {}
   FoldingContext(
       const FoldingContext &that, const parser::ContextualMessages &m)
       : messages_{m}, defaults_{that.defaults_}, intrinsics_{that.intrinsics_},
         targetCharacteristics_{that.targetCharacteristics_},
-        pdtInstance_{that.pdtInstance_}, impliedDos_{that.impliedDos_},
-        languageFeatures_{that.languageFeatures_} {}
+        pdtInstance_{that.pdtInstance_}, impliedDos_{that.impliedDos_} {}
 
   parser::ContextualMessages &messages() { return messages_; }
   const parser::ContextualMessages &messages() const { return messages_; }
@@ -247,9 +241,6 @@ public:
   const IntrinsicProcTable &intrinsics() const { return intrinsics_; }
   const TargetCharacteristics &targetCharacteristics() const {
     return targetCharacteristics_;
-  }
-  const common::LanguageFeatureControl &languageFeatures() const {
-    return languageFeatures_;
   }
   bool inModuleFile() const { return inModuleFile_; }
   FoldingContext &set_inModuleFile(bool yes = true) {
@@ -269,9 +260,6 @@ public:
       const semantics::DerivedTypeSpec &spec) {
     return common::ScopedSet(pdtInstance_, &spec);
   }
-  common::Restorer<const semantics::DerivedTypeSpec *> WithoutPDTInstance() {
-    return common::ScopedSet(pdtInstance_, nullptr);
-  }
 
 private:
   parser::ContextualMessages messages_;
@@ -281,7 +269,6 @@ private:
   const semantics::DerivedTypeSpec *pdtInstance_{nullptr};
   bool inModuleFile_{false};
   std::map<parser::CharBlock, ConstantSubscript> impliedDos_;
-  const common::LanguageFeatureControl &languageFeatures_;
 };
 
 void RealFlagWarnings(FoldingContext &, const RealFlags &, const char *op);

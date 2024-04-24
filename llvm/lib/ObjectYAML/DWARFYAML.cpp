@@ -59,20 +59,22 @@ Expected<DWARFYAML::Data::AbbrevTableInfo>
 DWARFYAML::Data::getAbbrevTableInfoByID(uint64_t ID) const {
   if (AbbrevTableInfoMap.empty()) {
     uint64_t AbbrevTableOffset = 0;
-    for (const auto &[Index, AbbrevTable] : enumerate(DebugAbbrev)) {
+    for (auto &AbbrevTable : enumerate(DebugAbbrev)) {
       // If the abbrev table's ID isn't specified, we use the index as its ID.
-      uint64_t AbbrevTableID = AbbrevTable.ID.value_or(Index);
+      uint64_t AbbrevTableID =
+          AbbrevTable.value().ID.value_or(AbbrevTable.index());
       auto It = AbbrevTableInfoMap.insert(
-          {AbbrevTableID, AbbrevTableInfo{/*Index=*/Index,
+          {AbbrevTableID, AbbrevTableInfo{/*Index=*/AbbrevTable.index(),
                                           /*Offset=*/AbbrevTableOffset}});
       if (!It.second)
         return createStringError(
             errc::invalid_argument,
             "the ID (%" PRIu64 ") of abbrev table with index %zu has been used "
             "by abbrev table with index %" PRIu64,
-            AbbrevTableID, Index, It.first->second.Index);
+            AbbrevTableID, AbbrevTable.index(), It.first->second.Index);
 
-      AbbrevTableOffset += getAbbrevTableContentByIndex(Index).size();
+      AbbrevTableOffset +=
+          getAbbrevTableContentByIndex(AbbrevTable.index()).size();
     }
   }
 

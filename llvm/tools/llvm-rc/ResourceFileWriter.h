@@ -55,7 +55,6 @@ public:
   Error visitHTMLResource(const RCResource *) override;
   Error visitIconResource(const RCResource *) override;
   Error visitMenuResource(const RCResource *) override;
-  Error visitMenuExResource(const RCResource *) override;
   Error visitVersionInfoResource(const RCResource *) override;
   Error visitStringTableResource(const RCResource *) override;
   Error visitUserDefinedResource(const RCResource *) override;
@@ -80,8 +79,8 @@ public:
     uint32_t Characteristics;
     uint32_t VersionInfo;
 
-    std::optional<uint32_t> Style;
-    std::optional<uint32_t> ExStyle;
+    Optional<uint32_t> Style;
+    Optional<uint32_t> ExStyle;
     StringRef Caption;
     struct FontInfo {
       uint32_t Size;
@@ -90,7 +89,7 @@ public:
       bool IsItalic;
       uint32_t Charset;
     };
-    std::optional<FontInfo> Font;
+    Optional<FontInfo> Font;
     IntOrString Class;
 
     ObjectInfo()
@@ -104,7 +103,7 @@ public:
     using BundleKey = std::pair<uint16_t, uint16_t>;
     // Each bundle is in fact an array of 16 strings.
     struct Bundle {
-      std::array<std::optional<std::vector<StringRef>>, 16> Data;
+      std::array<Optional<std::vector<StringRef>>, 16> Data;
       ObjectInfo DeclTimeInfo;
       uint16_t MemoryFlags;
       Bundle(const ObjectInfo &Info, uint16_t Flags)
@@ -151,12 +150,8 @@ private:
   // MenuResource
   Error writeMenuDefinition(const std::unique_ptr<MenuDefinition> &,
                             uint16_t Flags);
-  Error writeMenuExDefinition(const std::unique_ptr<MenuDefinition> &,
-                              uint16_t Flags);
   Error writeMenuDefinitionList(const MenuDefinitionList &List);
-  Error writeMenuExDefinitionList(const MenuDefinitionList &List);
   Error writeMenuBody(const RCResource *);
-  Error writeMenuExBody(const RCResource *);
 
   // StringTableResource
   Error visitStringTableBundle(const RCResource *);
@@ -183,8 +178,8 @@ private:
   uint64_t writeObject(const ArrayRef<uint8_t> Data);
 
   template <typename T> uint64_t writeInt(const T &Value) {
-    support::detail::packed_endian_specific_integral<
-        T, llvm::endianness::little, support::unaligned>
+    support::detail::packed_endian_specific_integral<T, support::little,
+                                                     support::unaligned>
         Object(Value);
     return writeObject(Object);
   }

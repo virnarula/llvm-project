@@ -89,16 +89,16 @@ __hwasan_tag_mismatch:
   ubfx x16, x0, #4, #52
   ldrb w16, [x9, x16]
   cmp w16, #0xf
-  b.hi mismatch
+  b.hi __hwasan_tag_mismatch_v2
   cmp w16, w17
-  b.lo mismatch
+  b.lo __hwasan_tag_mismatch_v2
 
   // Load the real tag from the last byte of the granule and compare against
   // the pointer tag.
   orr x16, x0, #0xf
   ldrb w16, [x16]
   cmp x16, x0, lsr #56
-  b.ne mismatch
+  b.ne __hwasan_tag_mismatch_v2
 
   // Restore x0, x1 and sp to their values from before the __hwasan_tag_mismatch
   // call and resume execution.
@@ -108,8 +108,6 @@ __hwasan_tag_mismatch:
 .global __hwasan_tag_mismatch_v2
 .type __hwasan_tag_mismatch_v2, %function
 __hwasan_tag_mismatch_v2:
-// Avoid using global label, to prevent "relocation out of range".
-mismatch:
   CFI_STARTPROC
   BTI_J
 

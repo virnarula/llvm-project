@@ -133,7 +133,7 @@ void PPCallbacksTracker::FileSkipped(const FileEntryRef &SkippedFile,
 // of whether the inclusion will actually result in an inclusion.
 void PPCallbacksTracker::InclusionDirective(
     SourceLocation HashLoc, const Token &IncludeTok, llvm::StringRef FileName,
-    bool IsAngled, CharSourceRange FilenameRange, OptionalFileEntryRef File,
+    bool IsAngled, CharSourceRange FilenameRange, Optional<FileEntryRef> File,
     llvm::StringRef SearchPath, llvm::StringRef RelativePath,
     const Module *Imported, SrcMgr::CharacteristicKind FileType) {
   beginCallback("InclusionDirective");
@@ -476,8 +476,7 @@ void PPCallbacksTracker::appendArgument(const char *Name, FileID Value) {
     appendArgument(Name, "(invalid)");
     return;
   }
-  OptionalFileEntryRef FileEntry =
-      PP.getSourceManager().getFileEntryRefForID(Value);
+  const FileEntry *FileEntry = PP.getSourceManager().getFileEntryForID(Value);
   if (!FileEntry) {
     appendArgument(Name, "(getFileEntryForID failed)");
     return;
@@ -487,7 +486,7 @@ void PPCallbacksTracker::appendArgument(const char *Name, FileID Value) {
 
 // Append a FileEntry argument to the top trace item.
 void PPCallbacksTracker::appendArgument(const char *Name,
-                                        OptionalFileEntryRef Value) {
+                                        Optional<FileEntryRef> Value) {
   if (!Value) {
     appendArgument(Name, "(null)");
     return;
@@ -602,7 +601,7 @@ void PPCallbacksTracker::appendArgument(const char *Name,
   llvm::raw_string_ostream SS(Str);
   SS << "[";
 
-  // Each argument is a series of contiguous Tokens, terminated by a eof.
+  // Each argument is is a series of contiguous Tokens, terminated by a eof.
   // Go through each argument printing tokens until we reach eof.
   for (unsigned I = 0; I < Value->getNumMacroArguments(); ++I) {
     const Token *Current = Value->getUnexpArgument(I);

@@ -12,25 +12,22 @@
 
 #include "flang/Optimizer/Dialect/FortranVariableInterface.h"
 
+namespace fir {
 #include "flang/Optimizer/Dialect/FortranVariableInterface.cpp.inc"
+}
 
-mlir::LogicalResult
-fir::FortranVariableOpInterface::verifyDeclareLikeOpImpl(mlir::Value memref) {
+mlir::LogicalResult fir::FortranVariableOpInterface::verifyImpl() {
   const unsigned numExplicitTypeParams = getExplicitTypeParams().size();
-  mlir::Type memType = memref.getType();
-  const bool sourceIsBoxValue = memType.isa<fir::BaseBoxType>();
-  const bool sourceIsBoxAddress = fir::isBoxAddress(memType);
-  const bool sourceIsBox = sourceIsBoxValue || sourceIsBoxAddress;
   if (isCharacter()) {
     if (numExplicitTypeParams > 1)
       return emitOpError(
           "of character entity must have at most one length parameter");
-    if (numExplicitTypeParams == 0 && !sourceIsBox)
+    if (numExplicitTypeParams == 0 && !isBox())
       return emitOpError("must be provided exactly one type parameter when its "
                          "base is a character that is not a box");
 
   } else if (auto recordType = getElementType().dyn_cast<fir::RecordType>()) {
-    if (numExplicitTypeParams < recordType.getNumLenParams() && !sourceIsBox)
+    if (numExplicitTypeParams < recordType.getNumLenParams() && !isBox())
       return emitOpError("must be provided all the derived type length "
                          "parameters when the base is not a box");
     if (numExplicitTypeParams > recordType.getNumLenParams())
@@ -42,7 +39,7 @@ fir::FortranVariableOpInterface::verifyDeclareLikeOpImpl(mlir::Value memref) {
 
   if (isArray()) {
     if (mlir::Value shape = getShape()) {
-      if (sourceIsBoxAddress)
+      if (isBoxAddress())
         return emitOpError("for box address must not have a shape operand");
       unsigned shapeRank = 0;
       if (auto shapeType = shape.getType().dyn_cast<fir::ShapeType>()) {
@@ -51,16 +48,16 @@ fir::FortranVariableOpInterface::verifyDeclareLikeOpImpl(mlir::Value memref) {
                      shape.getType().dyn_cast<fir::ShapeShiftType>()) {
         shapeRank = shapeShiftType.getRank();
       } else {
-        if (!sourceIsBoxValue)
+        if (!isBoxValue())
           emitOpError("of array entity with a raw address base must have a "
                       "shape operand that is a shape or shapeshift");
         shapeRank = shape.getType().cast<fir::ShiftType>().getRank();
       }
 
-      std::optional<unsigned> rank = getRank();
+      llvm::Optional<unsigned> rank = getRank();
       if (!rank || *rank != shapeRank)
         return emitOpError("has conflicting shape and base operand ranks");
-    } else if (!sourceIsBox) {
+    } else if (!isBox()) {
       emitOpError("of array entity with a raw address base must have a shape "
                   "operand that is a shape or shapeshift");
     }

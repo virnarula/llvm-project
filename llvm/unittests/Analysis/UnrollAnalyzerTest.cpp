@@ -6,51 +6,60 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopUnrollAnalyzer.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
 
 using namespace llvm;
+namespace llvm {
+void initializeUnrollAnalyzerTestPass(PassRegistry &);
 
-typedef SmallVector<DenseMap<Value *, Value *>, 16> SimplifiedValuesVectorTy;
+static SmallVector<DenseMap<Value *, Value *>, 16> SimplifiedValuesVector;
+static unsigned TripCount = 0;
 
-/// Build loop info and scalar evolution for the function and run the analysis.
-static void
-runUnrollAnalyzer(Module &M, StringRef FuncName,
-                  SimplifiedValuesVectorTy &SimplifiedValuesVector) {
-  auto *F = M.getFunction(FuncName);
-  ASSERT_NE(F, nullptr) << "Could not find " << FuncName;
+namespace {
+struct UnrollAnalyzerTest : public FunctionPass {
+  static char ID;
+  bool runOnFunction(Function &F) override {
+    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
-  TargetLibraryInfoImpl TLII;
-  TargetLibraryInfo TLI(TLII);
-  AssumptionCache AC(*F);
-  DominatorTree DT(*F);
-  LoopInfo LI(DT);
-  ScalarEvolution SE(*F, TLI, AC, DT, LI);
+    Function::iterator FI = F.begin();
+    FI++; // First basic block is entry - skip it.
+    BasicBlock *Header = &*FI++;
+    Loop *L = LI->getLoopFor(Header);
+    BasicBlock *Exiting = L->getExitingBlock();
 
-  Function::iterator FI = F->begin();
-  FI++; // First basic block is entry - skip it.
-  BasicBlock *Header = &*FI++;
-  Loop *L = LI.getLoopFor(Header);
-  BasicBlock *Exiting = L->getExitingBlock();
-
-  SimplifiedValuesVector.clear();
-  unsigned TripCount = SE.getSmallConstantTripCount(L, Exiting);
-  for (unsigned Iteration = 0; Iteration < TripCount; Iteration++) {
-    DenseMap<Value *, Value *> SimplifiedValues;
-    UnrolledInstAnalyzer Analyzer(Iteration, SimplifiedValues, SE, L);
-    for (auto *BB : L->getBlocks())
-      for (Instruction &I : *BB)
-        Analyzer.visit(I);
-    SimplifiedValuesVector.push_back(SimplifiedValues);
+    SimplifiedValuesVector.clear();
+    TripCount = SE->getSmallConstantTripCount(L, Exiting);
+    for (unsigned Iteration = 0; Iteration < TripCount; Iteration++) {
+      DenseMap<Value *, Value *> SimplifiedValues;
+      UnrolledInstAnalyzer Analyzer(Iteration, SimplifiedValues, *SE, L);
+      for (auto *BB : L->getBlocks())
+        for (Instruction &I : *BB)
+          Analyzer.visit(I);
+      SimplifiedValuesVector.push_back(SimplifiedValues);
+    }
+    return false;
   }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.setPreservesAll();
+  }
+  UnrollAnalyzerTest() : FunctionPass(ID) {
+    initializeUnrollAnalyzerTestPass(*PassRegistry::getPassRegistry());
+  }
+};
 }
+
+char UnrollAnalyzerTest::ID = 0;
 
 std::unique_ptr<Module> makeLLVMModule(LLVMContext &Context,
                                        const char *ModuleStr) {
@@ -76,11 +85,12 @@ TEST(UnrollAnalyzerTest, BasicSimplifications) {
       "  %x.lcssa = phi i64 [ %x2, %loop ]\n"
       "  ret i64 %x.lcssa\n"
       "}\n";
+  UnrollAnalyzerTest *P = new UnrollAnalyzerTest();
   LLVMContext Context;
   std::unique_ptr<Module> M = makeLLVMModule(Context, ModuleStr);
-  SimplifiedValuesVectorTy SimplifiedValuesVector;
-  runUnrollAnalyzer(*M, "propagate_loop_phis", SimplifiedValuesVector);
-  unsigned TripCount = SimplifiedValuesVector.size();
+  legacy::PassManager Passes;
+  Passes.add(P);
+  Passes.run(*M);
 
   // Perform checks
   Module::iterator MI = M->begin();
@@ -138,10 +148,12 @@ TEST(UnrollAnalyzerTest, OuterLoopSimplification) {
       "  ret void\n"
       "}\n";
 
+  UnrollAnalyzerTest *P = new UnrollAnalyzerTest();
   LLVMContext Context;
   std::unique_ptr<Module> M = makeLLVMModule(Context, ModuleStr);
-  SimplifiedValuesVectorTy SimplifiedValuesVector;
-  runUnrollAnalyzer(*M, "foo", SimplifiedValuesVector);
+  legacy::PassManager Passes;
+  Passes.add(P);
+  Passes.run(*M);
 
   Module::iterator MI = M->begin();
   Function *F = &*MI++;
@@ -165,7 +177,6 @@ TEST(UnrollAnalyzerTest, OuterLoopSimplification) {
   auto I2 = SimplifiedValuesVector[0].find(Y2);
   EXPECT_TRUE(I2 == SimplifiedValuesVector[0].end());
 }
-
 TEST(UnrollAnalyzerTest, CmpSimplifications) {
   const char *ModuleStr =
       "target datalayout = \"e-m:o-i64:64-f80:128-n8:16:32:64-S128\"\n"
@@ -182,10 +193,12 @@ TEST(UnrollAnalyzerTest, CmpSimplifications) {
       "for.end:\n"
       "  ret void\n"
       "}\n";
+  UnrollAnalyzerTest *P = new UnrollAnalyzerTest();
   LLVMContext Context;
   std::unique_ptr<Module> M = makeLLVMModule(Context, ModuleStr);
-  SimplifiedValuesVectorTy SimplifiedValuesVector;
-  runUnrollAnalyzer(*M, "branch_iv_trunc", SimplifiedValuesVector);
+  legacy::PassManager Passes;
+  Passes.add(P);
+  Passes.run(*M);
 
   // Perform checks
   Module::iterator MI = M->begin();
@@ -208,7 +221,6 @@ TEST(UnrollAnalyzerTest, CmpSimplifications) {
   EXPECT_TRUE(I2 != SimplifiedValuesVector[5].end());
   EXPECT_EQ(cast<ConstantInt>((*I2).second)->getZExtValue(), 1U);
 }
-
 TEST(UnrollAnalyzerTest, PtrCmpSimplifications) {
   const char *ModuleStr =
       "target datalayout = \"e-m:o-i64:64-f80:128-n8:16:32:64-S128\"\n"
@@ -228,10 +240,12 @@ TEST(UnrollAnalyzerTest, PtrCmpSimplifications) {
       "loop.exit:\n"
       "  ret void\n"
       "}\n";
+  UnrollAnalyzerTest *P = new UnrollAnalyzerTest();
   LLVMContext Context;
   std::unique_ptr<Module> M = makeLLVMModule(Context, ModuleStr);
-  SimplifiedValuesVectorTy SimplifiedValuesVector;
-  runUnrollAnalyzer(*M, "ptr_cmp", SimplifiedValuesVector);
+  legacy::PassManager Passes;
+  Passes.add(P);
+  Passes.run(*M);
 
   // Perform checks
   Module::iterator MI = M->begin();
@@ -249,7 +263,6 @@ TEST(UnrollAnalyzerTest, PtrCmpSimplifications) {
   EXPECT_TRUE(I1 != SimplifiedValuesVector[5].end());
   EXPECT_EQ(cast<ConstantInt>((*I1).second)->getZExtValue(), 0U);
 }
-
 TEST(UnrollAnalyzerTest, CastSimplifications) {
   const char *ModuleStr =
       "target datalayout = \"e-m:o-i64:64-f80:128-n8:16:32:64-S128\"\n"
@@ -273,10 +286,12 @@ TEST(UnrollAnalyzerTest, CastSimplifications) {
       "  ret void\n"
       "}\n";
 
+  UnrollAnalyzerTest *P = new UnrollAnalyzerTest();
   LLVMContext Context;
   std::unique_ptr<Module> M = makeLLVMModule(Context, ModuleStr);
-  SimplifiedValuesVectorTy SimplifiedValuesVector;
-  runUnrollAnalyzer(*M, "const_load_cast", SimplifiedValuesVector);
+  legacy::PassManager Passes;
+  Passes.add(P);
+  Passes.run(*M);
 
   // Perform checks
   Module::iterator MI = M->begin();
@@ -304,3 +319,13 @@ TEST(UnrollAnalyzerTest, CastSimplifications) {
   EXPECT_TRUE(I3 != SimplifiedValuesVector[5].end());
   EXPECT_EQ(cast<ConstantInt>((*I3).second)->getZExtValue(), 3U);
 }
+
+} // end namespace llvm
+
+INITIALIZE_PASS_BEGIN(UnrollAnalyzerTest, "unrollanalyzertestpass",
+                      "unrollanalyzertestpass", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_END(UnrollAnalyzerTest, "unrollanalyzertestpass",
+                    "unrollanalyzertestpass", false, false)

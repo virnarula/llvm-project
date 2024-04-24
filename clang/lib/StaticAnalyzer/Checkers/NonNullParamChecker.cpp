@@ -18,7 +18,6 @@
 #include "clang/Analysis/AnyCall.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/CommonBugCategories.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
@@ -32,9 +31,8 @@ namespace {
 class NonNullParamChecker
     : public Checker<check::PreCall, check::BeginFunction,
                      EventDispatcher<ImplicitNullDerefEvent>> {
-  const BugType BTAttrNonNull{
-      this, "Argument with 'nonnull' attribute passed null", "API"};
-  const BugType BTNullRefArg{this, "Dereference of null pointer"};
+  mutable std::unique_ptr<BugType> BTAttrNonNull;
+  mutable std::unique_ptr<BugType> BTNullRefArg;
 
 public:
   void checkPreCall(const CallEvent &Call, CheckerContext &C) const;
@@ -138,10 +136,10 @@ void NonNullParamChecker::checkPreCall(const CallEvent &Call,
     if (!DV)
       continue;
 
-    assert(!HasRefTypeParam || isa<Loc>(*DV));
+    assert(!HasRefTypeParam || isa<Loc>(DV.value()));
 
     // Process the case when the argument is not a location.
-    if (ExpectedToBeNonNull && !isa<Loc>(*DV)) {
+    if (ExpectedToBeNonNull && !isa<Loc>(DV.value())) {
       // If the argument is a union type, we want to handle a potential
       // transparent_union GCC extension.
       if (!ArgE)
@@ -280,6 +278,13 @@ std::unique_ptr<PathSensitiveBugReport>
 NonNullParamChecker::genReportNullAttrNonNull(const ExplodedNode *ErrorNode,
                                               const Expr *ArgE,
                                               unsigned IdxOfArg) const {
+  // Lazily allocate the BugType object if it hasn't already been
+  // created. Ownership is transferred to the BugReporter object once
+  // the BugReport is passed to 'EmitWarning'.
+  if (!BTAttrNonNull)
+    BTAttrNonNull.reset(new BugType(
+        this, "Argument with 'nonnull' attribute passed null", "API"));
+
   llvm::SmallString<256> SBuf;
   llvm::raw_svector_ostream OS(SBuf);
   OS << "Null pointer passed to "
@@ -287,7 +292,7 @@ NonNullParamChecker::genReportNullAttrNonNull(const ExplodedNode *ErrorNode,
      << " parameter expecting 'nonnull'";
 
   auto R =
-      std::make_unique<PathSensitiveBugReport>(BTAttrNonNull, SBuf, ErrorNode);
+      std::make_unique<PathSensitiveBugReport>(*BTAttrNonNull, SBuf, ErrorNode);
   if (ArgE)
     bugreporter::trackExpressionValue(ErrorNode, ArgE, *R);
 
@@ -297,8 +302,11 @@ NonNullParamChecker::genReportNullAttrNonNull(const ExplodedNode *ErrorNode,
 std::unique_ptr<PathSensitiveBugReport>
 NonNullParamChecker::genReportReferenceToNullPointer(
     const ExplodedNode *ErrorNode, const Expr *ArgE) const {
+  if (!BTNullRefArg)
+    BTNullRefArg.reset(new BuiltinBug(this, "Dereference of null pointer"));
+
   auto R = std::make_unique<PathSensitiveBugReport>(
-      BTNullRefArg, "Forming reference to null pointer", ErrorNode);
+      *BTNullRefArg, "Forming reference to null pointer", ErrorNode);
   if (ArgE) {
     const Expr *ArgEDeref = bugreporter::getDerefExpr(ArgE);
     if (!ArgEDeref)
@@ -306,6 +314,7 @@ NonNullParamChecker::genReportReferenceToNullPointer(
     bugreporter::trackExpressionValue(ErrorNode, ArgEDeref, *R);
   }
   return R;
+
 }
 
 void ento::registerNonNullParamChecker(CheckerManager &mgr) {

@@ -53,7 +53,7 @@ define i32 @brRI_oeq(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI1_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -70,7 +70,7 @@ define i32 @brRI_oeq(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI1_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -99,7 +99,7 @@ define i32 @brR0_oeq(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI2_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -116,7 +116,7 @@ define i32 @brR0_oeq(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI2_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -194,7 +194,7 @@ define i32 @brRI_one(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI4_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -216,7 +216,7 @@ define i32 @brRI_one(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI4_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -250,7 +250,7 @@ define i32 @brR0_one(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI5_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -272,7 +272,7 @@ define i32 @brR0_one(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI5_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -335,7 +335,7 @@ define i32 @brRI_ugt(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI7_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -352,7 +352,7 @@ define i32 @brRI_ugt(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI7_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -381,7 +381,7 @@ define i32 @brR0_ugt(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI8_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -398,7 +398,7 @@ define i32 @brR0_ugt(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI8_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -461,7 +461,7 @@ define i32 @brRI_uge(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI10_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -478,7 +478,7 @@ define i32 @brRI_uge(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI10_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -507,7 +507,7 @@ define i32 @brR0_uge(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI11_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -524,7 +524,7 @@ define i32 @brR0_uge(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI11_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -587,7 +587,7 @@ define i32 @brRI_ult(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI13_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -604,7 +604,7 @@ define i32 @brRI_ult(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI13_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -633,7 +633,7 @@ define i32 @brR0_ult(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI14_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -650,7 +650,7 @@ define i32 @brR0_ult(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI14_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -713,7 +713,7 @@ define i32 @brRI_ule(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI16_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -730,7 +730,7 @@ define i32 @brRI_ule(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI16_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -759,7 +759,7 @@ define i32 @brR0_ule(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI17_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -776,7 +776,7 @@ define i32 @brR0_ule(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI17_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -795,7 +795,10 @@ define i32 @brRR_ogt(double %x, double %y) {
 ; CHECK-DF-LABEL: brRR_ogt:
 ; CHECK-DF:       # %bb.0: # %entry
 ; CHECK-DF-NEXT:    fcmpltd vr0, vr1
-; CHECK-DF-NEXT:    bf32 .LBB18_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB18_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -806,7 +809,10 @@ define i32 @brRR_ogt(double %x, double %y) {
 ; CHECK-DF2-LABEL: brRR_ogt:
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    fcmplt.64 vr0, vr1
-; CHECK-DF2-NEXT:    bf32 .LBB18_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB18_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -830,7 +836,10 @@ define i32 @brRI_ogt(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI19_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmpltd vr1, vr0
-; CHECK-DF-NEXT:    bf32 .LBB19_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB19_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -839,7 +848,7 @@ define i32 @brRI_ogt(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI19_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -847,7 +856,10 @@ define i32 @brRI_ogt(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI19_0]
 ; CHECK-DF2-NEXT:    fcmplt.64 vr1, vr0
-; CHECK-DF2-NEXT:    bf32 .LBB19_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB19_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -856,7 +868,7 @@ define i32 @brRI_ogt(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI19_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -876,7 +888,10 @@ define i32 @brR0_ogt(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI20_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmpltd vr1, vr0
-; CHECK-DF-NEXT:    bf32 .LBB20_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB20_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -885,7 +900,7 @@ define i32 @brR0_ogt(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI20_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -893,7 +908,10 @@ define i32 @brR0_ogt(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI20_0]
 ; CHECK-DF2-NEXT:    fcmplt.64 vr1, vr0
-; CHECK-DF2-NEXT:    bf32 .LBB20_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB20_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -902,7 +920,7 @@ define i32 @brR0_ogt(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI20_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -921,7 +939,10 @@ define i32 @brRR_oge(double %x, double %y) {
 ; CHECK-DF-LABEL: brRR_oge:
 ; CHECK-DF:       # %bb.0: # %entry
 ; CHECK-DF-NEXT:    fcmphsd vr1, vr0
-; CHECK-DF-NEXT:    bf32 .LBB21_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB21_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -932,7 +953,10 @@ define i32 @brRR_oge(double %x, double %y) {
 ; CHECK-DF2-LABEL: brRR_oge:
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    fcmphs.64 vr1, vr0
-; CHECK-DF2-NEXT:    bf32 .LBB21_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB21_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -956,7 +980,10 @@ define i32 @brRI_oge(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI22_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmphsd vr0, vr1
-; CHECK-DF-NEXT:    bf32 .LBB22_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB22_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -965,7 +992,7 @@ define i32 @brRI_oge(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI22_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -973,7 +1000,10 @@ define i32 @brRI_oge(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI22_0]
 ; CHECK-DF2-NEXT:    fcmphs.64 vr0, vr1
-; CHECK-DF2-NEXT:    bf32 .LBB22_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB22_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -982,7 +1012,7 @@ define i32 @brRI_oge(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI22_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -1002,7 +1032,10 @@ define i32 @brR0_oge(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI23_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmphsd vr0, vr1
-; CHECK-DF-NEXT:    bf32 .LBB23_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB23_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1011,7 +1044,7 @@ define i32 @brR0_oge(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI23_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -1019,7 +1052,10 @@ define i32 @brR0_oge(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI23_0]
 ; CHECK-DF2-NEXT:    fcmphs.64 vr0, vr1
-; CHECK-DF2-NEXT:    bf32 .LBB23_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB23_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1028,7 +1064,7 @@ define i32 @brR0_oge(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI23_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -1047,7 +1083,10 @@ define i32 @brRR_olt(double %x, double %y) {
 ; CHECK-DF-LABEL: brRR_olt:
 ; CHECK-DF:       # %bb.0: # %entry
 ; CHECK-DF-NEXT:    fcmpltd vr1, vr0
-; CHECK-DF-NEXT:    bf32 .LBB24_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB24_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1058,7 +1097,10 @@ define i32 @brRR_olt(double %x, double %y) {
 ; CHECK-DF2-LABEL: brRR_olt:
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    fcmplt.64 vr1, vr0
-; CHECK-DF2-NEXT:    bf32 .LBB24_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB24_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1082,7 +1124,10 @@ define i32 @brRI_olt(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI25_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmpltd vr0, vr1
-; CHECK-DF-NEXT:    bf32 .LBB25_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB25_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1091,7 +1136,7 @@ define i32 @brRI_olt(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI25_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -1099,7 +1144,10 @@ define i32 @brRI_olt(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI25_0]
 ; CHECK-DF2-NEXT:    fcmplt.64 vr0, vr1
-; CHECK-DF2-NEXT:    bf32 .LBB25_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB25_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1108,7 +1156,7 @@ define i32 @brRI_olt(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI25_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -1128,7 +1176,10 @@ define i32 @brR0_olt(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI26_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmpltd vr0, vr1
-; CHECK-DF-NEXT:    bf32 .LBB26_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB26_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1137,7 +1188,7 @@ define i32 @brR0_olt(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI26_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -1145,7 +1196,10 @@ define i32 @brR0_olt(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI26_0]
 ; CHECK-DF2-NEXT:    fcmplt.64 vr0, vr1
-; CHECK-DF2-NEXT:    bf32 .LBB26_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB26_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1154,7 +1208,7 @@ define i32 @brR0_olt(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI26_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -1173,7 +1227,10 @@ define i32 @brRR_ole(double %x, double %y) {
 ; CHECK-DF-LABEL: brRR_ole:
 ; CHECK-DF:       # %bb.0: # %entry
 ; CHECK-DF-NEXT:    fcmphsd vr0, vr1
-; CHECK-DF-NEXT:    bf32 .LBB27_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB27_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1184,7 +1241,10 @@ define i32 @brRR_ole(double %x, double %y) {
 ; CHECK-DF2-LABEL: brRR_ole:
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    fcmphs.64 vr0, vr1
-; CHECK-DF2-NEXT:    bf32 .LBB27_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB27_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1208,7 +1268,10 @@ define i32 @brRI_ole(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI28_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmphsd vr1, vr0
-; CHECK-DF-NEXT:    bf32 .LBB28_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB28_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1217,7 +1280,7 @@ define i32 @brRI_ole(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI28_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -1225,7 +1288,10 @@ define i32 @brRI_ole(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI28_0]
 ; CHECK-DF2-NEXT:    fcmphs.64 vr1, vr0
-; CHECK-DF2-NEXT:    bf32 .LBB28_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB28_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1234,7 +1300,7 @@ define i32 @brRI_ole(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI28_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -1254,7 +1320,10 @@ define i32 @brR0_ole(double %x) {
 ; CHECK-DF-NEXT:    grs32 a0, .LCPI29_0
 ; CHECK-DF-NEXT:    fldd vr1, (a0, 0)
 ; CHECK-DF-NEXT:    fcmphsd vr1, vr0
-; CHECK-DF-NEXT:    bf32 .LBB29_2
+; CHECK-DF-NEXT:    mvc32 a0
+; CHECK-DF-NEXT:    xori32 a0, a0, 1
+; CHECK-DF-NEXT:    btsti16 a0, 0
+; CHECK-DF-NEXT:    bt32 .LBB29_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
@@ -1263,7 +1332,7 @@ define i32 @brR0_ole(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI29_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -1271,7 +1340,10 @@ define i32 @brR0_ole(double %x) {
 ; CHECK-DF2:       # %bb.0: # %entry
 ; CHECK-DF2-NEXT:    flrw.64 vr1, [.LCPI29_0]
 ; CHECK-DF2-NEXT:    fcmphs.64 vr1, vr0
-; CHECK-DF2-NEXT:    bf32 .LBB29_2
+; CHECK-DF2-NEXT:    mvc32 a0
+; CHECK-DF2-NEXT:    xori32 a0, a0, 1
+; CHECK-DF2-NEXT:    btsti16 a0, 0
+; CHECK-DF2-NEXT:    bt32 .LBB29_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
@@ -1280,7 +1352,7 @@ define i32 @brR0_ole(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI29_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -1302,6 +1374,7 @@ define i32 @brRR_false(double %x, double %y) {
 ; CHECK-DF-NEXT:    btsti16 a0, 0
 ; CHECK-DF-NEXT:    bt32 .LBB30_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
+; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:  .LBB30_2: # %label2
 ; CHECK-DF-NEXT:    movi16 a0, 0
@@ -1313,6 +1386,7 @@ define i32 @brRR_false(double %x, double %y) {
 ; CHECK-DF2-NEXT:    btsti16 a0, 0
 ; CHECK-DF2-NEXT:    bt32 .LBB30_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
+; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:  .LBB30_2: # %label2
 ; CHECK-DF2-NEXT:    movi16 a0, 0
@@ -1335,6 +1409,7 @@ define i32 @brRI_false(double %x) {
 ; CHECK-DF-NEXT:    btsti16 a0, 0
 ; CHECK-DF-NEXT:    bt32 .LBB31_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
+; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:  .LBB31_2: # %label2
 ; CHECK-DF-NEXT:    movi16 a0, 0
@@ -1346,6 +1421,7 @@ define i32 @brRI_false(double %x) {
 ; CHECK-DF2-NEXT:    btsti16 a0, 0
 ; CHECK-DF2-NEXT:    bt32 .LBB31_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
+; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:  .LBB31_2: # %label2
 ; CHECK-DF2-NEXT:    movi16 a0, 0
@@ -1368,6 +1444,7 @@ define i32 @brR0_false(double %x) {
 ; CHECK-DF-NEXT:    btsti16 a0, 0
 ; CHECK-DF-NEXT:    bt32 .LBB32_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
+; CHECK-DF-NEXT:    movi16 a0, 1
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:  .LBB32_2: # %label2
 ; CHECK-DF-NEXT:    movi16 a0, 0
@@ -1379,6 +1456,7 @@ define i32 @brR0_false(double %x) {
 ; CHECK-DF2-NEXT:    btsti16 a0, 0
 ; CHECK-DF2-NEXT:    bt32 .LBB32_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
+; CHECK-DF2-NEXT:    movi16 a0, 1
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:  .LBB32_2: # %label2
 ; CHECK-DF2-NEXT:    movi16 a0, 0
@@ -1560,7 +1638,7 @@ define i32 @brRI_ueq(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI37_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -1582,7 +1660,7 @@ define i32 @brRI_ueq(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI37_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -1616,7 +1694,7 @@ define i32 @brR0_ueq(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI38_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -1638,7 +1716,7 @@ define i32 @brR0_ueq(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI38_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -1701,7 +1779,7 @@ define i32 @brRI_une(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI40_0:
 ; CHECK-DF-NEXT:    .quad 0x4024000000000000 # double 10
 ;
@@ -1718,7 +1796,7 @@ define i32 @brRI_une(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI40_0:
 ; CHECK-DF2-NEXT:    .quad 0x4024000000000000 # double 10
 entry:
@@ -1747,7 +1825,7 @@ define i32 @brR0_une(double %x) {
 ; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:    .p2align 1
 ; CHECK-DF-NEXT:  # %bb.3:
-; CHECK-DF-NEXT:    .p2align 2, 0x0
+; CHECK-DF-NEXT:    .p2align 2
 ; CHECK-DF-NEXT:  .LCPI41_0:
 ; CHECK-DF-NEXT:    .quad 0x0000000000000000 # double 0
 ;
@@ -1764,7 +1842,7 @@ define i32 @brR0_une(double %x) {
 ; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:    .p2align 1
 ; CHECK-DF2-NEXT:  # %bb.3:
-; CHECK-DF2-NEXT:    .p2align 2, 0x0
+; CHECK-DF2-NEXT:    .p2align 2
 ; CHECK-DF2-NEXT:  .LCPI41_0:
 ; CHECK-DF2-NEXT:    .quad 0x0000000000000000 # double 0
 entry:
@@ -1887,7 +1965,9 @@ define i32 @brRR_true(double %x, double %y) {
 ; CHECK-DF-NEXT:    bt32 .LBB45_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
+; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:  .LBB45_2: # %label2
+; CHECK-DF-NEXT:    movi16 a0, 0
 ; CHECK-DF-NEXT:    rts16
 ;
 ; CHECK-DF2-LABEL: brRR_true:
@@ -1897,7 +1977,9 @@ define i32 @brRR_true(double %x, double %y) {
 ; CHECK-DF2-NEXT:    bt32 .LBB45_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
+; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:  .LBB45_2: # %label2
+; CHECK-DF2-NEXT:    movi16 a0, 0
 ; CHECK-DF2-NEXT:    rts16
 entry:
   %fcmp = fcmp true double %y, %x
@@ -1918,7 +2000,9 @@ define i32 @brRI_true(double %x) {
 ; CHECK-DF-NEXT:    bt32 .LBB46_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
+; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:  .LBB46_2: # %label2
+; CHECK-DF-NEXT:    movi16 a0, 0
 ; CHECK-DF-NEXT:    rts16
 ;
 ; CHECK-DF2-LABEL: brRI_true:
@@ -1928,7 +2012,9 @@ define i32 @brRI_true(double %x) {
 ; CHECK-DF2-NEXT:    bt32 .LBB46_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
+; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:  .LBB46_2: # %label2
+; CHECK-DF2-NEXT:    movi16 a0, 0
 ; CHECK-DF2-NEXT:    rts16
 entry:
   %fcmp = fcmp true double %x, 10.0
@@ -1949,7 +2035,9 @@ define i32 @brR0_true(double %x) {
 ; CHECK-DF-NEXT:    bt32 .LBB47_2
 ; CHECK-DF-NEXT:  # %bb.1: # %label1
 ; CHECK-DF-NEXT:    movi16 a0, 1
+; CHECK-DF-NEXT:    rts16
 ; CHECK-DF-NEXT:  .LBB47_2: # %label2
+; CHECK-DF-NEXT:    movi16 a0, 0
 ; CHECK-DF-NEXT:    rts16
 ;
 ; CHECK-DF2-LABEL: brR0_true:
@@ -1959,7 +2047,9 @@ define i32 @brR0_true(double %x) {
 ; CHECK-DF2-NEXT:    bt32 .LBB47_2
 ; CHECK-DF2-NEXT:  # %bb.1: # %label1
 ; CHECK-DF2-NEXT:    movi16 a0, 1
+; CHECK-DF2-NEXT:    rts16
 ; CHECK-DF2-NEXT:  .LBB47_2: # %label2
+; CHECK-DF2-NEXT:    movi16 a0, 0
 ; CHECK-DF2-NEXT:    rts16
 entry:
   %fcmp = fcmp true double %x, 0.0

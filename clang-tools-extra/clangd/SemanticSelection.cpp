@@ -25,7 +25,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Error.h"
-#include <optional>
 #include <queue>
 #include <vector>
 
@@ -41,15 +40,15 @@ void addIfDistinct(const Range &R, std::vector<Range> &Result) {
   }
 }
 
-std::optional<FoldingRange> toFoldingRange(SourceRange SR,
-                                           const SourceManager &SM) {
+llvm::Optional<FoldingRange> toFoldingRange(SourceRange SR,
+                                            const SourceManager &SM) {
   const auto Begin = SM.getDecomposedLoc(SR.getBegin()),
              End = SM.getDecomposedLoc(SR.getEnd());
   // Do not produce folding ranges if either range ends is not within the main
   // file. Macros have their own FileID so this also checks if locations are not
   // within the macros.
   if ((Begin.first != SM.getMainFileID()) || (End.first != SM.getMainFileID()))
-    return std::nullopt;
+    return llvm::None;
   FoldingRange Range;
   Range.startCharacter = SM.getColumnNumber(Begin.first, Begin.second) - 1;
   Range.startLine = SM.getLineNumber(Begin.first, Begin.second) - 1;
@@ -58,7 +57,7 @@ std::optional<FoldingRange> toFoldingRange(SourceRange SR,
   return Range;
 }
 
-std::optional<FoldingRange>
+llvm::Optional<FoldingRange>
 extractFoldingRange(const syntax::Node *Node,
                     const syntax::TokenBufferTokenManager &TM) {
   if (const auto *Stmt = dyn_cast<syntax::CompoundStatement>(Node)) {
@@ -70,7 +69,7 @@ extractFoldingRange(const syntax::Node *Node,
     const auto *RBrace = cast_or_null<syntax::Leaf>(
         Stmt->findChild(syntax::NodeRole::CloseParen));
     if (!LBrace || !RBrace)
-      return std::nullopt;
+      return llvm::None;
     // Fold the entire range within braces, including whitespace.
     const SourceLocation LBraceLocInfo =
                              TM.getToken(LBrace->getTokenKey())->endLocation(),
@@ -83,7 +82,7 @@ extractFoldingRange(const syntax::Node *Node,
     if (Range && Range->startLine != Range->endLine)
       return Range;
   }
-  return std::nullopt;
+  return llvm::None;
 }
 
 // Traverse the tree and collect folding ranges along the way.
@@ -154,7 +153,7 @@ llvm::Expected<SelectionRange> getSemanticRanges(ParsedAST &AST, Position Pos) {
   Head.range = std::move(Ranges.front());
   SelectionRange *Tail = &Head;
   for (auto &Range :
-       llvm::MutableArrayRef(Ranges.data(), Ranges.size()).drop_front()) {
+       llvm::makeMutableArrayRef(Ranges.data(), Ranges.size()).drop_front()) {
     Tail->parent = std::make_unique<SelectionRange>();
     Tail = Tail->parent.get();
     Tail->range = std::move(Range);

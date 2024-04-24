@@ -10,10 +10,10 @@
 #include "src/__support/FPUtil/FEnvImpl.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, feclearexcept, (int e)) {
   return fputil::clear_except(e);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

@@ -37,7 +37,7 @@ typedef int(*entry_t)(int, int**);
 typedef struct DEP {
   size_t addr;
   size_t len;
-  unsigned char flags;
+  int flags;
 } dep;
 typedef struct ID {
   int reserved_1;

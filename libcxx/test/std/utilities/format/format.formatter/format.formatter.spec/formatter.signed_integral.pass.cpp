@@ -6,7 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
-// UNSUPPORTED: GCC-ALWAYS_INLINE-FIXME
+// UNSUPPORTED: libcpp-has-no-incomplete-format
 
 // <format>
 
@@ -29,7 +29,6 @@
 #include <format>
 #include <cassert>
 #include <concepts>
-#include <iterator>
 #include <type_traits>
 
 #include "test_format_context.h"
@@ -39,14 +38,14 @@
 #define STR(S) MAKE_STRING(CharT, S)
 
 template <class StringT, class StringViewT, class ArithmeticT>
-void test(StringT expected, StringViewT fmt, ArithmeticT arg, std::size_t offset) {
+void test(StringT expected, StringViewT fmt, ArithmeticT arg) {
   using CharT = typename StringT::value_type;
   auto parse_ctx = std::basic_format_parse_context<CharT>(fmt);
   std::formatter<ArithmeticT, CharT> formatter;
   static_assert(std::semiregular<decltype(formatter)>);
 
   auto it = formatter.parse(parse_ctx);
-  assert(it == fmt.end() - offset);
+  assert(it == fmt.end() - (!fmt.empty() && fmt.back() == '}'));
 
   StringT result;
   auto out = std::back_inserter(result);
@@ -68,9 +67,9 @@ void test_termination_condition(StringT expected, StringT f, ArithmeticT arg) {
   std::basic_string_view<CharT> fmt{f};
   assert(fmt.back() == CharT('}') && "Pre-condition failure");
 
-  test(expected, fmt, arg, 1);
+  test(expected, fmt, arg);
   fmt.remove_suffix(1);
-  test(expected, fmt, arg, 0);
+  test(expected, fmt, arg);
 }
 
 template <class Arithmetic, class CharT>
@@ -88,8 +87,8 @@ void test_signed_integral_type() {
     test_termination_condition(STR("2147483647"), STR("}"), A(2147483647));
   }
   if (sizeof(A) > 4) {
-    test_termination_condition(STR("-9223372036854775808"), STR("}"), A(std::numeric_limits<std::int64_t>::min()));
-    test_termination_condition(STR("9223372036854775807"), STR("}"), A(std::numeric_limits<std::int64_t>::max()));
+    test_termination_condition(STR("-9223372036854775808"), STR("}"), A(std::numeric_limits<int64_t>::min()));
+    test_termination_condition(STR("9223372036854775807"), STR("}"), A(std::numeric_limits<int64_t>::max()));
   }
 #ifndef TEST_HAS_NO_INT128
   if (sizeof(A) > 8) {

@@ -14,7 +14,7 @@ define void @func() {
 ; CHECK-NEXT:    bsic %s10, (, %s12)
 ; CHECK-NEXT:    or %s11, 0, %s9
 
-  call void @function()
+  call void bitcast (void (...)* @function to void ()*)()
   ret void
 }
 

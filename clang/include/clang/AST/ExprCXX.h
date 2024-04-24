@@ -40,6 +40,8 @@
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TypeTraits.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
@@ -50,7 +52,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
 
 namespace clang {
 
@@ -760,7 +761,7 @@ public:
 /// The null pointer literal (C++11 [lex.nullptr])
 ///
 /// Introduced in C++11, the only literal of type \c nullptr_t is \c nullptr.
-/// This also implements the null pointer literal in C23 (C23 6.4.1) which is
+/// This also implements the null pointer literal in C2x (C2x 6.4.1) which is
 /// intended to have the same semantics as the feature in C++.
 class CXXNullPtrLiteralExpr : public Expr {
 public:
@@ -1146,20 +1147,15 @@ public:
 /// };
 /// \endcode
 class CXXThisExpr : public Expr {
-  CXXThisExpr(SourceLocation L, QualType Ty, bool IsImplicit, ExprValueKind VK)
-      : Expr(CXXThisExprClass, Ty, VK, OK_Ordinary) {
+public:
+  CXXThisExpr(SourceLocation L, QualType Ty, bool IsImplicit)
+      : Expr(CXXThisExprClass, Ty, VK_PRValue, OK_Ordinary) {
     CXXThisExprBits.IsImplicit = IsImplicit;
     CXXThisExprBits.Loc = L;
     setDependence(computeDependence(this));
   }
 
   CXXThisExpr(EmptyShell Empty) : Expr(CXXThisExprClass, Empty) {}
-
-public:
-  static CXXThisExpr *Create(const ASTContext &Ctx, SourceLocation L,
-                             QualType Ty, bool IsImplicit);
-
-  static CXXThisExpr *CreateEmpty(const ASTContext &Ctx);
 
   SourceLocation getLocation() const { return CXXThisExprBits.Loc; }
   void setLocation(SourceLocation L) { CXXThisExprBits.Loc = L; }
@@ -1249,12 +1245,8 @@ public:
 /// This wraps up a function call argument that was created from the
 /// corresponding parameter's default argument, when the call did not
 /// explicitly supply arguments for all of the parameters.
-class CXXDefaultArgExpr final
-    : public Expr,
-      private llvm::TrailingObjects<CXXDefaultArgExpr, Expr *> {
+class CXXDefaultArgExpr final : public Expr {
   friend class ASTStmtReader;
-  friend class ASTReader;
-  friend TrailingObjects;
 
   /// The parameter whose default is being used.
   ParmVarDecl *Param;
@@ -1263,7 +1255,7 @@ class CXXDefaultArgExpr final
   DeclContext *UsedContext;
 
   CXXDefaultArgExpr(StmtClass SC, SourceLocation Loc, ParmVarDecl *Param,
-                    Expr *RewrittenExpr, DeclContext *UsedContext)
+                    DeclContext *UsedContext)
       : Expr(SC,
              Param->hasUnparsedDefaultArg()
                  ? Param->getType().getNonReferenceType()
@@ -1272,54 +1264,28 @@ class CXXDefaultArgExpr final
              Param->getDefaultArg()->getObjectKind()),
         Param(Param), UsedContext(UsedContext) {
     CXXDefaultArgExprBits.Loc = Loc;
-    CXXDefaultArgExprBits.HasRewrittenInit = RewrittenExpr != nullptr;
-    if (RewrittenExpr)
-      *getTrailingObjects<Expr *>() = RewrittenExpr;
     setDependence(computeDependence(this));
   }
 
-  CXXDefaultArgExpr(EmptyShell Empty, bool HasRewrittenInit)
-      : Expr(CXXDefaultArgExprClass, Empty) {
-    CXXDefaultArgExprBits.HasRewrittenInit = HasRewrittenInit;
-  }
-
 public:
-  static CXXDefaultArgExpr *CreateEmpty(const ASTContext &C,
-                                        bool HasRewrittenInit);
+  CXXDefaultArgExpr(EmptyShell Empty) : Expr(CXXDefaultArgExprClass, Empty) {}
 
   // \p Param is the parameter whose default argument is used by this
   // expression.
   static CXXDefaultArgExpr *Create(const ASTContext &C, SourceLocation Loc,
-                                   ParmVarDecl *Param, Expr *RewrittenExpr,
-                                   DeclContext *UsedContext);
+                                   ParmVarDecl *Param,
+                                   DeclContext *UsedContext) {
+    return new (C)
+        CXXDefaultArgExpr(CXXDefaultArgExprClass, Loc, Param, UsedContext);
+  }
+
   // Retrieve the parameter that the argument was created from.
   const ParmVarDecl *getParam() const { return Param; }
   ParmVarDecl *getParam() { return Param; }
 
-  bool hasRewrittenInit() const {
-    return CXXDefaultArgExprBits.HasRewrittenInit;
-  }
-
-  // Retrieve the argument to the function call.
-  Expr *getExpr();
-  const Expr *getExpr() const {
-    return const_cast<CXXDefaultArgExpr *>(this)->getExpr();
-  }
-
-  Expr *getRewrittenExpr() {
-    return hasRewrittenInit() ? *getTrailingObjects<Expr *>() : nullptr;
-  }
-
-  const Expr *getRewrittenExpr() const {
-    return const_cast<CXXDefaultArgExpr *>(this)->getRewrittenExpr();
-  }
-
-  // Retrieve the rewritten init expression (for an init expression containing
-  // immediate calls) with the top level FullExpr and ConstantExpr stripped off.
-  Expr *getAdjustedRewrittenExpr();
-  const Expr *getAdjustedRewrittenExpr() const {
-    return const_cast<CXXDefaultArgExpr *>(this)->getAdjustedRewrittenExpr();
-  }
+  // Retrieve the actual argument to the function call.
+  const Expr *getExpr() const { return getParam()->getDefaultArg(); }
+  Expr *getExpr() { return getParam()->getDefaultArg(); }
 
   const DeclContext *getUsedContext() const { return UsedContext; }
   DeclContext *getUsedContext() { return UsedContext; }
@@ -1356,13 +1322,10 @@ public:
 /// is implicitly used in a mem-initializer-list in a constructor
 /// (C++11 [class.base.init]p8) or in aggregate initialization
 /// (C++1y [dcl.init.aggr]p7).
-class CXXDefaultInitExpr final
-    : public Expr,
-      private llvm::TrailingObjects<CXXDefaultInitExpr, Expr *> {
-
-  friend class ASTStmtReader;
+class CXXDefaultInitExpr : public Expr {
   friend class ASTReader;
-  friend TrailingObjects;
+  friend class ASTStmtReader;
+
   /// The field whose default is being used.
   FieldDecl *Field;
 
@@ -1370,25 +1333,16 @@ class CXXDefaultInitExpr final
   DeclContext *UsedContext;
 
   CXXDefaultInitExpr(const ASTContext &Ctx, SourceLocation Loc,
-                     FieldDecl *Field, QualType Ty, DeclContext *UsedContext,
-                     Expr *RewrittenInitExpr);
+                     FieldDecl *Field, QualType Ty, DeclContext *UsedContext);
 
-  CXXDefaultInitExpr(EmptyShell Empty, bool HasRewrittenInit)
-      : Expr(CXXDefaultInitExprClass, Empty) {
-    CXXDefaultInitExprBits.HasRewrittenInit = HasRewrittenInit;
-  }
+  CXXDefaultInitExpr(EmptyShell Empty) : Expr(CXXDefaultInitExprClass, Empty) {}
 
 public:
-  static CXXDefaultInitExpr *CreateEmpty(const ASTContext &C,
-                                         bool HasRewrittenInit);
   /// \p Field is the non-static data member whose default initializer is used
   /// by this expression.
   static CXXDefaultInitExpr *Create(const ASTContext &Ctx, SourceLocation Loc,
-                                    FieldDecl *Field, DeclContext *UsedContext,
-                                    Expr *RewrittenInitExpr);
-
-  bool hasRewrittenInit() const {
-    return CXXDefaultInitExprBits.HasRewrittenInit;
+                                    FieldDecl *Field, DeclContext *UsedContext) {
+    return new (Ctx) CXXDefaultInitExpr(Ctx, Loc, Field, Field->getType(), UsedContext);
   }
 
   /// Get the field whose initializer will be used.
@@ -1396,23 +1350,13 @@ public:
   const FieldDecl *getField() const { return Field; }
 
   /// Get the initialization expression that will be used.
-  Expr *getExpr();
   const Expr *getExpr() const {
-    return const_cast<CXXDefaultInitExpr *>(this)->getExpr();
+    assert(Field->getInClassInitializer() && "initializer hasn't been parsed");
+    return Field->getInClassInitializer();
   }
-
-  /// Retrieve the initializing expression with evaluated immediate calls, if
-  /// any.
-  const Expr *getRewrittenExpr() const {
-    assert(hasRewrittenInit() && "expected a rewritten init expression");
-    return *getTrailingObjects<Expr *>();
-  }
-
-  /// Retrieve the initializing expression with evaluated immediate calls, if
-  /// any.
-  Expr *getRewrittenExpr() {
-    assert(hasRewrittenInit() && "expected a rewritten init expression");
-    return *getTrailingObjects<Expr *>();
+  Expr *getExpr() {
+    assert(Field->getInClassInitializer() && "initializer hasn't been parsed");
+    return Field->getInClassInitializer();
   }
 
   const DeclContext *getUsedContext() const { return UsedContext; }
@@ -1519,17 +1463,19 @@ public:
   }
 };
 
-enum class CXXConstructionKind {
-  Complete,
-  NonVirtualBase,
-  VirtualBase,
-  Delegating
-};
-
 /// Represents a call to a C++ constructor.
 class CXXConstructExpr : public Expr {
   friend class ASTStmtReader;
 
+public:
+  enum ConstructionKind {
+    CK_Complete,
+    CK_NonVirtualBase,
+    CK_VirtualBase,
+    CK_Delegating
+  };
+
+private:
   /// A pointer to the constructor which will be ultimately called.
   CXXConstructorDecl *Constructor;
 
@@ -1565,7 +1511,7 @@ protected:
                    CXXConstructorDecl *Ctor, bool Elidable,
                    ArrayRef<Expr *> Args, bool HadMultipleCandidates,
                    bool ListInitialization, bool StdInitListInitialization,
-                   bool ZeroInitialization, CXXConstructionKind ConstructKind,
+                   bool ZeroInitialization, ConstructionKind ConstructKind,
                    SourceRange ParenOrBraceRange);
 
   /// Build an empty C++ construction expression.
@@ -1584,7 +1530,7 @@ public:
          CXXConstructorDecl *Ctor, bool Elidable, ArrayRef<Expr *> Args,
          bool HadMultipleCandidates, bool ListInitialization,
          bool StdInitListInitialization, bool ZeroInitialization,
-         CXXConstructionKind ConstructKind, SourceRange ParenOrBraceRange);
+         ConstructionKind ConstructKind, SourceRange ParenOrBraceRange);
 
   /// Create an empty C++ construction expression.
   static CXXConstructExpr *CreateEmpty(const ASTContext &Ctx, unsigned NumArgs);
@@ -1638,12 +1584,11 @@ public:
 
   /// Determine whether this constructor is actually constructing
   /// a base class (rather than a complete object).
-  CXXConstructionKind getConstructionKind() const {
-    return static_cast<CXXConstructionKind>(
-        CXXConstructExprBits.ConstructionKind);
+  ConstructionKind getConstructionKind() const {
+    return static_cast<ConstructionKind>(CXXConstructExprBits.ConstructionKind);
   }
-  void setConstructionKind(CXXConstructionKind CK) {
-    CXXConstructExprBits.ConstructionKind = llvm::to_underlying(CK);
+  void setConstructionKind(ConstructionKind CK) {
+    CXXConstructExprBits.ConstructionKind = CK;
   }
 
   using arg_iterator = ExprIterator;
@@ -1685,14 +1630,6 @@ public:
     getArgs()[Arg] = ArgExpr;
   }
 
-  bool isImmediateEscalating() const {
-    return CXXConstructExprBits.IsImmediateEscalating;
-  }
-
-  void setIsImmediateEscalating(bool Set) {
-    CXXConstructExprBits.IsImmediateEscalating = Set;
-  }
-
   SourceLocation getBeginLoc() const LLVM_READONLY;
   SourceLocation getEndLoc() const LLVM_READONLY;
   SourceRange getParenOrBraceRange() const { return ParenOrBraceRange; }
@@ -1726,12 +1663,10 @@ private:
   SourceLocation Loc;
 
   /// Whether this is the construction of a virtual base.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned ConstructsVirtualBase : 1;
 
   /// Whether the constructor is inherited from a virtual base class of the
   /// class that we construct.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned InheritedFromVirtualBase : 1;
 
 public:
@@ -1760,9 +1695,9 @@ public:
   /// Determine whether this constructor is actually constructing
   /// a base class (rather than a complete object).
   bool constructsVBase() const { return ConstructsVirtualBase; }
-  CXXConstructionKind getConstructionKind() const {
-    return ConstructsVirtualBase ? CXXConstructionKind::VirtualBase
-                                 : CXXConstructionKind::NonVirtualBase;
+  CXXConstructExpr::ConstructionKind getConstructionKind() const {
+    return ConstructsVirtualBase ? CXXConstructExpr::CK_VirtualBase
+                                 : CXXConstructExpr::CK_NonVirtualBase;
   }
 
   /// Determine whether the inherited constructor is inherited from a
@@ -2206,17 +2141,6 @@ public:
   }
 };
 
-enum class CXXNewInitializationStyle {
-  /// New-expression has no initializer as written.
-  None,
-
-  /// New-expression has a C++98 paren-delimited initializer.
-  Parens,
-
-  /// New-expression has a C++11 list-initializer.
-  Braces
-};
-
 /// Represents a new-expression for memory allocation and constructor
 /// calls, e.g: "new CXXNewExpr(foo)".
 class CXXNewExpr final
@@ -2270,12 +2194,25 @@ class CXXNewExpr final
     return isParenTypeId();
   }
 
+public:
+  enum InitializationStyle {
+    /// New-expression has no initializer as written.
+    NoInit,
+
+    /// New-expression has a C++98 paren-delimited initializer.
+    CallInit,
+
+    /// New-expression has a C++11 list-initializer.
+    ListInit
+  };
+
+private:
   /// Build a c++ new expression.
   CXXNewExpr(bool IsGlobalNew, FunctionDecl *OperatorNew,
              FunctionDecl *OperatorDelete, bool ShouldPassAlignment,
              bool UsualArrayDeleteWantsSize, ArrayRef<Expr *> PlacementArgs,
-             SourceRange TypeIdParens, std::optional<Expr *> ArraySize,
-             CXXNewInitializationStyle InitializationStyle, Expr *Initializer,
+             SourceRange TypeIdParens, Optional<Expr *> ArraySize,
+             InitializationStyle InitializationStyle, Expr *Initializer,
              QualType Ty, TypeSourceInfo *AllocatedTypeInfo, SourceRange Range,
              SourceRange DirectInitRange);
 
@@ -2289,8 +2226,8 @@ public:
   Create(const ASTContext &Ctx, bool IsGlobalNew, FunctionDecl *OperatorNew,
          FunctionDecl *OperatorDelete, bool ShouldPassAlignment,
          bool UsualArrayDeleteWantsSize, ArrayRef<Expr *> PlacementArgs,
-         SourceRange TypeIdParens, std::optional<Expr *> ArraySize,
-         CXXNewInitializationStyle InitializationStyle, Expr *Initializer,
+         SourceRange TypeIdParens, Optional<Expr *> ArraySize,
+         InitializationStyle InitializationStyle, Expr *Initializer,
          QualType Ty, TypeSourceInfo *AllocatedTypeInfo, SourceRange Range,
          SourceRange DirectInitRange);
 
@@ -2331,32 +2268,32 @@ public:
 
   bool isArray() const { return CXXNewExprBits.IsArray; }
 
-  /// This might return std::nullopt even if isArray() returns true,
+  /// This might return None even if isArray() returns true,
   /// since there might not be an array size expression.
-  /// If the result is not std::nullopt, it will never wrap a nullptr.
-  std::optional<Expr *> getArraySize() {
+  /// If the result is not-None, it will never wrap a nullptr.
+  Optional<Expr *> getArraySize() {
     if (!isArray())
-      return std::nullopt;
+      return None;
 
     if (auto *Result =
             cast_or_null<Expr>(getTrailingObjects<Stmt *>()[arraySizeOffset()]))
       return Result;
 
-    return std::nullopt;
+    return None;
   }
 
-  /// This might return std::nullopt even if isArray() returns true,
+  /// This might return None even if isArray() returns true,
   /// since there might not be an array size expression.
-  /// If the result is not std::nullopt, it will never wrap a nullptr.
-  std::optional<const Expr *> getArraySize() const {
+  /// If the result is not-None, it will never wrap a nullptr.
+  Optional<const Expr *> getArraySize() const {
     if (!isArray())
-      return std::nullopt;
+      return None;
 
     if (auto *Result =
             cast_or_null<Expr>(getTrailingObjects<Stmt *>()[arraySizeOffset()]))
       return Result;
 
-    return std::nullopt;
+    return None;
   }
 
   unsigned getNumPlacementArgs() const {
@@ -2385,12 +2322,16 @@ public:
   bool isGlobalNew() const { return CXXNewExprBits.IsGlobalNew; }
 
   /// Whether this new-expression has any initializer at all.
-  bool hasInitializer() const { return CXXNewExprBits.HasInitializer; }
+  bool hasInitializer() const {
+    return CXXNewExprBits.StoredInitializationStyle > 0;
+  }
 
   /// The kind of initializer this new-expression has.
-  CXXNewInitializationStyle getInitializationStyle() const {
-    return static_cast<CXXNewInitializationStyle>(
-        CXXNewExprBits.StoredInitializationStyle);
+  InitializationStyle getInitializationStyle() const {
+    if (CXXNewExprBits.StoredInitializationStyle == 0)
+      return NoInit;
+    return static_cast<InitializationStyle>(
+        CXXNewExprBits.StoredInitializationStyle - 1);
   }
 
   /// The initializer of this new-expression.
@@ -2605,7 +2546,6 @@ class CXXPseudoDestructorExpr : public Expr {
 
   /// Whether the operator was an arrow ('->'); otherwise, it was a
   /// period ('.').
-  LLVM_PREFERRED_TYPE(bool)
   bool IsArrow : 1;
 
   /// The location of the '.' or '->' operator.
@@ -2805,7 +2745,8 @@ public:
 
   /// Retrieve the argument types.
   ArrayRef<TypeSourceInfo *> getArgs() const {
-    return llvm::ArrayRef(getTrailingObjects<TypeSourceInfo *>(), getNumArgs());
+    return llvm::makeArrayRef(getTrailingObjects<TypeSourceInfo *>(),
+                              getNumArgs());
   }
 
   SourceLocation getBeginLoc() const LLVM_READONLY { return Loc; }
@@ -2835,7 +2776,6 @@ public:
 /// \endcode
 class ArrayTypeTraitExpr : public Expr {
   /// The trait. An ArrayTypeTrait enum in MSVC compat unsigned.
-  LLVM_PREFERRED_TYPE(ArrayTypeTrait)
   unsigned ATT : 2;
 
   /// The value of the type trait. Unspecified if dependent.
@@ -2906,11 +2846,9 @@ public:
 /// \endcode
 class ExpressionTraitExpr : public Expr {
   /// The trait. A ExpressionTrait enum in MSVC compatible unsigned.
-  LLVM_PREFERRED_TYPE(ExpressionTrait)
   unsigned ET : 31;
 
   /// The value of the type trait. Unspecified if dependent.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned Value : 1;
 
   /// The location of the type trait keyword.
@@ -3190,8 +3128,7 @@ class UnresolvedLookupExpr final
                        const DeclarationNameInfo &NameInfo, bool RequiresADL,
                        bool Overloaded,
                        const TemplateArgumentListInfo *TemplateArgs,
-                       UnresolvedSetIterator Begin, UnresolvedSetIterator End,
-                       bool KnownDependent);
+                       UnresolvedSetIterator Begin, UnresolvedSetIterator End);
 
   UnresolvedLookupExpr(EmptyShell Empty, unsigned NumResults,
                        bool HasTemplateKWAndArgsInfo);
@@ -3211,15 +3148,12 @@ public:
          const DeclarationNameInfo &NameInfo, bool RequiresADL, bool Overloaded,
          UnresolvedSetIterator Begin, UnresolvedSetIterator End);
 
-  // After canonicalization, there may be dependent template arguments in
-  // CanonicalConverted But none of Args is dependent. When any of
-  // CanonicalConverted dependent, KnownDependent is true.
   static UnresolvedLookupExpr *
   Create(const ASTContext &Context, CXXRecordDecl *NamingClass,
          NestedNameSpecifierLoc QualifierLoc, SourceLocation TemplateKWLoc,
          const DeclarationNameInfo &NameInfo, bool RequiresADL,
          const TemplateArgumentListInfo *Args, UnresolvedSetIterator Begin,
-         UnresolvedSetIterator End, bool KnownDependent);
+         UnresolvedSetIterator End);
 
   static UnresolvedLookupExpr *CreateEmpty(const ASTContext &Context,
                                            unsigned NumResults,
@@ -3458,7 +3392,8 @@ public:
                                   ArrayRef<CleanupObject> objects);
 
   ArrayRef<CleanupObject> getObjects() const {
-    return llvm::ArrayRef(getTrailingObjects<CleanupObject>(), getNumObjects());
+    return llvm::makeArrayRef(getTrailingObjects<CleanupObject>(),
+                              getNumObjects());
   }
 
   unsigned getNumObjects() const { return ExprWithCleanupsBits.NumObjects; }
@@ -3520,9 +3455,8 @@ class CXXUnresolvedConstructExpr final
   friend class ASTStmtReader;
   friend TrailingObjects;
 
-  /// The type being constructed, and whether the construct expression models
-  /// list initialization or not.
-  llvm::PointerIntPair<TypeSourceInfo *, 1> TypeAndInitForm;
+  /// The type being constructed.
+  TypeSourceInfo *TSI;
 
   /// The location of the left parentheses ('(').
   SourceLocation LParenLoc;
@@ -3532,31 +3466,30 @@ class CXXUnresolvedConstructExpr final
 
   CXXUnresolvedConstructExpr(QualType T, TypeSourceInfo *TSI,
                              SourceLocation LParenLoc, ArrayRef<Expr *> Args,
-                             SourceLocation RParenLoc, bool IsListInit);
+                             SourceLocation RParenLoc);
 
   CXXUnresolvedConstructExpr(EmptyShell Empty, unsigned NumArgs)
-      : Expr(CXXUnresolvedConstructExprClass, Empty) {
+      : Expr(CXXUnresolvedConstructExprClass, Empty), TSI(nullptr) {
     CXXUnresolvedConstructExprBits.NumArgs = NumArgs;
   }
 
 public:
-  static CXXUnresolvedConstructExpr *
-  Create(const ASTContext &Context, QualType T, TypeSourceInfo *TSI,
-         SourceLocation LParenLoc, ArrayRef<Expr *> Args,
-         SourceLocation RParenLoc, bool IsListInit);
+  static CXXUnresolvedConstructExpr *Create(const ASTContext &Context,
+                                            QualType T, TypeSourceInfo *TSI,
+                                            SourceLocation LParenLoc,
+                                            ArrayRef<Expr *> Args,
+                                            SourceLocation RParenLoc);
 
   static CXXUnresolvedConstructExpr *CreateEmpty(const ASTContext &Context,
                                                  unsigned NumArgs);
 
   /// Retrieve the type that is being constructed, as specified
   /// in the source code.
-  QualType getTypeAsWritten() const { return getTypeSourceInfo()->getType(); }
+  QualType getTypeAsWritten() const { return TSI->getType(); }
 
   /// Retrieve the type source information for the type being
   /// constructed.
-  TypeSourceInfo *getTypeSourceInfo() const {
-    return TypeAndInitForm.getPointer();
-  }
+  TypeSourceInfo *getTypeSourceInfo() const { return TSI; }
 
   /// Retrieve the location of the left parentheses ('(') that
   /// precedes the argument list.
@@ -3571,7 +3504,7 @@ public:
   /// Determine whether this expression models list-initialization.
   /// If so, there will be exactly one subexpression, which will be
   /// an InitListExpr.
-  bool isListInitialization() const { return TypeAndInitForm.getInt(); }
+  bool isListInitialization() const { return LParenLoc.isInvalid(); }
 
   /// Retrieve the number of arguments.
   unsigned getNumArgs() const { return CXXUnresolvedConstructExprBits.NumArgs; }
@@ -4156,7 +4089,7 @@ class PackExpansionExpr : public Expr {
 
 public:
   PackExpansionExpr(QualType T, Expr *Pattern, SourceLocation EllipsisLoc,
-                    std::optional<unsigned> NumExpansions)
+                    Optional<unsigned> NumExpansions)
       : Expr(PackExpansionExprClass, T, Pattern->getValueKind(),
              Pattern->getObjectKind()),
         EllipsisLoc(EllipsisLoc),
@@ -4179,11 +4112,11 @@ public:
 
   /// Determine the number of expansions that will be produced when
   /// this pack expansion is instantiated, if already known.
-  std::optional<unsigned> getNumExpansions() const {
+  Optional<unsigned> getNumExpansions() const {
     if (NumExpansions)
       return NumExpansions - 1;
 
-    return std::nullopt;
+    return None;
   }
 
   SourceLocation getBeginLoc() const LLVM_READONLY {
@@ -4250,7 +4183,7 @@ class SizeOfPackExpr final
   /// the given parameter pack.
   SizeOfPackExpr(QualType SizeType, SourceLocation OperatorLoc, NamedDecl *Pack,
                  SourceLocation PackLoc, SourceLocation RParenLoc,
-                 std::optional<unsigned> Length,
+                 Optional<unsigned> Length,
                  ArrayRef<TemplateArgument> PartialArgs)
       : Expr(SizeOfPackExprClass, SizeType, VK_PRValue, OK_Ordinary),
         OperatorLoc(OperatorLoc), PackLoc(PackLoc), RParenLoc(RParenLoc),
@@ -4268,11 +4201,11 @@ class SizeOfPackExpr final
       : Expr(SizeOfPackExprClass, Empty), Length(NumPartialArgs) {}
 
 public:
-  static SizeOfPackExpr *
-  Create(ASTContext &Context, SourceLocation OperatorLoc, NamedDecl *Pack,
-         SourceLocation PackLoc, SourceLocation RParenLoc,
-         std::optional<unsigned> Length = std::nullopt,
-         ArrayRef<TemplateArgument> PartialArgs = std::nullopt);
+  static SizeOfPackExpr *Create(ASTContext &Context, SourceLocation OperatorLoc,
+                                NamedDecl *Pack, SourceLocation PackLoc,
+                                SourceLocation RParenLoc,
+                                Optional<unsigned> Length = None,
+                                ArrayRef<TemplateArgument> PartialArgs = None);
   static SizeOfPackExpr *CreateDeserialized(ASTContext &Context,
                                             unsigned NumPartialArgs);
 
@@ -4311,7 +4244,7 @@ public:
   ArrayRef<TemplateArgument> getPartialArguments() const {
     assert(isPartiallySubstituted());
     const auto *Args = getTrailingObjects<TemplateArgument>();
-    return llvm::ArrayRef(Args, Args + Length);
+    return llvm::makeArrayRef(Args, Args + Length);
   }
 
   SourceLocation getBeginLoc() const LLVM_READONLY { return OperatorLoc; }
@@ -4355,7 +4288,7 @@ public:
   SubstNonTypeTemplateParmExpr(QualType Ty, ExprValueKind ValueKind,
                                SourceLocation Loc, Expr *Replacement,
                                Decl *AssociatedDecl, unsigned Index,
-                               std::optional<unsigned> PackIndex, bool RefParam)
+                               Optional<unsigned> PackIndex, bool RefParam)
       : Expr(SubstNonTypeTemplateParmExprClass, Ty, ValueKind, OK_Ordinary),
         Replacement(Replacement),
         AssociatedDeclAndRef(AssociatedDecl, RefParam), Index(Index),
@@ -4381,9 +4314,9 @@ public:
   /// This should match the result of `getParameter()->getIndex()`.
   unsigned getIndex() const { return Index; }
 
-  std::optional<unsigned> getPackIndex() const {
+  Optional<unsigned> getPackIndex() const {
     if (PackIndex == 0)
-      return std::nullopt;
+      return None;
     return PackIndex - 1;
   }
 
@@ -4708,7 +4641,7 @@ public:
   CXXFoldExpr(QualType T, UnresolvedLookupExpr *Callee,
               SourceLocation LParenLoc, Expr *LHS, BinaryOperatorKind Opcode,
               SourceLocation EllipsisLoc, Expr *RHS, SourceLocation RParenLoc,
-              std::optional<unsigned> NumExpansions)
+              Optional<unsigned> NumExpansions)
       : Expr(CXXFoldExprClass, T, VK_PRValue, OK_Ordinary),
         LParenLoc(LParenLoc), EllipsisLoc(EllipsisLoc), RParenLoc(RParenLoc),
         NumExpansions(NumExpansions ? *NumExpansions + 1 : 0), Opcode(Opcode) {
@@ -4745,10 +4678,10 @@ public:
   SourceLocation getEllipsisLoc() const { return EllipsisLoc; }
   BinaryOperatorKind getOperator() const { return Opcode; }
 
-  std::optional<unsigned> getNumExpansions() const {
+  Optional<unsigned> getNumExpansions() const {
     if (NumExpansions)
       return NumExpansions - 1;
-    return std::nullopt;
+    return None;
   }
 
   SourceLocation getBeginLoc() const LLVM_READONLY {
@@ -4778,140 +4711,6 @@ public:
 
   const_child_range children() const {
     return const_child_range(SubExprs, SubExprs + SubExpr::Count);
-  }
-};
-
-/// Represents a list-initialization with parenthesis.
-///
-/// As per P0960R3, this is a C++20 feature that allows aggregate to
-/// be initialized with a parenthesized list of values:
-/// ```
-/// struct A {
-///   int a;
-///   double b;
-/// };
-///
-/// void foo() {
-///   A a1(0);        // Well-formed in C++20
-///   A a2(1.5, 1.0); // Well-formed in C++20
-/// }
-/// ```
-/// It has some sort of similiarity to braced
-/// list-initialization, with some differences such as
-/// it allows narrowing conversion whilst braced
-/// list-initialization doesn't.
-/// ```
-/// struct A {
-///   char a;
-/// };
-/// void foo() {
-///   A a(1.5); // Well-formed in C++20
-///   A b{1.5}; // Ill-formed !
-/// }
-/// ```
-class CXXParenListInitExpr final
-    : public Expr,
-      private llvm::TrailingObjects<CXXParenListInitExpr, Expr *> {
-  friend class TrailingObjects;
-  friend class ASTStmtReader;
-  friend class ASTStmtWriter;
-
-  unsigned NumExprs;
-  unsigned NumUserSpecifiedExprs;
-  SourceLocation InitLoc, LParenLoc, RParenLoc;
-  llvm::PointerUnion<Expr *, FieldDecl *> ArrayFillerOrUnionFieldInit;
-
-  CXXParenListInitExpr(ArrayRef<Expr *> Args, QualType T,
-                       unsigned NumUserSpecifiedExprs, SourceLocation InitLoc,
-                       SourceLocation LParenLoc, SourceLocation RParenLoc)
-      : Expr(CXXParenListInitExprClass, T, getValueKindForType(T), OK_Ordinary),
-        NumExprs(Args.size()), NumUserSpecifiedExprs(NumUserSpecifiedExprs),
-        InitLoc(InitLoc), LParenLoc(LParenLoc), RParenLoc(RParenLoc) {
-    std::copy(Args.begin(), Args.end(), getTrailingObjects<Expr *>());
-    assert(NumExprs >= NumUserSpecifiedExprs &&
-           "number of user specified inits is greater than the number of "
-           "passed inits");
-    setDependence(computeDependence(this));
-  }
-
-  size_t numTrailingObjects(OverloadToken<Expr *>) const { return NumExprs; }
-
-public:
-  static CXXParenListInitExpr *
-  Create(ASTContext &C, ArrayRef<Expr *> Args, QualType T,
-         unsigned NumUserSpecifiedExprs, SourceLocation InitLoc,
-         SourceLocation LParenLoc, SourceLocation RParenLoc);
-
-  static CXXParenListInitExpr *CreateEmpty(ASTContext &C, unsigned numExprs,
-                                           EmptyShell Empty);
-
-  explicit CXXParenListInitExpr(EmptyShell Empty, unsigned NumExprs)
-      : Expr(CXXParenListInitExprClass, Empty), NumExprs(NumExprs),
-        NumUserSpecifiedExprs(0) {}
-
-  void updateDependence() { setDependence(computeDependence(this)); }
-
-  ArrayRef<Expr *> getInitExprs() {
-    return ArrayRef(getTrailingObjects<Expr *>(), NumExprs);
-  }
-
-  const ArrayRef<Expr *> getInitExprs() const {
-    return ArrayRef(getTrailingObjects<Expr *>(), NumExprs);
-  }
-
-  ArrayRef<Expr *> getUserSpecifiedInitExprs() {
-    return ArrayRef(getTrailingObjects<Expr *>(), NumUserSpecifiedExprs);
-  }
-
-  const ArrayRef<Expr *> getUserSpecifiedInitExprs() const {
-    return ArrayRef(getTrailingObjects<Expr *>(), NumUserSpecifiedExprs);
-  }
-
-  SourceLocation getBeginLoc() const LLVM_READONLY { return LParenLoc; }
-
-  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
-
-  SourceLocation getInitLoc() const LLVM_READONLY { return InitLoc; }
-
-  SourceRange getSourceRange() const LLVM_READONLY {
-    return SourceRange(getBeginLoc(), getEndLoc());
-  }
-
-  void setArrayFiller(Expr *E) { ArrayFillerOrUnionFieldInit = E; }
-
-  Expr *getArrayFiller() {
-    return ArrayFillerOrUnionFieldInit.dyn_cast<Expr *>();
-  }
-
-  const Expr *getArrayFiller() const {
-    return ArrayFillerOrUnionFieldInit.dyn_cast<Expr *>();
-  }
-
-  void setInitializedFieldInUnion(FieldDecl *FD) {
-    ArrayFillerOrUnionFieldInit = FD;
-  }
-
-  FieldDecl *getInitializedFieldInUnion() {
-    return ArrayFillerOrUnionFieldInit.dyn_cast<FieldDecl *>();
-  }
-
-  const FieldDecl *getInitializedFieldInUnion() const {
-    return ArrayFillerOrUnionFieldInit.dyn_cast<FieldDecl *>();
-  }
-
-  child_range children() {
-    Stmt **Begin = reinterpret_cast<Stmt **>(getTrailingObjects<Expr *>());
-    return child_range(Begin, Begin + NumExprs);
-  }
-
-  const_child_range children() const {
-    Stmt *const *Begin =
-        reinterpret_cast<Stmt *const *>(getTrailingObjects<Expr *>());
-    return const_child_range(Begin, Begin + NumExprs);
-  }
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == CXXParenListInitExprClass;
   }
 };
 

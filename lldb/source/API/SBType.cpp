@@ -22,14 +22,15 @@
 #include "llvm/ADT/APSInt.h"
 
 #include <memory>
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
 
 SBType::SBType() { LLDB_INSTRUMENT_VA(this); }
 
-SBType::SBType(const CompilerType &type) : m_opaque_sp(new TypeImpl(type)) {}
+SBType::SBType(const CompilerType &type)
+    : m_opaque_sp(new TypeImpl(
+          CompilerType(type.GetTypeSystem(), type.GetOpaqueQualType()))) {}
 
 SBType::SBType(const lldb::TypeSP &type_sp)
     : m_opaque_sp(new TypeImpl(type_sp)) {}
@@ -121,7 +122,7 @@ uint64_t SBType::GetByteSize() {
   LLDB_INSTRUMENT_VA(this);
 
   if (IsValid())
-    if (std::optional<uint64_t> size =
+    if (llvm::Optional<uint64_t> size =
             m_opaque_sp->GetCompilerType(false).GetByteSize(nullptr))
       return *size;
   return 0;
@@ -363,8 +364,8 @@ SBType SBType::GetBasicType(lldb::BasicType basic_type) {
   LLDB_INSTRUMENT_VA(this, basic_type);
 
   if (IsValid() && m_opaque_sp->IsValid())
-    if (auto ts = m_opaque_sp->GetTypeSystem(false))
-      return SBType(ts->GetBasicTypeFromAST(basic_type));
+    return SBType(
+        m_opaque_sp->GetTypeSystem(false)->GetBasicTypeFromAST(basic_type));
   return SBType();
 }
 
@@ -491,12 +492,7 @@ bool SBType::IsTypeComplete() {
 
   if (!IsValid())
     return false;
-  CompilerType compiler_type = m_opaque_sp->GetCompilerType(false);
-  // Only return true if we have a complete type and it wasn't forcefully
-  // completed.
-  if (compiler_type.IsCompleteType())
-    return !compiler_type.IsForcefullyCompleted();
-  return false;
+  return m_opaque_sp->GetCompilerType(false).IsCompleteType();
 }
 
 uint32_t SBType::GetTypeFlags() {
@@ -584,14 +580,6 @@ lldb::TemplateArgumentKind SBType::GetTemplateArgumentKind(uint32_t idx) {
     return m_opaque_sp->GetCompilerType(false).GetTemplateArgumentKind(
         idx, /*expand_pack=*/true);
   return eTemplateArgumentKindNull;
-}
-
-SBType SBType::FindDirectNestedType(const char *name) {
-  LLDB_INSTRUMENT_VA(this, name);
-
-  if (!IsValid())
-    return SBType();
-  return SBType(m_opaque_sp->FindDirectNestedType(name));
 }
 
 SBTypeList::SBTypeList() : m_opaque_up(new TypeListImpl()) {
@@ -817,15 +805,14 @@ const char *SBTypeMemberFunction::GetName() {
 const char *SBTypeMemberFunction::GetDemangledName() {
   LLDB_INSTRUMENT_VA(this);
 
-  if (!m_opaque_sp)
-    return nullptr;
-
-  ConstString mangled_str = m_opaque_sp->GetMangledName();
-  if (!mangled_str)
-    return nullptr;
-
-  Mangled mangled(mangled_str);
-  return mangled.GetDemangledName().GetCString();
+  if (m_opaque_sp) {
+    ConstString mangled_str = m_opaque_sp->GetMangledName();
+    if (mangled_str) {
+      Mangled mangled(mangled_str);
+      return mangled.GetDemangledName().GetCString();
+    }
+  }
+  return nullptr;
 }
 
 const char *SBTypeMemberFunction::GetMangledName() {

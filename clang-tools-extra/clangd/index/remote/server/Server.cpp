@@ -22,6 +22,7 @@
 #include "support/ThreadsafeFS.h"
 #include "support/Trace.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Chrono.h"
 #include "llvm/Support/CommandLine.h"
@@ -36,7 +37,6 @@
 #include <grpc++/grpc++.h>
 #include <grpc++/health_check_service_interface.h>
 #include <memory>
-#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -451,7 +451,7 @@ std::unique_ptr<Logger> makeLogger(llvm::StringRef LogPrefix,
       void log(Level L, const char *Fmt,
                const llvm::formatv_object_base &Message) override {
         if (Context::current().get(CurrentRequest) == nullptr ||
-            llvm::StringRef(Fmt).starts_with("[public]"))
+            llvm::StringRef(Fmt).startswith("[public]"))
           return StreamLogger::log(L, Fmt, Message);
         if (L >= Error)
           return StreamLogger::log(L, Fmt,
@@ -504,7 +504,7 @@ int main(int argc, char *argv[]) {
   auto Logger = makeLogger(LogPrefix.getValue(), llvm::errs());
   clang::clangd::LoggingSession LoggingSession(*Logger);
 
-  std::optional<llvm::raw_fd_ostream> TracerStream;
+  llvm::Optional<llvm::raw_fd_ostream> TracerStream;
   std::unique_ptr<clang::clangd::trace::EventTracer> Tracer;
   if (!TraceFile.empty()) {
     std::error_code EC;
@@ -522,12 +522,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::optional<clang::clangd::trace::Session> TracingSession;
+  llvm::Optional<clang::clangd::trace::Session> TracingSession;
   if (Tracer)
     TracingSession.emplace(*Tracer);
 
   clang::clangd::RealThreadsafeFS TFS;
-  auto FS = TFS.view(std::nullopt);
+  auto FS = TFS.view(llvm::None);
   auto Status = FS->status(IndexPath);
   if (!Status) {
     elog("{0} does not exist.", IndexPath);

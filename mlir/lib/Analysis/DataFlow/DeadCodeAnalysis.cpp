@@ -8,23 +8,8 @@
 
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
-#include "mlir/Analysis/DataFlow/SparseAnalysis.h"
-#include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/Block.h"
-#include "mlir/IR/Diagnostics.h"
-#include "mlir/IR/Location.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/SymbolTable.h"
-#include "mlir/IR/Value.h"
-#include "mlir/IR/ValueRange.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
-#include "mlir/Support/LLVM.h"
-#include "mlir/Support/LogicalResult.h"
-#include "llvm/Support/Casting.h"
-#include <cassert>
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::dataflow;
@@ -45,9 +30,7 @@ void Executable::print(raw_ostream &os) const {
 }
 
 void Executable::onUpdate(DataFlowSolver *solver) const {
-  AnalysisState::onUpdate(solver);
-
-  if (auto *block = llvm::dyn_cast_if_present<Block *>(point)) {
+  if (auto *block = point.dyn_cast<Block *>()) {
     // Re-invoke the analyses on the block itself.
     for (DataFlowAnalysis *analysis : subscribers)
       solver->enqueue({block, analysis});
@@ -55,7 +38,7 @@ void Executable::onUpdate(DataFlowSolver *solver) const {
     for (DataFlowAnalysis *analysis : subscribers)
       for (Operation &op : *block)
         solver->enqueue({&op, analysis});
-  } else if (auto *programPoint = llvm::dyn_cast_if_present<GenericProgramPoint *>(point)) {
+  } else if (auto *programPoint = point.dyn_cast<GenericProgramPoint *>()) {
     // Re-invoke the analysis on the successor block.
     if (auto *edge = dyn_cast<CFGEdge>(programPoint)) {
       for (DataFlowAnalysis *analysis : subscribers)
@@ -163,7 +146,7 @@ void DeadCodeAnalysis::initializeSymbolCallables(Operation *top) {
       return;
 
     // Walk the symbol table to check for non-call uses of symbols.
-    std::optional<SymbolTable::UseRange> uses =
+    Optional<SymbolTable::UseRange> uses =
         SymbolTable::getSymbolUses(&symbolTableRegion);
     if (!uses) {
       // If we couldn't gather the symbol uses, conservatively assume that
@@ -235,7 +218,7 @@ void DeadCodeAnalysis::markEntryBlocksLive(Operation *op) {
 LogicalResult DeadCodeAnalysis::visit(ProgramPoint point) {
   if (point.is<Block *>())
     return success();
-  auto *op = llvm::dyn_cast_if_present<Operation *>(point);
+  auto *op = point.dyn_cast<Operation *>();
   if (!op)
     return emitError(point.getLoc(), "unknown program point kind");
 
@@ -325,9 +308,9 @@ void DeadCodeAnalysis::visitCallOperation(CallOpInterface call) {
 }
 
 /// Get the constant values of the operands of an operation. If any of the
-/// constant value lattices are uninitialized, return std::nullopt to indicate
-/// the analysis should bail out.
-static std::optional<SmallVector<Attribute>> getOperandValuesImpl(
+/// constant value lattices are uninitialized, return none to indicate the
+/// analysis should bail out.
+static Optional<SmallVector<Attribute>> getOperandValuesImpl(
     Operation *op,
     function_ref<const Lattice<ConstantValue> *(Value)> getLattice) {
   SmallVector<Attribute> operands;
@@ -342,7 +325,7 @@ static std::optional<SmallVector<Attribute>> getOperandValuesImpl(
   return operands;
 }
 
-std::optional<SmallVector<Attribute>>
+Optional<SmallVector<Attribute>>
 DeadCodeAnalysis::getOperandValues(Operation *op) {
   return getOperandValuesImpl(op, [&](Value value) {
     auto *lattice = getOrCreate<Lattice<ConstantValue>>(value);
@@ -353,7 +336,7 @@ DeadCodeAnalysis::getOperandValues(Operation *op) {
 
 void DeadCodeAnalysis::visitBranchOperation(BranchOpInterface branch) {
   // Try to deduce a single successor for the branch.
-  std::optional<SmallVector<Attribute>> operands = getOperandValues(branch);
+  Optional<SmallVector<Attribute>> operands = getOperandValues(branch);
   if (!operands)
     return;
 
@@ -369,12 +352,12 @@ void DeadCodeAnalysis::visitBranchOperation(BranchOpInterface branch) {
 void DeadCodeAnalysis::visitRegionBranchOperation(
     RegionBranchOpInterface branch) {
   // Try to deduce which regions are executable.
-  std::optional<SmallVector<Attribute>> operands = getOperandValues(branch);
+  Optional<SmallVector<Attribute>> operands = getOperandValues(branch);
   if (!operands)
     return;
 
   SmallVector<RegionSuccessor> successors;
-  branch.getEntrySuccessorRegions(*operands, successors);
+  branch.getSuccessorRegions(/*index=*/{}, *operands, successors);
   for (const RegionSuccessor &successor : successors) {
     // The successor can be either an entry block or the parent operation.
     ProgramPoint point = successor.getSuccessor()
@@ -393,15 +376,13 @@ void DeadCodeAnalysis::visitRegionBranchOperation(
 
 void DeadCodeAnalysis::visitRegionTerminator(Operation *op,
                                              RegionBranchOpInterface branch) {
-  std::optional<SmallVector<Attribute>> operands = getOperandValues(op);
+  Optional<SmallVector<Attribute>> operands = getOperandValues(op);
   if (!operands)
     return;
 
   SmallVector<RegionSuccessor> successors;
-  if (auto terminator = dyn_cast<RegionBranchTerminatorOpInterface>(op))
-    terminator.getSuccessorRegions(*operands, successors);
-  else
-    branch.getSuccessorRegions(op->getParentRegion(), successors);
+  branch.getSuccessorRegions(op->getParentRegion()->getRegionNumber(),
+                             *operands, successors);
 
   // Mark successor region entry blocks as executable and add this op to the
   // list of predecessors.
@@ -422,6 +403,10 @@ void DeadCodeAnalysis::visitRegionTerminator(Operation *op,
 
 void DeadCodeAnalysis::visitCallableTerminator(Operation *op,
                                                CallableOpInterface callable) {
+  // If there are no exiting values, we have nothing to do.
+  if (op->getNumOperands() == 0)
+    return;
+
   // Add as predecessors to all callsites this return op.
   auto *callsites = getOrCreateFor<PredecessorState>(op, callable);
   bool canResolve = op->hasTrait<OpTrait::ReturnLike>();

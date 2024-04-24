@@ -9,14 +9,6 @@
 #ifndef __LLVM_LIBC_MACROS_STDLIB_MACROS_H
 #define __LLVM_LIBC_MACROS_STDLIB_MACROS_H
 
-#ifndef NULL
-#define __need_NULL
-#include <stddef.h>
-#endif // NULL
-
-#define EXIT_SUCCESS 0
-#define EXIT_FAILURE 1
-
-#define RAND_MAX 2147483647
+#define RAND_MAX 32767
 
 #endif // __LLVM_LIBC_MACROS_STDLIB_MACROS_H

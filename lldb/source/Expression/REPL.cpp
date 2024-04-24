@@ -9,10 +9,10 @@
 #include "lldb/Expression/REPL.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/PluginManager.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/Expression/ExpressionVariable.h"
 #include "lldb/Expression/UserExpression.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Host/StreamFile.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
 #include "lldb/Target/Thread.h"
@@ -22,9 +22,7 @@
 
 using namespace lldb_private;
 
-char REPL::ID;
-
-REPL::REPL(Target &target) : m_target(target) {
+REPL::REPL(LLVMCastKind kind, Target &target) : m_target(target), m_kind(kind) {
   // Make sure all option values have sane defaults
   Debugger &debugger = m_target.GetDebugger();
   debugger.SetShowProgress(false);
@@ -57,14 +55,14 @@ lldb::REPLSP REPL::Create(Status &err, lldb::LanguageType language,
 }
 
 std::string REPL::GetSourcePath() {
-  llvm::StringRef file_basename = GetSourceFileBasename();
+  ConstString file_basename = GetSourceFileBasename();
   FileSpec tmpdir_file_spec = HostInfo::GetProcessTempDir();
   if (tmpdir_file_spec) {
     tmpdir_file_spec.SetFilename(file_basename);
     m_repl_source_path = tmpdir_file_spec.GetPath();
   } else {
     tmpdir_file_spec = FileSpec("/tmp");
-    tmpdir_file_spec.AppendPathComponent(file_basename);
+    tmpdir_file_spec.AppendPathComponent(file_basename.GetStringRef());
   }
 
   return tmpdir_file_spec.GetPath();
@@ -117,11 +115,10 @@ const char *REPL::IOHandlerGetFixIndentationCharacters() {
   return (m_enable_auto_indent ? GetAutoIndentCharacters() : nullptr);
 }
 
-llvm::StringRef REPL::IOHandlerGetControlSequence(char ch) {
-  static constexpr llvm::StringLiteral control_sequence(":quit\n");
+ConstString REPL::IOHandlerGetControlSequence(char ch) {
   if (ch == 'd')
-    return control_sequence;
-  return {};
+    return ConstString(":quit\n");
+  return ConstString();
 }
 
 const char *REPL::IOHandlerGetCommandPrefix() { return ":"; }
@@ -236,7 +233,7 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
     ExecutionContext exe_ctx(m_target.GetProcessSP()
                                  ->GetThreadList()
                                  .GetSelectedThread()
-                                 ->GetSelectedFrame(DoNoSelectMostRelevantFrame)
+                                 ->GetSelectedFrame()
                                  .get());
 
     lldb::ProcessSP process_sp(exe_ctx.GetProcessSP());
@@ -311,8 +308,7 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
         Thread *thread = exe_ctx.GetThreadPtr();
         if (thread && thread->UnwindInnermostExpression().Success()) {
           thread->SetSelectedFrameByIndex(0, false);
-          exe_ctx.SetFrameSP(
-              thread->GetSelectedFrame(DoNoSelectMostRelevantFrame));
+          exe_ctx.SetFrameSP(thread->GetSelectedFrame());
         }
       }
 
@@ -345,11 +341,9 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
                                    expr_prefix, result_valobj_sp, error,
                                    nullptr); // fixed expression
 
-      if (llvm::Error err = OnExpressionEvaluated(exe_ctx, code, expr_options,
-                                                  execution_results,
-                                                  result_valobj_sp, error)) {
-        *error_sp << llvm::toString(std::move(err)) << "\n";
-      } else if (process_sp && process_sp->IsAlive()) {
+      // CommandInterpreter &ci = debugger.GetCommandInterpreter();
+
+      if (process_sp && process_sp->IsAlive()) {
         bool add_to_code = true;
         bool handled = false;
         if (result_valobj_sp) {
@@ -497,7 +491,7 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
 void REPL::IOHandlerComplete(IOHandler &io_handler,
                              CompletionRequest &request) {
   // Complete an LLDB command if the first character is a colon...
-  if (request.GetRawLine().starts_with(":")) {
+  if (request.GetRawLine().startswith(":")) {
     Debugger &debugger = m_target.GetDebugger();
 
     // auto complete LLDB commands
@@ -528,15 +522,17 @@ void REPL::IOHandlerComplete(IOHandler &io_handler,
   current_code.append(m_code.CopyList());
 
   IOHandlerEditline &editline = static_cast<IOHandlerEditline &>(io_handler);
-  StringList current_lines = editline.GetCurrentLines();
-  const uint32_t current_line_idx = editline.GetCurrentLineIndex();
+  const StringList *current_lines = editline.GetCurrentLines();
+  if (current_lines) {
+    const uint32_t current_line_idx = editline.GetCurrentLineIndex();
 
-  if (current_line_idx < current_lines.GetSize()) {
-    for (uint32_t i = 0; i < current_line_idx; ++i) {
-      const char *line_cstr = current_lines.GetStringAtIndex(i);
-      if (line_cstr) {
-        current_code.append("\n");
-        current_code.append(line_cstr);
+    if (current_line_idx < current_lines->GetSize()) {
+      for (uint32_t i = 0; i < current_line_idx; ++i) {
+        const char *line_cstr = current_lines->GetStringAtIndex(i);
+        if (line_cstr) {
+          current_code.append("\n");
+          current_code.append(line_cstr);
+        }
       }
     }
   }

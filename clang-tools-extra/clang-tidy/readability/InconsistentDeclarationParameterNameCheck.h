@@ -13,7 +13,9 @@
 
 #include "llvm/ADT/DenseSet.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// Checks for declarations of functions which differ in parameter names.
 ///
@@ -31,18 +33,20 @@ public:
   void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
-  std::optional<TraversalKind> getCheckTraversalKind() const override {
+  llvm::Optional<TraversalKind> getCheckTraversalKind() const override {
     return TK_IgnoreUnlessSpelledInSource;
   }
 
 private:
-  void markRedeclarationsAsVisited(const FunctionDecl *OriginalDeclaration);
+  void markRedeclarationsAsVisited(const FunctionDecl *FunctionDeclaration);
 
   llvm::DenseSet<const FunctionDecl *> VisitedDeclarations;
   const bool IgnoreMacros;
   const bool Strict;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_INCONSISTENT_DECLARATION_PARAMETER_NAME_H

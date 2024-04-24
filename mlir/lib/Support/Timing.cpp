@@ -26,7 +26,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <atomic>
-#include <optional>
 #include <chrono>
 
 using namespace mlir;
@@ -51,7 +50,7 @@ public:
   llvm::sys::SmartRWMutex<true> identifierMutex;
 
   /// A thread local cache of identifiers to reduce lock contention.
-  ThreadLocalCache<llvm::StringMap<llvm::StringMapEntry<std::nullopt_t> *>>
+  ThreadLocalCache<llvm::StringMap<llvm::StringMapEntry<llvm::NoneType> *>>
       localIdentifierCache;
 
   TimingManagerImpl() : identifiers(identifierAllocator) {}
@@ -509,10 +508,10 @@ void DefaultTimingManager::dumpAsTree(raw_ostream &os) {
   impl->rootTimer->print(os, DisplayMode::Tree);
 }
 
-std::optional<void *> DefaultTimingManager::rootTimer() {
+Optional<void *> DefaultTimingManager::rootTimer() {
   if (impl->enabled)
     return impl->rootTimer.get();
-  return std::nullopt;
+  return llvm::None;
 }
 
 void DefaultTimingManager::startTimer(void *handle) {

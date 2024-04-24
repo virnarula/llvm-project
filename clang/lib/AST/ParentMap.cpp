@@ -33,10 +33,8 @@ static void BuildParentMap(MapTy& M, Stmt* S,
 
   switch (S->getStmtClass()) {
   case Stmt::PseudoObjectExprClass: {
+    assert(OVMode == OV_Transparent && "Should not appear alongside OVEs");
     PseudoObjectExpr *POE = cast<PseudoObjectExpr>(S);
-
-    if (OVMode == OV_Opaque && M[POE->getSyntacticForm()])
-      break;
 
     // If we are rebuilding the map, clear out any existing state.
     if (M[POE->getSyntacticForm()])

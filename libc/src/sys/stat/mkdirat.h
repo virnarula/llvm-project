@@ -11,10 +11,10 @@
 
 #include <sys/stat.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int mkdirat(int dfd, const char *path, mode_t mode);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SYS_STAT_MKDIRAT_H

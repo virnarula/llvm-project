@@ -30,12 +30,12 @@ static const TargetRegisterClass *getRC32(MachineOperand &MO,
   const TargetRegisterClass *RC = MRI->getRegClass(MO.getReg());
 
   if (SystemZ::GR32BitRegClass.hasSubClassEq(RC) ||
-      MO.getSubReg() == SystemZ::subreg_ll32 ||
-      MO.getSubReg() == SystemZ::subreg_l32)
+      MO.getSubReg() == SystemZ::subreg_l32 ||
+      MO.getSubReg() == SystemZ::subreg_hl32)
     return &SystemZ::GR32BitRegClass;
   if (SystemZ::GRH32BitRegClass.hasSubClassEq(RC) ||
-      MO.getSubReg() == SystemZ::subreg_lh32 ||
-      MO.getSubReg() == SystemZ::subreg_h32)
+      MO.getSubReg() == SystemZ::subreg_h32 ||
+      MO.getSubReg() == SystemZ::subreg_hh32)
     return &SystemZ::GRH32BitRegClass;
 
   if (VRM && VRM->hasPhys(MO.getReg())) {
@@ -107,8 +107,9 @@ bool SystemZRegisterInfo::getRegAllocationHints(
 
         auto tryAddHint = [&](const MachineOperand *MO) -> void {
           Register Reg = MO->getReg();
-          Register PhysReg =
-              Reg.isPhysical() ? Reg : Register(VRM->getPhys(Reg));
+          Register PhysReg = Register::isPhysicalRegister(Reg)
+                                 ? Reg
+                                 : Register(VRM->getPhys(Reg));
           if (PhysReg) {
             if (MO->getSubReg())
               PhysReg = getSubReg(PhysReg, MO->getSubReg());
@@ -281,7 +282,7 @@ SystemZRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   return Reserved;
 }
 
-bool
+void
 SystemZRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                          int SPAdj, unsigned FIOperandNum,
                                          RegScavenger *RS) const {
@@ -313,7 +314,7 @@ SystemZRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
       MI->getDebugExpressionOp().setMetadata(
           DIExpression::appendOpsToArg(MI->getDebugExpression(), Ops, OpIdx));
     }
-    return false;
+    return;
   }
 
   // See if the offset is in range, or if an equivalent instruction that
@@ -373,52 +374,70 @@ SystemZRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
   }
   MI->setDesc(TII->get(OpcodeForOffset));
   MI->getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
-  return false;
 }
 
 bool SystemZRegisterInfo::shouldCoalesce(MachineInstr *MI,
-                                         const TargetRegisterClass *SrcRC,
-                                         unsigned SubReg,
-                                         const TargetRegisterClass *DstRC,
-                                         unsigned DstSubReg,
-                                         const TargetRegisterClass *NewRC,
-                                         LiveIntervals &LIS) const {
+                                  const TargetRegisterClass *SrcRC,
+                                  unsigned SubReg,
+                                  const TargetRegisterClass *DstRC,
+                                  unsigned DstSubReg,
+                                  const TargetRegisterClass *NewRC,
+                                  LiveIntervals &LIS) const {
   assert (MI->isCopy() && "Only expecting COPY instructions");
 
   // Coalesce anything which is not a COPY involving a subreg to/from GR128.
   if (!(NewRC->hasSuperClassEq(&SystemZ::GR128BitRegClass) &&
-        (getRegSizeInBits(*SrcRC) <= 64 || getRegSizeInBits(*DstRC) <= 64) &&
-        !MI->getOperand(1).isUndef()))
+        (getRegSizeInBits(*SrcRC) <= 64 || getRegSizeInBits(*DstRC) <= 64)))
     return true;
 
-  // Allow coalescing of a GR128 subreg COPY only if the subreg liverange is
-  // local to one MBB with not too many interferring physreg clobbers. Otherwise
+  // Allow coalescing of a GR128 subreg COPY only if the live ranges are small
+  // and local to one MBB with not too much interferring registers. Otherwise
   // regalloc may run out of registers.
-  unsigned SubregOpIdx = getRegSizeInBits(*SrcRC) == 128 ? 0 : 1;
-  LiveInterval &LI = LIS.getInterval(MI->getOperand(SubregOpIdx).getReg());
 
-  // Check that the subreg is local to MBB.
+  unsigned WideOpNo = (getRegSizeInBits(*SrcRC) == 128 ? 1 : 0);
+  Register GR128Reg = MI->getOperand(WideOpNo).getReg();
+  Register GRNarReg = MI->getOperand((WideOpNo == 1) ? 0 : 1).getReg();
+  LiveInterval &IntGR128 = LIS.getInterval(GR128Reg);
+  LiveInterval &IntGRNar = LIS.getInterval(GRNarReg);
+
+  // Check that the two virtual registers are local to MBB.
   MachineBasicBlock *MBB = MI->getParent();
-  MachineInstr *FirstMI = LIS.getInstructionFromIndex(LI.beginIndex());
-  MachineInstr *LastMI = LIS.getInstructionFromIndex(LI.endIndex());
-  if (!FirstMI || FirstMI->getParent() != MBB ||
-      !LastMI || LastMI->getParent() != MBB)
+  MachineInstr *FirstMI_GR128 =
+    LIS.getInstructionFromIndex(IntGR128.beginIndex());
+  MachineInstr *FirstMI_GRNar =
+    LIS.getInstructionFromIndex(IntGRNar.beginIndex());
+  MachineInstr *LastMI_GR128 = LIS.getInstructionFromIndex(IntGR128.endIndex());
+  MachineInstr *LastMI_GRNar = LIS.getInstructionFromIndex(IntGRNar.endIndex());
+  if ((!FirstMI_GR128 || FirstMI_GR128->getParent() != MBB) ||
+      (!FirstMI_GRNar || FirstMI_GRNar->getParent() != MBB) ||
+      (!LastMI_GR128 || LastMI_GR128->getParent() != MBB) ||
+      (!LastMI_GRNar || LastMI_GRNar->getParent() != MBB))
     return false;
+
+  MachineBasicBlock::iterator MII = nullptr, MEE = nullptr;
+  if (WideOpNo == 1) {
+    MII = FirstMI_GR128;
+    MEE = LastMI_GRNar;
+  } else {
+    MII = FirstMI_GRNar;
+    MEE = LastMI_GR128;
+  }
 
   // Check if coalescing seems safe by finding the set of clobbered physreg
   // pairs in the region.
   BitVector PhysClobbered(getNumRegs());
-  for (MachineBasicBlock::iterator MII = FirstMI,
-                                   MEE = std::next(LastMI->getIterator());
-       MII != MEE; ++MII)
+  MEE++;
+  for (; MII != MEE; ++MII) {
     for (const MachineOperand &MO : MII->operands())
-      if (MO.isReg() && MO.getReg().isPhysical()) {
-        for (MCPhysReg SI : superregs_inclusive(MO.getReg()))
-          if (NewRC->contains(SI)) {
-            PhysClobbered.set(SI);
+      if (MO.isReg() && Register::isPhysicalRegister(MO.getReg())) {
+        for (MCSuperRegIterator SI(MO.getReg(), this, true/*IncludeSelf*/);
+             SI.isValid(); ++SI)
+          if (NewRC->contains(*SI)) {
+            PhysClobbered.set(*SI);
             break;
           }
       }
+  }
 
   // Demand an arbitrary margin of free regs.
   unsigned const DemandedFreeGR128 = 3;

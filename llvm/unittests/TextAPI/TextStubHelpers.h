@@ -16,16 +16,14 @@
 
 namespace llvm {
 struct ExportedSymbol {
-  MachO::SymbolKind Kind = MachO::SymbolKind::GlobalSymbol;
-  std::string Name = {};
-  bool Weak = false;
-  bool ThreadLocalValue = false;
-  bool isData = false;
-  MachO::TargetList Targets = {};
+  llvm::MachO::SymbolKind Kind;
+  std::string Name;
+  bool WeakDefined;
+  bool ThreadLocalValue;
 };
 
 using ExportedSymbolSeq = std::vector<ExportedSymbol>;
-using TargetToAttr = std::vector<std::pair<llvm::MachO::Target, std::string>>;
+using UUIDs = std::vector<std::pair<llvm::MachO::Target, std::string>>;
 using TBDFile = std::unique_ptr<MachO::InterfaceFile>;
 using TBDReexportFile = std::shared_ptr<MachO::InterfaceFile>;
 
@@ -34,8 +32,8 @@ inline bool operator<(const ExportedSymbol &LHS, const ExportedSymbol &RHS) {
 }
 
 inline bool operator==(const ExportedSymbol &LHS, const ExportedSymbol &RHS) {
-  return std::tie(LHS.Kind, LHS.Name, LHS.Weak, LHS.ThreadLocalValue) ==
-         std::tie(RHS.Kind, RHS.Name, RHS.Weak, RHS.ThreadLocalValue);
+  return std::tie(LHS.Kind, LHS.Name, LHS.WeakDefined, LHS.ThreadLocalValue) ==
+         std::tie(RHS.Kind, RHS.Name, RHS.WeakDefined, RHS.ThreadLocalValue);
 }
 
 inline std::string stripWhitespace(std::string S) {

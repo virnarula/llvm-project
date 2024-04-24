@@ -21,6 +21,8 @@ struct A : X, Y {
   virtual std::strong_ordering operator<=>(const A &) const & = default;
   // CHECK-SAME: @_ZN1A1gEv
   virtual void g();
+  // CHECK-SAME: @_ZNKO1AssERKS_
+  virtual std::strong_ordering operator<=>(const A &) const && = default;
   // CHECK-SAME: @_ZN1A1hEv
   virtual void h();
 
@@ -33,6 +35,9 @@ struct A : X, Y {
 
   // CHECK-SAME: @_ZNKR1AeqERKS_
   // implicit virtual A &operator==(const A&) const & = default;
+
+  // CHECK-SAME: @_ZNKO1AeqERKS_
+  // implicit virtual A &operator==(const A&) const && = default;
 };
 
 // For Y:

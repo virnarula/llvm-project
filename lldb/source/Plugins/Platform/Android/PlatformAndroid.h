@@ -30,8 +30,6 @@ public:
   // lldb_private::PluginInterface functions
   static lldb::PlatformSP CreateInstance(bool force, const ArchSpec *arch);
 
-  static void DebuggerInitialize(lldb_private::Debugger &debugger);
-
   static llvm::StringRef GetPluginNameStatic(bool is_host) {
     return is_host ? Platform::GetHostPlatformName() : "remote-android";
   }
@@ -72,13 +70,6 @@ protected:
   llvm::StringRef
   GetLibdlFunctionDeclarations(lldb_private::Process *process) override;
 
-  typedef std::unique_ptr<AdbClient> AdbClientUP;
-  virtual AdbClientUP GetAdbClient(Status &error);
-
-  virtual llvm::StringRef GetPropertyPackageName();
-
-  std::string GetRunAs();
-
 private:
   AdbClient::SyncService *GetSyncService(Status &error);
 
@@ -87,7 +78,7 @@ private:
   uint32_t m_sdk_version;
 };
 
-} // namespace platform_android
+} // namespace platofor_android
 } // namespace lldb_private
 
 #endif // LLDB_SOURCE_PLUGINS_PLATFORM_ANDROID_PLATFORMANDROID_H

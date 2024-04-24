@@ -14,7 +14,6 @@
 #include "clang/Tooling/NodeIntrospection.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
-#include <optional>
 #include <set>
 
 using namespace llvm;
@@ -28,8 +27,10 @@ namespace query {
 // is found before End, return StringRef().  Begin is adjusted to exclude the
 // lexed region.
 StringRef QueryParser::lexWord() {
-  // Don't trim newlines.
-  Line = Line.ltrim(" \t\v\f\r");
+  Line = Line.drop_while([](char c) {
+    // Don't trim newlines.
+    return StringRef(" \t\v\f\r").contains(c);
+  });
 
   if (Line.empty())
     // Even though the Line is empty, it contains a pointer and
@@ -150,7 +151,8 @@ QueryRef QueryParser::parseSetTraversalKind(TraversalKind QuerySession::*Var) {
 
 QueryRef QueryParser::endQuery(QueryRef Q) {
   StringRef Extra = Line;
-  StringRef ExtraTrimmed = Extra.ltrim(" \t\v\f\r");
+  StringRef ExtraTrimmed = Extra.drop_while(
+      [](char c) { return StringRef(" \t\v\f\r").contains(c); });
 
   if ((!ExtraTrimmed.empty() && ExtraTrimmed[0] == '\n') ||
       (ExtraTrimmed.size() >= 2 && ExtraTrimmed[0] == '\r' &&
@@ -273,7 +275,7 @@ QueryRef QueryParser::doParse() {
     Diagnostics Diag;
     auto MatcherSource = Line.ltrim();
     auto OrigMatcherSource = MatcherSource;
-    std::optional<DynTypedMatcher> Matcher = Parser::parseMatcherExpression(
+    Optional<DynTypedMatcher> Matcher = Parser::parseMatcherExpression(
         MatcherSource, nullptr, &QS.NamedValues, &Diag);
     if (!Matcher) {
       return makeInvalidQueryFromDiagnostics(Diag);

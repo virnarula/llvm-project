@@ -22,18 +22,18 @@ source_filename = "common1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@P = common global ptr null, align 8
+@P = common global i8* (...)* null, align 8
 
 define i32 @main() {
 entry:
-  store ptr @bar, ptr @P, align 8
+  store i8* (...)* bitcast (i8* ()* @bar to i8* (...)*), i8* (...)** @P, align 8
   %call = call i32 (...) @foo()
   ret i32 0
 }
 
 declare i32 @foo(...)
 
-define internal ptr @bar() {
+define internal i8* @bar() {
 entry:
-  ret ptr null
+  ret i8* null
 }

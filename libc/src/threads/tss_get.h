@@ -9,12 +9,12 @@
 #ifndef LLVM_LIBC_SRC_THREADS_TSS_GET_H
 #define LLVM_LIBC_SRC_THREADS_TSS_GET_H
 
-#include <threads.h>
+#include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-void *tss_get(tss_t);
+void *tss_get(pthread_key_t);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_TSS_GET_H

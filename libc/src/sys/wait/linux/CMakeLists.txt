@@ -5,6 +5,7 @@ add_entrypoint_object(
   HDRS
     ../wait.h
   DEPENDS
+    libc.include.errno
     libc.include.sys_wait
     libc.include.sys_syscall
     libc.src.__support.OSUtil.osutil
@@ -18,6 +19,7 @@ add_entrypoint_object(
   HDRS
     ../wait4.h
   DEPENDS
+    libc.include.errno
     libc.include.sys_wait
     libc.include.sys_syscall
     libc.src.__support.OSUtil.osutil
@@ -31,6 +33,7 @@ add_entrypoint_object(
   HDRS
     ../waitpid.h
   DEPENDS
+    libc.include.errno
     libc.include.sys_wait
     libc.include.sys_syscall
     libc.src.__support.OSUtil.osutil

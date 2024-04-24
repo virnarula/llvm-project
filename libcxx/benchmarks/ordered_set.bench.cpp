@@ -28,7 +28,8 @@ struct AllHitTypes : EnumValuesAsTuple<AllHitTypes, HitType, 2> {
 
 enum class AccessPattern { Ordered, Random };
 
-struct AllAccessPattern : EnumValuesAsTuple<AllAccessPattern, AccessPattern, 2> {
+struct AllAccessPattern
+    : EnumValuesAsTuple<AllAccessPattern, AccessPattern, 2> {
   static constexpr const char* Names[] = {"Ordered", "Random"};
 };
 
@@ -45,7 +46,8 @@ struct TestSets {
   std::vector<uint64_t> Keys;
 };
 
-TestSets makeTestingSets(size_t TableSize, size_t NumTables, HitType Hit, AccessPattern Access) {
+TestSets makeTestingSets(size_t TableSize, size_t NumTables, HitType Hit,
+                         AccessPattern Access) {
   TestSets R;
   R.Sets.resize(1);
 
@@ -70,7 +72,8 @@ struct Base {
   }
 
   std::string baseName() const {
-    return "_TableSize" + std::to_string(TableSize) + "_NumTables" + std::to_string(NumTables);
+    return "_TableSize" + std::to_string(TableSize) + "_NumTables" +
+           std::to_string(NumTables);
   }
 };
 
@@ -93,7 +96,9 @@ struct Create : Base {
     }
   }
 
-  std::string name() const { return "BM_Create" + Access::name() + baseName(); }
+  std::string name() const {
+    return "BM_Create" + Access::name() + baseName();
+  }
 };
 
 template <class Hit, class Access>
@@ -112,7 +117,9 @@ struct Find : Base {
     }
   }
 
-  std::string name() const { return "BM_Find" + Hit::name() + Access::name() + baseName(); }
+  std::string name() const {
+    return "BM_Find" + Hit::name() + Access::name() + baseName();
+  }
 };
 
 template <class Hit, class Access>
@@ -131,7 +138,9 @@ struct FindNeEnd : Base {
     }
   }
 
-  std::string name() const { return "BM_FindNeEnd" + Hit::name() + Access::name() + baseName(); }
+  std::string name() const {
+    return "BM_FindNeEnd" + Hit::name() + Access::name() + baseName();
+  }
 };
 
 template <class Access>
@@ -150,7 +159,9 @@ struct InsertHit : Base {
     }
   }
 
-  std::string name() const { return "BM_InsertHit" + Access::name() + baseName(); }
+  std::string name() const {
+    return "BM_InsertHit" + Access::name() + baseName();
+  }
 };
 
 template <class Access>
@@ -169,14 +180,17 @@ struct InsertMissAndErase : Base {
     }
   }
 
-  std::string name() const { return "BM_InsertMissAndErase" + Access::name() + baseName(); }
+  std::string name() const {
+    return "BM_InsertMissAndErase" + Access::name() + baseName();
+  }
 };
 
 struct IterateRangeFor : Base {
   using Base::Base;
 
   void run(benchmark::State& State) const {
-    auto Data = makeTestingSets(TableSize, NumTables, HitType::Miss, AccessPattern::Ordered);
+    auto Data = makeTestingSets(TableSize, NumTables, HitType::Miss,
+                                AccessPattern::Ordered);
 
     while (State.KeepRunningBatch(TableSize * NumTables)) {
       for (auto& Set : Data.Sets) {
@@ -194,7 +208,8 @@ struct IterateBeginEnd : Base {
   using Base::Base;
 
   void run(benchmark::State& State) const {
-    auto Data = makeTestingSets(TableSize, NumTables, HitType::Miss, AccessPattern::Ordered);
+    auto Data = makeTestingSets(TableSize, NumTables, HitType::Miss,
+                                AccessPattern::Ordered);
 
     while (State.KeepRunningBatch(TableSize * NumTables)) {
       for (auto& Set : Data.Sets) {
@@ -208,7 +223,7 @@ struct IterateBeginEnd : Base {
   std::string name() const { return "BM_IterateBeginEnd" + baseName(); }
 };
 
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv) {
   benchmark::Initialize(&argc, argv);
@@ -219,10 +234,14 @@ int main(int argc, char** argv) {
   const std::vector<size_t> NumTables{1, 10, 100, 1000, 10000, 100000, 1000000};
 
   makeCartesianProductBenchmark<Create, AllAccessPattern>(TableSize, NumTables);
-  makeCartesianProductBenchmark<Find, AllHitTypes, AllAccessPattern>(TableSize, NumTables);
-  makeCartesianProductBenchmark<FindNeEnd, AllHitTypes, AllAccessPattern>(TableSize, NumTables);
-  makeCartesianProductBenchmark<InsertHit, AllAccessPattern>(TableSize, NumTables);
-  makeCartesianProductBenchmark<InsertMissAndErase, AllAccessPattern>(TableSize, NumTables);
+  makeCartesianProductBenchmark<Find, AllHitTypes, AllAccessPattern>(
+      TableSize, NumTables);
+  makeCartesianProductBenchmark<FindNeEnd, AllHitTypes, AllAccessPattern>(
+      TableSize, NumTables);
+  makeCartesianProductBenchmark<InsertHit, AllAccessPattern>(
+      TableSize, NumTables);
+  makeCartesianProductBenchmark<InsertMissAndErase, AllAccessPattern>(
+      TableSize, NumTables);
   makeCartesianProductBenchmark<IterateRangeFor>(TableSize, NumTables);
   makeCartesianProductBenchmark<IterateBeginEnd>(TableSize, NumTables);
   benchmark::RunSpecifiedBenchmarks();

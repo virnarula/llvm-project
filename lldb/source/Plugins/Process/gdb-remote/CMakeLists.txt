@@ -47,7 +47,6 @@ add_lldb_library(lldbPluginProcessGDBRemote PLUGIN
     ${LIBCOMPRESSION}
   LINK_COMPONENTS
     Support
-    TargetParser
   )
 
 add_dependencies(lldbPluginProcessGDBRemote

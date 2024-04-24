@@ -10,25 +10,25 @@
 
 #include "src/__support/OSUtil/syscall.h" // For internal syscall function.
 #include "src/__support/common.h"
-#include "src/errno/libc_errno.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/syscall.h> // For syscall numbers.
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, unlinkat, (int dfd, const char *path, int flags)) {
 #ifdef SYS_unlinkat
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(SYS_unlinkat, dfd, path, flags);
+  long ret = __llvm_libc::syscall_impl(SYS_unlinkat, dfd, path, flags);
 #else
-#error "unlinkat syscalls not available."
+#error "unlinkat syscall not available."
 #endif
 
   if (ret < 0) {
-    libc_errno = -ret;
+    errno = -ret;
     return -1;
   }
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

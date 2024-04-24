@@ -62,7 +62,8 @@ class StackDepot {
   // This is achieved by re-checking the hash of the stack trace before
   // returning the trace.
 
-#if SCUDO_SMALL_STACK_DEPOT
+#ifdef SCUDO_FUZZ
+  // Use smaller table sizes for fuzzing in order to reduce input size.
   static const uptr TabBits = 4;
 #else
   static const uptr TabBits = 16;
@@ -71,7 +72,7 @@ class StackDepot {
   static const uptr TabMask = TabSize - 1;
   atomic_u32 Tab[TabSize] = {};
 
-#if SCUDO_SMALL_STACK_DEPOT
+#ifdef SCUDO_FUZZ
   static const uptr RingBits = 4;
 #else
   static const uptr RingBits = 19;

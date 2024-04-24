@@ -25,7 +25,7 @@ using namespace ento;
 namespace {
 class ArrayBoundChecker :
     public Checker<check::Location> {
-  const BugType BT{this, "Out-of-bound array access"};
+  mutable std::unique_ptr<BuiltinBug> BT;
 
 public:
   void checkLocation(SVal l, bool isLoad, const Stmt* S,
@@ -65,13 +65,18 @@ void ArrayBoundChecker::checkLocation(SVal l, bool isLoad, const Stmt* LoadS,
     if (!N)
       return;
 
+    if (!BT)
+      BT.reset(new BuiltinBug(
+          this, "Out-of-bound array access",
+          "Access out-of-bound array element (buffer overflow)"));
+
     // FIXME: It would be nice to eventually make this diagnostic more clear,
     // e.g., by referencing the original declaration or by saying *why* this
     // reference is outside the range.
 
     // Generate a report for this bug.
-    auto report = std::make_unique<PathSensitiveBugReport>(
-        BT, "Access out-of-bound array element (buffer overflow)", N);
+    auto report =
+        std::make_unique<PathSensitiveBugReport>(*BT, BT->getDescription(), N);
 
     report->addRange(LoadS->getSourceRange());
     C.emitReport(std::move(report));

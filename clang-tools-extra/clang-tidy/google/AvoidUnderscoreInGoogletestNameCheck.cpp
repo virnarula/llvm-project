@@ -16,7 +16,10 @@
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
 
-namespace clang::tidy::google::readability {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace readability {
 
 constexpr llvm::StringLiteral KDisabledTestPrefix = "DISABLED_";
 
@@ -24,7 +27,7 @@ constexpr llvm::StringLiteral KDisabledTestPrefix = "DISABLED_";
 static bool isGoogletestTestMacro(StringRef MacroName) {
   static const llvm::StringSet<> MacroNames = {"TEST", "TEST_F", "TEST_P",
                                                "TYPED_TEST", "TYPED_TEST_P"};
-  return MacroNames.contains(MacroName);
+  return MacroNames.find(MacroName) != MacroNames.end();
 }
 
 namespace {
@@ -47,19 +50,16 @@ public:
     if (!isGoogletestTestMacro(MacroName) || !Args ||
         Args->getNumMacroArguments() < 2)
       return;
-    const Token *TestSuiteNameToken = Args->getUnexpArgument(0);
+    const Token *TestCaseNameToken = Args->getUnexpArgument(0);
     const Token *TestNameToken = Args->getUnexpArgument(1);
-    if (!TestSuiteNameToken || !TestNameToken)
+    if (!TestCaseNameToken || !TestNameToken)
       return;
-    std::string TestSuiteNameMaybeDisabled =
-        PP->getSpelling(*TestSuiteNameToken);
-    StringRef TestSuiteName = TestSuiteNameMaybeDisabled;
-    TestSuiteName.consume_front(KDisabledTestPrefix);
-    if (TestSuiteName.contains('_'))
-      Check->diag(TestSuiteNameToken->getLocation(),
-                  "avoid using \"_\" in test suite name \"%0\" according to "
+    std::string TestCaseName = PP->getSpelling(*TestCaseNameToken);
+    if (TestCaseName.find('_') != std::string::npos)
+      Check->diag(TestCaseNameToken->getLocation(),
+                  "avoid using \"_\" in test case name \"%0\" according to "
                   "Googletest FAQ")
-          << TestSuiteName;
+          << TestCaseName;
 
     std::string TestNameMaybeDisabled = PP->getSpelling(*TestNameToken);
     StringRef TestName = TestNameMaybeDisabled;
@@ -84,4 +84,7 @@ void AvoidUnderscoreInGoogletestNameCheck::registerPPCallbacks(
       std::make_unique<AvoidUnderscoreInGoogletestNameCallback>(PP, this));
 }
 
-} // namespace clang::tidy::google::readability
+} // namespace readability
+} // namespace google
+} // namespace tidy
+} // namespace clang

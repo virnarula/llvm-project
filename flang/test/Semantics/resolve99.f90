@@ -1,4 +1,4 @@
-! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
+! RUN: %python %S/test_errors.py %s %flang_fc1
 ! Tests for the index-name of a FORALL statement
 
 module m1
@@ -31,7 +31,7 @@ contains
     integer, dimension(4) :: table
     integer :: localVar
     associate (assocVar => localVar)
-      !PORTABILITY: Index variable 'assocvar' should be a scalar object or common block if it is present in the enclosing scope
+      ! assocVar is construct associated with localVar
       FORALL (assocVar=1:4) table(assocVar) = 343
     end associate
   end subroutine constructAssoc
@@ -44,9 +44,7 @@ contains
 
   subroutine mismatch()
     integer, dimension(4) :: table
-    !PORTABILITY: Index variable 'typename' should be a scalar object or common block if it is present in the enclosing scope
-    !ERROR: Must have INTEGER type, but is REAL(4)
-    !ERROR: Must have INTEGER type, but is REAL(4)
+    !ERROR: Index name 'typename' conflicts with existing identifier
     FORALL (typeName=1:4) table(typeName) = 343
   end subroutine mismatch
 end program indexName

@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// Checks for use of implicit bool conversions in expressions.
 ///
@@ -30,14 +32,16 @@ public:
 private:
   void handleCastToBool(const ImplicitCastExpr *CastExpression,
                         const Stmt *ParentStatement, ASTContext &Context);
-  void handleCastFromBool(const ImplicitCastExpr *Cast,
-                          const ImplicitCastExpr *NextImplicitCast,
+  void handleCastFromBool(const ImplicitCastExpr *CastExpression,
+                          const ImplicitCastExpr *FurtherImplicitCastExpression,
                           ASTContext &Context);
 
   const bool AllowIntegerConditions;
   const bool AllowPointerConditions;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_IMPLICIT_BOOL_CONVERSION_H

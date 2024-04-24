@@ -20,6 +20,7 @@
 #include "llvm/ObjectYAML/DWARFYAML.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -27,13 +28,11 @@
 #include "llvm/Support/SwapByteOrder.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Host.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -553,7 +552,7 @@ static void writeLineTableOpcode(const DWARFYAML::LineTableOpcode &Op,
 }
 
 static std::vector<uint8_t>
-getStandardOpcodeLengths(uint16_t Version, std::optional<uint8_t> OpcodeBase) {
+getStandardOpcodeLengths(uint16_t Version, Optional<uint8_t> OpcodeBase) {
   // If the opcode_base field isn't specified, we returns the
   // standard_opcode_lengths array according to the version by default.
   std::vector<uint8_t> StandardOpcodeLengths{0, 1, 1, 1, 1, 0,

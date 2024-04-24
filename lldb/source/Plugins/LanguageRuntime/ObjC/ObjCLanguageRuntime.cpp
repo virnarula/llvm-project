@@ -10,6 +10,7 @@
 #include "ObjCLanguageRuntime.h"
 
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+#include "lldb/Core/MappedHash.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/ValueObject.h"
@@ -26,7 +27,6 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/DJB.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -139,10 +139,17 @@ ObjCLanguageRuntime::LookupInCompleteClassCache(ConstString &name) {
     if (!module_sp)
       return TypeSP();
 
-    TypeQuery query(name.GetStringRef(), TypeQueryOptions::e_exact_match);
-    TypeResults results;
-    module_sp->FindTypes(query, results);
-    for (const TypeSP &type_sp : results.GetTypeMap().Types()) {
+    const bool exact_match = true;
+    const uint32_t max_matches = UINT32_MAX;
+    TypeList types;
+
+    llvm::DenseSet<SymbolFile *> searched_symbol_files;
+    module_sp->FindTypes(name, exact_match, max_matches, searched_symbol_files,
+                         types);
+
+    for (uint32_t i = 0; i < types.GetSize(); ++i) {
+      TypeSP type_sp(types.GetTypeAtIndex(i));
+
       if (TypeSystemClang::IsObjCObjectOrInterfaceType(
               type_sp->GetForwardCompilerType())) {
         if (TypePayloadClang(type_sp->GetPayload()).IsCompleteObjCClass()) {
@@ -225,22 +232,6 @@ ObjCLanguageRuntime::GetDescriptorIteratorPair(bool update_if_needed) {
   return std::pair<ObjCLanguageRuntime::ISAToDescriptorIterator,
                    ObjCLanguageRuntime::ISAToDescriptorIterator>(
       m_isa_to_descriptor.begin(), m_isa_to_descriptor.end());
-}
-
-void ObjCLanguageRuntime::ReadObjCLibraryIfNeeded(
-    const ModuleList &module_list) {
-  if (!HasReadObjCLibrary()) {
-    std::lock_guard<std::recursive_mutex> guard(module_list.GetMutex());
-
-    size_t num_modules = module_list.GetSize();
-    for (size_t i = 0; i < num_modules; i++) {
-      auto mod = module_list.GetModuleAtIndex(i);
-      if (IsModuleObjCLibrary(mod)) {
-        ReadObjCLibrary(mod);
-        break;
-      }
-    }
-  }
 }
 
 ObjCLanguageRuntime::ObjCISA
@@ -339,8 +330,8 @@ ObjCLanguageRuntime::GetNonKVOClassDescriptor(ObjCISA isa) {
 CompilerType
 ObjCLanguageRuntime::EncodingToType::RealizeType(const char *name,
                                                  bool for_expression) {
-  if (m_scratch_ast_ctx_sp)
-    return RealizeType(*m_scratch_ast_ctx_sp, name, for_expression);
+  if (m_scratch_ast_ctx_up)
+    return RealizeType(*m_scratch_ast_ctx_up, name, for_expression);
   return CompilerType();
 }
 
@@ -422,7 +413,7 @@ Status ObjCLanguageRuntime::ObjCExceptionPrecondition::ConfigurePrecondition(
   return error;
 }
 
-std::optional<CompilerType>
+llvm::Optional<CompilerType>
 ObjCLanguageRuntime::GetRuntimeType(CompilerType base_type) {
   CompilerType class_type;
   bool is_pointer_type = false;
@@ -432,18 +423,18 @@ ObjCLanguageRuntime::GetRuntimeType(CompilerType base_type) {
   else if (TypeSystemClang::IsObjCObjectOrInterfaceType(base_type))
     class_type = base_type;
   else
-    return std::nullopt;
+    return llvm::None;
 
   if (!class_type)
-    return std::nullopt;
+    return llvm::None;
 
   ConstString class_name(class_type.GetTypeName());
   if (!class_name)
-    return std::nullopt;
+    return llvm::None;
 
   TypeSP complete_objc_class_type_sp = LookupInCompleteClassCache(class_name);
   if (!complete_objc_class_type_sp)
-    return std::nullopt;
+    return llvm::None;
 
   CompilerType complete_class(
       complete_objc_class_type_sp->GetFullCompilerType());
@@ -454,5 +445,5 @@ ObjCLanguageRuntime::GetRuntimeType(CompilerType base_type) {
       return complete_class;
   }
 
-  return std::nullopt;
+  return llvm::None;
 }

@@ -16,7 +16,6 @@
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/lldb-private.h"
-#include <optional>
 
 namespace lldb_private {
 
@@ -206,7 +205,7 @@ protected:
   void SetSCMatchesByLine(SearchFilter &filter, SymbolContextList &sc_list,
                           bool skip_prologue, llvm::StringRef log_ident,
                           uint32_t line = 0,
-                          std::optional<uint16_t> column = std::nullopt);
+                          llvm::Optional<uint16_t> column = llvm::None);
   void SetSCMatchesByLine(SearchFilter &, SymbolContextList &, bool,
                           const char *) = delete;
 

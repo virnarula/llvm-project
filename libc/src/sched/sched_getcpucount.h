@@ -6,18 +6,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC_SCHED_SCHED_GETCPUCOUNT_H
-#define LLVM_LIBC_SRC_SCHED_SCHED_GETCPUCOUNT_H
+#ifndef LLVM_LIBC_SRC_UNISTD_SCHED_GETCPUCOUNT_H
+#define LLVM_LIBC_SRC_UNISTD_SCHED_GETCPUCOUNT_H
 
 #include <sched.h>
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // This function is for internal use in the CPU_COUNT macro, but since that's a
 // macro and will be applied to client files, this must be a public entrypoint.
 int __sched_getcpucount(size_t cpuset_size, const cpu_set_t *mask);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC_SCHED_SCHED_GETCPUCOUNT_H
+#endif // LLVM_LIBC_SRC_UNISTD_SCHED_GETCPUCOUNT_H

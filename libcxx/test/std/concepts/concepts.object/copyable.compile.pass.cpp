@@ -113,3 +113,5 @@ static_assert(
     !std::assignable_from<deleted_assignment_from_const_rvalue&,
                           deleted_assignment_from_const_rvalue const>);
 static_assert(!std::copyable<deleted_assignment_from_const_rvalue>);
+
+int main(int, char**) { return 0; }

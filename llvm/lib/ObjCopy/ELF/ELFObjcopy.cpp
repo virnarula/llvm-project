@@ -10,6 +10,7 @@
 #include "ELFObject.h"
 #include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -52,11 +53,11 @@ using namespace llvm::object;
 using SectionPred = std::function<bool(const SectionBase &Sec)>;
 
 static bool isDebugSection(const SectionBase &Sec) {
-  return StringRef(Sec.Name).starts_with(".debug") || Sec.Name == ".gdb_index";
+  return StringRef(Sec.Name).startswith(".debug") || Sec.Name == ".gdb_index";
 }
 
 static bool isDWOSection(const SectionBase &Sec) {
-  return StringRef(Sec.Name).ends_with(".dwo");
+  return StringRef(Sec.Name).endswith(".dwo");
 }
 
 static bool onlyKeepDWOPred(const Object &Obj, const SectionBase &Sec) {
@@ -68,8 +69,7 @@ static bool onlyKeepDWOPred(const Object &Obj, const SectionBase &Sec) {
   return !isDWOSection(Sec);
 }
 
-static Expected<uint64_t> getNewShfFlags(SectionFlag AllFlags,
-                                         uint16_t EMachine) {
+static uint64_t getNewShfFlags(SectionFlag AllFlags) {
   uint64_t NewFlags = 0;
   if (AllFlags & SectionFlag::SecAlloc)
     NewFlags |= ELF::SHF_ALLOC;
@@ -83,44 +83,23 @@ static Expected<uint64_t> getNewShfFlags(SectionFlag AllFlags,
     NewFlags |= ELF::SHF_STRINGS;
   if (AllFlags & SectionFlag::SecExclude)
     NewFlags |= ELF::SHF_EXCLUDE;
-  if (AllFlags & SectionFlag::SecLarge) {
-    if (EMachine != EM_X86_64)
-      return createStringError(errc::invalid_argument,
-                               "section flag SHF_X86_64_LARGE can only be used "
-                               "with x86_64 architecture");
-    NewFlags |= ELF::SHF_X86_64_LARGE;
-  }
   return NewFlags;
 }
 
 static uint64_t getSectionFlagsPreserveMask(uint64_t OldFlags,
-                                            uint64_t NewFlags,
-                                            uint16_t EMachine) {
+                                            uint64_t NewFlags) {
   // Preserve some flags which should not be dropped when setting flags.
   // Also, preserve anything OS/processor dependant.
   const uint64_t PreserveMask =
       (ELF::SHF_COMPRESSED | ELF::SHF_GROUP | ELF::SHF_LINK_ORDER |
        ELF::SHF_MASKOS | ELF::SHF_MASKPROC | ELF::SHF_TLS |
        ELF::SHF_INFO_LINK) &
-      ~ELF::SHF_EXCLUDE &
-      ~(EMachine == EM_X86_64 ? (uint64_t)ELF::SHF_X86_64_LARGE : 0UL);
+      ~ELF::SHF_EXCLUDE;
   return (OldFlags & PreserveMask) | (NewFlags & ~PreserveMask);
 }
 
-static void setSectionType(SectionBase &Sec, uint64_t Type) {
-  // If Sec's type is changed from SHT_NOBITS due to --set-section-flags,
-  // Offset may not be aligned. Align it to max(Align, 1).
-  if (Sec.Type == ELF::SHT_NOBITS && Type != ELF::SHT_NOBITS)
-    Sec.Offset = alignTo(Sec.Offset, std::max(Sec.Align, uint64_t(1)));
-  Sec.Type = Type;
-}
-
-static Error setSectionFlagsAndType(SectionBase &Sec, SectionFlag Flags,
-                                    uint16_t EMachine) {
-  Expected<uint64_t> NewFlags = getNewShfFlags(Flags, EMachine);
-  if (!NewFlags)
-    return NewFlags.takeError();
-  Sec.Flags = getSectionFlagsPreserveMask(Sec.Flags, *NewFlags, EMachine);
+static void setSectionFlagsAndType(SectionBase &Sec, SectionFlag Flags) {
+  Sec.Flags = getSectionFlagsPreserveMask(Sec.Flags, getNewShfFlags(Flags));
 
   // In GNU objcopy, certain flags promote SHT_NOBITS to SHT_PROGBITS. This rule
   // may promote more non-ALLOC sections than GNU objcopy, but it is fine as
@@ -128,9 +107,7 @@ static Error setSectionFlagsAndType(SectionBase &Sec, SectionFlag Flags,
   if (Sec.Type == SHT_NOBITS &&
       (!(Sec.Flags & ELF::SHF_ALLOC) ||
        Flags & (SectionFlag::SecContents | SectionFlag::SecLoad)))
-    setSectionType(Sec, ELF::SHT_PROGBITS);
-
-  return Error::success();
+    Sec.Type = SHT_PROGBITS;
 }
 
 static ElfType getOutputElfType(const Binary &Bin) {
@@ -180,12 +157,19 @@ static std::unique_ptr<Writer> createWriter(const CommonConfig &Config,
                                             ElfType OutputElfType) {
   switch (Config.OutputFormat) {
   case FileFormat::Binary:
-    return std::make_unique<BinaryWriter>(Obj, Out, Config);
+    return std::make_unique<BinaryWriter>(Obj, Out);
   case FileFormat::IHex:
     return std::make_unique<IHexWriter>(Obj, Out);
   default:
     return createELFWriter(Config, Obj, Out, OutputElfType);
   }
+}
+
+template <class... Ts>
+static Error makeStringError(std::error_code EC, const Twine &Msg,
+                             Ts &&...Args) {
+  std::string FullMsg = (EC.message() + ": " + Msg).str();
+  return createStringError(EC, FullMsg.c_str(), std::forward<Ts>(Args)...);
 }
 
 static Error dumpSectionToFile(StringRef SecName, StringRef Filename,
@@ -214,7 +198,7 @@ static Error dumpSectionToFile(StringRef SecName, StringRef Filename,
 
 static bool isCompressable(const SectionBase &Sec) {
   return !(Sec.Flags & ELF::SHF_COMPRESSED) &&
-         StringRef(Sec.Name).starts_with(".debug");
+         StringRef(Sec.Name).startswith(".debug");
 }
 
 static Error replaceDebugSections(
@@ -248,7 +232,7 @@ static bool isAArch64MappingSymbol(const Symbol &Sym) {
   StringRef Name = Sym.Name;
   if (!Name.consume_front("$x") && !Name.consume_front("$d"))
     return false;
-  return Name.empty() || Name.starts_with(".");
+  return Name.empty() || Name.startswith(".");
 }
 
 static bool isArmMappingSymbol(const Symbol &Sym) {
@@ -259,7 +243,7 @@ static bool isArmMappingSymbol(const Symbol &Sym) {
   if (!Name.consume_front("$a") && !Name.consume_front("$d") &&
       !Name.consume_front("$t"))
     return false;
-  return Name.empty() || Name.starts_with(".");
+  return Name.empty() || Name.startswith(".");
 }
 
 // Check if the symbol should be preserved because it is required by ABI.
@@ -361,7 +345,7 @@ static Error updateAndRemoveSymbols(const CommonConfig &Config,
 
     if ((Config.DiscardMode == DiscardType::All ||
          (Config.DiscardMode == DiscardType::Locals &&
-          StringRef(Sym.Name).starts_with(".L"))) &&
+          StringRef(Sym.Name).startswith(".L"))) &&
         Sym.Binding == STB_LOCAL && Sym.getShndx() != SHN_UNDEF &&
         Sym.Type != STT_FILE && Sym.Type != STT_SECTION)
       return true;
@@ -448,7 +432,7 @@ static Error replaceAndRemoveSections(const CommonConfig &Config,
         return true;
       if (&Sec == Obj.SectionNames)
         return false;
-      if (StringRef(Sec.Name).starts_with(".gnu.warning"))
+      if (StringRef(Sec.Name).startswith(".gnu.warning"))
         return false;
       // We keep the .ARM.attribute section to maintain compatibility
       // with Debian derived distributions. This is a bug in their
@@ -616,8 +600,8 @@ handleUserSection(const NewSectionInfo &NewSection,
 static Error handleArgs(const CommonConfig &Config, const ELFConfig &ELFConfig,
                         Object &Obj) {
   if (Config.OutputArch) {
-    Obj.Machine = Config.OutputArch->EMachine;
-    Obj.OSABI = Config.OutputArch->OSABI;
+    Obj.Machine = Config.OutputArch.value().EMachine;
+    Obj.OSABI = Config.OutputArch.value().OSABI;
   }
 
   if (!Config.SplitDWO.empty() && Config.ExtractDWO) {
@@ -662,7 +646,7 @@ static Error handleArgs(const CommonConfig &Config, const ELFConfig &ELFConfig,
     auto AddSection = [&](StringRef Name, ArrayRef<uint8_t> Data) {
       OwnedDataSection &NewSection =
           Obj.addSection<OwnedDataSection>(Name, Data);
-      if (Name.starts_with(".note") && Name != ".note.GNU-stack")
+      if (Name.startswith(".note") && Name != ".note.GNU-stack")
         NewSection.Type = SHT_NOTE;
       return Error::success();
     };
@@ -697,12 +681,11 @@ static Error handleArgs(const CommonConfig &Config, const ELFConfig &ELFConfig,
       const auto Iter = Config.SetSectionFlags.find(Sec.Name);
       if (Iter != Config.SetSectionFlags.end()) {
         const SectionFlagsUpdate &SFU = Iter->second;
-        if (Error E = setSectionFlagsAndType(Sec, SFU.NewFlags, Obj.Machine))
-          return E;
+        setSectionFlagsAndType(Sec, SFU.NewFlags);
       }
       auto It2 = Config.SetSectionType.find(Sec.Name);
       if (It2 != Config.SetSectionType.end())
-        setSectionType(Sec, It2->second);
+        Sec.Type = It2->second;
     }
   }
 
@@ -715,10 +698,8 @@ static Error handleArgs(const CommonConfig &Config, const ELFConfig &ELFConfig,
       if (Iter != Config.SectionsToRename.end()) {
         const SectionRename &SR = Iter->second;
         Sec.Name = std::string(SR.NewName);
-        if (SR.NewFlags) {
-          if (Error E = setSectionFlagsAndType(Sec, *SR.NewFlags, Obj.Machine))
-            return E;
-        }
+        if (SR.NewFlags)
+          setSectionFlagsAndType(Sec, SR.NewFlags.value());
         RenamedSections.insert(&Sec);
       } else if (RelocSec && !(Sec.Flags & SHF_ALLOC))
         // Postpone processing relocation sections which are not specified in
@@ -829,9 +810,9 @@ Error objcopy::elf::executeObjcopyOnBinary(const CommonConfig &Config,
   if (!Obj)
     return Obj.takeError();
   // Prefer OutputArch (-O<format>) if set, otherwise infer it from the input.
-  const ElfType OutputElfType = Config.OutputArch
-                                    ? getOutputElfType(*Config.OutputArch)
-                                    : getOutputElfType(In);
+  const ElfType OutputElfType =
+      Config.OutputArch ? getOutputElfType(Config.OutputArch.value())
+                        : getOutputElfType(In);
 
   if (Error E = handleArgs(Config, ELFConfig, **Obj))
     return createFileError(Config.InputFilename, std::move(E));

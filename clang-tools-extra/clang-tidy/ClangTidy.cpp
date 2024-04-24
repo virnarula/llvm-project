@@ -55,7 +55,8 @@ using namespace llvm;
 
 LLVM_INSTANTIATE_REGISTRY(clang::tidy::ClangTidyModuleRegistry)
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 
 namespace {
 #if CLANG_TIDY_ENABLE_STATIC_ANALYZER
@@ -101,7 +102,8 @@ public:
         DiagPrinter(new TextDiagnosticPrinter(llvm::outs(), &*DiagOpts)),
         Diags(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs), &*DiagOpts,
               DiagPrinter),
-        SourceMgr(Diags, Files), Context(Context), ApplyFixes(ApplyFixes) {
+        SourceMgr(Diags, Files), Context(Context), ApplyFixes(ApplyFixes),
+        TotalFixes(0), AppliedFixes(0), WarningsAsErrors(0) {
     DiagOpts->ShowColors = Context.getOptions().UseColor.value_or(
         llvm::sys::Process::StandardOutHasColors());
     DiagPrinter->BeginSourceFile(LangOpts);
@@ -133,7 +135,7 @@ public:
       for (const FileByteRange &FBR : Error.Message.Ranges)
         Diag << getRange(FBR);
       // FIXME: explore options to support interactive fix selection.
-      const llvm::StringMap<Replacements> *ChosenFix = nullptr;
+      const llvm::StringMap<Replacements> *ChosenFix;
       if (ApplyFixes != FB_NoFix &&
           (ChosenFix = getFixIt(Error, ApplyFixes == FB_FixNotes))) {
         for (const auto &FileAndReplacements : *ChosenFix) {
@@ -147,8 +149,7 @@ public:
             Files.makeAbsolutePath(FixAbsoluteFilePath);
             tooling::Replacement R(FixAbsoluteFilePath, Repl.getOffset(),
                                    Repl.getLength(), Repl.getReplacementText());
-            auto &Entry = FileReplacements[R.getFilePath()];
-            Replacements &Replacements = Entry.Replaces;
+            Replacements &Replacements = FileReplacements[R.getFilePath()];
             llvm::Error Err = Replacements.add(R);
             if (Err) {
               // FIXME: Implement better conflict handling.
@@ -175,7 +176,6 @@ public:
             }
             FixLoc = getLocation(FixAbsoluteFilePath, Repl.getOffset());
             FixLocations.push_back(std::make_pair(FixLoc, CanBeApplied));
-            Entry.BuildDir = Error.BuildDirectory;
           }
         }
       }
@@ -191,14 +191,9 @@ public:
 
   void finish() {
     if (TotalFixes > 0) {
-      auto &VFS = Files.getVirtualFileSystem();
-      auto OriginalCWD = VFS.getCurrentWorkingDirectory();
-      bool AnyNotWritten = false;
-
+      Rewriter Rewrite(SourceMgr, LangOpts);
       for (const auto &FileAndReplacements : FileReplacements) {
-        Rewriter Rewrite(SourceMgr, LangOpts);
         StringRef File = FileAndReplacements.first();
-        VFS.setCurrentWorkingDirectory(FileAndReplacements.second.BuildDir);
         llvm::ErrorOr<std::unique_ptr<MemoryBuffer>> Buffer =
             SourceMgr.getFileManager().getBufferForFile(File);
         if (!Buffer) {
@@ -215,8 +210,8 @@ public:
           continue;
         }
         llvm::Expected<tooling::Replacements> Replacements =
-            format::cleanupAroundReplacements(
-                Code, FileAndReplacements.second.Replaces, *Style);
+            format::cleanupAroundReplacements(Code, FileAndReplacements.second,
+                                              *Style);
         if (!Replacements) {
           llvm::errs() << llvm::toString(Replacements.takeError()) << "\n";
           continue;
@@ -233,18 +228,13 @@ public:
         if (!tooling::applyAllReplacements(Replacements.get(), Rewrite)) {
           llvm::errs() << "Can't apply replacements for file " << File << "\n";
         }
-        AnyNotWritten &= Rewrite.overwriteChangedFiles();
       }
-
-      if (AnyNotWritten) {
+      if (Rewrite.overwriteChangedFiles()) {
         llvm::errs() << "clang-tidy failed to apply suggested fixes.\n";
       } else {
         llvm::errs() << "clang-tidy applied " << AppliedFixes << " of "
                      << TotalFixes << " suggested fixes.\n";
       }
-
-      if (OriginalCWD)
-        VFS.setCurrentWorkingDirectory(*OriginalCWD);
     }
   }
 
@@ -253,11 +243,11 @@ public:
 private:
   SourceLocation getLocation(StringRef FilePath, unsigned Offset) {
     if (FilePath.empty())
-      return {};
+      return SourceLocation();
 
-    auto File = SourceMgr.getFileManager().getOptionalFileRef(FilePath);
+    auto File = SourceMgr.getFileManager().getFile(FilePath);
     if (!File)
-      return {};
+      return SourceLocation();
 
     FileID ID = SourceMgr.getOrCreateFileID(*File, SrcMgr::C_User);
     return SourceMgr.getLocForStartOfFile(ID).getLocWithOffset(Offset);
@@ -301,23 +291,18 @@ private:
     return CharSourceRange::getCharRange(BeginLoc, EndLoc);
   }
 
-  struct ReplacementsWithBuildDir {
-    StringRef BuildDir;
-    Replacements Replaces;
-  };
-
   FileManager Files;
   LangOptions LangOpts; // FIXME: use langopts from each original file
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts;
   DiagnosticConsumer *DiagPrinter;
   DiagnosticsEngine Diags;
   SourceManager SourceMgr;
-  llvm::StringMap<ReplacementsWithBuildDir> FileReplacements;
+  llvm::StringMap<Replacements> FileReplacements;
   ClangTidyContext &Context;
   FixBehaviour ApplyFixes;
-  unsigned TotalFixes = 0U;
-  unsigned AppliedFixes = 0U;
-  unsigned WarningsAsErrors = 0U;
+  unsigned TotalFixes;
+  unsigned AppliedFixes;
+  unsigned WarningsAsErrors;
 };
 
 class ClangTidyASTConsumer : public MultiplexConsumer {
@@ -365,7 +350,7 @@ setStaticAnalyzerCheckerOpts(const ClangTidyOptions &Opts,
   }
 }
 
-using CheckersList = std::vector<std::pair<std::string, bool>>;
+typedef std::vector<std::pair<std::string, bool>> CheckersList;
 
 static CheckersList getAnalyzerCheckersAndPackages(ClangTidyContext &Context,
                                                    bool IncludeExperimental) {
@@ -390,7 +375,7 @@ static CheckersList getAnalyzerCheckersAndPackages(ClangTidyContext &Context,
   for (StringRef CheckName : RegisteredCheckers) {
     std::string ClangTidyCheckName((AnalyzerCheckNamePrefix + CheckName).str());
 
-    if (CheckName.starts_with("core") ||
+    if (CheckName.startswith("core") ||
         Context.isCheckEnabled(ClangTidyCheckName)) {
       List.emplace_back(std::string(CheckName), true);
     }
@@ -434,8 +419,7 @@ ClangTidyASTConsumerFactory::createASTConsumer(
   Preprocessor *PP = &Compiler.getPreprocessor();
   Preprocessor *ModuleExpanderPP = PP;
 
-  if (Context.canEnableModuleHeadersParsing() &&
-      Context.getLangOpts().Modules && OverlayFS != nullptr) {
+  if (Context.getLangOpts().Modules && OverlayFS != nullptr) {
     auto ModuleExpander = std::make_unique<ExpandModularHeadersPPCallbacks>(
         &Compiler, OverlayFS);
     ModuleExpanderPP = ModuleExpander->getPreprocessor();
@@ -452,13 +436,13 @@ ClangTidyASTConsumerFactory::createASTConsumer(
     Consumers.push_back(Finder->newASTConsumer());
 
 #if CLANG_TIDY_ENABLE_STATIC_ANALYZER
-  AnalyzerOptions &AnalyzerOptions = Compiler.getAnalyzerOpts();
-  AnalyzerOptions.CheckersAndPackages = getAnalyzerCheckersAndPackages(
+  AnalyzerOptionsRef AnalyzerOptions = Compiler.getAnalyzerOpts();
+  AnalyzerOptions->CheckersAndPackages = getAnalyzerCheckersAndPackages(
       Context, Context.canEnableAnalyzerAlphaCheckers());
-  if (!AnalyzerOptions.CheckersAndPackages.empty()) {
-    setStaticAnalyzerCheckerOpts(Context.getOptions(), AnalyzerOptions);
-    AnalyzerOptions.AnalysisDiagOpt = PD_NONE;
-    AnalyzerOptions.eagerlyAssumeBinOpBifurcation = true;
+  if (!AnalyzerOptions->CheckersAndPackages.empty()) {
+    setStaticAnalyzerCheckerOpts(Context.getOptions(), *AnalyzerOptions);
+    AnalyzerOptions->AnalysisDiagOpt = PD_NONE;
+    AnalyzerOptions->eagerlyAssumeBinOpBifurcation = true;
     std::unique_ptr<ento::AnalysisASTConsumer> AnalysisConsumer =
         ento::CreateAnalysisConsumer(Compiler);
     AnalysisConsumer->AddDiagnosticConsumer(
@@ -515,11 +499,6 @@ getCheckOptions(const ClangTidyOptions &Options,
       std::make_unique<DefaultOptionsProvider>(ClangTidyGlobalOptions(),
                                                 Options),
       AllowEnablingAnalyzerAlphaCheckers);
-  ClangTidyDiagnosticConsumer DiagConsumer(Context);
-  DiagnosticsEngine DE(llvm::makeIntrusiveRefCnt<DiagnosticIDs>(),
-                       llvm::makeIntrusiveRefCnt<DiagnosticOptions>(),
-                       &DiagConsumer, /*ShouldOwnClient=*/false);
-  Context.setDiagnosticsEngine(&DE);
   ClangTidyASTConsumerFactory Factory(Context);
   return Factory.getCheckOptions();
 }
@@ -541,7 +520,7 @@ runClangTidy(clang::tidy::ClangTidyContext &Context,
         CommandLineArguments AdjustedArgs = Args;
         if (Opts.ExtraArgsBefore) {
           auto I = AdjustedArgs.begin();
-          if (I != AdjustedArgs.end() && !StringRef(*I).starts_with("-"))
+          if (I != AdjustedArgs.end() && !StringRef(*I).startswith("-"))
             ++I; // Skip compiler binary name, if it is there.
           AdjustedArgs.insert(I, Opts.ExtraArgsBefore->begin(),
                               Opts.ExtraArgsBefore->end());
@@ -637,8 +616,6 @@ void exportReplacements(const llvm::StringRef MainFilePath,
   TUD.MainSourceFile = std::string(MainFilePath);
   for (const auto &Error : Errors) {
     tooling::Diagnostic Diag = Error;
-    if (Error.IsWarningAsError)
-      Diag.DiagLevel = tooling::Diagnostic::Error;
     TUD.Diagnostics.insert(TUD.Diagnostics.end(), Diag);
   }
 
@@ -681,4 +658,5 @@ getAllChecksAndOptions(bool AllowEnablingAnalyzerAlphaCheckers) {
 
   return Result;
 }
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

@@ -21,7 +21,6 @@
 #include "llvm/ObjectYAML/YAML.h"
 #include "llvm/Support/YAMLTraits.h"
 #include <cstdint>
-#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -35,14 +34,14 @@ struct AttributeAbbrev {
 };
 
 struct Abbrev {
-  std::optional<yaml::Hex64> Code;
+  Optional<yaml::Hex64> Code;
   llvm::dwarf::Tag Tag;
   llvm::dwarf::Constants Children;
   std::vector<AttributeAbbrev> Attributes;
 };
 
 struct AbbrevTable {
-  std::optional<uint64_t> ID;
+  Optional<uint64_t> ID;
   std::vector<Abbrev> Table;
 };
 
@@ -53,10 +52,10 @@ struct ARangeDescriptor {
 
 struct ARange {
   dwarf::DwarfFormat Format;
-  std::optional<yaml::Hex64> Length;
+  Optional<yaml::Hex64> Length;
   uint16_t Version;
   yaml::Hex64 CuOffset;
-  std::optional<yaml::Hex8> AddrSize;
+  Optional<yaml::Hex8> AddrSize;
   yaml::Hex8 SegSize;
   std::vector<ARangeDescriptor> Descriptors;
 };
@@ -70,8 +69,8 @@ struct RangeEntry {
 
 /// Class that describes a single range list inside the .debug_ranges section.
 struct Ranges {
-  std::optional<llvm::yaml::Hex64> Offset;
-  std::optional<llvm::yaml::Hex8> AddrSize;
+  Optional<llvm::yaml::Hex64> Offset;
+  Optional<llvm::yaml::Hex8> AddrSize;
   std::vector<RangeEntry> Entries;
 };
 
@@ -109,12 +108,12 @@ struct DWARFContext {
 
 struct Unit {
   dwarf::DwarfFormat Format;
-  std::optional<yaml::Hex64> Length;
+  Optional<yaml::Hex64> Length;
   uint16_t Version;
-  std::optional<uint8_t> AddrSize;
+  Optional<uint8_t> AddrSize;
   llvm::dwarf::UnitType Type; // Added in DWARF 5
-  std::optional<uint64_t> AbbrevTableID;
-  std::optional<yaml::Hex64> AbbrOffset;
+  Optional<uint64_t> AbbrevTableID;
+  Optional<yaml::Hex64> AbbrOffset;
   std::vector<Entry> Entries;
 };
 
@@ -127,7 +126,7 @@ struct File {
 
 struct LineTableOpcode {
   dwarf::LineNumberOps Opcode;
-  std::optional<uint64_t> ExtLen;
+  Optional<uint64_t> ExtLen;
   dwarf::LineNumberExtendedOps SubOpcode;
   uint64_t Data;
   int64_t SData;
@@ -138,16 +137,16 @@ struct LineTableOpcode {
 
 struct LineTable {
   dwarf::DwarfFormat Format;
-  std::optional<uint64_t> Length;
+  Optional<uint64_t> Length;
   uint16_t Version;
-  std::optional<uint64_t> PrologueLength;
+  Optional<uint64_t> PrologueLength;
   uint8_t MinInstLength;
   uint8_t MaxOpsPerInst;
   uint8_t DefaultIsStmt;
   uint8_t LineBase;
   uint8_t LineRange;
-  std::optional<uint8_t> OpcodeBase;
-  std::optional<std::vector<uint8_t>> StandardOpcodeLengths;
+  Optional<uint8_t> OpcodeBase;
+  Optional<std::vector<uint8_t>> StandardOpcodeLengths;
   std::vector<StringRef> IncludeDirs;
   std::vector<File> Files;
   std::vector<LineTableOpcode> Opcodes;
@@ -160,16 +159,16 @@ struct SegAddrPair {
 
 struct AddrTableEntry {
   dwarf::DwarfFormat Format;
-  std::optional<yaml::Hex64> Length;
+  Optional<yaml::Hex64> Length;
   yaml::Hex16 Version;
-  std::optional<yaml::Hex8> AddrSize;
+  Optional<yaml::Hex8> AddrSize;
   yaml::Hex8 SegSelectorSize;
   std::vector<SegAddrPair> SegAddrPairs;
 };
 
 struct StringOffsetsTable {
   dwarf::DwarfFormat Format;
-  std::optional<yaml::Hex64> Length;
+  Optional<yaml::Hex64> Length;
   yaml::Hex16 Version;
   yaml::Hex16 Padding;
   std::vector<yaml::Hex64> Offsets;
@@ -188,23 +187,23 @@ struct RnglistEntry {
 struct LoclistEntry {
   dwarf::LoclistEntries Operator;
   std::vector<yaml::Hex64> Values;
-  std::optional<yaml::Hex64> DescriptionsLength;
+  Optional<yaml::Hex64> DescriptionsLength;
   std::vector<DWARFOperation> Descriptions;
 };
 
 template <typename EntryType> struct ListEntries {
-  std::optional<std::vector<EntryType>> Entries;
-  std::optional<yaml::BinaryRef> Content;
+  Optional<std::vector<EntryType>> Entries;
+  Optional<yaml::BinaryRef> Content;
 };
 
 template <typename EntryType> struct ListTable {
   dwarf::DwarfFormat Format;
-  std::optional<yaml::Hex64> Length;
+  Optional<yaml::Hex64> Length;
   yaml::Hex16 Version;
-  std::optional<yaml::Hex8> AddrSize;
+  Optional<yaml::Hex8> AddrSize;
   yaml::Hex8 SegSelectorSize;
-  std::optional<uint32_t> OffsetEntryCount;
-  std::optional<std::vector<yaml::Hex64>> Offsets;
+  Optional<uint32_t> OffsetEntryCount;
+  Optional<std::vector<yaml::Hex64>> Offsets;
   std::vector<ListEntries<EntryType>> Lists;
 };
 
@@ -212,22 +211,22 @@ struct Data {
   bool IsLittleEndian;
   bool Is64BitAddrSize;
   std::vector<AbbrevTable> DebugAbbrev;
-  std::optional<std::vector<StringRef>> DebugStrings;
-  std::optional<std::vector<StringOffsetsTable>> DebugStrOffsets;
-  std::optional<std::vector<ARange>> DebugAranges;
-  std::optional<std::vector<Ranges>> DebugRanges;
-  std::optional<std::vector<AddrTableEntry>> DebugAddr;
-  std::optional<PubSection> PubNames;
-  std::optional<PubSection> PubTypes;
+  Optional<std::vector<StringRef>> DebugStrings;
+  Optional<std::vector<StringOffsetsTable>> DebugStrOffsets;
+  Optional<std::vector<ARange>> DebugAranges;
+  Optional<std::vector<Ranges>> DebugRanges;
+  Optional<std::vector<AddrTableEntry>> DebugAddr;
+  Optional<PubSection> PubNames;
+  Optional<PubSection> PubTypes;
 
-  std::optional<PubSection> GNUPubNames;
-  std::optional<PubSection> GNUPubTypes;
+  Optional<PubSection> GNUPubNames;
+  Optional<PubSection> GNUPubTypes;
 
   std::vector<Unit> CompileUnits;
 
   std::vector<LineTable> DebugLines;
-  std::optional<std::vector<ListTable<RnglistEntry>>> DebugRnglists;
-  std::optional<std::vector<ListTable<LoclistEntry>>> DebugLoclists;
+  Optional<std::vector<ListTable<RnglistEntry>>> DebugRnglists;
+  Optional<std::vector<ListTable<LoclistEntry>>> DebugLoclists;
 
   bool isEmpty() const;
 

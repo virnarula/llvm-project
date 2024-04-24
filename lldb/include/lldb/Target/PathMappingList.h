@@ -13,8 +13,6 @@
 #include "lldb/Utility/Status.h"
 #include "llvm/Support/JSON.h"
 #include <map>
-#include <mutex>
-#include <optional>
 #include <vector>
 
 namespace lldb_private {
@@ -51,15 +49,9 @@ public:
 
   llvm::json::Value ToJSON();
 
-  bool IsEmpty() const {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    return m_pairs.empty();
-  }
+  bool IsEmpty() const { return m_pairs.empty(); }
 
-  size_t GetSize() const {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    return m_pairs.size();
-  }
+  size_t GetSize() const { return m_pairs.size(); }
 
   bool GetPathsAtIndex(uint32_t idx, ConstString &path,
                        ConstString &new_path) const;
@@ -89,16 +81,16 @@ public:
   /// \param[in] only_if_exists
   ///     If \b true, besides matching \p path with the remapping rules, this
   ///     tries to check with the filesystem that the remapped file exists. If
-  ///     no valid file is found, \b std::nullopt is returned. This might be
-  ///     expensive, specially on a network.
+  ///     no valid file is found, \b None is returned. This might be expensive,
+  ///     specially on a network.
   ///
   ///     If \b false, then the existence of the returned remapping is not
   ///     checked.
   ///
   /// \return
   ///     The remapped filespec that may or may not exist on disk.
-  std::optional<FileSpec> RemapPath(llvm::StringRef path,
-                                    bool only_if_exists = false) const;
+  llvm::Optional<FileSpec> RemapPath(llvm::StringRef path,
+                                     bool only_if_exists = false) const;
   bool RemapPath(const char *, std::string &) const = delete;
 
   /// Perform reverse source path remap for input \a file.
@@ -112,11 +104,11 @@ public:
   ///     The reversed mapped new path.
   ///
   /// \return
-  ///     std::nullopt if no remapping happens, otherwise, the matching source
-  ///     map entry's ""to_new_pathto"" part (which is the prefix of \a file) is
+  ///     llvm::None if no remapping happens, otherwise, the matching source map
+  ///     entry's ""to_new_pathto"" part (which is the prefix of \a file) is
   ///     returned.
-  std::optional<llvm::StringRef> ReverseRemapPath(const FileSpec &file,
-                                                  FileSpec &fixed) const;
+  llvm::Optional<llvm::StringRef> ReverseRemapPath(const FileSpec &file,
+                                                   FileSpec &fixed) const;
 
   /// Finds a source file given a file spec using the path remappings.
   ///
@@ -131,17 +123,13 @@ public:
   ///
   /// \return
   ///     The newly remapped filespec that is guaranteed to exist.
-  std::optional<FileSpec> FindFile(const FileSpec &orig_spec) const;
+  llvm::Optional<FileSpec> FindFile(const FileSpec &orig_spec) const;
 
   uint32_t FindIndexForPath(llvm::StringRef path) const;
 
-  uint32_t GetModificationID() const {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    return m_mod_id;
-  }
+  uint32_t GetModificationID() const { return m_mod_id; }
 
 protected:
-  mutable std::recursive_mutex m_mutex;
   typedef std::pair<ConstString, ConstString> pair;
   typedef std::vector<pair> collection;
   typedef collection::iterator iterator;

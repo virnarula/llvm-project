@@ -12,6 +12,7 @@
 #include "lldb/Utility/Instrumentation.h"
 
 #include "lldb/Breakpoint/Breakpoint.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Utility/ConstString.h"
@@ -62,7 +63,7 @@ const char *SBEvent::GetDataFlavor() {
   if (lldb_event) {
     EventData *event_data = lldb_event->GetData();
     if (event_data)
-      return ConstString(lldb_event->GetData()->GetFlavor()).GetCString();
+      return lldb_event->GetData()->GetFlavor().AsCString();
   }
   return nullptr;
 }
@@ -165,9 +166,8 @@ SBEvent::operator bool() const {
 const char *SBEvent::GetCStringFromEvent(const SBEvent &event) {
   LLDB_INSTRUMENT_VA(event);
 
-  return ConstString(static_cast<const char *>(
-                         EventDataBytes::GetBytesFromEvent(event.get())))
-      .GetCString();
+  return static_cast<const char *>(
+      EventDataBytes::GetBytesFromEvent(event.get()));
 }
 
 bool SBEvent::GetDescription(SBStream &description) {

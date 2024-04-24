@@ -20,7 +20,8 @@
 struct A { virtual ~A() { } };
 struct B : A { };
 
-void f() {
+int main(int, char**) {
     A* ptr = new B;
     (void)dynamic_cast<B*>(ptr); // expected-error{{use of dynamic_cast requires -frtti}}
+    return 0;
 }

@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Detect when __func__ or __FUNCTION__ is being used from within a lambda. In
 /// that context, those expressions expand to the name of the call operator
@@ -31,9 +33,8 @@ public:
   };
   using SourceRangeSet = std::set<SourceRange, SourceRangeLessThan>;
 
-  LambdaFunctionNameCheck(StringRef Name, ClangTidyContext *Context);
-
-  void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
+  LambdaFunctionNameCheck(StringRef Name, ClangTidyContext *Context)
+      : ClangTidyCheck(Name, Context) {}
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void registerPPCallbacks(const SourceManager &SM, Preprocessor *PP,
                            Preprocessor *ModuleExpanderPP) override;
@@ -41,9 +42,10 @@ public:
 
 private:
   SourceRangeSet SuppressMacroExpansions;
-  bool IgnoreMacros;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_LAMBDAFUNCTIONNAMECHECK_H

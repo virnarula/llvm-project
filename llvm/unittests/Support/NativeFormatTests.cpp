@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/NativeFormatting.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
@@ -25,7 +26,7 @@ template <typename T> std::string format_number(T N, IntegerStyle Style) {
 }
 
 std::string format_number(uint64_t N, HexPrintStyle Style,
-                          std::optional<size_t> Width = std::nullopt) {
+                          Optional<size_t> Width = None) {
   std::string S;
   llvm::raw_string_ostream Str(S);
   write_hex(Str, N, Style, Width);
@@ -34,7 +35,7 @@ std::string format_number(uint64_t N, HexPrintStyle Style,
 }
 
 std::string format_number(double D, FloatStyle Style,
-                          std::optional<size_t> Precision = std::nullopt) {
+                          Optional<size_t> Precision = None) {
   std::string S;
   llvm::raw_string_ostream Str(S);
   write_double(Str, D, Style, Precision);
@@ -47,8 +48,6 @@ std::string format_number(double D, FloatStyle Style,
 TEST(NativeFormatTest, BasicIntegerTests) {
   // Simple integers with no decimal.
   EXPECT_EQ("0", format_number(0, IntegerStyle::Integer));
-  EXPECT_EQ("1", format_number(1, IntegerStyle::Integer));
-  EXPECT_EQ("-1", format_number(-1, IntegerStyle::Integer));
   EXPECT_EQ("2425", format_number(2425, IntegerStyle::Integer));
   EXPECT_EQ("-2425", format_number(-2425, IntegerStyle::Integer));
 

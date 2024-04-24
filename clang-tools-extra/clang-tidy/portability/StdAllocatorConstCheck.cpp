@@ -11,7 +11,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::portability {
+namespace clang {
+namespace tidy {
+namespace portability {
 
 void StdAllocatorConstCheck::registerMatchers(MatchFinder *Finder) {
   // Match std::allocator<const T>.
@@ -64,4 +66,6 @@ void StdAllocatorConstCheck::check(const MatchFinder::MatchResult &Result) {
        "libraries");
 }
 
-} // namespace clang::tidy::portability
+} // namespace portability
+} // namespace tidy
+} // namespace clang

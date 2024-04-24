@@ -15,10 +15,7 @@
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
@@ -44,11 +41,11 @@ struct CloneOpConversion : public OpConversionPattern<bufferization::CloneOp> {
                   ConversionPatternRewriter &rewriter) const override {
     // Check for unranked memref types which are currently not supported.
     Type type = op.getType();
-    if (isa<UnrankedMemRefType>(type)) {
+    if (type.isa<UnrankedMemRefType>()) {
       return rewriter.notifyMatchFailure(
           op, "UnrankedMemRefType is not supported.");
     }
-    MemRefType memrefType = cast<MemRefType>(type);
+    MemRefType memrefType = type.cast<MemRefType>();
     MemRefLayoutAttrInterface layout;
     auto allocType =
         MemRefType::get(memrefType.getShape(), memrefType.getElementType(),
@@ -65,7 +62,9 @@ struct CloneOpConversion : public OpConversionPattern<bufferization::CloneOp> {
     for (int i = 0; i < memrefType.getRank(); ++i) {
       if (!memrefType.isDynamicDim(i))
         continue;
-      Value dim = rewriter.createOrFold<memref::DimOp>(loc, op.getInput(), i);
+      Value size = rewriter.createOrFold<arith::ConstantIndexOp>(loc, i);
+      Value dim =
+          rewriter.createOrFold<memref::DimOp>(loc, op.getInput(), size);
       dynamicOperands.push_back(dim);
     }
 
@@ -80,8 +79,12 @@ struct CloneOpConversion : public OpConversionPattern<bufferization::CloneOp> {
     return success();
   }
 };
-
 } // namespace
+
+void mlir::populateBufferizationToMemRefConversionPatterns(
+    RewritePatternSet &patterns) {
+  patterns.add<CloneOpConversion>(patterns.getContext());
+}
 
 namespace {
 struct BufferizationToMemRefPass
@@ -89,38 +92,12 @@ struct BufferizationToMemRefPass
   BufferizationToMemRefPass() = default;
 
   void runOnOperation() override {
-    if (!isa<ModuleOp, FunctionOpInterface>(getOperation())) {
-      emitError(getOperation()->getLoc(),
-                "root operation must be a builtin.module or a function");
-      signalPassFailure();
-      return;
-    }
-
-    func::FuncOp helperFuncOp;
-    if (auto module = dyn_cast<ModuleOp>(getOperation())) {
-      OpBuilder builder =
-          OpBuilder::atBlockBegin(&module.getBodyRegion().front());
-      SymbolTable symbolTable(module);
-
-      // Build dealloc helper function if there are deallocs.
-      getOperation()->walk([&](bufferization::DeallocOp deallocOp) {
-        if (deallocOp.getMemrefs().size() > 1) {
-          helperFuncOp = bufferization::buildDeallocationLibraryFunction(
-              builder, getOperation()->getLoc(), symbolTable);
-          return WalkResult::interrupt();
-        }
-        return WalkResult::advance();
-      });
-    }
-
     RewritePatternSet patterns(&getContext());
-    patterns.add<CloneOpConversion>(patterns.getContext());
-    bufferization::populateBufferizationDeallocLoweringPattern(patterns,
-                                                               helperFuncOp);
+    populateBufferizationToMemRefConversionPatterns(patterns);
 
     ConversionTarget target(getContext());
-    target.addLegalDialect<memref::MemRefDialect, arith::ArithDialect,
-                           scf::SCFDialect, func::FuncDialect>();
+    target.addLegalDialect<memref::MemRefDialect>();
+    target.addLegalOp<arith::ConstantOp>();
     target.addIllegalDialect<bufferization::BufferizationDialect>();
 
     if (failed(applyPartialConversion(getOperation(), target,

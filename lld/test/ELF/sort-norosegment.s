@@ -9,7 +9,7 @@
 # CHECK-NEXT: .dynstr  {{.*}}   A
 # CHECK-NEXT: .text    {{.*}}   AX
 # CHECK-NEXT: .dynamic {{.*}}  WA
-# CHECK:      foo      {{.*}}  WA
+# CHECK-NEXT: foo      {{.*}}  WA
 
 .section foo, "aw"
 .byte 0

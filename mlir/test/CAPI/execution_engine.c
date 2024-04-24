@@ -34,11 +34,10 @@ void lowerModuleToLLVM(MlirContext ctx, MlirModule module) {
   MlirPassManager pm = mlirPassManagerCreate(ctx);
   MlirOpPassManager opm = mlirPassManagerGetNestedUnder(
       pm, mlirStringRefCreateFromCString("func.func"));
-  mlirPassManagerAddOwnedPass(pm, mlirCreateConversionConvertFuncToLLVMPass());
+  mlirPassManagerAddOwnedPass(pm, mlirCreateConversionConvertFuncToLLVM());
   mlirOpPassManagerAddOwnedPass(
       opm, mlirCreateConversionArithToLLVMConversionPass());
-  MlirLogicalResult status =
-      mlirPassManagerRunOnOp(pm, mlirModuleGetOperation(module));
+  MlirLogicalResult status = mlirPassManagerRun(pm, module);
   if (mlirLogicalResultIsFailure(status)) {
     fprintf(stderr, "Unexpected failure running pass pipeline\n");
     exit(2);
@@ -47,7 +46,7 @@ void lowerModuleToLLVM(MlirContext ctx, MlirModule module) {
 }
 
 // CHECK-LABEL: Running test 'testSimpleExecution'
-void testSimpleExecution(void) {
+void testSimpleExecution() {
   MlirContext ctx = mlirContextCreate();
   registerAllUpstreamDialects(ctx);
 
@@ -85,53 +84,7 @@ void testSimpleExecution(void) {
   mlirContextDestroy(ctx);
 }
 
-// CHECK-LABEL: Running test 'testOmpCreation'
-void testOmpCreation(void) {
-  MlirContext ctx = mlirContextCreate();
-  registerAllUpstreamDialects(ctx);
-
-  MlirModule module = mlirModuleCreateParse(
-      ctx, mlirStringRefCreateFromCString(
-               // clang-format off
-"module {                                                                       \n"
-"  func.func @main() attributes { llvm.emit_c_interface } {                     \n"
-"    %0 = arith.constant 0 : i32                                                \n"
-"    %1 = arith.constant 1 : i32                                                \n"
-"    %2 = arith.constant 2 : i32                                                \n"
-"    omp.parallel {                                                             \n"
-"      omp.wsloop for (%3) : i32 = (%0) to (%2) step (%1) {                     \n"
-"        omp.yield                                                              \n"
-"      }                                                                        \n"
-"      omp.terminator                                                           \n"
-"    }                                                                          \n"
-"    llvm.return                                                                \n"
-"  }                                                                            \n"
-"}                                                                              \n"
-      ));
-  // clang-format on
-  lowerModuleToLLVM(ctx, module);
-
-  // At this point all operations in the MLIR module have been lowered to the
-  // 'llvm' dialect except 'omp' operations. The goal of this test is
-  // guaranteeing that the execution engine C binding has registered OpenMP
-  // translations and therefore does not fail when it encounters 'omp' ops.
-  // We don't attempt to run the engine, since that would force us to link
-  // against the OpenMP library.
-  MlirExecutionEngine jit = mlirExecutionEngineCreate(
-      module, /*optLevel=*/2, /*numPaths=*/0, /*sharedLibPaths=*/NULL,
-      /*enableObjectDump=*/false);
-  if (mlirExecutionEngineIsNull(jit)) {
-    fprintf(stderr, "Engine creation failed with OpenMP");
-    exit(2);
-  }
-  // CHECK: Engine creation succeeded with OpenMP
-  printf("Engine creation succeeded with OpenMP\n");
-  mlirExecutionEngineDestroy(jit);
-  mlirModuleDestroy(module);
-  mlirContextDestroy(ctx);
-}
-
-int main(void) {
+int main() {
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
@@ -140,6 +93,5 @@ int main(void) {
   test();
 
   TEST(testSimpleExecution);
-  TEST(testOmpCreation);
   return 0;
 }

@@ -17,7 +17,6 @@
 #include "flang/Lower/Support/Utils.h"
 #include "flang/Optimizer/Dialect/FIRType.h"
 #include "flang/Optimizer/Support/Matcher.h"
-#include <optional>
 
 namespace Fortran::lower {
 
@@ -77,10 +76,10 @@ struct ScalarDynamicChar : ScalarSym {
   ScalarDynamicChar(const Fortran::semantics::Symbol &sym)
       : ScalarSym{sym}, len{FromBox{}} {}
 
-  std::optional<Fortran::lower::SomeExpr> charLen() const {
+  llvm::Optional<Fortran::lower::SomeExpr> charLen() const {
     if (auto *l = std::get_if<Fortran::lower::SomeExpr>(&len))
       return {*l};
-    return std::nullopt;
+    return llvm::None;
   }
 
   static constexpr bool staticSize() { return false; }
@@ -318,21 +317,21 @@ public:
         [](const auto &x) { return x.staticSize(); });
   }
 
-  std::optional<int64_t> getCharLenConst() const {
-    using A = std::optional<int64_t>;
+  llvm::Optional<int64_t> getCharLenConst() const {
+    using A = llvm::Optional<int64_t>;
     return match(
         [](const ScalarStaticChar &x) -> A { return {x.charLen()}; },
         [](const StaticArrayStaticChar &x) -> A { return {x.charLen()}; },
         [](const DynamicArrayStaticChar &x) -> A { return {x.charLen()}; },
-        [](const auto &) -> A { return std::nullopt; });
+        [](const auto &) -> A { return llvm::None; });
   }
 
-  std::optional<Fortran::lower::SomeExpr> getCharLenExpr() const {
-    using A = std::optional<Fortran::lower::SomeExpr>;
+  llvm::Optional<Fortran::lower::SomeExpr> getCharLenExpr() const {
+    using A = llvm::Optional<Fortran::lower::SomeExpr>;
     return match([](const ScalarDynamicChar &x) { return x.charLen(); },
                  [](const StaticArrayDynamicChar &x) { return x.charLen(); },
                  [](const DynamicArrayDynamicChar &x) { return x.charLen(); },
-                 [](const auto &) -> A { return std::nullopt; });
+                 [](const auto &) -> A { return llvm::None; });
   }
 
   /// Is the origin of this array the default of vector of `1`?
@@ -382,8 +381,6 @@ public:
 
   /// Run the analysis on `sym`.
   void analyze(const Fortran::semantics::Symbol &sym) {
-    if (Fortran::semantics::IsProcedurePointer(sym))
-      return;
     if (symIsArray(sym)) {
       bool isConstant = !isAssumedSize(sym);
       llvm::SmallVector<int64_t> lbounds;
@@ -474,20 +471,20 @@ private:
   }
 
   // Get the constant LEN of a CHARACTER, if it exists.
-  std::optional<int64_t>
+  llvm::Optional<int64_t>
   charLenConstant(const Fortran::semantics::Symbol &sym) {
-    if (std::optional<Fortran::lower::SomeExpr> expr = charLenVariable(sym))
+    if (llvm::Optional<Fortran::lower::SomeExpr> expr = charLenVariable(sym))
       if (std::optional<int64_t> asInt = Fortran::evaluate::ToInt64(*expr)) {
         // Length is max(0, *asInt) (F2018 7.4.4.2 point 5.).
         if (*asInt < 0)
           return 0;
         return *asInt;
       }
-    return std::nullopt;
+    return llvm::None;
   }
 
   // Get the `SomeExpr` that describes the CHARACTER's LEN.
-  std::optional<Fortran::lower::SomeExpr>
+  llvm::Optional<Fortran::lower::SomeExpr>
   charLenVariable(const Fortran::semantics::Symbol &sym) {
     const Fortran::semantics::ParamValue &lenParam =
         sym.GetType()->characterTypeSpec().length();
@@ -506,7 +503,7 @@ private:
             if (Fortran::semantics::MaybeSubscriptIntExpr expr =
                     charExpr->LEN())
               return {Fortran::evaluate::AsGenericExpr(std::move(*expr))};
-    return std::nullopt;
+    return llvm::None;
   }
 
   VT box;

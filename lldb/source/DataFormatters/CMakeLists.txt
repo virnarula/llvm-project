@@ -1,4 +1,4 @@
-add_lldb_library(lldbDataFormatters NO_PLUGIN_DEPENDENCIES
+add_lldb_library(lldbDataFormatters
   CXXFunctionPointer.cpp
   DataVisualization.cpp
   DumpValueObjectOptions.cpp

@@ -18,7 +18,6 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/CommonBugCategories.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
@@ -32,8 +31,7 @@ using namespace ento;
 
 namespace {
 class MacOSXAPIChecker : public Checker< check::PreStmt<CallExpr> > {
-  const BugType BT_dispatchOnce{this, "Improper use of 'dispatch_once'",
-                                categories::AppleAPIMisuse};
+  mutable std::unique_ptr<BugType> BT_dispatchOnce;
 
   static const ObjCIvarRegion *getParentIvarRegion(const MemRegion *R);
 
@@ -138,8 +136,12 @@ void MacOSXAPIChecker::CheckDispatchOnce(CheckerContext &C, const CallExpr *CE,
   if (!N)
     return;
 
+  if (!BT_dispatchOnce)
+    BT_dispatchOnce.reset(new BugType(this, "Improper use of 'dispatch_once'",
+                                      "API Misuse (Apple)"));
+
   auto report =
-      std::make_unique<PathSensitiveBugReport>(BT_dispatchOnce, os.str(), N);
+      std::make_unique<PathSensitiveBugReport>(*BT_dispatchOnce, os.str(), N);
   report->addRange(CE->getArg(0)->getSourceRange());
   C.emitReport(std::move(report));
 }

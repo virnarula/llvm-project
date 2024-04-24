@@ -90,7 +90,6 @@ hasEHScopes:     false
 hasEHFunclets:   false
 failsVerification: false
 tracksDebugUserValues: true
-debugInstrRef: true
 registers:       []
 liveins:
   - { reg: '$rdi', virtual-reg: '' }

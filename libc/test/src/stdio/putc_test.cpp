@@ -13,34 +13,35 @@
 
 #include "src/stdio/putc.h"
 
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
+#include <errno.h>
 #include <stdio.h>
 
 TEST(LlvmLibcPutcTest, WriteToFile) {
   constexpr char FILENAME[] = "testdata/putc_output.test";
-  ::FILE *file = LIBC_NAMESPACE::fopen(FILENAME, "w");
+  ::FILE *file = __llvm_libc::fopen(FILENAME, "w");
   ASSERT_FALSE(file == nullptr);
 
   constexpr char simple[] = "simple letters";
   for (size_t i = 0; i < sizeof(simple); ++i) {
-    ASSERT_EQ(LIBC_NAMESPACE::putc(simple[i], file), 0);
+    ASSERT_EQ(__llvm_libc::putc(simple[i], file), 0);
   }
 
-  ASSERT_EQ(0, LIBC_NAMESPACE::fclose(file));
+  ASSERT_EQ(0, __llvm_libc::fclose(file));
 
-  file = LIBC_NAMESPACE::fopen(FILENAME, "r");
+  file = __llvm_libc::fopen(FILENAME, "r");
   ASSERT_FALSE(file == nullptr);
   char data[50];
 
-  ASSERT_EQ(LIBC_NAMESPACE::fread(data, 1, sizeof(simple) - 1, file),
+  ASSERT_EQ(__llvm_libc::fread(data, 1, sizeof(simple) - 1, file),
             sizeof(simple) - 1);
   data[sizeof(simple) - 1] = '\0';
 
   ASSERT_STREQ(data, simple);
 
-  ASSERT_EQ(LIBC_NAMESPACE::ferror(file), 0);
-  EXPECT_LT(LIBC_NAMESPACE::putc('L', file), 0);
+  ASSERT_EQ(__llvm_libc::ferror(file), 0);
+  EXPECT_LT(__llvm_libc::putc('L', file), 0);
 
-  ASSERT_EQ(LIBC_NAMESPACE::fclose(file), 0);
+  ASSERT_EQ(__llvm_libc::fclose(file), 0);
 }

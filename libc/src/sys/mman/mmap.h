@@ -11,10 +11,10 @@
 
 #include <sys/mman.h> // For size_t and off_t
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void *mmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SYS_MMAN_MMAP_H

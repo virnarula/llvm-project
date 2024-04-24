@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 MakeSharedCheck::MakeSharedCheck(StringRef Name, ClangTidyContext *Context)
     : MakeSmartPtrCheck(Name, Context, "std::make_shared") {}
@@ -27,4 +29,6 @@ MakeSharedCheck::getSmartPointerTypeMatcher() const {
                                      qualType().bind(PointerType)))))))));
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

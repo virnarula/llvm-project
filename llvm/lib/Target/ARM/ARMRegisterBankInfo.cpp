@@ -35,7 +35,7 @@ enum PartialMappingIdx {
   PMI_Min = PMI_GPR,
 };
 
-const RegisterBankInfo::PartialMapping PartMappings[]{
+RegisterBankInfo::PartialMapping PartMappings[]{
     // GPR Partial Mapping
     {0, 32, GPRRegBank},
     // SPR Partial Mapping
@@ -72,7 +72,7 @@ enum ValueMappingIdx {
   DPR3OpsIdx = 7,
 };
 
-const RegisterBankInfo::ValueMapping ValueMappings[] = {
+RegisterBankInfo::ValueMapping ValueMappings[] = {
     // invalid
     {nullptr, 0},
     // 3 ops in GPRs
@@ -89,9 +89,8 @@ const RegisterBankInfo::ValueMapping ValueMappings[] = {
     {&PartMappings[PMI_DPR - PMI_Min], 1}};
 
 #ifndef NDEBUG
-static bool
-checkValueMapping(const RegisterBankInfo::ValueMapping &VM,
-                  const RegisterBankInfo::PartialMapping *BreakDown) {
+static bool checkValueMapping(const RegisterBankInfo::ValueMapping &VM,
+                              RegisterBankInfo::PartialMapping *BreakDown) {
   return VM.NumBreakDowns == 1 && VM.BreakDown == BreakDown;
 }
 
@@ -163,8 +162,7 @@ ARMRegisterBankInfo::ARMRegisterBankInfo(const TargetRegisterInfo &TRI) {
            "Subclass not added?");
     assert(RBGPR.covers(*TRI.getRegClass(ARM::tGPROdd_and_tcGPRRegClassID)) &&
            "Subclass not added?");
-    assert(getMaximumSize(RBGPR.getID()) == 32 &&
-           "GPRs should hold up to 32-bit");
+    assert(RBGPR.getSize() == 32 && "GPRs should hold up to 32-bit");
 
 #ifndef NDEBUG
     ARM::checkPartialMappings();

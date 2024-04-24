@@ -17,7 +17,6 @@
 
 #include <sys/capsicum.h>
 #include <sys/consio.h>
-#include <sys/cpuset.h>
 #include <sys/filio.h>
 #include <sys/ipc.h>
 #include <sys/kbio.h>
@@ -104,7 +103,6 @@ void *__sanitizer_get_link_map_by_dlopen_handle(void *handle) {
   return internal_dlinfo(handle, RTLD_DI_LINKMAP, &p) == 0 ? p : nullptr;
 }
 
-unsigned struct_cpuset_sz = sizeof(cpuset_t);
 unsigned struct_cap_rights_sz = sizeof(cap_rights_t);
 unsigned struct_utsname_sz = sizeof(struct utsname);
 unsigned struct_stat_sz = sizeof(struct stat);
@@ -173,12 +171,6 @@ uptr __sanitizer_in_addr_sz(int af) {
     return sizeof(struct in6_addr);
   else
     return 0;
-}
-
-// For FreeBSD the actual size of a directory entry is not always in d_reclen.
-// Use the appropriate macro to get the correct size for all cases (e.g. NFS).
-u16 __sanitizer_dirsiz(const __sanitizer_dirent *dp) {
-  return _GENERIC_DIRSIZ(dp);
 }
 
 unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
@@ -566,5 +558,4 @@ COMPILER_CHECK(__sanitizer_XDR_FREE == XDR_FREE);
 CHECK_TYPE_SIZE(sem_t);
 
 COMPILER_CHECK(sizeof(__sanitizer_cap_rights_t) >= sizeof(cap_rights_t));
-COMPILER_CHECK(sizeof(__sanitizer_cpuset_t) >= sizeof(cpuset_t));
 #endif  // SANITIZER_FREEBSD

@@ -267,7 +267,7 @@ using CallSiteParameterArray = llvm::SmallVector<CallSiteParameter, 0>;
 class CallEdge {
 public:
   enum class AddrType : uint8_t { Call, AfterCall };
-  virtual ~CallEdge();
+  virtual ~CallEdge() = default;
 
   /// Get the callee's definition.
   ///
@@ -305,7 +305,10 @@ public:
 
 protected:
   CallEdge(AddrType caller_address_type, lldb::addr_t caller_address,
-           bool is_tail_call, CallSiteParameterArray &&parameters);
+           bool is_tail_call, CallSiteParameterArray &&parameters)
+      : caller_address(caller_address),
+        caller_address_type(caller_address_type), is_tail_call(is_tail_call),
+        parameters(std::move(parameters)) {}
 
   /// Helper that finds the load address of \p unresolved_pc, a file address
   /// which refers to an instruction within \p caller.
@@ -336,7 +339,11 @@ public:
   /// return PC within the calling function to identify a specific call site.
   DirectCallEdge(const char *symbol_name, AddrType caller_address_type,
                  lldb::addr_t caller_address, bool is_tail_call,
-                 CallSiteParameterArray &&parameters);
+                 CallSiteParameterArray &&parameters)
+      : CallEdge(caller_address_type, caller_address, is_tail_call,
+                 std::move(parameters)) {
+    lazy_callee.symbol_name = symbol_name;
+  }
 
   Function *GetCallee(ModuleList &images, ExecutionContext &exe_ctx) override;
 
@@ -363,9 +370,12 @@ class IndirectCallEdge : public CallEdge {
 public:
   /// Construct a call edge using a DWARFExpression to identify the callee, and
   /// a return PC within the calling function to identify a specific call site.
-  IndirectCallEdge(DWARFExpressionList call_target,
-                   AddrType caller_address_type, lldb::addr_t caller_address,
-                   bool is_tail_call, CallSiteParameterArray &&parameters);
+  IndirectCallEdge(DWARFExpressionList call_target, AddrType caller_address_type,
+                   lldb::addr_t caller_address, bool is_tail_call,
+                   CallSiteParameterArray &&parameters)
+      : CallEdge(caller_address_type, caller_address, is_tail_call,
+                 std::move(parameters)),
+        call_target(std::move(call_target)) {}
 
   Function *GetCallee(ModuleList &images, ExecutionContext &exe_ctx) override;
 
@@ -475,7 +485,7 @@ public:
   llvm::ArrayRef<std::unique_ptr<CallEdge>> GetCallEdges();
 
   /// Get the outgoing tail-calling edges from this function. If none exist,
-  /// return std::nullopt.
+  /// return None.
   llvm::ArrayRef<std::unique_ptr<CallEdge>> GetTailCallingEdges();
 
   /// Get the outgoing call edge from this function which has the given return
@@ -532,12 +542,6 @@ public:
   /// \return
   ///     The DeclContext, or NULL if none exists.
   CompilerDeclContext GetDeclContext();
-
-  /// Get the CompilerContext for this function, if available.
-  ///
-  /// \return
-  ///     The CompilerContext, or an empty vector if none is available.
-  std::vector<CompilerContext> GetCompilerContext();
 
   /// Get accessor for the type that describes the function return value type,
   /// and parameter types.

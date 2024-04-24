@@ -50,6 +50,7 @@
 //        to use WZR/XZR directly in some cases.
 //===----------------------------------------------------------------------===//
 #include "AArch64.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/iterator_range.h"
@@ -462,9 +463,7 @@ bool AArch64RedundantCopyElimination::optimizeBlock(MachineBasicBlock *MBB) {
   // Clear kills in the range where changes were made.  This is conservative,
   // but should be okay since kill markers are being phased out.
   LLVM_DEBUG(dbgs() << "Clearing kill flags.\n\tFirstUse: " << *FirstUse
-                    << "\tLastChange: ";
-             if (LastChange == MBB->end()) dbgs() << "<end>\n";
-             else dbgs() << *LastChange);
+                    << "\tLastChange: " << *LastChange);
   for (MachineInstr &MMI : make_range(FirstUse, PredMBB->end()))
     MMI.clearKillInfo();
   for (MachineInstr &MMI : make_range(MBB->begin(), LastChange))

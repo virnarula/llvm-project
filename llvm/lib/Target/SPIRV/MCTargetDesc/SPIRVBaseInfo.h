@@ -223,8 +223,6 @@ getSymbolicOperandMaxVersion(SPIRV::OperandCategory::OperandCategory Category,
 CapabilityList
 getSymbolicOperandCapabilities(SPIRV::OperandCategory::OperandCategory Category,
                                uint32_t Value);
-CapabilityList
-getCapabilitiesEnabledByExtension(SPIRV::Extension::Extension Extension);
 ExtensionList
 getSymbolicOperandExtensions(SPIRV::OperandCategory::OperandCategory Category,
                              uint32_t Value);

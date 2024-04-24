@@ -10,10 +10,10 @@
 #include "src/__support/FPUtil/NearestIntegerOperations.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(long double, ceill, (long double x)) {
   return fputil::ceil(x);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

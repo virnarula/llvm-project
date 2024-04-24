@@ -26,15 +26,13 @@
 
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 
-#include "clang/Analysis/AnyCall.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerHelpers.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Path.h"
 
@@ -82,9 +80,8 @@ enum class ErrorKind : int {
 class NullabilityChecker
     : public Checker<check::Bind, check::PreCall, check::PreStmt<ReturnStmt>,
                      check::PostCall, check::PostStmt<ExplicitCastExpr>,
-                     check::PostObjCMessage, check::DeadSymbols, eval::Assume,
-                     check::Location, check::Event<ImplicitNullDerefEvent>,
-                     check::BeginFunction> {
+                     check::PostObjCMessage, check::DeadSymbols,
+                     check::Location, check::Event<ImplicitNullDerefEvent>> {
 
 public:
   // If true, the checker will not diagnose nullabilility issues for calls
@@ -105,9 +102,6 @@ public:
   void checkEvent(ImplicitNullDerefEvent Event) const;
   void checkLocation(SVal Location, bool IsLoad, const Stmt *S,
                      CheckerContext &C) const;
-  void checkBeginFunction(CheckerContext &Ctx) const;
-  ProgramStateRef evalAssume(ProgramStateRef State, SVal Cond,
-                             bool Assumption) const;
 
   void printState(raw_ostream &Out, ProgramStateRef State, const char *NL,
                   const char *Sep) const override;
@@ -135,7 +129,7 @@ public:
   // When set to false no nullability information will be tracked in
   // NullabilityMap. It is possible to catch errors like passing a null pointer
   // to a callee that expects nonnull argument without the information that is
-  // stored in the NullabilityMap. This is an optimization.
+  // stroed in the NullabilityMap. This is an optimization.
   bool NeedTracking = false;
 
 private:
@@ -236,41 +230,10 @@ bool operator==(NullabilityState Lhs, NullabilityState Rhs) {
          Lhs.getNullabilitySource() == Rhs.getNullabilitySource();
 }
 
-// For the purpose of tracking historical property accesses, the key for lookup
-// is an object pointer (could be an instance or a class) paired with the unique
-// identifier for the property being invoked on that object.
-using ObjectPropPair = std::pair<const MemRegion *, const IdentifierInfo *>;
-
-// Metadata associated with the return value from a recorded property access.
-struct ConstrainedPropertyVal {
-  // This will reference the conjured return SVal for some call
-  // of the form [object property]
-  DefinedOrUnknownSVal Value;
-
-  // If the SVal has been determined to be nonnull, that is recorded here
-  bool isConstrainedNonnull;
-
-  ConstrainedPropertyVal(DefinedOrUnknownSVal SV)
-      : Value(SV), isConstrainedNonnull(false) {}
-
-  void Profile(llvm::FoldingSetNodeID &ID) const {
-    Value.Profile(ID);
-    ID.AddInteger(isConstrainedNonnull ? 1 : 0);
-  }
-};
-
-bool operator==(const ConstrainedPropertyVal &Lhs,
-                const ConstrainedPropertyVal &Rhs) {
-  return Lhs.Value == Rhs.Value &&
-         Lhs.isConstrainedNonnull == Rhs.isConstrainedNonnull;
-}
-
 } // end anonymous namespace
 
 REGISTER_MAP_WITH_PROGRAMSTATE(NullabilityMap, const MemRegion *,
                                NullabilityState)
-REGISTER_MAP_WITH_PROGRAMSTATE(PropertyAccessesMap, ObjectPropPair,
-                               ConstrainedPropertyVal)
 
 // We say "the nullability type invariant is violated" when a location with a
 // non-null type contains NULL or a function with a non-null return type returns
@@ -308,10 +271,6 @@ static NullConstraint getNullConstraint(DefinedOrUnknownSVal Val,
   if (Nullness.isConstrainedTrue())
     return NullConstraint::IsNull;
   return NullConstraint::Unknown;
-}
-
-static bool isValidPointerType(QualType T) {
-  return T->isAnyPointerType() || T->isBlockPointerType();
 }
 
 const SymbolicRegion *
@@ -499,24 +458,15 @@ void NullabilityChecker::checkDeadSymbols(SymbolReaper &SR,
                                           CheckerContext &C) const {
   ProgramStateRef State = C.getState();
   NullabilityMapTy Nullabilities = State->get<NullabilityMap>();
-  for (const MemRegion *Reg : llvm::make_first_range(Nullabilities)) {
-    const auto *Region = Reg->getAs<SymbolicRegion>();
+  for (NullabilityMapTy::iterator I = Nullabilities.begin(),
+                                  E = Nullabilities.end();
+       I != E; ++I) {
+    const auto *Region = I->first->getAs<SymbolicRegion>();
     assert(Region && "Non-symbolic region is tracked.");
     if (SR.isDead(Region->getSymbol())) {
-      State = State->remove<NullabilityMap>(Reg);
+      State = State->remove<NullabilityMap>(I->first);
     }
   }
-
-  // When an object goes out of scope, we can free the history associated
-  // with any property accesses on that object
-  PropertyAccessesMapTy PropertyAccesses = State->get<PropertyAccessesMap>();
-  for (ObjectPropPair PropKey : llvm::make_first_range(PropertyAccesses)) {
-    const MemRegion *ReceiverRegion = PropKey.first;
-    if (!SR.isLiveRegion(ReceiverRegion)) {
-      State = State->remove<PropertyAccessesMap>(PropKey);
-    }
-  }
-
   // When one of the nonnull arguments are constrained to be null, nullability
   // preconditions are violated. It is not enough to check this only when we
   // actually report an error, because at that time interesting symbols might be
@@ -561,37 +511,6 @@ void NullabilityChecker::checkEvent(ImplicitNullDerefEvent Event) const {
                 Event.SinkNode, Region, BR);
     }
   }
-}
-
-void NullabilityChecker::checkBeginFunction(CheckerContext &C) const {
-  if (!C.inTopFrame())
-    return;
-
-  const LocationContext *LCtx = C.getLocationContext();
-  auto AbstractCall = AnyCall::forDecl(LCtx->getDecl());
-  if (!AbstractCall || AbstractCall->parameters().empty())
-    return;
-
-  ProgramStateRef State = C.getState();
-  for (const ParmVarDecl *Param : AbstractCall->parameters()) {
-    if (!isValidPointerType(Param->getType()))
-      continue;
-
-    Nullability RequiredNullability =
-        getNullabilityAnnotation(Param->getType());
-    if (RequiredNullability != Nullability::Nullable)
-      continue;
-
-    const VarRegion *ParamRegion = State->getRegion(Param, LCtx);
-    const MemRegion *ParamPointeeRegion =
-        State->getSVal(ParamRegion).getAsRegion();
-    if (!ParamPointeeRegion)
-      continue;
-
-    State = State->set<NullabilityMap>(ParamPointeeRegion,
-                                       NullabilityState(RequiredNullability));
-  }
-  C.addTransition(State);
 }
 
 // Whenever we see a load from a typed memory region that's been annotated as
@@ -656,7 +575,7 @@ void NullabilityChecker::checkPreStmt(const ReturnStmt *S,
   if (!RetExpr)
     return;
 
-  if (!isValidPointerType(RetExpr->getType()))
+  if (!RetExpr->getType()->isAnyPointerType())
     return;
 
   ProgramStateRef State = C.getState();
@@ -789,7 +708,7 @@ void NullabilityChecker::checkPreCall(const CallEvent &Call,
     if (!ArgSVal)
       continue;
 
-    if (!isValidPointerType(Param->getType()) &&
+    if (!Param->getType()->isAnyPointerType() &&
         !Param->getType()->isReferenceType())
       continue;
 
@@ -798,7 +717,7 @@ void NullabilityChecker::checkPreCall(const CallEvent &Call,
     Nullability RequiredNullability =
         getNullabilityAnnotation(Param->getType());
     Nullability ArgExprTypeLevelNullability =
-        getNullabilityAnnotation(lookThroughImplicitCasts(ArgExpr)->getType());
+        getNullabilityAnnotation(ArgExpr->getType());
 
     unsigned ParamIdx = Param->getFunctionScopeIndex() + 1;
 
@@ -876,7 +795,7 @@ void NullabilityChecker::checkPostCall(const CallEvent &Call,
   if (!FuncType)
     return;
   QualType ReturnType = FuncType->getReturnType();
-  if (!isValidPointerType(ReturnType))
+  if (!ReturnType->isAnyPointerType())
     return;
   ProgramStateRef State = C.getState();
   if (State->get<InvariantViolated>())
@@ -890,7 +809,7 @@ void NullabilityChecker::checkPostCall(const CallEvent &Call,
   // of CG calls.
   const SourceManager &SM = C.getSourceManager();
   StringRef FilePath = SM.getFilename(SM.getSpellingLoc(Decl->getBeginLoc()));
-  if (llvm::sys::path::filename(FilePath).starts_with("CG")) {
+  if (llvm::sys::path::filename(FilePath).startswith("CG")) {
     State = State->set<NullabilityMap>(Region, Nullability::Contradicted);
     C.addTransition(State);
     return;
@@ -898,14 +817,6 @@ void NullabilityChecker::checkPostCall(const CallEvent &Call,
 
   const NullabilityState *TrackedNullability =
       State->get<NullabilityMap>(Region);
-
-  // ObjCMessageExpr gets the actual type through
-  // Sema::getMessageSendResultType, instead of using the return type of
-  // MethodDecl directly. The final type is generated by considering the
-  // nullability of receiver and MethodDecl together. Thus, The type of
-  // ObjCMessageExpr is prefer.
-  if (const Expr *E = Call.getOriginExpr())
-    ReturnType = E->getType();
 
   if (!TrackedNullability &&
       getNullabilityAnnotation(ReturnType) == Nullability::Nullable) {
@@ -943,30 +854,6 @@ static Nullability getReceiverNullability(const ObjCMethodCall &M,
   return Nullability::Unspecified;
 }
 
-// The return value of a property access is typically a temporary value which
-// will not be tracked in a persistent manner by the analyzer.  We use
-// evalAssume() in order to immediately record constraints on those temporaries
-// at the time they are imposed (e.g. by a nil-check conditional).
-ProgramStateRef NullabilityChecker::evalAssume(ProgramStateRef State, SVal Cond,
-                                               bool Assumption) const {
-  PropertyAccessesMapTy PropertyAccesses = State->get<PropertyAccessesMap>();
-  for (auto [PropKey, PropVal] : PropertyAccesses) {
-    if (!PropVal.isConstrainedNonnull) {
-      ConditionTruthVal IsNonNull = State->isNonNull(PropVal.Value);
-      if (IsNonNull.isConstrainedTrue()) {
-        ConstrainedPropertyVal Replacement = PropVal;
-        Replacement.isConstrainedNonnull = true;
-        State = State->set<PropertyAccessesMap>(PropKey, Replacement);
-      } else if (IsNonNull.isConstrainedFalse()) {
-        // Space optimization: no point in tracking constrained-null cases
-        State = State->remove<PropertyAccessesMap>(PropKey);
-      }
-    }
-  }
-
-  return State;
-}
-
 /// Calculate the nullability of the result of a message expr based on the
 /// nullability of the receiver, the nullability of the return value, and the
 /// constraints.
@@ -976,7 +863,7 @@ void NullabilityChecker::checkPostObjCMessage(const ObjCMethodCall &M,
   if (!Decl)
     return;
   QualType RetType = Decl->getReturnType();
-  if (!isValidPointerType(RetType))
+  if (!RetType->isAnyPointerType())
     return;
 
   ProgramStateRef State = C.getState();
@@ -992,7 +879,7 @@ void NullabilityChecker::checkPostObjCMessage(const ObjCMethodCall &M,
   // In order to reduce the noise in the diagnostics generated by this checker,
   // some framework and programming style based heuristics are used. These
   // heuristics are for Cocoa APIs which have NS prefix.
-  if (Name.starts_with("NS")) {
+  if (Name.startswith("NS")) {
     // Developers rely on dynamic invariants such as an item should be available
     // in a collection, or a collection is not empty often. Those invariants can
     // not be inferred by any static analysis tool. To not to bother the users
@@ -1061,55 +948,14 @@ void NullabilityChecker::checkPostObjCMessage(const ObjCMethodCall &M,
   }
 
   // No tracked information. Use static type information for return value.
-  Nullability RetNullability = getNullabilityAnnotation(Message->getType());
+  Nullability RetNullability = getNullabilityAnnotation(RetType);
 
-  // Properties might be computed, which means the property value could
-  // theoretically change between calls even in commonly-observed cases like
-  // this:
-  //
-  //     if (foo.prop) {    // ok, it's nonnull here...
-  //         [bar doStuffWithNonnullVal:foo.prop];     // ...but what about
-  //         here?
-  //     }
-  //
-  // If the property is nullable-annotated, a naive analysis would lead to many
-  // false positives despite the presence of probably-correct nil-checks.  To
-  // reduce the false positive rate, we maintain a history of the most recently
-  // observed property value.  For each property access, if the prior value has
-  // been constrained to be not nil then we will conservatively assume that the
-  // next access can be inferred as nonnull.
-  if (RetNullability != Nullability::Nonnull &&
-      M.getMessageKind() == OCM_PropertyAccess && !C.wasInlined) {
-    bool LookupResolved = false;
-    if (const MemRegion *ReceiverRegion = getTrackRegion(M.getReceiverSVal())) {
-      if (IdentifierInfo *Ident = M.getSelector().getIdentifierInfoForSlot(0)) {
-        LookupResolved = true;
-        ObjectPropPair Key = std::make_pair(ReceiverRegion, Ident);
-        const ConstrainedPropertyVal *PrevPropVal =
-            State->get<PropertyAccessesMap>(Key);
-        if (PrevPropVal && PrevPropVal->isConstrainedNonnull) {
-          RetNullability = Nullability::Nonnull;
-        } else {
-          // If a previous property access was constrained as nonnull, we hold
-          // on to that constraint (effectively inferring that all subsequent
-          // accesses on that code path can be inferred as nonnull).  If the
-          // previous property access was *not* constrained as nonnull, then
-          // let's throw it away in favor of keeping the SVal associated with
-          // this more recent access.
-          if (auto ReturnSVal =
-                  M.getReturnValue().getAs<DefinedOrUnknownSVal>()) {
-            State = State->set<PropertyAccessesMap>(
-                Key, ConstrainedPropertyVal(*ReturnSVal));
-          }
-        }
-      }
-    }
-
-    if (!LookupResolved) {
-      // Fallback: err on the side of suppressing the false positive.
-      RetNullability = Nullability::Nonnull;
-    }
-  }
+  // Properties might be computed. For this reason the static analyzer creates a
+  // new symbol each time an unknown property  is read. To avoid false pozitives
+  // do not treat unknown properties as nullable, even when they explicitly
+  // marked nullable.
+  if (M.getMessageKind() == OCM_PropertyAccess && !C.wasInlined)
+    RetNullability = Nullability::Nonnull;
 
   Nullability ComputedNullab = getMostNullable(RetNullability, SelfNullability);
   if (ComputedNullab == Nullability::Nullable) {
@@ -1130,9 +976,9 @@ void NullabilityChecker::checkPostStmt(const ExplicitCastExpr *CE,
                                        CheckerContext &C) const {
   QualType OriginType = CE->getSubExpr()->getType();
   QualType DestType = CE->getType();
-  if (!isValidPointerType(OriginType))
+  if (!OriginType->isAnyPointerType())
     return;
-  if (!isValidPointerType(DestType))
+  if (!DestType->isAnyPointerType())
     return;
 
   ProgramStateRef State = C.getState();
@@ -1256,7 +1102,7 @@ void NullabilityChecker::checkBind(SVal L, SVal V, const Stmt *S,
     return;
 
   QualType LocType = TVR->getValueType();
-  if (!isValidPointerType(LocType))
+  if (!LocType->isAnyPointerType())
     return;
 
   ProgramStateRef State = C.getState();
@@ -1378,9 +1224,9 @@ void NullabilityChecker::printState(raw_ostream &Out, ProgramStateRef State,
   if (!State->get<InvariantViolated>())
     Out << Sep << NL;
 
-  for (auto [Region, State] : B) {
-    Out << Region << " : ";
-    State.print(Out);
+  for (NullabilityMapTy::iterator I = B.begin(), E = B.end(); I != E; ++I) {
+    Out << I->first << " : ";
+    I->second.print(Out);
     Out << NL;
   }
 }

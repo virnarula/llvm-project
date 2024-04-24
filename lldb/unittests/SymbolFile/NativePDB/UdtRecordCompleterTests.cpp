@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Plugins/SymbolFile/NativePDB/UdtRecordCompleter.h"
-#include "llvm/ADT/StringExtras.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

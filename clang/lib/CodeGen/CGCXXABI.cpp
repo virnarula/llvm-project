@@ -46,8 +46,11 @@ CGCallee CGCXXABI::EmitLoadOfMemberFunctionPointer(
 
   ThisPtrForCall = This.getPointer();
   const auto *FPT = MPT->getPointeeType()->castAs<FunctionProtoType>();
-  llvm::Constant *FnPtr = llvm::Constant::getNullValue(
-      llvm::PointerType::getUnqual(CGM.getLLVMContext()));
+  const auto *RD =
+      cast<CXXRecordDecl>(MPT->getClass()->castAs<RecordType>()->getDecl());
+  llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(
+      CGM.getTypes().arrangeCXXMethodType(RD, FPT, /*FD=*/nullptr));
+  llvm::Constant *FnPtr = llvm::Constant::getNullValue(FTy->getPointerTo());
   return CGCallee::forDirect(FnPtr, FPT);
 }
 
@@ -56,8 +59,8 @@ CGCXXABI::EmitMemberDataPointerAddress(CodeGenFunction &CGF, const Expr *E,
                                        Address Base, llvm::Value *MemPtr,
                                        const MemberPointerType *MPT) {
   ErrorUnsupportedABI(CGF, "loads of member pointers");
-  llvm::Type *Ty =
-      llvm::PointerType::get(CGF.getLLVMContext(), Base.getAddressSpace());
+  llvm::Type *Ty = CGF.ConvertType(MPT->getPointeeType())
+                         ->getPointerTo(Base.getAddressSpace());
   return llvm::Constant::getNullValue(Ty);
 }
 
@@ -120,10 +123,10 @@ void CGCXXABI::buildThisParam(CodeGenFunction &CGF, FunctionArgList &params) {
 
   // FIXME: I'm not entirely sure I like using a fake decl just for code
   // generation. Maybe we can come up with a better way?
-  auto *ThisDecl =
-      ImplicitParamDecl::Create(CGM.getContext(), nullptr, MD->getLocation(),
-                                &CGM.getContext().Idents.get("this"),
-                                MD->getThisType(), ImplicitParamKind::CXXThis);
+  auto *ThisDecl = ImplicitParamDecl::Create(
+      CGM.getContext(), nullptr, MD->getLocation(),
+      &CGM.getContext().Idents.get("this"), MD->getThisType(),
+      ImplicitParamDecl::CXXThis);
   params.push_back(ThisDecl);
   CGF.CXXABIThisDecl = ThisDecl;
 
@@ -247,7 +250,7 @@ void CGCXXABI::ReadArrayCookie(CodeGenFunction &CGF, Address ptr,
                                llvm::Value *&numElements,
                                llvm::Value *&allocPtr, CharUnits &cookieSize) {
   // Derive a char* in the same address space as the pointer.
-  ptr = ptr.withElementType(CGF.Int8Ty);
+  ptr = CGF.Builder.CreateElementBitCast(ptr, CGF.Int8Ty);
 
   // If we don't need an array cookie, bail out early.
   if (!requiresArrayCookie(expr, eltTy)) {
@@ -312,7 +315,8 @@ void CGCXXABI::setCXXDestructorDLLStorage(llvm::GlobalValue *GV,
 llvm::GlobalValue::LinkageTypes CGCXXABI::getCXXDestructorLinkage(
     GVALinkage Linkage, const CXXDestructorDecl *Dtor, CXXDtorType DT) const {
   // Delegate back to CGM by default.
-  return CGM.getLLVMLinkageForDeclarator(Dtor, Linkage);
+  return CGM.getLLVMLinkageForDeclarator(Dtor, Linkage,
+                                         /*IsConstantVariable=*/false);
 }
 
 bool CGCXXABI::NeedsVTTParameter(GlobalDecl GD) {

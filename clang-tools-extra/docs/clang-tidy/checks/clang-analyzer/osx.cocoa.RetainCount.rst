@@ -5,9 +5,6 @@
 clang-analyzer-osx.cocoa.RetainCount
 ====================================
 
-Check for leaks and improper reference count management.
-
-The `clang-analyzer-osx.cocoa.RetainCount` check is an alias, please see
-`Clang Static Analyzer Available Checkers
-<https://clang.llvm.org/docs/analyzer/checkers.html#osx-cocoa-retaincount>`_
+The clang-analyzer-osx.cocoa.RetainCount check is an alias, please see
+`Clang Static Analyzer Available Checkers <https://clang.llvm.org/docs/analyzer/checkers.html#osx-cocoa-retaincount>`_
 for more information.

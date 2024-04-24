@@ -46,11 +46,11 @@ static std::string GetExecutablePath(const char *Argv0) {
     if (llvm::ErrorOr<std::string> P =
             llvm::sys::findProgramByName(ExecutablePath))
       ExecutablePath = *P;
-  return std::string(ExecutablePath);
+  return std::string(ExecutablePath.str());
 }
 
 int main(int argc, char **argv) {
-  cl::HideUnrelatedOptions(ArrayRef(opts::HeatmapCategories));
+  cl::HideUnrelatedOptions(makeArrayRef(opts::HeatmapCategories));
   cl::ParseCommandLineOptions(argc, argv, "");
 
   if (opts::PerfData.empty()) {
@@ -85,7 +85,8 @@ int main(int argc, char **argv) {
   Binary &Binary = *BinaryOrErr.get().getBinary();
 
   if (auto *e = dyn_cast<ELFObjectFileBase>(&Binary)) {
-    auto RIOrErr = RewriteInstance::create(e, argc, argv, ToolPath);
+    auto RIOrErr =
+        RewriteInstance::createRewriteInstance(e, argc, argv, ToolPath);
     if (Error E = RIOrErr.takeError())
       report_error("RewriteInstance", std::move(E));
 

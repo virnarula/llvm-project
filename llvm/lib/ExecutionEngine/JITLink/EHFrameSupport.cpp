@@ -126,71 +126,83 @@ Error EHFrameEdgeFixer::processBlock(ParseContext &PC, Block &B) {
   }
 
   // Find the offsets of any existing edges from this block.
-  BlockEdgesInfo BlockEdges;
+  BlockEdgeMap BlockEdges;
   for (auto &E : B.edges())
     if (E.isRelocation()) {
-      // Check if we already saw more than one relocation at this offset.
-      if (BlockEdges.Multiple.contains(E.getOffset()))
-        continue;
+      if (BlockEdges.count(E.getOffset()))
+        return make_error<JITLinkError>(
+            "Multiple relocations at offset " +
+            formatv("{0:x16}", E.getOffset()) + " in " + EHFrameSectionName +
+            " block at address " + formatv("{0:x16}", B.getAddress()));
 
-      // Otherwise check if we previously had exactly one relocation at this
-      // offset. If so, we now have a second one and move it from the TargetMap
-      // into the Multiple set.
-      auto It = BlockEdges.TargetMap.find(E.getOffset());
-      if (It != BlockEdges.TargetMap.end()) {
-        BlockEdges.TargetMap.erase(It);
-        BlockEdges.Multiple.insert(E.getOffset());
-      } else {
-        BlockEdges.TargetMap[E.getOffset()] = EdgeTarget(E);
-      }
+      BlockEdges[E.getOffset()] = EdgeTarget(E);
     }
 
+  CIEInfosMap CIEInfos;
   BinaryStreamReader BlockReader(
       StringRef(B.getContent().data(), B.getContent().size()),
       PC.G.getEndianness());
+  while (!BlockReader.empty()) {
+    size_t RecordStartOffset = BlockReader.getOffset();
 
-  // Get the record length.
-  Expected<size_t> RecordRemaining = readCFIRecordLength(B, BlockReader);
-  if (!RecordRemaining)
-    return RecordRemaining.takeError();
+    LLVM_DEBUG({
+      dbgs() << "    Processing CFI record at "
+             << (B.getAddress() + RecordStartOffset) << "\n";
+    });
 
-  // We expect DWARFRecordSectionSplitter to split each CFI record into its own
-  // block.
-  if (BlockReader.bytesRemaining() != *RecordRemaining)
-    return make_error<JITLinkError>("Incomplete CFI record at " +
-                                    formatv("{0:x16}", B.getAddress()));
+    // Get the record length.
+    Expected<size_t> RecordRemaining = readCFIRecordLength(B, BlockReader);
+    if (!RecordRemaining)
+      return RecordRemaining.takeError();
 
-  // Read the CIE delta for this record.
-  uint64_t CIEDeltaFieldOffset = BlockReader.getOffset();
-  uint32_t CIEDelta;
-  if (auto Err = BlockReader.readInteger(CIEDelta))
-    return Err;
+    if (BlockReader.bytesRemaining() < *RecordRemaining)
+      return make_error<JITLinkError>(
+          "Incomplete CFI record at " +
+          formatv("{0:x16}", B.getAddress() + RecordStartOffset));
 
-  if (CIEDelta == 0) {
-    if (auto Err = processCIE(PC, B, CIEDeltaFieldOffset, BlockEdges))
+    // Read the CIE delta for this record.
+    uint64_t CIEDeltaFieldOffset = BlockReader.getOffset() - RecordStartOffset;
+    uint32_t CIEDelta;
+    if (auto Err = BlockReader.readInteger(CIEDelta))
       return Err;
-  } else {
-    if (auto Err = processFDE(PC, B, CIEDeltaFieldOffset, CIEDelta, BlockEdges))
-      return Err;
+
+    if (CIEDelta == 0) {
+      if (auto Err = processCIE(PC, B, RecordStartOffset,
+                                CIEDeltaFieldOffset + *RecordRemaining,
+                                CIEDeltaFieldOffset, BlockEdges))
+        return Err;
+    } else {
+      if (auto Err = processFDE(PC, B, RecordStartOffset,
+                                CIEDeltaFieldOffset + *RecordRemaining,
+                                CIEDeltaFieldOffset, CIEDelta, BlockEdges))
+        return Err;
+    }
+
+    // Move to the next record.
+    BlockReader.setOffset(RecordStartOffset + CIEDeltaFieldOffset +
+                          *RecordRemaining);
   }
 
   return Error::success();
 }
 
 Error EHFrameEdgeFixer::processCIE(ParseContext &PC, Block &B,
+                                   size_t RecordOffset, size_t RecordLength,
                                    size_t CIEDeltaFieldOffset,
-                                   const BlockEdgesInfo &BlockEdges) {
+                                   const BlockEdgeMap &BlockEdges) {
 
-  LLVM_DEBUG(dbgs() << "    Record is CIE\n");
+  LLVM_DEBUG(dbgs() << "      Record is CIE\n");
 
+  auto RecordContent = B.getContent().slice(RecordOffset, RecordLength);
   BinaryStreamReader RecordReader(
-      StringRef(B.getContent().data(), B.getContent().size()),
+      StringRef(RecordContent.data(), RecordContent.size()),
       PC.G.getEndianness());
 
   // Skip past the CIE delta field: we've already processed this far.
   RecordReader.setOffset(CIEDeltaFieldOffset + 4);
 
-  auto &CIESymbol = PC.G.addAnonymousSymbol(B, 0, B.getSize(), false, false);
+  auto &CIESymbol =
+      PC.G.addAnonymousSymbol(B, RecordOffset, RecordLength, false, false);
   CIEInformation CIEInfo(CIESymbol);
 
   uint8_t Version = 0;
@@ -256,7 +268,7 @@ Error EHFrameEdgeFixer::processCIE(ParseContext &PC, Block &B,
         if (auto Err =
                 getOrCreateEncodedPointerEdge(
                     PC, BlockEdges, *PersonalityPointerEncoding, RecordReader,
-                    B, RecordReader.getOffset(), "personality")
+                    B, RecordOffset + RecordReader.getOffset(), "personality")
                     .takeError())
           return Err;
         break;
@@ -267,7 +279,7 @@ Error EHFrameEdgeFixer::processCIE(ParseContext &PC, Block &B,
           if (CIEInfo.AddressEncoding == dwarf::DW_EH_PE_omit)
             return make_error<JITLinkError>(
                 "Invalid address encoding DW_EH_PE_omit in CIE at " +
-                formatv("{0:x}", B.getAddress().getValue()));
+                formatv("{0:x}", (B.getAddress() + RecordOffset).getValue()));
         } else
           return PE.takeError();
         break;
@@ -290,37 +302,35 @@ Error EHFrameEdgeFixer::processCIE(ParseContext &PC, Block &B,
 }
 
 Error EHFrameEdgeFixer::processFDE(ParseContext &PC, Block &B,
+                                   size_t RecordOffset, size_t RecordLength,
                                    size_t CIEDeltaFieldOffset,
                                    uint32_t CIEDelta,
-                                   const BlockEdgesInfo &BlockEdges) {
-  LLVM_DEBUG(dbgs() << "    Record is FDE\n");
+                                   const BlockEdgeMap &BlockEdges) {
+  LLVM_DEBUG(dbgs() << "      Record is FDE\n");
 
-  orc::ExecutorAddr RecordAddress = B.getAddress();
+  orc::ExecutorAddr RecordAddress = B.getAddress() + RecordOffset;
 
+  auto RecordContent = B.getContent().slice(RecordOffset, RecordLength);
   BinaryStreamReader RecordReader(
-      StringRef(B.getContent().data(), B.getContent().size()),
+      StringRef(RecordContent.data(), RecordContent.size()),
       PC.G.getEndianness());
 
   // Skip past the CIE delta field: we've already read this far.
   RecordReader.setOffset(CIEDeltaFieldOffset + 4);
 
-  auto &FDESymbol = PC.G.addAnonymousSymbol(B, 0, B.getSize(), false, false);
+  auto &FDESymbol =
+      PC.G.addAnonymousSymbol(B, RecordOffset, RecordLength, false, false);
 
   CIEInformation *CIEInfo = nullptr;
 
   {
     // Process the CIE pointer field.
-    if (BlockEdges.Multiple.contains(CIEDeltaFieldOffset))
-      return make_error<JITLinkError>(
-          "CIE pointer field already has multiple edges at " +
-          formatv("{0:x16}", RecordAddress + CIEDeltaFieldOffset));
-
-    auto CIEEdgeItr = BlockEdges.TargetMap.find(CIEDeltaFieldOffset);
-
+    auto CIEEdgeItr = BlockEdges.find(RecordOffset + CIEDeltaFieldOffset);
     orc::ExecutorAddr CIEAddress =
         RecordAddress + orc::ExecutorAddrDiff(CIEDeltaFieldOffset) -
         orc::ExecutorAddrDiff(CIEDelta);
-    if (CIEEdgeItr == BlockEdges.TargetMap.end()) {
+    if (CIEEdgeItr == BlockEdges.end()) {
+
       LLVM_DEBUG({
         dbgs() << "        Adding edge at "
                << (RecordAddress + CIEDeltaFieldOffset)
@@ -331,7 +341,8 @@ Error EHFrameEdgeFixer::processFDE(ParseContext &PC, Block &B,
       else
         return CIEInfoOrErr.takeError();
       assert(CIEInfo->CIESymbol && "CIEInfo has no CIE symbol set");
-      B.addEdge(NegDelta32, CIEDeltaFieldOffset, *CIEInfo->CIESymbol, 0);
+      B.addEdge(NegDelta32, RecordOffset + CIEDeltaFieldOffset,
+                *CIEInfo->CIESymbol, 0);
     } else {
       LLVM_DEBUG({
         dbgs() << "        Already has edge at "
@@ -353,7 +364,7 @@ Error EHFrameEdgeFixer::processFDE(ParseContext &PC, Block &B,
 
   // Process the PC-Begin field.
   LLVM_DEBUG({
-    dbgs() << "      Processing PC-begin at "
+    dbgs() << "        Processing PC-begin at "
            << (RecordAddress + RecordReader.getOffset()) << "\n";
   });
   if (auto PCBegin = getOrCreateEncodedPointerEdge(
@@ -364,14 +375,14 @@ Error EHFrameEdgeFixer::processFDE(ParseContext &PC, Block &B,
       // Add a keep-alive edge from the FDE target to the FDE to ensure that the
       // FDE is kept alive if its target is.
       LLVM_DEBUG({
-        dbgs() << "      Adding keep-alive edge from target at "
+        dbgs() << "        Adding keep-alive edge from target at "
                << (*PCBegin)->getBlock().getAddress() << " to FDE at "
                << RecordAddress << "\n";
       });
       (*PCBegin)->getBlock().addEdge(Edge::KeepAlive, 0, FDESymbol, 0);
     } else {
       LLVM_DEBUG({
-        dbgs() << "      WARNING: Not adding keep-alive edge to FDE at "
+        dbgs() << "        WARNING: Not adding keep-alive edge to FDE at "
                << RecordAddress << ", which points to "
                << ((*PCBegin)->isExternal() ? "external" : "absolute")
                << " symbol \"" << (*PCBegin)->getName()
@@ -398,7 +409,7 @@ Error EHFrameEdgeFixer::processFDE(ParseContext &PC, Block &B,
                          .takeError())
         return Err;
   } else {
-    LLVM_DEBUG(dbgs() << "      Record does not have LSDA field.\n");
+    LLVM_DEBUG(dbgs() << "        Record does not have LSDA field.\n");
   }
 
   return Error::success();
@@ -509,7 +520,7 @@ Error EHFrameEdgeFixer::skipEncodedPointer(uint8_t PointerEncoding,
 }
 
 Expected<Symbol *> EHFrameEdgeFixer::getOrCreateEncodedPointerEdge(
-    ParseContext &PC, const BlockEdgesInfo &BlockEdges, uint8_t PointerEncoding,
+    ParseContext &PC, const BlockEdgeMap &BlockEdges, uint8_t PointerEncoding,
     BinaryStreamReader &RecordReader, Block &BlockToFix,
     size_t PointerFieldOffset, const char *FieldName) {
   using namespace dwarf;
@@ -520,10 +531,10 @@ Expected<Symbol *> EHFrameEdgeFixer::getOrCreateEncodedPointerEdge(
   // If there's already an edge here then just skip the encoded pointer and
   // return the edge's target.
   {
-    auto EdgeI = BlockEdges.TargetMap.find(PointerFieldOffset);
-    if (EdgeI != BlockEdges.TargetMap.end()) {
+    auto EdgeI = BlockEdges.find(PointerFieldOffset);
+    if (EdgeI != BlockEdges.end()) {
       LLVM_DEBUG({
-        dbgs() << "      Existing edge at "
+        dbgs() << "        Existing edge at "
                << (BlockToFix.getAddress() + PointerFieldOffset) << " to "
                << FieldName << " at " << EdgeI->second.Target->getAddress();
         if (EdgeI->second.Target->hasName())
@@ -534,10 +545,6 @@ Expected<Symbol *> EHFrameEdgeFixer::getOrCreateEncodedPointerEdge(
         return std::move(Err);
       return EdgeI->second.Target;
     }
-
-    if (BlockEdges.Multiple.contains(PointerFieldOffset))
-      return make_error<JITLinkError>("Multiple relocations at offset " +
-                                      formatv("{0:x16}", PointerFieldOffset));
   }
 
   // Switch absptr to corresponding udata encoding.
@@ -589,7 +596,7 @@ Expected<Symbol *> EHFrameEdgeFixer::getOrCreateEncodedPointerEdge(
   BlockToFix.addEdge(PtrEdgeKind, PointerFieldOffset, *TargetSym, 0);
 
   LLVM_DEBUG({
-    dbgs() << "      Adding edge at "
+    dbgs() << "        Adding edge at "
            << (BlockToFix.getAddress() + PointerFieldOffset) << " to "
            << FieldName << " at " << TargetSym->getAddress();
     if (TargetSym->hasName())

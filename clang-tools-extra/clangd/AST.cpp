@@ -30,13 +30,14 @@
 #include "clang/Basic/Specifiers.h"
 #include "clang/Index/USRGeneration.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include <iterator>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -44,7 +45,7 @@ namespace clang {
 namespace clangd {
 
 namespace {
-std::optional<llvm::ArrayRef<TemplateArgumentLoc>>
+llvm::Optional<llvm::ArrayRef<TemplateArgumentLoc>>
 getTemplateSpecializationArgLocs(const NamedDecl &ND) {
   if (auto *Func = llvm::dyn_cast<FunctionDecl>(&ND)) {
     if (const ASTTemplateArgumentListInfo *Args =
@@ -62,9 +63,9 @@ getTemplateSpecializationArgLocs(const NamedDecl &ND) {
     if (auto *Args = Var->getTemplateArgsInfo())
       return Args->arguments();
   }
-  // We return std::nullopt for ClassTemplateSpecializationDecls because it does
-  // not contain TemplateArgumentLoc information.
-  return std::nullopt;
+  // We return None for ClassTemplateSpecializationDecls because it does not
+  // contain TemplateArgumentLoc information.
+  return llvm::None;
 }
 
 template <class T>
@@ -193,7 +194,7 @@ std::string printQualifiedName(const NamedDecl &ND) {
   Policy.AnonymousTagLocations = false;
   ND.printQualifiedName(OS, Policy);
   OS.flush();
-  assert(!StringRef(QName).starts_with("::"));
+  assert(!StringRef(QName).startswith("::"));
   return QName;
 }
 
@@ -266,7 +267,7 @@ std::string printTemplateSpecializationArgs(const NamedDecl &ND) {
   std::string TemplateArgs;
   llvm::raw_string_ostream OS(TemplateArgs);
   PrintingPolicy Policy(ND.getASTContext().getLangOpts());
-  if (std::optional<llvm::ArrayRef<TemplateArgumentLoc>> Args =
+  if (llvm::Optional<llvm::ArrayRef<TemplateArgumentLoc>> Args =
           getTemplateSpecializationArgLocs(ND)) {
     printTemplateArgumentList(OS, *Args, Policy);
   } else if (auto *Cls = llvm::dyn_cast<ClassTemplateSpecializationDecl>(&ND)) {
@@ -376,38 +377,6 @@ const ObjCImplDecl *getCorrespondingObjCImpl(const ObjCContainerDecl *D) {
   return nullptr;
 }
 
-Symbol::IncludeDirective
-preferredIncludeDirective(llvm::StringRef FileName, const LangOptions &LangOpts,
-                          ArrayRef<Inclusion> MainFileIncludes,
-                          ArrayRef<const Decl *> TopLevelDecls) {
-  // Always prefer #include for non-ObjC code.
-  if (!LangOpts.ObjC)
-    return Symbol::IncludeDirective::Include;
-  // If this is not a header file and has ObjC set as the language, prefer
-  // #import.
-  if (!isHeaderFile(FileName, LangOpts))
-    return Symbol::IncludeDirective::Import;
-
-  // Headers lack proper compile flags most of the time, so we might treat a
-  // header as ObjC accidentally. Perform some extra checks to make sure this
-  // works.
-
-  // Any file with a #import, should keep #import-ing.
-  for (auto &Inc : MainFileIncludes)
-    if (Inc.Directive == tok::pp_import)
-      return Symbol::IncludeDirective::Import;
-
-  // Any file declaring an ObjC decl should also be #import-ing.
-  // No need to look over the references, as the file doesn't have any #imports,
-  // it must be declaring interesting ObjC-like decls.
-  for (const Decl *D : TopLevelDecls)
-    if (isa<ObjCContainerDecl, ObjCIvarDecl, ObjCMethodDecl, ObjCPropertyDecl>(
-            D))
-      return Symbol::IncludeDirective::Import;
-
-  return Symbol::IncludeDirective::Include;
-}
-
 std::string printType(const QualType QT, const DeclContext &CurContext,
                       const llvm::StringRef Placeholder) {
   std::string Result;
@@ -482,11 +451,7 @@ public:
   //- auto* i = &a;
   bool VisitDeclaratorDecl(DeclaratorDecl *D) {
     if (!D->getTypeSourceInfo() ||
-        !D->getTypeSourceInfo()->getTypeLoc().getContainedAutoTypeLoc() ||
-        D->getTypeSourceInfo()
-                ->getTypeLoc()
-                .getContainedAutoTypeLoc()
-                .getNameLoc() != SearchedLocation)
+        D->getTypeSourceInfo()->getTypeLoc().getBeginLoc() != SearchedLocation)
       return true;
 
     if (auto *AT = D->getType()->getContainedAutoType()) {
@@ -599,13 +564,14 @@ public:
 };
 } // namespace
 
-std::optional<QualType> getDeducedType(ASTContext &ASTCtx, SourceLocation Loc) {
+llvm::Optional<QualType> getDeducedType(ASTContext &ASTCtx,
+                                        SourceLocation Loc) {
   if (!Loc.isValid())
     return {};
   DeducedTypeVisitor V(Loc);
   V.TraverseAST(ASTCtx);
   if (V.DeducedType.isNull())
-    return std::nullopt;
+    return llvm::None;
   return V.DeducedType;
 }
 
@@ -696,7 +662,7 @@ std::string getQualification(ASTContext &Context,
                              const NamedDecl *ND,
                              llvm::ArrayRef<std::string> VisibleNamespaces) {
   for (llvm::StringRef NS : VisibleNamespaces) {
-    assert(NS.ends_with("::"));
+    assert(NS.endswith("::"));
     (void)NS;
   }
   return getQualification(
@@ -757,7 +723,7 @@ const TemplateTypeParmType *getFunctionPackType(const FunctionDecl *Callee) {
 // Returns the template parameter pack type that this parameter was expanded
 // from (if in the Args... or Args&... or Args&&... form), if this is the case,
 // nullptr otherwise.
-const TemplateTypeParmType *getUnderlyingPackType(const ParmVarDecl *Param) {
+const TemplateTypeParmType *getUnderylingPackType(const ParmVarDecl *Param) {
   const auto *PlainType = Param->getType().getTypePtr();
   if (auto *RT = dyn_cast<ReferenceType>(PlainType))
     PlainType = RT->getPointeeTypeAsWritten().getTypePtr();
@@ -793,8 +759,8 @@ class ForwardingCallVisitor
     : public RecursiveASTVisitor<ForwardingCallVisitor> {
 public:
   ForwardingCallVisitor(ArrayRef<const ParmVarDecl *> Parameters)
-      : Parameters{Parameters},
-        PackType{getUnderlyingPackType(Parameters.front())} {}
+      : Parameters{Parameters}, PackType{getUnderylingPackType(
+                                    Parameters.front())} {}
 
   bool VisitCallExpr(CallExpr *E) {
     auto *Callee = getCalleeDeclOrUniqueOverload(E);
@@ -832,11 +798,11 @@ public:
     ArrayRef<const ParmVarDecl *> Tail;
     // If the parameters were resolved to another forwarding FunctionDecl, this
     // is it.
-    std::optional<FunctionDecl *> PackTarget;
+    Optional<FunctionDecl *> PackTarget;
   };
 
   // The output of this visitor
-  std::optional<ForwardingInfo> Info;
+  Optional<ForwardingInfo> Info;
 
 private:
   // inspects the given callee with the given args to check whether it
@@ -859,7 +825,7 @@ private:
     if (const auto *TTPT = getFunctionPackType(Callee)) {
       // In this case: Separate the parameters into head, pack and tail
       auto IsExpandedPack = [&](const ParmVarDecl *P) {
-        return getUnderlyingPackType(P) == TTPT;
+        return getUnderylingPackType(P) == TTPT;
       };
       ForwardingInfo FI;
       FI.Head = MatchingParams.take_until(IsExpandedPack);
@@ -878,7 +844,7 @@ private:
 
   // Returns the beginning of the expanded pack represented by Parameters
   // in the given arguments, if it is there.
-  std::optional<size_t> findPack(typename CallExpr::arg_range Args) {
+  llvm::Optional<size_t> findPack(typename CallExpr::arg_range Args) {
     // find the argument directly referring to the first parameter
     assert(Parameters.size() <= static_cast<size_t>(llvm::size(Args)));
     for (auto Begin = Args.begin(), End = Args.end() - Parameters.size() + 1;
@@ -896,7 +862,7 @@ private:
         return std::distance(Args.begin(), Begin);
       }
     }
-    return std::nullopt;
+    return llvm::None;
   }
 
   static FunctionDecl *getCalleeDeclOrUniqueOverload(CallExpr *E) {
@@ -964,7 +930,7 @@ resolveForwardingParameters(const FunctionDecl *D, unsigned MaxDepth) {
   if (const auto *TTPT = getFunctionPackType(D)) {
     // Split the parameters into head, pack and tail
     auto IsExpandedPack = [TTPT](const ParmVarDecl *P) {
-      return getUnderlyingPackType(P) == TTPT;
+      return getUnderylingPackType(P) == TTPT;
     };
     ArrayRef<const ParmVarDecl *> Head = Parameters.take_until(IsExpandedPack);
     ArrayRef<const ParmVarDecl *> Pack =
@@ -990,7 +956,7 @@ resolveForwardingParameters(const FunctionDecl *D, unsigned MaxDepth) {
         break;
       }
       // If we found something: Fill in non-pack parameters
-      auto Info = *V.Info;
+      auto Info = V.Info.value();
       HeadIt = std::copy(Info.Head.begin(), Info.Head.end(), HeadIt);
       TailIt = std::copy(Info.Tail.rbegin(), Info.Tail.rend(), TailIt);
       // Prepare next recursion level
@@ -1016,7 +982,7 @@ resolveForwardingParameters(const FunctionDecl *D, unsigned MaxDepth) {
 }
 
 bool isExpandedFromParameterPack(const ParmVarDecl *D) {
-  return getUnderlyingPackType(D) != nullptr;
+  return getUnderylingPackType(D) != nullptr;
 }
 
 } // namespace clangd

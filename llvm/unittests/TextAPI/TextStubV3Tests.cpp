@@ -81,10 +81,11 @@ TEST(TBDv3, ReadFile) {
   for (auto &&arch : Archs)
     Targets.emplace_back(Target(arch, Platform));
   EXPECT_EQ(Archs, File->getArchitectures());
-  TargetToAttr Uuids = {{Target(AK_armv7, PLATFORM_UNKNOWN),
-                         "00000000-0000-0000-0000-000000000000"},
-                        {Target(AK_arm64, PLATFORM_UNKNOWN),
-                         "11111111-1111-1111-1111-111111111111"}};
+  UUIDs Uuids = {{Target(AK_armv7, PLATFORM_UNKNOWN),
+                  "00000000-0000-0000-0000-000000000000"},
+                 {Target(AK_arm64, PLATFORM_UNKNOWN),
+                  "11111111-1111-1111-1111-111111111111"}};
+  EXPECT_EQ(Uuids, File->uuids());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
   EXPECT_EQ(std::string("Test.dylib"), File->getInstallName());
@@ -94,6 +95,7 @@ TEST(TBDv3, ReadFile) {
   EXPECT_EQ(ObjCConstraintType::Retain_Release, File->getObjCConstraint());
   EXPECT_TRUE(File->isTwoLevelNamespace());
   EXPECT_TRUE(File->isApplicationExtensionSafe());
+  EXPECT_TRUE(File->isInstallAPI());
   InterfaceFileRef client("clientA", Targets);
   InterfaceFileRef reexport("/usr/lib/libfoo.dylib", Targets);
   EXPECT_EQ(1U, File->allowableClients().size());
@@ -111,7 +113,7 @@ TEST(TBDv3, ReadFile) {
   }
   llvm::sort(Exports);
 
-  EXPECT_EQ(std::size(TBDv3Symbols), Exports.size());
+  EXPECT_EQ(sizeof(TBDv3Symbols) / sizeof(ExportedSymbol), Exports.size());
   EXPECT_TRUE(
       std::equal(Exports.begin(), Exports.end(), std::begin(TBDv3Symbols)));
 }
@@ -120,6 +122,8 @@ TEST(TBDv3, ReadMultipleDocuments) {
   static const char TBDv3Inlines[] =
       "--- !tapi-tbd-v3\n"
       "archs: [ armv7, arm64 ]\n"
+      "uuids: [ 'armv7: 00000000-0000-0000-0000-000000000000',\n"
+      "         'arm64: 11111111-1111-1111-1111-111111111111']\n"
       "platform: ios\n"
       "install-name: Test.dylib\n"
       "current-version: 2.3.4\n"
@@ -145,6 +149,8 @@ TEST(TBDv3, ReadMultipleDocuments) {
       "    thread-local-symbols: [ _tlv3 ]\n"
       "--- !tapi-tbd-v3\n"
       "archs: [ armv7, arm64 ]\n"
+      "uuids: [ 'armv7: 00000000-0000-0000-0000-000000000000',\n"
+      "         'arm64: 11111111-1111-1111-1111-111111111111']\n"
       "platform: ios\n"
       "install-name: TestInline.dylib\n"
       "swift-abi-version: 1.1\n"
@@ -165,10 +171,11 @@ TEST(TBDv3, ReadMultipleDocuments) {
   for (auto &&arch : Archs)
     Targets.emplace_back(Target(arch, Platform));
   EXPECT_EQ(Archs, File->getArchitectures());
-  TargetToAttr Uuids = {{Target(AK_armv7, PLATFORM_UNKNOWN),
-                         "00000000-0000-0000-0000-000000000000"},
-                        {Target(AK_arm64, PLATFORM_UNKNOWN),
-                         "11111111-1111-1111-1111-111111111111"}};
+  UUIDs Uuids = {{Target(AK_armv7, PLATFORM_UNKNOWN),
+                  "00000000-0000-0000-0000-000000000000"},
+                 {Target(AK_arm64, PLATFORM_UNKNOWN),
+                  "11111111-1111-1111-1111-111111111111"}};
+  EXPECT_EQ(Uuids, File->uuids());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
   EXPECT_EQ(std::string("Test.dylib"), File->getInstallName());
@@ -178,6 +185,7 @@ TEST(TBDv3, ReadMultipleDocuments) {
   EXPECT_EQ(ObjCConstraintType::Retain_Release, File->getObjCConstraint());
   EXPECT_TRUE(File->isTwoLevelNamespace());
   EXPECT_TRUE(File->isApplicationExtensionSafe());
+  EXPECT_FALSE(File->isInstallAPI());
   InterfaceFileRef Client("clientA", Targets);
   const std::vector<InterfaceFileRef> Reexports = {
       InterfaceFileRef("/usr/lib/libfoo.dylib", Targets),
@@ -197,7 +205,7 @@ TEST(TBDv3, ReadMultipleDocuments) {
   }
   llvm::sort(Exports);
 
-  EXPECT_EQ(std::size(TBDv3Symbols), Exports.size());
+  EXPECT_EQ(sizeof(TBDv3Symbols) / sizeof(ExportedSymbol), Exports.size());
   EXPECT_TRUE(
       std::equal(Exports.begin(), Exports.end(), std::begin(TBDv3Symbols)));
 
@@ -206,6 +214,7 @@ TEST(TBDv3, ReadMultipleDocuments) {
   TBDReexportFile Document = File->documents().front();
   EXPECT_EQ(FileType::TBD_V3, Document->getFileType());
   EXPECT_EQ(Archs, Document->getArchitectures());
+  EXPECT_EQ(Uuids, Document->uuids());
   EXPECT_EQ(Platform, *Document->getPlatforms().begin());
   EXPECT_EQ(std::string("TestInline.dylib"), Document->getInstallName());
   EXPECT_EQ(PackedVersion(1, 0, 0), Document->getCurrentVersion());
@@ -486,7 +495,7 @@ TEST(TBDv3, Platform_bridgeOS) {
 TEST(TBDv3, Platform_macCatalyst) {
   static const char TBDv3PlatformiOSmac[] = "--- !tapi-tbd-v3\n"
                                             "archs: [ armv7k ]\n"
-                                            "platform: maccatalyst\n"
+                                            "platform: iosmac\n"
                                             "install-name: Test.dylib\n"
                                             "...\n";
 
@@ -910,6 +919,8 @@ TEST(TBDv3, InterfaceInequality) {
   EXPECT_TRUE(checkEqualityOnTransform(FileA, FileB, [](InterfaceFile *File) {
     File->setTwoLevelNamespace(false);
   }));
+  EXPECT_TRUE(checkEqualityOnTransform(
+      FileA, FileB, [](InterfaceFile *File) { File->setInstallAPI(true); }));
   EXPECT_TRUE(checkEqualityOnTransform(FileA, FileB, [](InterfaceFile *File) {
     File->setApplicationExtensionSafe(false);
   }));
@@ -929,7 +940,6 @@ TEST(TBDv3, InterfaceInequality) {
   }));
   EXPECT_TRUE(checkEqualityOnTransform(FileA, FileB, [](InterfaceFile *File) {
     InterfaceFile Document;
-    Document.setFileType(FileType::TBD_V3);
     Document.addTargets(TargetList{Target(AK_armv7, PLATFORM_IOS),
                                    Target(AK_arm64, PLATFORM_IOS)});
     Document.setInstallName("/System/Library/Frameworks/A.framework/A");

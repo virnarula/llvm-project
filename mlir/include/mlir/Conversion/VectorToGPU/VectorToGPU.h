@@ -12,7 +12,6 @@
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
-struct LogicalResult;
 class MLIRContext;
 class Pass;
 class RewritePatternSet;
@@ -30,14 +29,13 @@ void populatePrepareVectorToMMAPatterns(RewritePatternSet &patterns,
 /// Convert vector ops to MMA matrix operations nested under `rootOp`. This will
 /// convert slice of operations that can be legally converted to MMA operations.
 /// The rest of the vector operations are left untouched.
-LogicalResult convertVectorToMMAOps(RewriterBase &rewriter, Operation *rootOp);
+void convertVectorToMMAOps(Operation *rootOp);
 
 /// Convert vector ops ops nested under `rootOp` to vector and GPU operaitons
 /// compatible with the `nvvm.mma.sync` lowering path. This will convert a slice
 /// of operations that can be legally lowered on this path while the rest of
 /// the vector operations are left untouched.
-LogicalResult convertVectorToNVVMCompatibleMMASync(RewriterBase &rewriter,
-                                                   Operation *rootOp);
+LogicalResult convertVectorToNVVMCompatibleMMASync(Operation *rootOp);
 
 /// Convert from vector to GPU ops.
 std::unique_ptr<Pass> createConvertVectorToGPUPass(bool useNvGpu = false);

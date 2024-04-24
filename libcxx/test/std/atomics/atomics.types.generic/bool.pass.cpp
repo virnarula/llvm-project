@@ -61,14 +61,8 @@ int main(int, char**)
     {
         volatile std::atomic<bool> obj(true);
         assert(obj == true);
-        {
-            bool lockfree = obj.is_lock_free();
-            (void)lockfree;
-#if TEST_STD_VER >= 17
-            if (std::atomic<bool>::is_always_lock_free)
-                assert(lockfree);
-#endif
-        }
+        bool b0 = obj.is_lock_free();
+        (void)b0; // to placate scan-build
         obj.store(false);
         assert(obj == false);
         obj.store(true, std::memory_order_release);
@@ -118,14 +112,8 @@ int main(int, char**)
     {
         std::atomic<bool> obj(true);
         assert(obj == true);
-        {
-            bool lockfree = obj.is_lock_free();
-            (void)lockfree;
-#if TEST_STD_VER >= 17
-            if (std::atomic<bool>::is_always_lock_free)
-                assert(lockfree);
-#endif
-        }
+        bool b0 = obj.is_lock_free();
+        (void)b0; // to placate scan-build
         obj.store(false);
         assert(obj == false);
         obj.store(true, std::memory_order_release);
@@ -175,14 +163,8 @@ int main(int, char**)
     {
         std::atomic_bool obj(true);
         assert(obj == true);
-        {
-            bool lockfree = obj.is_lock_free();
-            (void)lockfree;
-#if TEST_STD_VER >= 17
-            if (std::atomic_bool::is_always_lock_free)
-                assert(lockfree);
-#endif
-        }
+        bool b0 = obj.is_lock_free();
+        (void)b0; // to placate scan-build
         obj.store(false);
         assert(obj == false);
         obj.store(true, std::memory_order_release);

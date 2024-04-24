@@ -20,46 +20,23 @@
 namespace Fortran::runtime {
 class Descriptor;
 
-namespace typeInfo {
-class DerivedType;
-}
-
 extern "C" {
 
 // Initializes and allocates an object's components, if it has a derived type
 // with any default component initialization or automatic components.
 // The descriptor must be initialized and non-null.
-void RTDECL(Initialize)(
+void RTNAME(Initialize)(
     const Descriptor &, const char *sourceFile = nullptr, int sourceLine = 0);
 
 // Finalizes an object and its components.  Deallocates any
 // allocatable/automatic components.  Does not deallocate the descriptor's
 // storage.
-void RTDECL(Destroy)(const Descriptor &);
-
-// Finalizes the object and its components.
-void RTDECL(Finalize)(
-    const Descriptor &, const char *sourceFile = nullptr, int sourceLine = 0);
-
-/// Deallocates any allocatable/automatic components.
-/// Does not deallocate the descriptor's storage.
-/// Does not perform any finalization.
-void RTDECL(DestroyWithoutFinalization)(const Descriptor &);
+void RTNAME(Destroy)(const Descriptor &);
 
 // Intrinsic or defined assignment, with scalar expansion but not type
 // conversion.
-void RTDECL(Assign)(const Descriptor &, const Descriptor &,
+void RTNAME(Assign)(const Descriptor &, const Descriptor &,
     const char *sourceFile = nullptr, int sourceLine = 0);
-
-// Perform the test of the CLASS IS type guard statement of the SELECT TYPE
-// construct.
-bool RTDECL(ClassIs)(const Descriptor &, const typeInfo::DerivedType &);
-
-// Perform the test of the SAME_TYPE_AS intrinsic.
-bool RTDECL(SameTypeAs)(const Descriptor &, const Descriptor &);
-
-// Perform the test of the EXTENDS_TYPE_OF intrinsic.
-bool RTDECL(ExtendsTypeOf)(const Descriptor &, const Descriptor &);
 
 } // extern "C"
 } // namespace Fortran::runtime

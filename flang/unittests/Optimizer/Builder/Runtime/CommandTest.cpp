@@ -32,22 +32,26 @@ TEST_F(RuntimeCallTest, genGetCommandArgument) {
       /*addLocArgs=*/true);
 }
 
-TEST_F(RuntimeCallTest, genGetEnvVariable) {
+TEST_F(RuntimeCallTest, genEnvVariableValue) {
   mlir::Location loc = firBuilder->getUnknownLoc();
-  mlir::Value name = firBuilder->create<fir::UndefOp>(loc, boxTy);
-  mlir::Value value = firBuilder->create<fir::UndefOp>(loc, boxTy);
-  mlir::Value length = firBuilder->create<fir::UndefOp>(loc, boxTy);
+  mlir::Type charTy = fir::BoxType::get(firBuilder->getNoneType());
+  mlir::Value name = firBuilder->create<fir::UndefOp>(loc, charTy);
+  mlir::Value value = firBuilder->create<fir::UndefOp>(loc, charTy);
   mlir::Value trimName = firBuilder->create<fir::UndefOp>(loc, i1Ty);
-  mlir::Value errmsg = firBuilder->create<fir::UndefOp>(loc, boxTy);
-  mlir::Value result = fir::runtime::genGetEnvVariable(
-      *firBuilder, loc, name, value, length, trimName, errmsg);
-  checkCallOp(result.getDefiningOp(), "_FortranAGetEnvVariable", /*nbArgs=*/5,
+  mlir::Value errmsg = firBuilder->create<fir::UndefOp>(loc, charTy);
+  mlir::Value result = fir::runtime::genEnvVariableValue(
+      *firBuilder, loc, name, value, trimName, errmsg);
+  checkCallOp(result.getDefiningOp(), "_FortranAEnvVariableValue", /*nbArgs=*/4,
       /*addLocArgs=*/true);
 }
 
-TEST_F(RuntimeCallTest, genGetPID) {
+TEST_F(RuntimeCallTest, genEnvVariableLength) {
   mlir::Location loc = firBuilder->getUnknownLoc();
-  mlir::Value result = fir::runtime::genGetPID(*firBuilder, loc);
-  checkCallOp(result.getDefiningOp(), "_FortranAGetPID", /*nbArgs=*/0,
-      /*addLocArgs=*/false);
+  mlir::Type charTy = fir::BoxType::get(firBuilder->getNoneType());
+  mlir::Value name = firBuilder->create<fir::UndefOp>(loc, charTy);
+  mlir::Value trimName = firBuilder->create<fir::UndefOp>(loc, i1Ty);
+  mlir::Value result =
+      fir::runtime::genEnvVariableLength(*firBuilder, loc, name, trimName);
+  checkCallOp(result.getDefiningOp(), "_FortranAEnvVariableLength",
+      /*nbArgs=*/2, /*addLocArgs=*/true);
 }

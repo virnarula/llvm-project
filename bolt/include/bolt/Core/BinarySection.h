@@ -56,11 +56,10 @@ class BinarySection {
   unsigned Alignment;          // alignment in bytes (must be > 0)
   unsigned ELFType;            // ELF section type
   unsigned ELFFlags;           // ELF section flags
-  bool IsRelro{false};         // GNU RELRO section (read-only after relocation)
 
   // Relocations associated with this section. Relocation offsets are
   // wrt. to the original section address and size.
-  using RelocationSetType = std::multiset<Relocation, std::less<>>;
+  using RelocationSetType = std::set<Relocation, std::less<>>;
   RelocationSetType Relocations;
 
   // Dynamic relocations associated with this section. Relocation offsets are
@@ -91,13 +90,11 @@ class BinarySection {
   uint64_t OutputFileOffset{0};    // File offset in the rewritten binary file.
   StringRef OutputContents;        // Rewritten section contents.
   const uint64_t SectionNumber;    // Order in which the section was created.
-  std::string SectionID;           // Unique ID used for address mapping.
+  unsigned SectionID{-1u};         // Unique ID used for address mapping.
                                    // Set by ExecutableFileMemoryManager.
   uint32_t Index{0};               // Section index in the output file.
   mutable bool IsReordered{false}; // Have the contents been reordered?
   bool IsAnonymous{false};         // True if the name should not be included
-                                   // in the output file.
-  bool IsLinkOnly{false};          // True if the section should not be included
                                    // in the output file.
 
   uint64_t hash(const BinaryData &BD,
@@ -127,7 +124,7 @@ class BinarySection {
     return *ContentsOrErr;
   }
 
-  /// Get the set of relocations referring to data in this section that
+  /// Get the set of relocations refering to data in this section that
   /// has been reordered.  The relocation offsets will be modified to
   /// reflect the new data locations.
   RelocationSetType reorderRelocations(bool Inplace) const;
@@ -160,7 +157,7 @@ public:
   BinarySection(BinaryContext &BC, SectionRef Section)
       : BC(BC), Name(getName(Section)), Section(Section),
         Contents(getContents(Section)), Address(Section.getAddress()),
-        Size(Section.getSize()), Alignment(Section.getAlignment().value()),
+        Size(Section.getSize()), Alignment(Section.getAlignment()),
         OutputName(Name), SectionNumber(++Count) {
     if (isELF()) {
       ELFType = ELFSectionRef(Section).getType();
@@ -235,8 +232,8 @@ public:
       return isText() > Other.isText();
 
     // Read-only before writable.
-    if (isWritable() != Other.isWritable())
-      return isWritable() < Other.isWritable();
+    if (isReadOnly() != Other.isReadOnly())
+      return isReadOnly() > Other.isReadOnly();
 
     // BSS at the end.
     if (isBSS() != Other.isBSS())
@@ -257,7 +254,6 @@ public:
   uint64_t getEndAddress() const { return Address + Size; }
   uint64_t getSize() const { return Size; }
   uint64_t getInputFileOffset() const { return InputFileOffset; }
-  Align getAlign() const { return Align(Alignment); }
   uint64_t getAlignment() const { return Alignment; }
   bool isText() const {
     if (isELF())
@@ -278,8 +274,10 @@ public:
   bool isTBSS() const { return isBSS() && isTLS(); }
   bool isVirtual() const { return ELFType == ELF::SHT_NOBITS; }
   bool isRela() const { return ELFType == ELF::SHT_RELA; }
-  bool isRelr() const { return ELFType == ELF::SHT_RELR; }
-  bool isWritable() const { return (ELFFlags & ELF::SHF_WRITE); }
+  bool isReadOnly() const {
+    return ((ELFFlags & ELF::SHF_ALLOC) && !(ELFFlags & ELF::SHF_WRITE) &&
+            ELFType == ELF::SHT_PROGBITS);
+  }
   bool isAllocatable() const {
     if (isELF()) {
       return (ELFFlags & ELF::SHF_ALLOC) && !isTBSS();
@@ -290,8 +288,6 @@ public:
   }
   bool isReordered() const { return IsReordered; }
   bool isAnonymous() const { return IsAnonymous; }
-  bool isRelro() const { return IsRelro; }
-  void setRelro() { IsRelro = true; }
   unsigned getELFType() const { return ELFType; }
   unsigned getELFFlags() const { return ELFFlags; }
 
@@ -350,8 +346,7 @@ public:
   bool removeRelocationAt(uint64_t Offset) {
     auto Itr = Relocations.find(Offset);
     if (Itr != Relocations.end()) {
-      auto End = Relocations.upper_bound(Offset);
-      Relocations.erase(Itr, End);
+      Relocations.erase(Itr);
       return true;
     }
     return false;
@@ -375,12 +370,8 @@ public:
   /// Add a dynamic relocation at the given /p Offset.
   void addDynamicRelocation(uint64_t Offset, MCSymbol *Symbol, uint64_t Type,
                             uint64_t Addend, uint64_t Value = 0) {
-    addDynamicRelocation(Relocation{Offset, Symbol, Type, Addend, Value});
-  }
-
-  void addDynamicRelocation(const Relocation &Reloc) {
-    assert(Reloc.Offset < getSize() && "offset not within section bounds");
-    DynamicRelocations.emplace(Reloc);
+    assert(Offset < getSize() && "offset not within section bounds");
+    DynamicRelocations.emplace(Relocation{Offset, Symbol, Type, Addend, Value});
   }
 
   /// Add relocation against the original contents of this section.
@@ -414,18 +405,6 @@ public:
     return Itr != DynamicRelocations.end() ? &*Itr : nullptr;
   }
 
-  std::optional<Relocation> takeDynamicRelocationAt(uint64_t Offset) {
-    Relocation Key{Offset, 0, 0, 0, 0};
-    auto Itr = DynamicRelocations.find(Key);
-
-    if (Itr == DynamicRelocations.end())
-      return std::nullopt;
-
-    Relocation Reloc = *Itr;
-    DynamicRelocations.erase(Itr);
-    return Reloc;
-  }
-
   uint64_t hash(const BinaryData &BD) const {
     std::map<const BinaryData *, uint64_t> Cache;
     return hash(BD, Cache);
@@ -452,26 +431,24 @@ public:
   }
   uint64_t getOutputAddress() const { return OutputAddress; }
   uint64_t getOutputFileOffset() const { return OutputFileOffset; }
-  StringRef getSectionID() const {
+  unsigned getSectionID() const {
     assert(hasValidSectionID() && "trying to use uninitialized section id");
     return SectionID;
   }
-  bool hasValidSectionID() const { return !SectionID.empty(); }
+  bool hasValidSectionID() const { return SectionID != -1u; }
   bool hasValidIndex() { return Index != 0; }
   uint32_t getIndex() const { return Index; }
 
   // mutation
   void setOutputAddress(uint64_t Address) { OutputAddress = Address; }
   void setOutputFileOffset(uint64_t Offset) { OutputFileOffset = Offset; }
-  void setSectionID(StringRef ID) {
+  void setSectionID(unsigned ID) {
     assert(!hasValidSectionID() && "trying to set section id twice");
     SectionID = ID;
   }
   void setIndex(uint32_t I) { Index = I; }
   void setOutputName(const Twine &Name) { OutputName = Name.str(); }
   void setAnonymous(bool Flag) { IsAnonymous = Flag; }
-  bool isLinkOnly() const { return IsLinkOnly; }
-  void setLinkOnly() { IsLinkOnly = true; }
 
   /// Emit the section as data, possibly with relocations.
   /// Use name \p SectionName for the section during the emission.
@@ -528,6 +505,27 @@ inline raw_ostream &operator<<(raw_ostream &OS, const BinarySection &Section) {
   Section.print(OS);
   return OS;
 }
+
+struct SDTMarkerInfo {
+  uint64_t PC;
+  uint64_t Base;
+  uint64_t Semaphore;
+  StringRef Provider;
+  StringRef Name;
+  StringRef Args;
+
+  /// The offset of PC within the note section
+  unsigned PCOffset;
+};
+
+/// Linux Kernel special sections point to a specific instruction in many cases.
+/// Unlike SDTMarkerInfo, these markers can come from different sections.
+struct LKInstructionMarkerInfo {
+  uint64_t SectionOffset;
+  int32_t PCRelativeOffset;
+  bool IsPCRelative;
+  StringRef SectionName;
+};
 
 } // namespace bolt
 } // namespace llvm

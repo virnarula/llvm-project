@@ -3,7 +3,7 @@
 	.syntax unified
 
 	.type TYPE #32
-// CHECK: error: expected symbol type
+// CHECK: error: expected symbol type in directive
 // CHECK: .type TYPE #32
 // CHECK:             ^
 

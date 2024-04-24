@@ -87,7 +87,13 @@ TEST_F(PPConditionalDirectiveRecordTest, PPRecAPI) {
   PP.EnterMainSourceFile();
 
   std::vector<Token> toks;
-  PP.LexTokensUntilEOF(&toks);
+  while (1) {
+    Token tok;
+    PP.Lex(tok);
+    if (tok.is(tok::eof))
+      break;
+    toks.push_back(tok);
+  }
 
   // Make sure we got the tokens that we expected.
   ASSERT_EQ(10U, toks.size());

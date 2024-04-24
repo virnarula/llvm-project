@@ -7,7 +7,8 @@ Coroutines in LLVM
    :depth: 3
 
 .. warning::
-  Compatibility across LLVM releases is not guaranteed.
+  This is a work in progress. Compatibility across LLVM releases is not
+  guaranteed.
 
 Introduction
 ============
@@ -28,10 +29,10 @@ then destroy it:
 
   define i32 @main() {
   entry:
-    %hdl = call ptr @f(i32 4)
-    call void @llvm.coro.resume(ptr %hdl)
-    call void @llvm.coro.resume(ptr %hdl)
-    call void @llvm.coro.destroy(ptr %hdl)
+    %hdl = call i8* @f(i32 4)
+    call void @llvm.coro.resume(i8* %hdl)
+    call void @llvm.coro.resume(i8* %hdl)
+    call void @llvm.coro.destroy(i8* %hdl)
     ret i32 0
   }
 
@@ -151,8 +152,8 @@ lowerings:
 - In yield-once returned-continuation lowering, the coroutine must
   suspend itself exactly once (or throw an exception).  The ramp
   function returns a continuation function pointer and yielded
-  values, the continuation function may optionally return ordinary
-  results when the coroutine has run to completion.
+  values, but the continuation function simply returns `void`
+  when the coroutine has run to completion.
 
 The coroutine frame is maintained in a fixed-size buffer that is
 passed to the `coro.id` intrinsic, which guarantees a certain size
@@ -186,7 +187,7 @@ coroutine. Therefore an async coroutine returns `void`.
 
 .. code-block:: llvm
 
-  define swiftcc void @async_coroutine(ptr %async.ctxt, ptr, ptr) {
+  define swiftcc void @async_coroutine(i8* %async.ctxt, i8*, i8*) {
   }
 
 Values live across a suspend point need to be stored in the coroutine frame to
@@ -216,10 +217,10 @@ a parameter to the `llvm.coro.suspend.async` intrinsic.
 
 .. code-block:: llvm
 
-  %resume_func_ptr = call ptr @llvm.coro.async.resume()
-  call {ptr, ptr, ptr} (ptr, ptr, ...) @llvm.coro.suspend.async(
-                                              ptr %resume_func_ptr,
-                                              ptr %context_projection_function
+  %resume_func_ptr = call i8* @llvm.coro.async.resume()
+  call {i8*, i8*, i8*} (i8*, i8*, ...) @llvm.coro.suspend.async(
+                                              i8* %resume_func_ptr,
+                                              i8* %context_projection_function
 
 The frontend should provide a `async function pointer` struct associated with
 each async coroutine by `llvm.coro.id.async`'s argument. The initial size and
@@ -249,11 +250,11 @@ the async coroutine.
 
 .. code-block:: llvm
 
-  call {ptr, ptr, ptr} (ptr, ptr, ...) @llvm.coro.suspend.async(
-                   ptr %resume_func_ptr,
-                   ptr %context_projection_function,
-                   ptr %suspend_function,
-                   ptr %arg1, ptr %arg2, i8 %arg3)
+  call {i8*, i8*, i8*} (i8*, i8*, ...) @llvm.coro.suspend.async(
+                   i8* %resume_func_ptr,
+                   i8* %context_projection_function,
+                   i8* (bitcast void (i8*, i8*, i8*)* to i8*) %suspend_function,
+                   i8* %arg1, i8* %arg2, i8 %arg3)
 
 Coroutines by Example
 =====================
@@ -284,12 +285,12 @@ The LLVM IR for this coroutine looks like this:
 
 .. code-block:: llvm
 
-  define ptr @f(i32 %n) presplitcoroutine {
+  define i8* @f(i32 %n) {
   entry:
-    %id = call token @llvm.coro.id(i32 0, ptr null, ptr null, ptr null)
+    %id = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* null)
     %size = call i32 @llvm.coro.size.i32()
-    %alloc = call ptr @malloc(i32 %size)
-    %hdl = call noalias ptr @llvm.coro.begin(token %id, ptr %alloc)
+    %alloc = call i8* @malloc(i32 %size)
+    %hdl = call noalias i8* @llvm.coro.begin(token %id, i8* %alloc)
     br label %loop
   loop:
     %n.val = phi i32 [ %n, %entry ], [ %inc, %loop ]
@@ -299,12 +300,12 @@ The LLVM IR for this coroutine looks like this:
     switch i8 %0, label %suspend [i8 0, label %loop
                                   i8 1, label %cleanup]
   cleanup:
-    %mem = call ptr @llvm.coro.free(token %id, ptr %hdl)
-    call void @free(ptr %mem)
+    %mem = call i8* @llvm.coro.free(token %id, i8* %hdl)
+    call void @free(i8* %mem)
     br label %suspend
   suspend:
-    %unused = call i1 @llvm.coro.end(ptr %hdl, i1 false, token none)
-    ret ptr %hdl
+    %unused = call i1 @llvm.coro.end(i8* %hdl, i1 false)
+    ret i8* %hdl
   }
 
 The `entry` block establishes the coroutine frame. The `coro.size`_ intrinsic is
@@ -351,7 +352,7 @@ example, the coroutine frame will be:
 
 .. code-block:: llvm
 
-  %f.frame = type { ptr, ptr, i32 }
+  %f.frame = type { void (%f.frame*)*, void (%f.frame*)*, i32 }
 
 After resume and destroy parts are outlined, function `f` will contain only the
 code responsible for creation and initialization of the coroutine frame and
@@ -359,34 +360,35 @@ execution of the coroutine until a suspend point is reached:
 
 .. code-block:: llvm
 
-  define ptr @f(i32 %n) {
+  define i8* @f(i32 %n) {
   entry:
-    %id = call token @llvm.coro.id(i32 0, ptr null, ptr null, ptr null)
-    %alloc = call noalias ptr @malloc(i32 24)
-    %frame = call noalias ptr @llvm.coro.begin(token %id, ptr %alloc)
-    %1 = getelementptr %f.frame, ptr %frame, i32 0, i32 0
-    store ptr @f.resume, ptr %1
-    %2 = getelementptr %f.frame, ptr %frame, i32 0, i32 1
-    store ptr @f.destroy, ptr %2
+    %id = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* null)
+    %alloc = call noalias i8* @malloc(i32 24)
+    %0 = call noalias i8* @llvm.coro.begin(token %id, i8* %alloc)
+    %frame = bitcast i8* %0 to %f.frame*
+    %1 = getelementptr %f.frame, %f.frame* %frame, i32 0, i32 0
+    store void (%f.frame*)* @f.resume, void (%f.frame*)** %1
+    %2 = getelementptr %f.frame, %f.frame* %frame, i32 0, i32 1
+    store void (%f.frame*)* @f.destroy, void (%f.frame*)** %2
 
     %inc = add nsw i32 %n, 1
-    %inc.spill.addr = getelementptr inbounds %f.Frame, ptr %FramePtr, i32 0, i32 2
-    store i32 %inc, ptr %inc.spill.addr
+    %inc.spill.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2
+    store i32 %inc, i32* %inc.spill.addr
     call void @print(i32 %n)
 
-    ret ptr %frame
+    ret i8* %frame
   }
 
 Outlined resume part of the coroutine will reside in function `f.resume`:
 
 .. code-block:: llvm
 
-  define internal fastcc void @f.resume(ptr %frame.ptr.resume) {
+  define internal fastcc void @f.resume(%f.frame* %frame.ptr.resume) {
   entry:
-    %inc.spill.addr = getelementptr %f.frame, ptr %frame.ptr.resume, i64 0, i32 2
-    %inc.spill = load i32, ptr %inc.spill.addr, align 4
-    %inc = add i32 %inc.spill, 1
-    store i32 %inc, ptr %inc.spill.addr, align 4
+    %inc.spill.addr = getelementptr %f.frame, %f.frame* %frame.ptr.resume, i64 0, i32 2
+    %inc.spill = load i32, i32* %inc.spill.addr, align 4
+    %inc = add i32 %n.val, 1
+    store i32 %inc, i32* %inc.spill.addr, align 4
     tail call void @print(i32 %inc)
     ret void
   }
@@ -395,9 +397,10 @@ Whereas function `f.destroy` will contain the cleanup code for the coroutine:
 
 .. code-block:: llvm
 
-  define internal fastcc void @f.destroy(ptr %frame.ptr.destroy) {
+  define internal fastcc void @f.destroy(%f.frame* %frame.ptr.destroy) {
   entry:
-    tail call void @free(ptr %frame.ptr.destroy)
+    %0 = bitcast %f.frame* %frame.ptr.destroy to i8*
+    tail call void @free(i8* %0)
     ret void
   }
 
@@ -418,16 +421,16 @@ elided.
 .. code-block:: llvm
 
   entry:
-    %id = call token @llvm.coro.id(i32 0, ptr null, ptr null, ptr null)
+    %id = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* null)
     %need.dyn.alloc = call i1 @llvm.coro.alloc(token %id)
     br i1 %need.dyn.alloc, label %dyn.alloc, label %coro.begin
   dyn.alloc:
     %size = call i32 @llvm.coro.size.i32()
-    %alloc = call ptr @CustomAlloc(i32 %size)
+    %alloc = call i8* @CustomAlloc(i32 %size)
     br label %coro.begin
   coro.begin:
-    %phi = phi ptr [ null, %entry ], [ %alloc, %dyn.alloc ]
-    %hdl = call noalias ptr @llvm.coro.begin(token %id, ptr %phi)
+    %phi = phi i8* [ null, %entry ], [ %alloc, %dyn.alloc ]
+    %hdl = call noalias i8* @llvm.coro.begin(token %id, i8* %phi)
 
 In the cleanup block, we will make freeing the coroutine frame conditional on
 `coro.free`_ intrinsic. If allocation is elided, `coro.free`_ returns `null`
@@ -436,11 +439,11 @@ thus skipping the deallocation code:
 .. code-block:: llvm
 
   cleanup:
-    %mem = call ptr @llvm.coro.free(token %id, ptr %hdl)
-    %need.dyn.free = icmp ne ptr %mem, null
+    %mem = call i8* @llvm.coro.free(token %id, i8* %hdl)
+    %need.dyn.free = icmp ne i8* %mem, null
     br i1 %need.dyn.free, label %dyn.free, label %if.end
   dyn.free:
-    call void @CustomFree(ptr %mem)
+    call void @CustomFree(i8* %mem)
     br label %if.end
   if.end:
     ...
@@ -494,40 +497,34 @@ as the code in the previous section):
                                   i8 1, label %cleanup]
 
 In this case, the coroutine frame would include a suspend index that will
-indicate at which suspend point the coroutine needs to resume.
-
-.. code-block:: llvm
-
-  %f.frame = type { ptr, ptr, i32, i32 }
-
-The resume function will use an index to jump to an appropriate basic block and will look
+indicate at which suspend point the coroutine needs to resume. The resume
+function will use an index to jump to an appropriate basic block and will look
 as follows:
 
 .. code-block:: llvm
 
-  define internal fastcc void @f.Resume(ptr %FramePtr) {
+  define internal fastcc void @f.Resume(%f.Frame* %FramePtr) {
   entry.Resume:
-    %index.addr = getelementptr inbounds %f.Frame, ptr %FramePtr, i64 0, i32 2
-    %index = load i8, ptr %index.addr, align 1
+    %index.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i64 0, i32 2
+    %index = load i8, i8* %index.addr, align 1
     %switch = icmp eq i8 %index, 0
-    %n.addr = getelementptr inbounds %f.Frame, ptr %FramePtr, i64 0, i32 3
-    %n = load i32, ptr %n.addr, align 4
-
+    %n.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i64 0, i32 3
+    %n = load i32, i32* %n.addr, align 4
     br i1 %switch, label %loop.resume, label %loop
 
   loop.resume:
-    %sub = sub nsw i32 0, %n
+    %sub = xor i32 %n, -1
     call void @print(i32 %sub)
     br label %suspend
   loop:
     %inc = add nsw i32 %n, 1
-    store i32 %inc, ptr %n.addr, align 4
+    store i32 %inc, i32* %n.addr, align 4
     tail call void @print(i32 %inc)
     br label %suspend
 
   suspend:
     %storemerge = phi i8 [ 0, %loop ], [ 1, %loop.resume ]
-    store i8 %storemerge, ptr %index.addr, align 1
+    store i8 %storemerge, i8* %index.addr, align 1
     ret void
   }
 
@@ -583,16 +580,16 @@ correct resume point):
 .. code-block:: llvm
 
   if.true:
-    %save1 = call token @llvm.coro.save(ptr %hdl)
-    call void @async_op1(ptr %hdl)
+    %save1 = call token @llvm.coro.save(i8* %hdl)
+    call void @async_op1(i8* %hdl)
     %suspend1 = call i1 @llvm.coro.suspend(token %save1, i1 false)
     switch i8 %suspend1, label %suspend [i8 0, label %resume1
                                          i8 1, label %cleanup]
   if.false:
-    %save2 = call token @llvm.coro.save(ptr %hdl)
-    call void @async_op2(ptr %hdl)
+    %save2 = call token @llvm.coro.save(i8* %hdl)
+    call void @async_op2(i8* %hdl)
     %suspend2 = call i1 @llvm.coro.suspend(token %save2, i1 false)
-    switch i8 %suspend2, label %suspend [i8 0, label %resume2
+    switch i8 %suspend1, label %suspend [i8 0, label %resume2
                                          i8 1, label %cleanup]
 
 .. _coroutine promise:
@@ -610,34 +607,35 @@ store the current value produced by a coroutine.
 
 .. code-block:: llvm
 
-  define ptr @f(i32 %n) {
+  define i8* @f(i32 %n) {
   entry:
     %promise = alloca i32
-    %id = call token @llvm.coro.id(i32 0, ptr %promise, ptr null, ptr null)
+    %pv = bitcast i32* %promise to i8*
+    %id = call token @llvm.coro.id(i32 0, i8* %pv, i8* null, i8* null)
     %need.dyn.alloc = call i1 @llvm.coro.alloc(token %id)
     br i1 %need.dyn.alloc, label %dyn.alloc, label %coro.begin
   dyn.alloc:
     %size = call i32 @llvm.coro.size.i32()
-    %alloc = call ptr @malloc(i32 %size)
+    %alloc = call i8* @malloc(i32 %size)
     br label %coro.begin
   coro.begin:
-    %phi = phi ptr [ null, %entry ], [ %alloc, %dyn.alloc ]
-    %hdl = call noalias ptr @llvm.coro.begin(token %id, ptr %phi)
+    %phi = phi i8* [ null, %entry ], [ %alloc, %dyn.alloc ]
+    %hdl = call noalias i8* @llvm.coro.begin(token %id, i8* %phi)
     br label %loop
   loop:
     %n.val = phi i32 [ %n, %coro.begin ], [ %inc, %loop ]
     %inc = add nsw i32 %n.val, 1
-    store i32 %n.val, ptr %promise
+    store i32 %n.val, i32* %promise
     %0 = call i8 @llvm.coro.suspend(token none, i1 false)
     switch i8 %0, label %suspend [i8 0, label %loop
                                   i8 1, label %cleanup]
   cleanup:
-    %mem = call ptr @llvm.coro.free(token %id, ptr %hdl)
-    call void @free(ptr %mem)
+    %mem = call i8* @llvm.coro.free(token %id, i8* %hdl)
+    call void @free(i8* %mem)
     br label %suspend
   suspend:
-    %unused = call i1 @llvm.coro.end(ptr %hdl, i1 false, token none)
-    ret ptr %hdl
+    %unused = call i1 @llvm.coro.end(i8* %hdl, i1 false)
+    ret i8* %hdl
   }
 
 A coroutine consumer can rely on the `coro.promise`_ intrinsic to access the
@@ -647,17 +645,18 @@ coroutine promise.
 
   define i32 @main() {
   entry:
-    %hdl = call ptr @f(i32 4)
-    %promise.addr = call ptr @llvm.coro.promise(ptr %hdl, i32 4, i1 false)
-    %val0 = load i32, ptr %promise.addr
+    %hdl = call i8* @f(i32 4)
+    %promise.addr.raw = call i8* @llvm.coro.promise(i8* %hdl, i32 4, i1 false)
+    %promise.addr = bitcast i8* %promise.addr.raw to i32*
+    %val0 = load i32, i32* %promise.addr
     call void @print(i32 %val0)
-    call void @llvm.coro.resume(ptr %hdl)
-    %val1 = load i32, ptr %promise.addr
+    call void @llvm.coro.resume(i8* %hdl)
+    %val1 = load i32, i32* %promise.addr
     call void @print(i32 %val1)
-    call void @llvm.coro.resume(ptr %hdl)
-    %val2 = load i32, ptr %promise.addr
+    call void @llvm.coro.resume(i8* %hdl)
+    %val2 = load i32, i32* %promise.addr
     call void @print(i32 %val2)
-    call void @llvm.coro.destroy(ptr %hdl)
+    call void @llvm.coro.destroy(i8* %hdl)
     ret i32 0
   }
 
@@ -703,14 +702,14 @@ destroyed:
 
   define i32 @main() {
   entry:
-    %hdl = call ptr @f(i32 4)
+    %hdl = call i8* @f(i32 4)
     br label %while
   while:
-    call void @llvm.coro.resume(ptr %hdl)
-    %done = call i1 @llvm.coro.done(ptr %hdl)
+    call void @llvm.coro.resume(i8* %hdl)
+    %done = call i1 @llvm.coro.done(i8* %hdl)
     br i1 %done, label %end, label %while
   end:
-    call void @llvm.coro.destroy(ptr %hdl)
+    call void @llvm.coro.destroy(i8* %hdl)
     ret i32 0
   }
 
@@ -770,7 +769,7 @@ Syntax:
 
 ::
 
-      declare void @llvm.coro.destroy(ptr <handle>)
+      declare void @llvm.coro.destroy(i8* <handle>)
 
 Overview:
 """""""""
@@ -798,7 +797,7 @@ frame. Destroying a coroutine that is not suspended leads to undefined behavior.
 
 ::
 
-      declare void @llvm.coro.resume(ptr <handle>)
+      declare void @llvm.coro.resume(i8* <handle>)
 
 Overview:
 """""""""
@@ -825,7 +824,7 @@ Resuming a coroutine that is not suspended leads to undefined behavior.
 
 ::
 
-      declare i1 @llvm.coro.done(ptr <handle>)
+      declare i1 @llvm.coro.done(i8* <handle>)
 
 Overview:
 """""""""
@@ -851,7 +850,7 @@ or on a coroutine that is not suspended leads to undefined behavior.
 
 ::
 
-      declare ptr @llvm.coro.promise(ptr <ptr>, i32 <alignment>, i1 <from>)
+      declare i8* @llvm.coro.promise(i8* <ptr>, i32 <alignment>, i1 <from>)
 
 Overview:
 """""""""
@@ -890,26 +889,28 @@ Example:
 
 .. code-block:: llvm
 
-  define ptr @f(i32 %n) {
+  define i8* @f(i32 %n) {
   entry:
     %promise = alloca i32
+    %pv = bitcast i32* %promise to i8*
     ; the second argument to coro.id points to the coroutine promise.
-    %id = call token @llvm.coro.id(i32 0, ptr %promise, ptr null, ptr null)
+    %id = call token @llvm.coro.id(i32 0, i8* %pv, i8* null, i8* null)
     ...
-    %hdl = call noalias ptr @llvm.coro.begin(token %id, ptr %alloc)
+    %hdl = call noalias i8* @llvm.coro.begin(token %id, i8* %alloc)
     ...
-    store i32 42, ptr %promise ; store something into the promise
+    store i32 42, i32* %promise ; store something into the promise
     ...
-    ret ptr %hdl
+    ret i8* %hdl
   }
 
   define i32 @main() {
   entry:
-    %hdl = call ptr @f(i32 4) ; starts the coroutine and returns its handle
-    %promise.addr = call ptr @llvm.coro.promise(ptr %hdl, i32 4, i1 false)
-    %val = load i32, ptr %promise.addr ; load a value from the promise
+    %hdl = call i8* @f(i32 4) ; starts the coroutine and returns its handle
+    %promise.addr.raw = call i8* @llvm.coro.promise(i8* %hdl, i32 4, i1 false)
+    %promise.addr = bitcast i8* %promise.addr.raw to i32*
+    %val = load i32, i32* %promise.addr ; load a value from the promise
     call void @print(i32 %val)
-    call void @llvm.coro.destroy(ptr %hdl)
+    call void @llvm.coro.destroy(i8* %hdl)
     ret i32 0
   }
 
@@ -979,7 +980,7 @@ the coroutine frame.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare ptr @llvm.coro.begin(token <id>, ptr <mem>)
+  declare i8* @llvm.coro.begin(token <id>, i8* <mem>)
 
 Overview:
 """""""""
@@ -1013,7 +1014,7 @@ A frontend should emit exactly one `coro.begin` intrinsic per coroutine.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare ptr @llvm.coro.free(token %id, ptr <frame>)
+  declare i8* @llvm.coro.free(token %id, i8* <frame>)
 
 Overview:
 """""""""
@@ -1038,11 +1039,11 @@ Example (custom deallocation function):
 .. code-block:: llvm
 
   cleanup:
-    %mem = call ptr @llvm.coro.free(token %id, ptr %frame)
-    %mem_not_null = icmp ne ptr %mem, null
+    %mem = call i8* @llvm.coro.free(token %id, i8* %frame)
+    %mem_not_null = icmp ne i8* %mem, null
     br i1 %mem_not_null, label %if.then, label %if.end
   if.then:
-    call void @CustomFree(ptr %mem)
+    call void @CustomFree(i8* %mem)
     br label %if.end
   if.end:
     ret void
@@ -1053,8 +1054,8 @@ Example (standard deallocation functions):
 .. code-block:: llvm
 
   cleanup:
-    %mem = call ptr @llvm.coro.free(token %id, ptr %frame)
-    call void @free(ptr %mem)
+    %mem = call i8* @llvm.coro.free(token %id, i8* %frame)
+    call void @free(i8* %mem)
     ret void
 
 .. _coro.alloc:
@@ -1091,18 +1092,18 @@ Example:
 .. code-block:: llvm
 
   entry:
-    %id = call token @llvm.coro.id(i32 0, ptr null, ptr null, ptr null)
+    %id = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* null)
     %dyn.alloc.required = call i1 @llvm.coro.alloc(token %id)
     br i1 %dyn.alloc.required, label %coro.alloc, label %coro.begin
 
   coro.alloc:
     %frame.size = call i32 @llvm.coro.size()
-    %alloc = call ptr @MyAlloc(i32 %frame.size)
+    %alloc = call i8* @MyAlloc(i32 %frame.size)
     br label %coro.begin
 
   coro.begin:
-    %phi = phi ptr [ null, %entry ], [ %alloc, %coro.alloc ]
-    %frame = call ptr @llvm.coro.begin(token %id, ptr %phi)
+    %phi = phi i8* [ null, %entry ], [ %alloc, %coro.alloc ]
+    %frame = call i8* @llvm.coro.begin(token %id, i8* %phi)
 
 .. _coro.noop:
 
@@ -1110,7 +1111,7 @@ Example:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare ptr @llvm.coro.noop()
+  declare i8* @llvm.coro.noop()
 
 Overview:
 """""""""
@@ -1136,7 +1137,7 @@ Note that in different translation units llvm.coro.noop may return different poi
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare ptr @llvm.coro.frame()
+  declare i8* @llvm.coro.frame()
 
 Overview:
 """""""""
@@ -1162,8 +1163,8 @@ coroutine frame.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare token @llvm.coro.id(i32 <align>, ptr <promise>, ptr <coroaddr>,
-                                                          ptr <fnaddrs>)
+  declare token @llvm.coro.id(i32 <align>, i8* <promise>, i8* <coroaddr>,
+                                                          i8* <fnaddrs>)
 
 Overview:
 """""""""
@@ -1176,7 +1177,7 @@ Arguments:
 
 The first argument provides information on the alignment of the memory returned
 by the allocation function and given to `coro.begin` by the first argument. If
-this argument is 0, the memory is assumed to be aligned to 2 * sizeof(ptr).
+this argument is 0, the memory is assumed to be aligned to 2 * sizeof(i8*).
 This argument only accepts constants.
 
 The second argument, if not `null`, designates a particular alloca instruction
@@ -1209,8 +1210,8 @@ A frontend should emit function attribute `presplitcoroutine` for the coroutine.
 ::
 
   declare token @llvm.coro.id.async(i32 <context size>, i32 <align>,
-                                    ptr <context arg>,
-                                    ptr <async function pointer>)
+                                    i8* <context arg>,
+                                    i8* <async function pointer>)
 
 Overview:
 """""""""
@@ -1249,9 +1250,9 @@ A frontend should emit function attribute `presplitcoroutine` for the coroutine.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare token @llvm.coro.id.retcon(i32 <size>, i32 <align>, ptr <buffer>,
-                                     ptr <continuation prototype>,
-                                     ptr <alloc>, ptr <dealloc>)
+  declare token @llvm.coro.id.retcon(i32 <size>, i32 <align>, i8* <buffer>,
+                                     i8* <continuation prototype>,
+                                     i8* <alloc>, i8* <dealloc>)
 
 Overview:
 """""""""
@@ -1304,9 +1305,9 @@ A frontend should emit function attribute `presplitcoroutine` for the coroutine.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare token @llvm.coro.id.retcon.once(i32 <size>, i32 <align>, ptr <buffer>,
-                                          ptr <prototype>,
-                                          ptr <alloc>, ptr <dealloc>)
+  declare token @llvm.coro.id.retcon.once(i32 <size>, i32 <align>, i8* <buffer>,
+                                          i8* <prototype>,
+                                          i8* <alloc>, i8* <dealloc>)
 
 Overview:
 """""""""
@@ -1318,8 +1319,8 @@ Arguments:
 """"""""""
 
 As for ``llvm.core.id.retcon``, except that the return type of the
-continuation prototype must represent the normal return type of the continuation
-(instead of matching the coroutine's return type).
+continuation prototype must be `void` instead of matching the
+coroutine's return type.
 
 Semantics:
 """"""""""
@@ -1332,7 +1333,7 @@ A frontend should emit function attribute `presplitcoroutine` for the coroutine.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare i1 @llvm.coro.end(ptr <handle>, i1 <unwind>, token <result.token>)
+  declare i1 @llvm.coro.end(i8* <handle>, i1 <unwind>)
 
 Overview:
 """""""""
@@ -1352,12 +1353,6 @@ handle value.
 The second argument should be `true` if this coro.end is in the block that is
 part of the unwind sequence leaving the coroutine body due to an exception and
 `false` otherwise.
-
-Non-trivial (non-none) token argument can only be specified for unique-suspend
-returned-continuation coroutines where it must be a token value produced by
-'``llvm.coro.end.results``' intrinsic.
-
-Only none token is allowed for coro.end calls in unwind sections
 
 Semantics:
 """"""""""
@@ -1390,18 +1385,18 @@ For landingpad based exception model, it is expected that frontend uses the
 .. code-block:: llvm
 
     ehcleanup:
-      %InResumePart = call i1 @llvm.coro.end(ptr null, i1 true, token none)
+      %InResumePart = call i1 @llvm.coro.end(i8* null, i1 true)
       br i1 %InResumePart, label %eh.resume, label %cleanup.cont
 
     cleanup.cont:
       ; rest of the cleanup
 
     eh.resume:
-      %exn = load ptr, ptr %exn.slot, align 8
-      %sel = load i32, ptr %ehselector.slot, align 4
-      %lpad.val = insertvalue { ptr, i32 } undef, ptr %exn, 0
-      %lpad.val29 = insertvalue { ptr, i32 } %lpad.val, i32 %sel, 1
-      resume { ptr, i32 } %lpad.val29
+      %exn = load i8*, i8** %exn.slot, align 8
+      %sel = load i32, i32* %ehselector.slot, align 4
+      %lpad.val = insertvalue { i8*, i32 } undef, i8* %exn, 0
+      %lpad.val29 = insertvalue { i8*, i32 } %lpad.val, i32 %sel, 1
+      resume { i8*, i32 } %lpad.val29
 
 The `CoroSpit` pass replaces `coro.end` with ``True`` in the resume functions,
 thus leading to immediate unwind to the caller, whereas in start function it
@@ -1415,7 +1410,7 @@ referring to an enclosing cleanuppad as follows:
 
     ehcleanup:
       %tok = cleanuppad within none []
-      %unused = call i1 @llvm.coro.end(ptr null, i1 true, token none) [ "funclet"(token %tok) ]
+      %unused = call i1 @llvm.coro.end(i8* null, i1 true) [ "funclet"(token %tok) ]
       cleanupret from %tok unwind label %RestOfTheCleanup
 
 The `CoroSplit` pass, if the funclet bundle is present, will insert
@@ -1440,59 +1435,12 @@ The following table summarizes the handling of `coro.end`_ intrinsic.
 |            | Landingpad  | mark coroutine as done | mark coroutine done             |
 +------------+-------------+------------------------+---------------------------------+
 
-.. _coro.end.results:
-
-'llvm.coro.end.results' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-::
-
-  declare token @llvm.coro.end.results(...)
-
-Overview:
-"""""""""
-
-The '``llvm.coro.end.results``' intrinsic captures values to be returned from
-unique-suspend returned-continuation coroutines.
-
-Arguments:
-""""""""""
-
-The number of arguments must match the return type of the continuation function:
-
-- if the return type of the continuation function is ``void`` there must be no
-  arguments
-
-- if the return type of the continuation function is a ``struct``, the arguments
-  will be of element types of that ``struct`` in order;
-
-- otherwise, it is just the return value of the continuation function.
-
-.. code-block:: llvm
-
-  define {ptr, ptr} @g(ptr %buffer, ptr %ptr, i8 %val) presplitcoroutine {
-  entry:
-    %id = call token @llvm.coro.id.retcon.once(i32 8, i32 8, ptr %buffer,
-                                               ptr @prototype,
-                                               ptr @allocate, ptr @deallocate)
-    %hdl = call ptr @llvm.coro.begin(token %id, ptr null)
-
-  ...
-
-  cleanup:
-    %tok = call token (...) @llvm.coro.end.results(i8 %val)
-    call i1 @llvm.coro.end(ptr %hdl, i1 0, token %tok)
-    unreachable
-
-  ...
-
-  declare i8 @prototype(ptr, i1 zeroext)
-  
 
 'llvm.coro.end.async' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare i1 @llvm.coro.end.async(ptr <handle>, i1 <unwind>, ...)
+  declare i1 @llvm.coro.end.async(i8* <handle>, i1 <unwind>, ...)
 
 Overview:
 """""""""
@@ -1523,10 +1471,10 @@ the function call.
 
 .. code-block:: llvm
 
-  call i1 (ptr, i1, ...) @llvm.coro.end.async(
-                           ptr %hdl, i1 0,
-                           ptr @must_tail_call_return,
-                           ptr %ctxt, ptr %task, ptr %actor)
+  call i1 (i8*, i1, ...) @llvm.coro.end.async(
+                           i8* %hdl, i1 0,
+                           void (i8*, %async.task*, %async.actor*)* @must_tail_call_return,
+                           i8* %ctxt, %async.task* %task, %async.actor* %actor)
   unreachable
 
 .. _coro.suspend:
@@ -1600,7 +1548,7 @@ unreachable and can perform optimizations that can take advantage of that fact.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare token @llvm.coro.save(ptr <handle>)
+  declare token @llvm.coro.save(i8* <handle>)
 
 Overview:
 """""""""
@@ -1637,8 +1585,8 @@ to the coroutine:
 
 .. code-block:: llvm
 
-    %save1 = call token @llvm.coro.save(ptr %hdl)
-    call void @async_op1(ptr %hdl)
+    %save1 = call token @llvm.coro.save(i8* %hdl)
+    call void @async_op1(i8* %hdl)
     %suspend1 = call i1 @llvm.coro.suspend(token %save1, i1 false)
     switch i8 %suspend1, label %suspend [i8 0, label %resume1
                                          i8 1, label %cleanup]
@@ -1649,9 +1597,9 @@ to the coroutine:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare {ptr, ptr, ptr} @llvm.coro.suspend.async(
-                             ptr <resume function>,
-                             ptr <context projection function>,
+  declare {i8*, i8*, i8*} @llvm.coro.suspend.async(
+                             i8* <resume function>,
+                             i8* <context projection function>,
                              ... <function to call>
                              ... <arguments to function>)
 
@@ -1659,7 +1607,7 @@ Overview:
 """""""""
 
 The '``llvm.coro.suspend.async``' intrinsic marks the point where
-execution of an async coroutine is suspended and control is passed to a callee.
+execution of a async coroutine is suspended and control is passed to a callee.
 
 Arguments:
 """"""""""
@@ -1670,7 +1618,7 @@ point.
 
 The second argument is the `context projection function`. It should describe
 how-to restore the `async context` in the continuation function from the first
-argument of the continuation function. Its type is `ptr (ptr)`.
+argument of the continuation function. Its type is `i8* (i8*)`.
 
 The third argument is the function that models transfer to the callee at the
 suspend point. It should take 3 arguments. Lowering will `musttail` call this
@@ -1691,7 +1639,7 @@ called.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  declare ptr @llvm.coro.prepare.async(ptr <coroutine function>)
+  declare i8* @llvm.coro.prepare.async(i8* <coroutine function>)
 
 Overview:
 """""""""
@@ -1702,7 +1650,7 @@ async coroutine until after coroutine splitting.
 Arguments:
 """"""""""
 
-The first argument should be an async coroutine of type `void (ptr, ptr, ptr)`.
+The first argument should be an async coroutine of type `void (i8*, i8*, i8*)`.
 Lowering will replace this intrinsic with its coroutine function argument.
 
 .. _coro.suspend.retcon:
@@ -1757,7 +1705,7 @@ and `coro.promise`_ intrinsics.
 
 CoroSplit
 ---------
-The pass CoroSplit builds coroutine frame and outlines resume and destroy parts
+The pass CoroSplit buides coroutine frame and outlines resume and destroy parts
 into separate functions.
 
 CoroElide
@@ -1774,36 +1722,6 @@ CoroCleanup
 -----------
 This pass runs late to lower all coroutine related intrinsics not replaced by
 earlier passes.
-
-Attributes
-==========
-
-coro_only_destroy_when_complete
--------------------------------
-
-When the coroutine are marked with coro_only_destroy_when_complete, it indicates
-the coroutine must reach the final suspend point when it get destroyed.
-
-This attribute only works for switched-resume coroutines now.
-
-Metadata
-========
-
-'``coro.outside.frame``' Metadata
----------------------------------
-
-``coro.outside.frame`` metadata may be attached to an alloca instruction to
-to signify that it shouldn't be promoted to the coroutine frame, useful for
-filtering allocas out by the frontend when emitting internal control mechanisms.
-Additionally, this metadata is only used as a flag, so the associated
-node must be empty.
-
-.. code-block:: text
-
-  %__coro_gro = alloca %struct.GroType, align 1, !coro.outside.frame !0
-
-  ...
-  !0 = !{}
 
 Areas Requiring Attention
 =========================

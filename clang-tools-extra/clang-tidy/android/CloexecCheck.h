@@ -17,7 +17,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 /// The base class for all close-on-exec checks in Android module.
 /// To be specific, there are some functions that need the close-on-exec flag to
@@ -95,6 +97,8 @@ protected:
   static const char *FuncBindingStr;
 };
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_H

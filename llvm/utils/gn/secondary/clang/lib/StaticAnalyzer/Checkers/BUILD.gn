@@ -10,7 +10,6 @@ static_library("Checkers") {
     "//clang/lib/Lex",
     "//clang/lib/StaticAnalyzer/Core",
     "//llvm/lib/Support",
-    "//llvm/lib/TargetParser",
   ]
   include_dirs = [ "." ]
   sources = [
@@ -19,13 +18,11 @@ static_library("Checkers") {
     "ArrayBoundChecker.cpp",
     "ArrayBoundCheckerV2.cpp",
     "BasicObjCFoundationChecks.cpp",
-    "BitwiseShiftChecker.cpp",
     "BlockInCriticalSectionChecker.cpp",
     "BoolAssignmentChecker.cpp",
     "BuiltinFunctionChecker.cpp",
     "CStringChecker.cpp",
     "CStringSyntaxChecker.cpp",
-    "CXXDeleteChecker.cpp",
     "CXXSelfAssignmentChecker.cpp",
     "CallAndMessageChecker.cpp",
     "CastSizeChecker.cpp",
@@ -45,6 +42,7 @@ static_library("Checkers") {
     "DebugCheckers.cpp",
     "DebugContainerModeling.cpp",
     "DebugIteratorModeling.cpp",
+    "DeleteWithNonVirtualDtorChecker.cpp",
     "DereferenceChecker.cpp",
     "DirectIvarAssignment.cpp",
     "DivZeroChecker.cpp",
@@ -116,7 +114,6 @@ static_library("Checkers") {
     "SmartPtrModeling.cpp",
     "StackAddrEscapeChecker.cpp",
     "StdLibraryFunctionsChecker.cpp",
-    "StdVariantChecker.cpp",
     "StreamChecker.cpp",
     "StringChecker.cpp",
     "Taint.cpp",

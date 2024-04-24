@@ -561,12 +561,6 @@ __isl_give isl_printer *isl_printer_print_schedule_constraints(
 #define KEY_ERROR isl_sc_key_error
 #undef KEY_END
 #define KEY_END isl_sc_key_end
-#undef KEY_STR
-#define KEY_STR key_str
-#undef KEY_EXTRACT
-#define KEY_EXTRACT extract_key
-#undef KEY_GET
-#define KEY_GET get_key
 #include "extract_key.c"
 
 #undef BASE
@@ -594,17 +588,16 @@ __isl_give isl_schedule_constraints *isl_stream_read_schedule_constraints(
 {
 	isl_ctx *ctx;
 	isl_schedule_constraints *sc;
-	isl_bool more;
+	int more;
 	int domain_set = 0;
 
-	if (isl_stream_yaml_read_start_mapping(s) < 0)
+	if (isl_stream_yaml_read_start_mapping(s))
 		return NULL;
 
 	ctx = isl_stream_get_ctx(s);
 	sc = isl_schedule_constraints_alloc(ctx);
-	while ((more = isl_stream_yaml_next(s)) == isl_bool_true) {
+	while ((more = isl_stream_yaml_next(s)) > 0) {
 		enum isl_sc_key key;
-		enum isl_edge_type type;
 		isl_set *context;
 		isl_union_set *domain;
 		isl_union_map *constraints;
@@ -634,10 +627,8 @@ __isl_give isl_schedule_constraints *isl_stream_read_schedule_constraints(
 		case isl_sc_key_condition:
 		case isl_sc_key_conditional_validity:
 		case isl_sc_key_proximity:
-			type = (enum isl_edge_type) key;
 			constraints = read_union_map(s);
-			sc = isl_schedule_constraints_set(sc, type,
-								constraints);
+			sc = isl_schedule_constraints_set(sc, key, constraints);
 			if (!sc)
 				return NULL;
 			break;
@@ -646,8 +637,10 @@ __isl_give isl_schedule_constraints *isl_stream_read_schedule_constraints(
 	if (more < 0)
 		return isl_schedule_constraints_free(sc);
 
-	if (isl_stream_yaml_read_end_mapping(s) < 0)
+	if (isl_stream_yaml_read_end_mapping(s) < 0) {
+		isl_stream_error(s, NULL, "unexpected extra elements");
 		return isl_schedule_constraints_free(sc);
+	}
 
 	if (!domain_set) {
 		isl_stream_error(s, NULL, "no domain specified");
@@ -674,9 +667,22 @@ __isl_give isl_schedule_constraints *isl_schedule_constraints_read_from_file(
 	return sc;
 }
 
-#undef TYPE_BASE
-#define TYPE_BASE	schedule_constraints
-#include "isl_read_from_str_templ.c"
+/* Read an isl_schedule_constraints object from the string "str".
+ */
+__isl_give isl_schedule_constraints *isl_schedule_constraints_read_from_str(
+	isl_ctx *ctx, const char *str)
+{
+	struct isl_stream *s;
+	isl_schedule_constraints *sc;
+
+	s = isl_stream_new_str(ctx, str);
+	if (!s)
+		return NULL;
+	sc = isl_stream_read_schedule_constraints(s);
+	isl_stream_free(s);
+
+	return sc;
+}
 
 /* Align the parameters of the fields of "sc".
  */

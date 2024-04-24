@@ -55,12 +55,13 @@ int main()
 
   // parallel region used only to determine worker thread id
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_parallel_begin
-  // CHECK: {{^}}[[WID:[0-9]+]]: ompt_event_implicit_task{{.*}}thread_num=1
+  // CHECK-DAG: {{^}}[[MASTER_ID]]: ompt_event_implicit_task_begin
+  // CHECK-DAG: {{^}}[[WORKER_ID:[0-9]+]]: ompt_event_implicit_task_begin
 
   // thread_num must be equal to 1 for both explicit and the implicit tasks
-  // CHECK: {{^}}[[WID]]: ancestor_level=0 id=1 task_type=ompt_task_explicit
+  // CHECK: {{^}}[[WORKER_ID]]: ancestor_level=0 id=1 task_type=ompt_task_explicit
   // CHECK-SAME: thread_num=1
-  // CHECK: {{^}}[[WID]]: ancestor_level=1 id=0 task_type=ompt_task_implicit
+  // CHECK: {{^}}[[WORKER_ID]]: ancestor_level=1 id=0 task_type=ompt_task_implicit
   // CHECK-SAME: thread_num=1
 
   return 0;

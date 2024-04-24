@@ -18,7 +18,8 @@
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/CompilationDatabasePluginRegistry.h"
 #include "clang/Tooling/JSONCompilationDatabase.h"
-#include "clang/Tooling/Tooling.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
@@ -26,12 +27,10 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/VirtualFileSystem.h"
-#include "llvm/TargetParser/Host.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -186,7 +185,7 @@ public:
     if (CachePopulatedAt > FreshTime)
       return CDB;
 
-    if (/*MayCache=*/load(*TFS.view(/*CWD=*/std::nullopt))) {
+    if (/*MayCache=*/load(*TFS.view(/*CWD=*/llvm::None))) {
       // Use new timestamp, as loading may be slow.
       CachePopulatedAt = stopwatch::now();
       NoCDBAt.store((CDB ? stopwatch::time_point::min() : CachePopulatedAt)
@@ -251,11 +250,10 @@ parseJSON(PathRef Path, llvm::StringRef Data, std::string &Error) {
     // thread-safety guarantees, as the access to FS is not locked!
     // For now, use the real FS, which is known to be threadsafe (if we don't
     // use/change working directory, which ExpandResponseFilesDatabase doesn't).
-    // NOTE: response files have to be expanded before inference because
-    // inference needs full command line to check/fix driver mode and file type.
     auto FS = llvm::vfs::getRealFileSystem();
-    return tooling::inferMissingCompileCommands(
-        expandResponseFiles(std::move(CDB), std::move(FS)));
+    return tooling::inferTargetAndDriverMode(
+        tooling::inferMissingCompileCommands(
+            expandResponseFiles(std::move(CDB), std::move(FS))));
   }
   return nullptr;
 }
@@ -356,7 +354,7 @@ DirectoryBasedGlobalCompilationDatabase::
 DirectoryBasedGlobalCompilationDatabase::
     ~DirectoryBasedGlobalCompilationDatabase() = default;
 
-std::optional<tooling::CompileCommand>
+llvm::Optional<tooling::CompileCommand>
 DirectoryBasedGlobalCompilationDatabase::getCompileCommand(PathRef File) const {
   CDBLookupRequest Req;
   Req.FileName = File;
@@ -368,14 +366,14 @@ DirectoryBasedGlobalCompilationDatabase::getCompileCommand(PathRef File) const {
   auto Res = lookupCDB(Req);
   if (!Res) {
     log("Failed to find compilation database for {0}", File);
-    return std::nullopt;
+    return llvm::None;
   }
 
   auto Candidates = Res->CDB->getCompileCommands(File);
   if (!Candidates.empty())
     return std::move(Candidates.front());
 
-  return std::nullopt;
+  return None;
 }
 
 std::vector<DirectoryBasedGlobalCompilationDatabase::DirectoryCache *>
@@ -400,7 +398,7 @@ DirectoryBasedGlobalCompilationDatabase::getDirectoryCaches(
   return Ret;
 }
 
-std::optional<DirectoryBasedGlobalCompilationDatabase::CDBLookupResult>
+llvm::Optional<DirectoryBasedGlobalCompilationDatabase::CDBLookupResult>
 DirectoryBasedGlobalCompilationDatabase::lookupCDB(
     CDBLookupRequest Request) const {
   assert(llvm::sys::path::is_absolute(Request.FileName) &&
@@ -415,7 +413,7 @@ DirectoryBasedGlobalCompilationDatabase::lookupCDB(
     const auto &Spec = Config::current().CompileFlags.CDBSearch;
     switch (Spec.Policy) {
     case Config::CDBSearchSpec::NoCDBSearch:
-      return std::nullopt;
+      return llvm::None;
     case Config::CDBSearchSpec::FixedDir:
       Storage = *Spec.FixedCDBPath;
       SearchDirs = {Storage};
@@ -446,7 +444,7 @@ DirectoryBasedGlobalCompilationDatabase::lookupCDB(
   }
 
   if (!CDB)
-    return std::nullopt;
+    return llvm::None;
 
   CDBLookupResult Result;
   Result.CDB = std::move(CDB);
@@ -478,7 +476,7 @@ class DirectoryBasedGlobalCompilationDatabase::BroadcastThread {
     Context Ctx;
   };
   std::deque<Task> Queue;
-  std::optional<Task> ActiveTask;
+  llvm::Optional<Task> ActiveTask;
   std::thread Thread; // Must be last member.
 
   // Thread body: this is just the basic queue procesing boilerplate.
@@ -727,7 +725,7 @@ bool DirectoryBasedGlobalCompilationDatabase::blockUntilIdle(
   return Broadcaster->blockUntilIdle(Timeout);
 }
 
-std::optional<ProjectInfo>
+llvm::Optional<ProjectInfo>
 DirectoryBasedGlobalCompilationDatabase::getProjectInfo(PathRef File) const {
   CDBLookupRequest Req;
   Req.FileName = File;
@@ -736,47 +734,31 @@ DirectoryBasedGlobalCompilationDatabase::getProjectInfo(PathRef File) const {
       std::chrono::steady_clock::time_point::min();
   auto Res = lookupCDB(Req);
   if (!Res)
-    return std::nullopt;
+    return llvm::None;
   return Res->PI;
 }
 
 OverlayCDB::OverlayCDB(const GlobalCompilationDatabase *Base,
                        std::vector<std::string> FallbackFlags,
-                       CommandMangler Mangler)
-    : DelegatingCDB(Base), Mangler(std::move(Mangler)),
+                       tooling::ArgumentsAdjuster Adjuster)
+    : DelegatingCDB(Base), ArgsAdjuster(std::move(Adjuster)),
       FallbackFlags(std::move(FallbackFlags)) {}
 
-std::optional<tooling::CompileCommand>
+llvm::Optional<tooling::CompileCommand>
 OverlayCDB::getCompileCommand(PathRef File) const {
-  std::optional<tooling::CompileCommand> Cmd;
+  llvm::Optional<tooling::CompileCommand> Cmd;
   {
     std::lock_guard<std::mutex> Lock(Mutex);
     auto It = Commands.find(removeDots(File));
     if (It != Commands.end())
       Cmd = It->second;
   }
-  if (Cmd) {
-    // FS used for expanding response files.
-    // FIXME: ExpandResponseFiles appears not to provide the usual
-    // thread-safety guarantees, as the access to FS is not locked!
-    // For now, use the real FS, which is known to be threadsafe (if we don't
-    // use/change working directory, which ExpandResponseFiles doesn't).
-    auto FS = llvm::vfs::getRealFileSystem();
-    auto Tokenizer = llvm::Triple(llvm::sys::getProcessTriple()).isOSWindows()
-                         ? llvm::cl::TokenizeWindowsCommandLine
-                         : llvm::cl::TokenizeGNUCommandLine;
-    // Compile command pushed via LSP protocol may have response files that need
-    // to be expanded before further processing. For CDB for files it happens in
-    // the main CDB when reading it from the JSON file.
-    tooling::addExpandedResponseFiles(Cmd->CommandLine, Cmd->Directory,
-                                      Tokenizer, *FS);
-  }
   if (!Cmd)
     Cmd = DelegatingCDB::getCompileCommand(File);
   if (!Cmd)
-    return std::nullopt;
-  if (Mangler)
-    Mangler(*Cmd, File);
+    return llvm::None;
+  if (ArgsAdjuster)
+    Cmd->CommandLine = ArgsAdjuster(Cmd->CommandLine, File);
   return Cmd;
 }
 
@@ -785,13 +767,13 @@ tooling::CompileCommand OverlayCDB::getFallbackCommand(PathRef File) const {
   std::lock_guard<std::mutex> Lock(Mutex);
   Cmd.CommandLine.insert(Cmd.CommandLine.end(), FallbackFlags.begin(),
                          FallbackFlags.end());
-  if (Mangler)
-    Mangler(Cmd, File);
+  if (ArgsAdjuster)
+    Cmd.CommandLine = ArgsAdjuster(Cmd.CommandLine, File);
   return Cmd;
 }
 
-void OverlayCDB::setCompileCommand(PathRef File,
-                                   std::optional<tooling::CompileCommand> Cmd) {
+void OverlayCDB::setCompileCommand(
+    PathRef File, llvm::Optional<tooling::CompileCommand> Cmd) {
   // We store a canonical version internally to prevent mismatches between set
   // and get compile commands. Also it assures clients listening to broadcasts
   // doesn't receive different names for the same file.
@@ -819,16 +801,16 @@ DelegatingCDB::DelegatingCDB(std::unique_ptr<GlobalCompilationDatabase> Base)
   BaseOwner = std::move(Base);
 }
 
-std::optional<tooling::CompileCommand>
+llvm::Optional<tooling::CompileCommand>
 DelegatingCDB::getCompileCommand(PathRef File) const {
   if (!Base)
-    return std::nullopt;
+    return llvm::None;
   return Base->getCompileCommand(File);
 }
 
-std::optional<ProjectInfo> DelegatingCDB::getProjectInfo(PathRef File) const {
+llvm::Optional<ProjectInfo> DelegatingCDB::getProjectInfo(PathRef File) const {
   if (!Base)
-    return std::nullopt;
+    return llvm::None;
   return Base->getProjectInfo(File);
 }
 

@@ -14,37 +14,37 @@
 ;.
 ; CHECK: @[[G:[a-zA-Z0-9_$"\\.-]+]] = constant i32 0
 ;.
-define internal i32 @a(ptr %x) {
+define internal i32 @a(i32* %x) {
 entry:
-  %v = load i32, ptr %x
+  %v = load i32, i32* %x
   ret i32 %v
 }
 
 define i32 @b() {
-; CHECK: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
+; CHECK: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; CHECK-LABEL: define {{[^@]+}}@b
 ; CHECK-SAME: () #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
-  %v = call i32 @a(ptr @G)
+  %v = call i32 @a(i32* @G)
   ret i32 %v
 }
 
 define i32 @c() {
-; CHECK: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
+; CHECK: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; CHECK-LABEL: define {{[^@]+}}@c
 ; CHECK-SAME: () #[[ATTR0]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
-  %v1 = call i32 @a(ptr @G)
+  %v1 = call i32 @a(i32* @G)
   %v2 = call i32 @b()
   %result = add i32 %v1, %v2
   ret i32 %result
 }
 ;.
-; CHECK: attributes #[[ATTR0]] = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) }
+; CHECK: attributes #[[ATTR0]] = { nofree norecurse nosync nounwind readnone willreturn }
 ;.

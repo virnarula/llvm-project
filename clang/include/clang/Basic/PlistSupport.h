@@ -77,7 +77,8 @@ inline raw_ostream &EmitInteger(raw_ostream &o, int64_t value) {
 
 inline raw_ostream &EmitString(raw_ostream &o, StringRef s) {
   o << "<string>";
-  for (char c : s) {
+  for (StringRef::const_iterator I = s.begin(), E = s.end(); I != E; ++I) {
+    char c = *I;
     switch (c) {
     default:
       o << c;

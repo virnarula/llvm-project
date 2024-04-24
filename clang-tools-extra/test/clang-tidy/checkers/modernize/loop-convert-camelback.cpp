@@ -1,5 +1,5 @@
 // RUN: %check_clang_tidy %s modernize-loop-convert %t -- \
-// RUN:   -config="{CheckOptions: {modernize-loop-convert.NamingStyle: 'camelBack'}}" \
+// RUN:   -config="{CheckOptions: [{key: modernize-loop-convert.NamingStyle, value: 'camelBack'}]}" \
 // RUN:   -- -I %S/Inputs/loop-convert
 
 #include "structures.h"

@@ -24,9 +24,7 @@
 #define TEST_COMPARISONS_H
 
 #include <cassert>
-#include <compare>
 #include <concepts>
-#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -213,10 +211,12 @@ void AssertEqualityAreNoexcept()
 }
 
 template <class T, class U = T>
-TEST_CONSTEXPR_CXX14 void AssertEqualityReturnBool() {
-  ASSERT_SAME_TYPE(decltype(std::declval<const T&>() == std::declval<const U&>()), bool);
-  ASSERT_SAME_TYPE(decltype(std::declval<const T&>() != std::declval<const U&>()), bool);
+void AssertEqualityReturnBool()
+{
+    ASSERT_SAME_TYPE(decltype(std::declval<const T&>() == std::declval<const U&>()), bool);
+    ASSERT_SAME_TYPE(decltype(std::declval<const T&>() != std::declval<const U&>()), bool);
 }
+
 
 template <class T, class U = T>
 void AssertEqualityConvertibleToBool()
@@ -238,36 +238,4 @@ struct LessAndEqComp {
     return lhs.value == rhs.value;
   }
 };
-
-#if TEST_STD_VER >= 20
-
-struct StrongOrder {
-  int value;
-  constexpr StrongOrder(int v) : value(v) {}
-  friend std::strong_ordering operator<=>(StrongOrder, StrongOrder) = default;
-};
-
-struct WeakOrder {
-  int value;
-  constexpr WeakOrder(int v) : value(v) {}
-  friend std::weak_ordering operator<=>(WeakOrder, WeakOrder) = default;
-};
-
-struct PartialOrder {
-  int value;
-  constexpr PartialOrder(int v) : value(v) {}
-  friend constexpr std::partial_ordering operator<=>(PartialOrder lhs, PartialOrder rhs) {
-    if (lhs.value == std::numeric_limits<int>::min() || rhs.value == std::numeric_limits<int>::min())
-      return std::partial_ordering::unordered;
-    if (lhs.value == std::numeric_limits<int>::max() || rhs.value == std::numeric_limits<int>::max())
-      return std::partial_ordering::unordered;
-    return lhs.value <=> rhs.value;
-  }
-  friend constexpr bool operator==(PartialOrder lhs, PartialOrder rhs) {
-    return (lhs <=> rhs) == std::partial_ordering::equivalent;
-  }
-};
-
-#endif
-
 #endif // TEST_COMPARISONS_H

@@ -9,10 +9,8 @@
 #include "clang/Index/USRGeneration.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
-#include "clang/AST/ODRHash.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Lex/PreprocessingRecord.h"
 #include "llvm/Support/Path.h"
@@ -33,7 +31,7 @@ static bool printLoc(llvm::raw_ostream &OS, SourceLocation Loc,
   }
   Loc = SM.getExpansionLoc(Loc);
   const std::pair<FileID, unsigned> &Decomposed = SM.getDecomposedLoc(Loc);
-  OptionalFileEntryRef FE = SM.getFileEntryRefForID(Decomposed.first);
+  const FileEntry *FE = SM.getFileEntryForID(Decomposed.first);
   if (FE) {
     OS << llvm::sys::path::filename(FE->getName());
   } else {
@@ -170,8 +168,6 @@ public:
   void VisitTemplateName(TemplateName Name);
   void VisitTemplateArgument(const TemplateArgument &Arg);
 
-  void VisitMSGuidDecl(const MSGuidDecl *D);
-
   /// Emit a Decl's name using NamedDecl::printName() and return true if
   ///  the decl had no name.
   bool EmitDeclName(const NamedDecl *D);
@@ -227,11 +223,6 @@ void USRGenerator::VisitFieldDecl(const FieldDecl *D) {
 void USRGenerator::VisitFunctionDecl(const FunctionDecl *D) {
   if (ShouldGenerateLocation(D) && GenLoc(D, /*IncludeOffset=*/isLocal(D)))
     return;
-
-  if (D->getType().isNull()) {
-    IgnoreResults = true;
-    return;
-  }
 
   const unsigned StartSize = Buf.size();
   VisitDeclContext(D->getDeclContext());
@@ -370,14 +361,14 @@ void USRGenerator::VisitTemplateTemplateParmDecl(
 }
 
 void USRGenerator::VisitNamespaceDecl(const NamespaceDecl *D) {
-  if (IgnoreResults)
-    return;
-  VisitDeclContext(D->getDeclContext());
   if (D->isAnonymousNamespace()) {
     Out << "@aN";
     return;
   }
-  Out << "@N@" << D->getName();
+
+  VisitDeclContext(D->getDeclContext());
+  if (!IgnoreResults)
+    Out << "@N@" << D->getName();
 }
 
 void USRGenerator::VisitFunctionTemplateDecl(const FunctionTemplateDecl *D) {
@@ -520,16 +511,11 @@ void USRGenerator::VisitTagDecl(const TagDecl *D) {
       AlreadyStarted = true;
 
       switch (D->getTagKind()) {
-      case TagTypeKind::Interface:
-      case TagTypeKind::Class:
-      case TagTypeKind::Struct:
-        Out << "@ST";
-        break;
-      case TagTypeKind::Union:
-        Out << "@UT";
-        break;
-      case TagTypeKind::Enum:
-        llvm_unreachable("enum template");
+      case TTK_Interface:
+      case TTK_Class:
+      case TTK_Struct: Out << "@ST"; break;
+      case TTK_Union:  Out << "@UT"; break;
+      case TTK_Enum: llvm_unreachable("enum template");
       }
       VisitTemplateParameterList(ClassTmpl->getTemplateParameters());
     } else if (const ClassTemplatePartialSpecializationDecl *PartialSpec
@@ -537,16 +523,11 @@ void USRGenerator::VisitTagDecl(const TagDecl *D) {
       AlreadyStarted = true;
 
       switch (D->getTagKind()) {
-      case TagTypeKind::Interface:
-      case TagTypeKind::Class:
-      case TagTypeKind::Struct:
-        Out << "@SP";
-        break;
-      case TagTypeKind::Union:
-        Out << "@UP";
-        break;
-      case TagTypeKind::Enum:
-        llvm_unreachable("enum partial specialization");
+      case TTK_Interface:
+      case TTK_Class:
+      case TTK_Struct: Out << "@SP"; break;
+      case TTK_Union:  Out << "@UP"; break;
+      case TTK_Enum: llvm_unreachable("enum partial specialization");
       }
       VisitTemplateParameterList(PartialSpec->getTemplateParameters());
     }
@@ -554,17 +535,11 @@ void USRGenerator::VisitTagDecl(const TagDecl *D) {
 
   if (!AlreadyStarted) {
     switch (D->getTagKind()) {
-    case TagTypeKind::Interface:
-    case TagTypeKind::Class:
-    case TagTypeKind::Struct:
-      Out << "@S";
-      break;
-    case TagTypeKind::Union:
-      Out << "@U";
-      break;
-    case TagTypeKind::Enum:
-      Out << "@E";
-      break;
+      case TTK_Interface:
+      case TTK_Class:
+      case TTK_Struct: Out << "@S"; break;
+      case TTK_Union:  Out << "@U"; break;
+      case TTK_Enum:   Out << "@E"; break;
     }
   }
 
@@ -683,159 +658,120 @@ void USRGenerator::VisitType(QualType T) {
     }
 
     if (const BuiltinType *BT = T->getAs<BuiltinType>()) {
+      unsigned char c = '\0';
       switch (BT->getKind()) {
         case BuiltinType::Void:
-          Out << 'v'; break;
+          c = 'v'; break;
         case BuiltinType::Bool:
-          Out << 'b'; break;
+          c = 'b'; break;
         case BuiltinType::UChar:
-          Out << 'c'; break;
+          c = 'c'; break;
         case BuiltinType::Char8:
-          Out << 'u'; break;
+          c = 'u'; break; // FIXME: Check this doesn't collide
         case BuiltinType::Char16:
-          Out << 'q'; break;
+          c = 'q'; break;
         case BuiltinType::Char32:
-          Out << 'w'; break;
+          c = 'w'; break;
         case BuiltinType::UShort:
-          Out << 's'; break;
+          c = 's'; break;
         case BuiltinType::UInt:
-          Out << 'i'; break;
+          c = 'i'; break;
         case BuiltinType::ULong:
-          Out << 'l'; break;
+          c = 'l'; break;
         case BuiltinType::ULongLong:
-          Out << 'k'; break;
+          c = 'k'; break;
         case BuiltinType::UInt128:
-          Out << 'j'; break;
+          c = 'j'; break;
         case BuiltinType::Char_U:
         case BuiltinType::Char_S:
-          Out << 'C'; break;
+          c = 'C'; break;
         case BuiltinType::SChar:
-          Out << 'r'; break;
+          c = 'r'; break;
         case BuiltinType::WChar_S:
         case BuiltinType::WChar_U:
-          Out << 'W'; break;
+          c = 'W'; break;
         case BuiltinType::Short:
-          Out << 'S'; break;
+          c = 'S'; break;
         case BuiltinType::Int:
-          Out << 'I'; break;
+          c = 'I'; break;
         case BuiltinType::Long:
-          Out << 'L'; break;
+          c = 'L'; break;
         case BuiltinType::LongLong:
-          Out << 'K'; break;
+          c = 'K'; break;
         case BuiltinType::Int128:
-          Out << 'J'; break;
+          c = 'J'; break;
         case BuiltinType::Float16:
         case BuiltinType::Half:
-          Out << 'h'; break;
+          c = 'h'; break;
         case BuiltinType::Float:
-          Out << 'f'; break;
+          c = 'f'; break;
         case BuiltinType::Double:
-          Out << 'd'; break;
+          c = 'd'; break;
+        case BuiltinType::Ibm128: // FIXME: Need separate tag
         case BuiltinType::LongDouble:
-          Out << 'D'; break;
+          c = 'D'; break;
         case BuiltinType::Float128:
-          Out << 'Q'; break;
+          c = 'Q'; break;
         case BuiltinType::NullPtr:
-          Out << 'n'; break;
-#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
-        case BuiltinType::Id: \
-          Out << "@BT@" << #Suffix << "_" << #ImgType; break;
-#include "clang/Basic/OpenCLImageTypes.def"
-#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
-        case BuiltinType::Id: \
-          Out << "@BT@" << #ExtType; break;
-#include "clang/Basic/OpenCLExtensionTypes.def"
-        case BuiltinType::OCLEvent:
-          Out << "@BT@OCLEvent"; break;
-        case BuiltinType::OCLClkEvent:
-          Out << "@BT@OCLClkEvent"; break;
-        case BuiltinType::OCLQueue:
-          Out << "@BT@OCLQueue"; break;
-        case BuiltinType::OCLReserveID:
-          Out << "@BT@OCLReserveID"; break;
-        case BuiltinType::OCLSampler:
-          Out << "@BT@OCLSampler"; break;
-#define SVE_TYPE(Name, Id, SingletonId) \
-        case BuiltinType::Id: \
-          Out << "@BT@" << Name; break;
-#include "clang/Basic/AArch64SVEACLETypes.def"
-#define PPC_VECTOR_TYPE(Name, Id, Size) \
-        case BuiltinType::Id: \
-          Out << "@BT@" << #Name; break;
-#include "clang/Basic/PPCTypes.def"
-#define RVV_TYPE(Name, Id, SingletonId) \
-        case BuiltinType::Id: \
-          Out << "@BT@" << Name; break;
-#include "clang/Basic/RISCVVTypes.def"
-#define WASM_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
-#include "clang/Basic/WebAssemblyReferenceTypes.def"
-        case BuiltinType::ShortAccum:
-          Out << "@BT@ShortAccum"; break;
-        case BuiltinType::Accum:
-          Out << "@BT@Accum"; break;
-        case BuiltinType::LongAccum:
-          Out << "@BT@LongAccum"; break;
-        case BuiltinType::UShortAccum:
-          Out << "@BT@UShortAccum"; break;
-        case BuiltinType::UAccum:
-          Out << "@BT@UAccum"; break;
-        case BuiltinType::ULongAccum:
-          Out << "@BT@ULongAccum"; break;
-        case BuiltinType::ShortFract:
-          Out << "@BT@ShortFract"; break;
-        case BuiltinType::Fract:
-          Out << "@BT@Fract"; break;
-        case BuiltinType::LongFract:
-          Out << "@BT@LongFract"; break;
-        case BuiltinType::UShortFract:
-          Out << "@BT@UShortFract"; break;
-        case BuiltinType::UFract:
-          Out << "@BT@UFract"; break;
-        case BuiltinType::ULongFract:
-          Out << "@BT@ULongFract"; break;
-        case BuiltinType::SatShortAccum:
-          Out << "@BT@SatShortAccum"; break;
-        case BuiltinType::SatAccum:
-          Out << "@BT@SatAccum"; break;
-        case BuiltinType::SatLongAccum:
-          Out << "@BT@SatLongAccum"; break;
-        case BuiltinType::SatUShortAccum:
-          Out << "@BT@SatUShortAccum"; break;
-        case BuiltinType::SatUAccum:
-          Out << "@BT@SatUAccum"; break;
-        case BuiltinType::SatULongAccum:
-          Out << "@BT@SatULongAccum"; break;
-        case BuiltinType::SatShortFract:
-          Out << "@BT@SatShortFract"; break;
-        case BuiltinType::SatFract:
-          Out << "@BT@SatFract"; break;
-        case BuiltinType::SatLongFract:
-          Out << "@BT@SatLongFract"; break;
-        case BuiltinType::SatUShortFract:
-          Out << "@BT@SatUShortFract"; break;
-        case BuiltinType::SatUFract:
-          Out << "@BT@SatUFract"; break;
-        case BuiltinType::SatULongFract:
-          Out << "@BT@SatULongFract"; break;
-        case BuiltinType::BFloat16:
-          Out << "@BT@__bf16"; break;
-        case BuiltinType::Ibm128:
-          Out << "@BT@__ibm128"; break;
-        case BuiltinType::ObjCId:
-          Out << 'o'; break;
-        case BuiltinType::ObjCClass:
-          Out << 'O'; break;
-        case BuiltinType::ObjCSel:
-          Out << 'e'; break;
+          c = 'n'; break;
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) case BuiltinType::Id:
 #include "clang/AST/BuiltinTypes.def"
         case BuiltinType::Dependent:
-          // If you're adding a new builtin type, please add its name prefixed
-          // with "@BT@" to `Out` (see cases above).
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
+        case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+        case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
+        case BuiltinType::OCLEvent:
+        case BuiltinType::OCLClkEvent:
+        case BuiltinType::OCLQueue:
+        case BuiltinType::OCLReserveID:
+        case BuiltinType::OCLSampler:
+#define SVE_TYPE(Name, Id, SingletonId) \
+        case BuiltinType::Id:
+#include "clang/Basic/AArch64SVEACLETypes.def"
+#define PPC_VECTOR_TYPE(Name, Id, Size) \
+        case BuiltinType::Id:
+#include "clang/Basic/PPCTypes.def"
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
+        case BuiltinType::ShortAccum:
+        case BuiltinType::Accum:
+        case BuiltinType::LongAccum:
+        case BuiltinType::UShortAccum:
+        case BuiltinType::UAccum:
+        case BuiltinType::ULongAccum:
+        case BuiltinType::ShortFract:
+        case BuiltinType::Fract:
+        case BuiltinType::LongFract:
+        case BuiltinType::UShortFract:
+        case BuiltinType::UFract:
+        case BuiltinType::ULongFract:
+        case BuiltinType::SatShortAccum:
+        case BuiltinType::SatAccum:
+        case BuiltinType::SatLongAccum:
+        case BuiltinType::SatUShortAccum:
+        case BuiltinType::SatUAccum:
+        case BuiltinType::SatULongAccum:
+        case BuiltinType::SatShortFract:
+        case BuiltinType::SatFract:
+        case BuiltinType::SatLongFract:
+        case BuiltinType::SatUShortFract:
+        case BuiltinType::SatUFract:
+        case BuiltinType::SatULongFract:
+        case BuiltinType::BFloat16:
           IgnoreResults = true;
-          break;
+          return;
+        case BuiltinType::ObjCId:
+          c = 'o'; break;
+        case BuiltinType::ObjCClass:
+          c = 'O'; break;
+        case BuiltinType::ObjCSel:
+          c = 'e'; break;
       }
+      Out << c;
       return;
     }
 
@@ -944,13 +880,13 @@ void USRGenerator::VisitType(QualType T) {
     if (const auto *const AT = dyn_cast<ArrayType>(T)) {
       Out << '{';
       switch (AT->getSizeModifier()) {
-      case ArraySizeModifier::Static:
+      case ArrayType::Static:
         Out << 's';
         break;
-      case ArraySizeModifier::Star:
+      case ArrayType::Star:
         Out << '*';
         break;
-      case ArraySizeModifier::Normal:
+      case ArrayType::Normal:
         Out << 'n';
         break;
       }
@@ -1052,15 +988,6 @@ void USRGenerator::VisitTemplateArgument(const TemplateArgument &Arg) {
     VisitType(Arg.getIntegralType());
     Out << Arg.getAsIntegral();
     break;
-
-  case TemplateArgument::StructuralValue: {
-    Out << 'S';
-    VisitType(Arg.getStructuralValueType());
-    ODRHash Hash{};
-    Hash.AddStructuralValue(Arg.getAsStructuralValue());
-    Out << Hash.CalculateHash();
-    break;
-  }
   }
 }
 
@@ -1088,12 +1015,6 @@ void USRGenerator::VisitConceptDecl(const ConceptDecl *D) {
   VisitDeclContext(D->getDeclContext());
   Out << "@CT@";
   EmitDeclName(D);
-}
-
-void USRGenerator::VisitMSGuidDecl(const MSGuidDecl *D) {
-  VisitDeclContext(D->getDeclContext());
-  Out << "@MG@";
-  D->NamedDecl::printName(Out);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1173,15 +1094,6 @@ bool clang::index::generateUSRForDecl(const Decl *D,
   // C++'s operator new function, can have invalid locations but it is fine to
   // create USRs that can identify them.
 
-  // Check if the declaration has explicit external USR specified.
-  auto *CD = D->getCanonicalDecl();
-  if (auto *ExternalSymAttr = CD->getAttr<ExternalSourceSymbolAttr>()) {
-    if (!ExternalSymAttr->getUSR().empty()) {
-      llvm::raw_svector_ostream Out(Buf);
-      Out << ExternalSymAttr->getUSR();
-      return false;
-    }
-  }
   USRGenerator UG(&D->getASTContext(), Buf);
   UG.Visit(D);
   return UG.ignoreResults();

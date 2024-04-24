@@ -69,27 +69,27 @@ DWARFCache::DWARFCache(std::unique_ptr<llvm::DWARFContext> d)
 
 // Returns the pair of file name and line number describing location of data
 // object (variable, array, etc) definition.
-std::optional<std::pair<std::string, unsigned>>
+Optional<std::pair<std::string, unsigned>>
 DWARFCache::getVariableLoc(StringRef name) {
   // Return if we have no debug information about data object.
   auto it = variableLoc.find(name);
   if (it == variableLoc.end())
-    return std::nullopt;
+    return None;
 
   // Take file name string from line table.
   std::string fileName;
   if (!it->second.lt->getFileNameByIndex(
           it->second.file, {},
           DILineInfoSpecifier::FileLineInfoKind::AbsoluteFilePath, fileName))
-    return std::nullopt;
+    return None;
 
   return std::make_pair(fileName, it->second.line);
 }
 
 // Returns source line information for a given offset
 // using DWARF debug info.
-std::optional<DILineInfo> DWARFCache::getDILineInfo(uint64_t offset,
-                                                    uint64_t sectionIndex) {
+Optional<DILineInfo> DWARFCache::getDILineInfo(uint64_t offset,
+                                               uint64_t sectionIndex) {
   DILineInfo info;
   for (const llvm::DWARFDebugLine::LineTable *lt : lineTables) {
     if (lt->getFileLineInfoForAddress(
@@ -97,7 +97,7 @@ std::optional<DILineInfo> DWARFCache::getDILineInfo(uint64_t offset,
             DILineInfoSpecifier::FileLineInfoKind::AbsoluteFilePath, info))
       return info;
   }
-  return std::nullopt;
+  return None;
 }
 
 } // namespace lld

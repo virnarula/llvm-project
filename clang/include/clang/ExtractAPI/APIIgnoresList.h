@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file This file defines APIIgnoresList which is a type that allows querying
-/// files containing symbols to ignore when extracting API information.
+/// a file containing symbols to ignore when extracting API information.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -44,13 +44,11 @@ struct IgnoresFileNotFound : public llvm::ErrorInfo<IgnoresFileNotFound> {
 /// A type that provides access to a new line separated list of symbol names to
 /// ignore when extracting API information.
 struct APIIgnoresList {
-  using FilePathList = std::vector<std::string>;
-
-  /// The API to use for generating from the files at \p IgnoresFilePathList.
+  /// The API to use for generating from the file at \p IgnoresFilePath.
   ///
   /// \returns an initialized APIIgnoresList or an Error.
-  static llvm::Expected<APIIgnoresList>
-  create(const FilePathList &IgnoresFilePathList, FileManager &FM);
+  static llvm::Expected<APIIgnoresList> create(llvm::StringRef IgnoresFilePath,
+                                               FileManager &FM);
 
   APIIgnoresList() = default;
 
@@ -60,14 +58,14 @@ struct APIIgnoresList {
 
 private:
   using SymbolNameList = llvm::SmallVector<llvm::StringRef, 32>;
-  using BufferList = llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>>;
 
-  APIIgnoresList(SymbolNameList SymbolsToIgnore, BufferList Buffers)
-      : SymbolsToIgnore(std::move(SymbolsToIgnore)),
-        Buffers(std::move(Buffers)) {}
+  APIIgnoresList(SymbolNameList SymbolsToIgnore,
+                 std::unique_ptr<llvm::MemoryBuffer> Buffer)
+      : SymbolsToIgnore(std::move(SymbolsToIgnore)), Buffer(std::move(Buffer)) {
+  }
 
   SymbolNameList SymbolsToIgnore;
-  BufferList Buffers;
+  std::unique_ptr<llvm::MemoryBuffer> Buffer;
 };
 
 } // namespace extractapi

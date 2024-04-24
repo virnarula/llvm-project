@@ -10,9 +10,10 @@
 #include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/ADT/STLExtras.h"
-#include <optional>
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 using transformer::RewriteRuleWith;
 
 #ifndef NDEBUG
@@ -34,7 +35,7 @@ std::string escapeForDiagnostic(std::string ToEscape) {
   // Optimize for the common case that the string does not contain `%` at the
   // cost of an extra scan over the string in the slow case.
   auto Pos = ToEscape.find('%');
-  if (Pos == std::string::npos)
+  if (Pos == ToEscape.npos)
     return ToEscape;
 
   std::string Result;
@@ -66,12 +67,12 @@ TransformerClangTidyCheck::TransformerClangTidyCheck(StringRef Name,
 // we would be accessing `getLangOpts` and `Options` before the underlying
 // `ClangTidyCheck` instance was properly initialized.
 TransformerClangTidyCheck::TransformerClangTidyCheck(
-    std::function<std::optional<RewriteRuleWith<std::string>>(
-        const LangOptions &, const OptionsView &)>
+    std::function<Optional<RewriteRuleWith<std::string>>(const LangOptions &,
+                                                         const OptionsView &)>
         MakeRule,
     StringRef Name, ClangTidyContext *Context)
     : TransformerClangTidyCheck(Name, Context) {
-  if (std::optional<RewriteRuleWith<std::string>> R =
+  if (Optional<RewriteRuleWith<std::string>> R =
           MakeRule(getLangOpts(), Options))
     setRule(std::move(*R));
 }
@@ -155,4 +156,6 @@ void TransformerClangTidyCheck::storeOptions(
   Options.store(Opts, "IncludeStyle", Inserter.getStyle());
 }
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang

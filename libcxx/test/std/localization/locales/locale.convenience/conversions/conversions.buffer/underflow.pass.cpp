@@ -6,9 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// FILE_DEPENDENCIES: underflow.dat, underflow_utf8.dat
+
 // <locale>
 
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS -D_LIBCPP_ENABLE_CXX26_REMOVED_CODECVT
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
 // wbuffer_convert<Codecvt, Elem, Tr>
 
@@ -19,9 +21,9 @@
 // XFAIL: no-wide-characters
 
 #include <locale>
-#include <cassert>
 #include <codecvt>
-#include <sstream>
+#include <fstream>
+#include <cassert>
 
 #include "test_macros.h"
 
@@ -46,8 +48,7 @@ struct test_buf
 int main(int, char**)
 {
     {
-        std::string s = "123456789";
-        std::istringstream bs(s);
+        std::ifstream bs("underflow.dat");
         test_buf f(bs.rdbuf());
         assert(f.eback() == 0);
         assert(f.gptr() == 0);
@@ -59,8 +60,7 @@ int main(int, char**)
         assert(f.egptr() - f.eback() == 9);
     }
     {
-        std::string s = "123456789";
-        std::istringstream bs(s);
+        std::ifstream bs("underflow.dat");
         test_buf f(bs.rdbuf());
         assert(f.eback() == 0);
         assert(f.gptr() == 0);
@@ -81,8 +81,7 @@ int main(int, char**)
         assert(f.egptr() - f.gptr() == 1);
     }
     {
-        std::string s = "乑乒乓";
-        std::istringstream bs(s);
+        std::ifstream bs("underflow_utf8.dat");
         test_buf f(bs.rdbuf());
         assert(f.sbumpc() == 0x4E51);
         assert(f.sbumpc() == 0x4E52);
@@ -90,5 +89,5 @@ int main(int, char**)
         assert(f.sbumpc() == test_buf::traits_type::eof());
     }
 
-    return 0;
+  return 0;
 }

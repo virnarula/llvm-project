@@ -31,7 +31,7 @@ public:
   X86LbrPerfEvent(unsigned SamplingPeriod);
 };
 
-class X86LbrCounter : public pfm::CounterGroup {
+class X86LbrCounter : public pfm::Counter {
 public:
   static llvm::Error checkLbrSupport();
 

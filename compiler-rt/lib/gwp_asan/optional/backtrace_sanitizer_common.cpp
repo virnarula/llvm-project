@@ -72,9 +72,7 @@ static void PrintBacktrace(uintptr_t *Trace, size_t TraceLength,
     return;
   }
 
-  __sanitizer::InternalScopedString buffer;
-  StackTrace.PrintTo(&buffer);
-  Printf("%s\n", buffer.data());
+  StackTrace.Print();
 }
 } // anonymous namespace
 

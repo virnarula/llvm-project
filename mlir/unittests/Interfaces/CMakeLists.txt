@@ -7,7 +7,6 @@ add_mlir_unittest(MLIRInterfacesTests
 
 target_link_libraries(MLIRInterfacesTests
   PRIVATE
-  MLIRArithDialect
   MLIRControlFlowInterfaces
   MLIRDataLayoutInterfaces
   MLIRDLTIDialect

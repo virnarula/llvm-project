@@ -19,7 +19,6 @@
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <mutex>
-#include <optional>
 
 namespace lldb_private {
 
@@ -108,13 +107,13 @@ private:
 /// it is out of date.
 struct CacheSignature {
   /// UUID of object file or module.
-  std::optional<UUID> m_uuid;
+  llvm::Optional<UUID> m_uuid = llvm::None;
   /// Modification time of file on disk.
-  std::optional<std::time_t> m_mod_time;
+  llvm::Optional<std::time_t> m_mod_time = llvm::None;
   /// If this describes a .o file with a BSD archive, the BSD archive's
   /// modification time will be in m_mod_time, and the .o file's modification
   /// time will be in this m_obj_mod_time.
-  std::optional<std::time_t> m_obj_mod_time;
+  llvm::Optional<std::time_t> m_obj_mod_time = llvm::None;
 
   CacheSignature() = default;
 
@@ -125,9 +124,9 @@ struct CacheSignature {
   CacheSignature(lldb_private::ObjectFile *objfile);
 
   void Clear() {
-    m_uuid = std::nullopt;
-    m_mod_time = std::nullopt;
-    m_obj_mod_time = std::nullopt;
+    m_uuid = llvm::None;
+    m_mod_time = llvm::None;
+    m_obj_mod_time = llvm::None;
   }
 
   /// Return true only if the CacheSignature is valid.

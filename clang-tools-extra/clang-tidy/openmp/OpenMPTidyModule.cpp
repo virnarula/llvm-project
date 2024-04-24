@@ -12,7 +12,8 @@
 #include "ExceptionEscapeCheck.h"
 #include "UseDefaultNoneCheck.h"
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace openmp {
 
 /// This module is for OpenMP-specific checks.
@@ -36,4 +37,5 @@ static ClangTidyModuleRegistry::Add<OpenMPModule>
 // and thus register the OpenMPModule.
 volatile int OpenMPModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

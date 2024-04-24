@@ -11,13 +11,14 @@
 #include "clang/Lex/Lexer.h"
 #include "llvm/Support/SaveAndRestore.h"
 
-#include <optional>
 #include <string>
 #include <utility>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 namespace {
 
@@ -59,9 +60,9 @@ static StringRef negatedOperator(const BinaryOperator *BinOp) {
   const BinaryOperatorKind Opcode = BinOp->getOpcode();
   for (auto NegatableOp : Opposites) {
     if (Opcode == NegatableOp.first)
-      return BinaryOperator::getOpcodeStr(NegatableOp.second);
+      return BinOp->getOpcodeStr(NegatableOp.second);
     if (Opcode == NegatableOp.second)
-      return BinaryOperator::getOpcodeStr(NegatableOp.first);
+      return BinOp->getOpcodeStr(NegatableOp.first);
   }
   return {};
 }
@@ -277,13 +278,7 @@ public:
   }
 
   bool dataTraverseStmtPre(Stmt *S) {
-    if (!S) {
-      return true;
-    }
-    if (Check->IgnoreMacros && S->getBeginLoc().isMacroID()) {
-      return false;
-    }
-    if (!shouldIgnore(S))
+    if (S && !shouldIgnore(S))
       StmtStack.push_back(S);
     return true;
   }
@@ -302,21 +297,21 @@ public:
   }
 
   // Extracts a bool if an expression is (true|false|!true|!false);
-  static std::optional<bool> getAsBoolLiteral(const Expr *E, bool FilterMacro) {
+  static Optional<bool> getAsBoolLiteral(const Expr *E, bool FilterMacro) {
     if (const auto *Bool = dyn_cast<CXXBoolLiteralExpr>(E)) {
       if (FilterMacro && Bool->getBeginLoc().isMacroID())
-        return std::nullopt;
+        return llvm::None;
       return Bool->getValue();
     }
     if (const auto *UnaryOp = dyn_cast<UnaryOperator>(E)) {
       if (FilterMacro && UnaryOp->getBeginLoc().isMacroID())
-        return std::nullopt;
+        return None;
       if (UnaryOp->getOpcode() == UO_LNot)
-        if (std::optional<bool> Res = getAsBoolLiteral(
+        if (Optional<bool> Res = getAsBoolLiteral(
                 UnaryOp->getSubExpr()->IgnoreImplicit(), FilterMacro))
           return !*Res;
     }
-    return std::nullopt;
+    return llvm::None;
   }
 
   template <typename Node> struct NodeAndBool {
@@ -334,7 +329,7 @@ public:
     const auto *RS = dyn_cast<ReturnStmt>(S);
     if (!RS || !RS->getRetValue())
       return {};
-    if (std::optional<bool> Ret =
+    if (Optional<bool> Ret =
             getAsBoolLiteral(RS->getRetValue()->IgnoreImplicit(), false)) {
       return {RS->getRetValue(), *Ret};
     }
@@ -369,7 +364,7 @@ public:
      * if (false) ThenStmt(); else ElseStmt() -> ElseStmt();
      */
     Expr *Cond = If->getCond()->IgnoreImplicit();
-    if (std::optional<bool> Bool = getAsBoolLiteral(Cond, true)) {
+    if (Optional<bool> Bool = getAsBoolLiteral(Cond, true)) {
       if (*Bool)
         Check->replaceWithThenStatement(Context, If, Cond);
       else
@@ -404,7 +399,7 @@ public:
           const auto *BO = dyn_cast<BinaryOperator>(S);
           if (!BO || BO->getOpcode() != BO_Assign)
             return {};
-          std::optional<bool> RightasBool =
+          Optional<bool> RightasBool =
               getAsBoolLiteral(BO->getRHS()->IgnoreImplicit(), false);
           if (!RightasBool)
             return {};
@@ -443,9 +438,9 @@ public:
      * Condition ? true : false; -> Condition
      * Condition ? false : true; -> !Condition;
      */
-    if (std::optional<bool> Then =
+    if (Optional<bool> Then =
             getAsBoolLiteral(Cond->getTrueExpr()->IgnoreImplicit(), false)) {
-      if (std::optional<bool> Else =
+      if (Optional<bool> Else =
               getAsBoolLiteral(Cond->getFalseExpr()->IgnoreImplicit(), false)) {
         if (*Then != *Else)
           Check->replaceWithCondition(Context, Cond, *Else);
@@ -572,7 +567,7 @@ public:
       if (Check->reportDeMorgan(Context, Op, BinaryOp, !IsProcessing, parent(),
                                 Parens) &&
           !Check->areDiagsSelfContained()) {
-        llvm::SaveAndRestore RAII(IsProcessing, true);
+        llvm::SaveAndRestore<bool> RAII(IsProcessing, true);
         return Base::TraverseUnaryOperator(Op);
       }
     }
@@ -589,7 +584,6 @@ private:
 SimplifyBooleanExprCheck::SimplifyBooleanExprCheck(StringRef Name,
                                                    ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      IgnoreMacros(Options.get("IgnoreMacros", false)),
       ChainedConditionalReturn(Options.get("ChainedConditionalReturn", false)),
       ChainedConditionalAssignment(
           Options.get("ChainedConditionalAssignment", false)),
@@ -620,8 +614,8 @@ void SimplifyBooleanExprCheck::reportBinOp(const ASTContext &Context,
   const auto *LHS = Op->getLHS()->IgnoreParenImpCasts();
   const auto *RHS = Op->getRHS()->IgnoreParenImpCasts();
 
-  const CXXBoolLiteralExpr *Bool = nullptr;
-  const Expr *Other = nullptr;
+  const CXXBoolLiteralExpr *Bool;
+  const Expr *Other;
   if ((Bool = dyn_cast<CXXBoolLiteralExpr>(LHS)) != nullptr)
     Other = RHS;
   else if ((Bool = dyn_cast<CXXBoolLiteralExpr>(RHS)) != nullptr)
@@ -678,7 +672,6 @@ void SimplifyBooleanExprCheck::reportBinOp(const ASTContext &Context,
 }
 
 void SimplifyBooleanExprCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "IgnoreMacros", IgnoreMacros);
   Options.store(Opts, "ChainedConditionalReturn", ChainedConditionalReturn);
   Options.store(Opts, "ChainedConditionalAssignment",
                 ChainedConditionalAssignment);
@@ -791,16 +784,16 @@ static BinaryOperatorKind getDemorganFlippedOperator(BinaryOperatorKind BO) {
 
 static bool flipDemorganSide(SmallVectorImpl<FixItHint> &Fixes,
                              const ASTContext &Ctx, const Expr *E,
-                             std::optional<BinaryOperatorKind> OuterBO);
+                             Optional<BinaryOperatorKind> OuterBO);
 
 /// Inverts \p BinOp, Removing \p Parens if they exist and are safe to remove.
 /// returns \c true if there is any issue building the Fixes, \c false
 /// otherwise.
-static bool
-flipDemorganBinaryOperator(SmallVectorImpl<FixItHint> &Fixes,
-                           const ASTContext &Ctx, const BinaryOperator *BinOp,
-                           std::optional<BinaryOperatorKind> OuterBO,
-                           const ParenExpr *Parens = nullptr) {
+static bool flipDemorganBinaryOperator(SmallVectorImpl<FixItHint> &Fixes,
+                                       const ASTContext &Ctx,
+                                       const BinaryOperator *BinOp,
+                                       Optional<BinaryOperatorKind> OuterBO,
+                                       const ParenExpr *Parens = nullptr) {
   switch (BinOp->getOpcode()) {
   case BO_LAnd:
   case BO_LOr: {
@@ -877,7 +870,7 @@ flipDemorganBinaryOperator(SmallVectorImpl<FixItHint> &Fixes,
 
 static bool flipDemorganSide(SmallVectorImpl<FixItHint> &Fixes,
                              const ASTContext &Ctx, const Expr *E,
-                             std::optional<BinaryOperatorKind> OuterBO) {
+                             Optional<BinaryOperatorKind> OuterBO) {
   if (isa<UnaryOperator>(E) && cast<UnaryOperator>(E)->getOpcode() == UO_LNot) {
     //  if we have a not operator, '!a', just remove the '!'.
     if (cast<UnaryOperator>(E)->getOperatorLoc().isMacroID())
@@ -963,4 +956,6 @@ bool SimplifyBooleanExprCheck::reportDeMorgan(const ASTContext &Context,
   Diag << Fixes;
   return true;
 }
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

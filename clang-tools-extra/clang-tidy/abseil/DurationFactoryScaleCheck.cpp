@@ -11,25 +11,26 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Tooling/FixIt.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 // Given the name of a duration factory function, return the appropriate
 // `DurationScale` for that factory.  If no factory can be found for
-// `FactoryName`, return `std::nullopt`.
-static std::optional<DurationScale>
+// `FactoryName`, return `None`.
+static llvm::Optional<DurationScale>
 getScaleForFactory(llvm::StringRef FactoryName) {
-  return llvm::StringSwitch<std::optional<DurationScale>>(FactoryName)
+  return llvm::StringSwitch<llvm::Optional<DurationScale>>(FactoryName)
       .Case("Nanoseconds", DurationScale::Nanoseconds)
       .Case("Microseconds", DurationScale::Microseconds)
       .Case("Milliseconds", DurationScale::Milliseconds)
       .Case("Seconds", DurationScale::Seconds)
       .Case("Minutes", DurationScale::Minutes)
       .Case("Hours", DurationScale::Hours)
-      .Default(std::nullopt);
+      .Default(llvm::None);
 }
 
 // Given either an integer or float literal, return its value.
@@ -45,8 +46,8 @@ static double getValue(const IntegerLiteral *IntLit,
 
 // Given the scale of a duration and a `Multiplier`, determine if `Multiplier`
 // would produce a new scale.  If so, return a tuple containing the new scale
-// and a suitable Multiplier for that scale, otherwise `std::nullopt`.
-static std::optional<std::tuple<DurationScale, double>>
+// and a suitable Multiplier for that scale, otherwise `None`.
+static llvm::Optional<std::tuple<DurationScale, double>>
 getNewScaleSingleStep(DurationScale OldScale, double Multiplier) {
   switch (OldScale) {
   case DurationScale::Hours:
@@ -88,15 +89,15 @@ getNewScaleSingleStep(DurationScale OldScale, double Multiplier) {
     break;
   }
 
-  return std::nullopt;
+  return llvm::None;
 }
 
 // Given the scale of a duration and a `Multiplier`, determine if `Multiplier`
-// would produce a new scale.  If so, return it, otherwise `std::nullopt`.
-static std::optional<DurationScale> getNewScale(DurationScale OldScale,
-                                                double Multiplier) {
+// would produce a new scale.  If so, return it, otherwise `None`.
+static llvm::Optional<DurationScale> getNewScale(DurationScale OldScale,
+                                                 double Multiplier) {
   while (Multiplier != 1.0) {
-    std::optional<std::tuple<DurationScale, double>> Result =
+    llvm::Optional<std::tuple<DurationScale, double>> Result =
         getNewScaleSingleStep(OldScale, Multiplier);
     if (!Result)
       break;
@@ -106,7 +107,7 @@ static std::optional<DurationScale> getNewScale(DurationScale OldScale,
     OldScale = std::get<0>(*Result);
   }
 
-  return std::nullopt;
+  return llvm::None;
 }
 
 void DurationFactoryScaleCheck::registerMatchers(MatchFinder *Finder) {
@@ -153,14 +154,14 @@ void DurationFactoryScaleCheck::check(const MatchFinder::MatchResult &Result) {
   }
 
   const auto *CallDecl = Result.Nodes.getNodeAs<FunctionDecl>("call_decl");
-  std::optional<DurationScale> MaybeScale =
+  llvm::Optional<DurationScale> MaybeScale =
       getScaleForFactory(CallDecl->getName());
   if (!MaybeScale)
     return;
 
   DurationScale Scale = *MaybeScale;
-  const Expr *Remainder = nullptr;
-  std::optional<DurationScale> NewScale;
+  const Expr *Remainder;
+  llvm::Optional<DurationScale> NewScale;
 
   // We next handle the cases of multiplication and division.
   if (const auto *MultBinOp =
@@ -193,7 +194,7 @@ void DurationFactoryScaleCheck::check(const MatchFinder::MatchResult &Result) {
     // For division, we only check the RHS.
     const auto *FloatLit = llvm::cast<FloatingLiteral>(DivBinOp->getRHS());
 
-    std::optional<DurationScale> NewScale =
+    llvm::Optional<DurationScale> NewScale =
         getNewScale(Scale, 1.0 / FloatLit->getValueAsApproximateDouble());
     if (NewScale) {
       const Expr *Remainder = DivBinOp->getLHS();
@@ -222,4 +223,6 @@ void DurationFactoryScaleCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 
 namespace lldb_private {
 class DataExtractor;
@@ -63,7 +62,7 @@ public:
   static lldb::ValueObjectSP Create(ExecutionContextScope *exe_scope,
                                     const Status &error);
 
-  std::optional<uint64_t> GetByteSize() override;
+  llvm::Optional<uint64_t> GetByteSize() override;
 
   lldb::ValueType GetValueType() const override;
 
@@ -106,7 +105,7 @@ public:
 
   lldb::LanguageType GetPreferredDisplayLanguage() override;
 
-  lldb::ValueObjectSP DoCast(const CompilerType &compiler_type) override;
+  lldb::ValueObjectSP Cast(const CompilerType &compiler_type) override;
 
 protected:
   bool UpdateValue() override;
@@ -114,7 +113,7 @@ protected:
   CompilerType GetCompilerTypeImpl() override;
 
   ConstString m_type_name;
-  std::optional<uint64_t> m_byte_size;
+  llvm::Optional<uint64_t> m_byte_size;
 
   ValueObjectConstResultImpl m_impl;
 

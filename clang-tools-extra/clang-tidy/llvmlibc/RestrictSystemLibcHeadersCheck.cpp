@@ -16,7 +16,9 @@
 // FixItHint - Hint to check documentation script to mark this check as
 // providing a FixIt.
 
-namespace clang::tidy::llvm_libc {
+namespace clang {
+namespace tidy {
+namespace llvm_libc {
 
 namespace {
 
@@ -32,7 +34,7 @@ public:
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override;
 
@@ -44,7 +46,7 @@ private:
 
 void RestrictedIncludesPPCallbacks::InclusionDirective(
     SourceLocation HashLoc, const Token &IncludeTok, StringRef FileName,
-    bool IsAngled, CharSourceRange FilenameRange, OptionalFileEntryRef File,
+    bool IsAngled, CharSourceRange FilenameRange, Optional<FileEntryRef> File,
     StringRef SearchPath, StringRef RelativePath, const Module *Imported,
     SrcMgr::CharacteristicKind FileType) {
   // Compiler provided headers are allowed (e.g stddef.h).
@@ -64,4 +66,6 @@ void RestrictSystemLibcHeadersCheck::registerPPCallbacks(
       *this, SM, CompilerIncudeDir));
 }
 
-} // namespace clang::tidy::llvm_libc
+} // namespace llvm_libc
+} // namespace tidy
+} // namespace clang

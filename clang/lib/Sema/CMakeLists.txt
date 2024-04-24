@@ -4,7 +4,6 @@ set(LLVM_LINK_COMPONENTS
   FrontendOpenMP
   MC
   Support
-  TargetParser
   )
 
 clang_tablegen(OpenCLBuiltins.inc -gen-clang-opencl-builtins
@@ -71,10 +70,8 @@ add_clang_library(clangSema
   DEPENDS
   ClangOpenCLBuiltinsImpl
   omp_gen
-  ClangDriverOptions
 
   LINK_LIBS
-  clangAPINotes
   clangAST
   clangAnalysis
   clangBasic

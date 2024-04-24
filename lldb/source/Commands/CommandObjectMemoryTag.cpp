@@ -42,33 +42,33 @@ public:
   ~CommandObjectMemoryTagRead() override = default;
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     if ((command.GetArgumentCount() < 1) || (command.GetArgumentCount() > 2)) {
       result.AppendError(
           "wrong number of arguments; expected at least <address-expression>, "
           "at most <address-expression> <end-address-expression>");
-      return;
+      return false;
     }
 
     Status error;
-    addr_t start_addr = OptionArgParser::ToRawAddress(
+    addr_t start_addr = OptionArgParser::ToAddress(
         &m_exe_ctx, command[0].ref(), LLDB_INVALID_ADDRESS, &error);
     if (start_addr == LLDB_INVALID_ADDRESS) {
       result.AppendErrorWithFormatv("Invalid address expression, {0}",
                                     error.AsCString());
-      return;
+      return false;
     }
 
     // Default 1 byte beyond start, rounds up to at most 1 granule later
     addr_t end_addr = start_addr + 1;
 
     if (command.GetArgumentCount() > 1) {
-      end_addr = OptionArgParser::ToRawAddress(&m_exe_ctx, command[1].ref(),
-                                               LLDB_INVALID_ADDRESS, &error);
+      end_addr = OptionArgParser::ToAddress(&m_exe_ctx, command[1].ref(),
+                                            LLDB_INVALID_ADDRESS, &error);
       if (end_addr == LLDB_INVALID_ADDRESS) {
         result.AppendErrorWithFormatv("Invalid end address expression, {0}",
                                       error.AsCString());
-        return;
+        return false;
       }
     }
 
@@ -78,7 +78,7 @@ protected:
 
     if (!tag_manager_or_err) {
       result.SetError(Status(tag_manager_or_err.takeError()));
-      return;
+      return false;
     }
 
     const MemoryTagManager *tag_manager = *tag_manager_or_err;
@@ -103,7 +103,7 @@ protected:
 
     if (!tagged_range) {
       result.SetError(Status(tagged_range.takeError()));
-      return;
+      return false;
     }
 
     llvm::Expected<std::vector<lldb::addr_t>> tags = process->ReadMemoryTags(
@@ -111,7 +111,7 @@ protected:
 
     if (!tags) {
       result.SetError(Status(tags.takeError()));
-      return;
+      return false;
     }
 
     result.AppendMessageWithFormatv("Logical tag: {0:x}", logical_tag);
@@ -128,6 +128,7 @@ protected:
     }
 
     result.SetStatus(eReturnStatusSuccessFinishResult);
+    return true;
   }
 };
 
@@ -143,7 +144,7 @@ public:
     ~OptionGroupTagWrite() override = default;
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_memory_tag_write_options);
+      return llvm::makeArrayRef(g_memory_tag_write_options);
     }
 
     Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_value,
@@ -154,8 +155,8 @@ public:
 
       switch (short_option) {
       case 'e':
-        m_end_addr = OptionArgParser::ToRawAddress(
-            execution_context, option_value, LLDB_INVALID_ADDRESS, &status);
+        m_end_addr = OptionArgParser::ToAddress(execution_context, option_value,
+                                                LLDB_INVALID_ADDRESS, &status);
         break;
       default:
         llvm_unreachable("Unimplemented option");
@@ -194,20 +195,20 @@ public:
   Options *GetOptions() override { return &m_option_group; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     if (command.GetArgumentCount() < 2) {
       result.AppendError("wrong number of arguments; expected "
                          "<address-expression> <tag> [<tag> [...]]");
-      return;
+      return false;
     }
 
     Status error;
-    addr_t start_addr = OptionArgParser::ToRawAddress(
+    addr_t start_addr = OptionArgParser::ToAddress(
         &m_exe_ctx, command[0].ref(), LLDB_INVALID_ADDRESS, &error);
     if (start_addr == LLDB_INVALID_ADDRESS) {
       result.AppendErrorWithFormatv("Invalid address expression, {0}",
                                     error.AsCString());
-      return;
+      return false;
     }
 
     command.Shift(); // shift off start address
@@ -220,7 +221,7 @@ protected:
         result.AppendErrorWithFormat(
             "'%s' is not a valid unsigned decimal string value.\n",
             entry.c_str());
-        return;
+        return false;
       }
       tags.push_back(tag_value);
     }
@@ -231,7 +232,7 @@ protected:
 
     if (!tag_manager_or_err) {
       result.SetError(Status(tag_manager_or_err.takeError()));
-      return;
+      return false;
     }
 
     const MemoryTagManager *tag_manager = *tag_manager_or_err;
@@ -283,7 +284,7 @@ protected:
 
     if (!tagged_range) {
       result.SetError(Status(tagged_range.takeError()));
-      return;
+      return false;
     }
 
     Status status = process->WriteMemoryTags(tagged_range->GetRangeBase(),
@@ -291,10 +292,11 @@ protected:
 
     if (status.Fail()) {
       result.SetError(status);
-      return;
+      return false;
     }
 
     result.SetStatus(eReturnStatusSuccessFinishResult);
+    return true;
   }
 
   OptionGroupOptions m_option_group;

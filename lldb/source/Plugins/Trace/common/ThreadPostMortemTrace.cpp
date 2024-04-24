@@ -9,7 +9,6 @@
 #include "ThreadPostMortemTrace.h"
 
 #include <memory>
-#include <optional>
 
 #include "Plugins/Process/Utility/RegisterContextHistory.h"
 #include "lldb/Target/Process.h"
@@ -38,6 +37,6 @@ ThreadPostMortemTrace::CreateRegisterContextForFrame(StackFrame *frame) {
 
 bool ThreadPostMortemTrace::CalculateStopInfo() { return false; }
 
-const std::optional<FileSpec> &ThreadPostMortemTrace::GetTraceFile() const {
+const Optional<FileSpec> &ThreadPostMortemTrace::GetTraceFile() const {
   return m_trace_file;
 }

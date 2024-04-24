@@ -20,7 +20,8 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace fuchsia {
 
 /// This module is for Fuchsia-specific checks.
@@ -54,4 +55,5 @@ static ClangTidyModuleRegistry::Add<FuchsiaModule>
 // and thus register the FuchsiaModule.
 volatile int FuchsiaModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

@@ -101,7 +101,7 @@ namespace {
 
   private:
     bool enablePostRAScheduler(
-        const TargetSubtargetInfo &ST, CodeGenOptLevel OptLevel,
+        const TargetSubtargetInfo &ST, CodeGenOpt::Level OptLevel,
         TargetSubtargetInfo::AntiDepBreakMode &Mode,
         TargetSubtargetInfo::RegClassVector &CriticalPathRCs) const;
   };
@@ -182,7 +182,7 @@ namespace {
 
   private:
     /// Apply each ScheduleDAGMutation step in order.
-    void postProcessDAG();
+    void postprocessDAG();
 
     void ReleaseSucc(SUnit *SU, SDep *SuccEdge);
     void ReleaseSuccessors(SUnit *SU);
@@ -260,7 +260,8 @@ LLVM_DUMP_METHOD void SchedulePostRATDList::dumpSchedule() const {
 #endif
 
 bool PostRAScheduler::enablePostRAScheduler(
-    const TargetSubtargetInfo &ST, CodeGenOptLevel OptLevel,
+    const TargetSubtargetInfo &ST,
+    CodeGenOpt::Level OptLevel,
     TargetSubtargetInfo::AntiDepBreakMode &Mode,
     TargetSubtargetInfo::RegClassVector &CriticalPathRCs) const {
   Mode = ST.getAntiDepBreakMode();
@@ -406,7 +407,7 @@ void SchedulePostRATDList::schedule() {
     }
   }
 
-  postProcessDAG();
+  postprocessDAG();
 
   LLVM_DEBUG(dbgs() << "********** List Scheduling **********\n");
   LLVM_DEBUG(dump());
@@ -435,7 +436,7 @@ void SchedulePostRATDList::finishBlock() {
 }
 
 /// Apply each ScheduleDAGMutation step in order.
-void SchedulePostRATDList::postProcessDAG() {
+void SchedulePostRATDList::postprocessDAG() {
   for (auto &M : Mutations)
     M->apply(this);
 }

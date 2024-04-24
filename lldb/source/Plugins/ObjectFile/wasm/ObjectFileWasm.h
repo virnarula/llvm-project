@@ -11,7 +11,6 @@
 
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Utility/ArchSpec.h"
-#include <optional>
 
 namespace lldb_private {
 namespace wasm {
@@ -109,7 +108,7 @@ public:
   /// custom section named "external_debug_info", whose payload is an UTF-8
   /// encoded string that points to a Wasm module that contains the debug
   /// information for this module.
-  std::optional<FileSpec> GetExternalDebugInfoFileSpec();
+  llvm::Optional<FileSpec> GetExternalDebugInfoFileSpec();
 
 private:
   ObjectFileWasm(const lldb::ModuleSP &module_sp, lldb::DataBufferSP data_sp,

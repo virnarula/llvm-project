@@ -18,12 +18,7 @@
 ///  msgpack::Reader MPReader(input);
 ///  msgpack::Object Obj;
 ///
-///  while (true) {
-///    Expected<bool> ReadObj = MPReader.read(&Obj);
-///    if (!ReadObj)
-///      // Handle error...
-///    if (!ReadObj.get())
-///      break; // Reached end of input
+///  while (MPReader.read(Obj)) {
 ///    switch (Obj.Kind) {
 ///    case msgpack::Type::Int:
 //       // Use Obj.Int

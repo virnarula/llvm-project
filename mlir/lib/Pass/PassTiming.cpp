@@ -12,7 +12,6 @@
 #include "llvm/Support/Threading.h"
 
 #include <chrono>
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::detail;
@@ -53,7 +52,7 @@ struct PassTiming : public PassInstrumentation {
   // Pipeline
   //===--------------------------------------------------------------------===//
 
-  void runBeforePipeline(std::optional<OperationName> name,
+  void runBeforePipeline(Optional<OperationName> name,
                          const PipelineParentInfo &parentInfo) override {
     auto tid = llvm::get_threadid();
     auto &activeTimers = activeThreadTimers[tid];
@@ -75,7 +74,7 @@ struct PassTiming : public PassInstrumentation {
     }));
   }
 
-  void runAfterPipeline(std::optional<OperationName>,
+  void runAfterPipeline(Optional<OperationName>,
                         const PipelineParentInfo &) override {
     auto &activeTimers = activeThreadTimers[llvm::get_threadid()];
     assert(!activeTimers.empty() && "expected active timer");

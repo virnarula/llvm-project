@@ -852,7 +852,6 @@ public:
   constexpr NonstandardParser(const NonstandardParser &) = default;
   constexpr NonstandardParser(PA parser, MessageFixedText msg)
       : parser_{parser}, message_{msg} {}
-  constexpr NonstandardParser(PA parser) : parser_{parser} {}
   std::optional<resultType> Parse(ParseState &state) const {
     if (UserState * ustate{state.userState()}) {
       if (!ustate->features().IsEnabled(LF)) {
@@ -861,7 +860,7 @@ public:
     }
     auto at{state.GetLocation()};
     auto result{parser_.Parse(state)};
-    if (result && !message_.empty()) {
+    if (result) {
       state.Nonstandard(
           CharBlock{at, std::max(state.GetLocation(), at + 1)}, LF, message_);
     }
@@ -876,11 +875,6 @@ private:
 template <LanguageFeature LF, typename PA>
 inline constexpr auto extension(MessageFixedText feature, PA parser) {
   return NonstandardParser<LF, PA>(parser, feature);
-}
-
-template <LanguageFeature LF, typename PA>
-inline constexpr auto extension(PA parser) {
-  return NonstandardParser<LF, PA>(parser);
 }
 
 // If a is a parser for some deprecated or deleted language feature LF,

@@ -9,7 +9,6 @@
 #ifndef LLDB_INTERPRETER_OPTIONGROUPWATCHPOINT_H
 #define LLDB_INTERPRETER_OPTIONGROUPWATCHPOINT_H
 
-#include "lldb/Interpreter/OptionValueUInt64.h"
 #include "lldb/Interpreter/Options.h"
 
 namespace lldb_private {
@@ -22,6 +21,8 @@ public:
 
   ~OptionGroupWatchpoint() override = default;
 
+  static bool IsWatchSizeSupported(uint32_t watch_size);
+
   llvm::ArrayRef<OptionDefinition> GetDefinitions() override;
 
   Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_value,
@@ -29,22 +30,19 @@ public:
 
   void OptionParsingStarting(ExecutionContext *execution_context) override;
 
-  /// eWatchRead == LLDB_WATCH_TYPE_READ
-  /// eWatchWrite == LLDB_WATCH_TYPE_WRITE
-  /// eWatchModify == LLDB_WATCH_TYPE_MODIFY
-  /// eWatchReadWrite == LLDB_WATCH_TYPE_READ | LLDB_WATCH_TYPE_WRITE
+  // Note:
+  // eWatchRead == LLDB_WATCH_TYPE_READ; and
+  // eWatchWrite == LLDB_WATCH_TYPE_WRITE
   enum WatchType {
     eWatchInvalid = 0,
     eWatchRead,
     eWatchWrite,
-    eWatchModify,
     eWatchReadWrite
   };
 
   WatchType watch_type;
-  OptionValueUInt64 watch_size;
+  uint32_t watch_size;
   bool watch_type_specified;
-  lldb::LanguageType language_type;
 
 private:
   OptionGroupWatchpoint(const OptionGroupWatchpoint &) = delete;

@@ -11,10 +11,10 @@
 #include "../ClangTidyModuleRegistry.h"
 #include "CalleeNamespaceCheck.h"
 #include "ImplementationInNamespaceCheck.h"
-#include "InlineFunctionDeclCheck.h"
 #include "RestrictSystemLibcHeadersCheck.h"
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace llvm_libc {
 
 class LLVMLibcModule : public ClangTidyModule {
@@ -24,8 +24,6 @@ public:
         "llvmlibc-callee-namespace");
     CheckFactories.registerCheck<ImplementationInNamespaceCheck>(
         "llvmlibc-implementation-in-namespace");
-    CheckFactories.registerCheck<InlineFunctionDeclCheck>(
-        "llvmlibc-inline-function-decl");
     CheckFactories.registerCheck<RestrictSystemLibcHeadersCheck>(
         "llvmlibc-restrict-system-libc-headers");
   }
@@ -41,4 +39,5 @@ static ClangTidyModuleRegistry::Add<LLVMLibcModule>
 // and thus register the LLVMLibcModule.
 volatile int LLVMLibcModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

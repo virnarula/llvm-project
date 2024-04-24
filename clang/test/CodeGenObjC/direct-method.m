@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -fobjc-arc -triple x86_64-apple-darwin10 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -fobjc-arc -triple x86_64-apple-darwin10 %s -o - | FileCheck %s
 
 struct my_complex_struct {
   int a, b;
@@ -28,17 +28,18 @@ __attribute__((objc_root_class))
   // loading parameters
   // CHECK-LABEL: entry:
   // CHECK-NEXT: [[RETVAL:%.*]] = alloca
-  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca ptr,
-  // CHECK-NEXT: store ptr %{{.*}}, ptr [[SELFADDR]],
+  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca %0*,
+  // CHECK-NEXT: store %0* %{{.*}}, %0** [[SELFADDR]],
 
   // self nil-check
-  // CHECK-NEXT: [[SELF:%.*]] = load ptr, ptr [[SELFADDR]],
-  // CHECK-NEXT: [[NILCHECK:%.*]] = icmp eq ptr [[SELF]], null
+  // CHECK-NEXT: [[SELF:%.*]] = load %0*, %0** [[SELFADDR]],
+  // CHECK-NEXT: [[NILCHECK:%.*]] = icmp eq %0* [[SELF]], null
   // CHECK-NEXT: br i1 [[NILCHECK]],
 
   // setting return value to nil
   // CHECK-LABEL: objc_direct_method.self_is_nil:
-  // CHECK-NEXT: call void @llvm.memset{{[^(]*}}({{[^,]*}}[[RETVAL]], i8 0,
+  // CHECK: [[RET0:%.*]] = bitcast{{.*}}[[RETVAL]]
+  // CHECK-NEXT: call void @llvm.memset{{[^(]*}}({{[^,]*}}[[RET0]], i8 0,
   // CHECK-NEXT: br label
 
   // set value
@@ -57,14 +58,14 @@ __attribute__((objc_root_class))
 + (int)classGetInt __attribute__((objc_direct)) {
   // loading parameters
   // CHECK-LABEL: entry:
-  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca ptr,
-  // CHECK-NEXT: store ptr %{{.*}}, ptr [[SELFADDR]],
+  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca i8*,
+  // CHECK-NEXT: store i8* %{{.*}}, i8** [[SELFADDR]],
 
   // [self self]
-  // CHECK-NEXT: [[SELF:%.*]] = load ptr, ptr [[SELFADDR]],
-  // CHECK-NEXT: [[SELFSEL:%.*]] = load ptr, ptr @OBJC_SELECTOR_REFERENCES_
+  // CHECK-NEXT: [[SELF:%.*]] = load i8*, i8** [[SELFADDR]],
+  // CHECK-NEXT: [[SELFSEL:%.*]] = load i8*, i8** @OBJC_SELECTOR_REFERENCES_
   // CHECK-NEXT: [[SELF0:%.*]] = call {{.*}} @objc_msgSend
-  // CHECK-NEXT: store ptr [[SELF0]], ptr [[SELFADDR]],
+  // CHECK-NEXT: store i8* [[SELF0]], i8** [[SELFADDR]],
 
   // return
   // CHECK-NEXT: ret
@@ -76,27 +77,30 @@ __attribute__((objc_root_class))
   // loading parameters
   // CHECK-LABEL: entry:
   // CHECK-NEXT: [[RETVAL:%.*]] = alloca
-  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca ptr,
-  // CHECK-NEXT: store ptr %{{.*}}, ptr [[SELFADDR]],
+  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca %0*,
+  // CHECK-NEXT: store %0* %{{.*}}, %0** [[SELFADDR]],
 
   // self nil-check
-  // CHECK-NEXT: [[SELF:%.*]] = load ptr, ptr [[SELFADDR]],
-  // CHECK-NEXT: [[NILCHECK:%.*]] = icmp eq ptr [[SELF]], null
+  // CHECK-NEXT: [[SELF:%.*]] = load %0*, %0** [[SELFADDR]],
+  // CHECK-NEXT: [[NILCHECK:%.*]] = icmp eq %0* [[SELF]], null
   // CHECK-NEXT: br i1 [[NILCHECK]],
 
   // setting return value to nil
   // CHECK-LABEL: objc_direct_method.self_is_nil:
-  // CHECK-NEXT: call void @llvm.memset{{[^(]*}}({{[^,]*}}[[RETVAL]], i8 0,
+  // CHECK: [[RET0:%.*]] = bitcast{{.*}}[[RETVAL]]
+  // CHECK-NEXT: call void @llvm.memset{{[^(]*}}({{[^,]*}}[[RET0]], i8 0,
   // CHECK-NEXT: br label
 
   // set value
   // CHECK-LABEL: objc_direct_method.cont:
-  // CHECK-NEXT: call void @llvm.memcpy{{[^(]*}}({{[^,]*}}[[RETVAL]],
+  // CHECK: [[RET1:%.*]] = bitcast{{.*}}[[RETVAL]]
+  // CHECK-NEXT: call void @llvm.memcpy{{[^(]*}}({{[^,]*}}[[RET1]],
   // CHECK-NEXT: br label
 
   // return
   // CHECK-LABEL: return:
-  // CHECK-NEXT: {{%.*}} = load{{.*}}[[RETVAL]],
+  // CHECK: [[RET2:%.*]] = bitcast{{.*}}[[RETVAL]]
+  // CHECK-NEXT: {{%.*}} = load{{.*}}[[RET2]],
   // CHECK-NEXT: ret
   struct my_complex_struct st = {.a = 42};
   return st;
@@ -111,25 +115,27 @@ __attribute__((objc_root_class))
 
 // CHECK-LABEL: define hidden void @"\01-[Root getAggregate]"(
 - (struct my_aggregate_struct)getAggregate __attribute__((objc_direct)) {
-  // CHECK: ptr dead_on_unwind noalias writable sret(%struct.my_aggregate_struct) align 4 [[RETVAL:%[^,]*]],
+  // CHECK: %struct.my_aggregate_struct* noalias sret(%struct.my_aggregate_struct) align 4 [[RETVAL:%[^,]*]],
 
   // loading parameters
   // CHECK-LABEL: entry:
-  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca ptr,
-  // CHECK-NEXT: store ptr %{{.*}}, ptr [[SELFADDR]],
+  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca %0*,
+  // CHECK-NEXT: store %0* %{{.*}}, %0** [[SELFADDR]],
 
   // self nil-check
-  // CHECK-NEXT: [[SELF:%.*]] = load ptr, ptr [[SELFADDR]],
-  // CHECK-NEXT: [[NILCHECK:%.*]] = icmp eq ptr [[SELF]], null
+  // CHECK-NEXT: [[SELF:%.*]] = load %0*, %0** [[SELFADDR]],
+  // CHECK-NEXT: [[NILCHECK:%.*]] = icmp eq %0* [[SELF]], null
   // CHECK-NEXT: br i1 [[NILCHECK]],
 
   // setting return value to nil
   // CHECK-LABEL: objc_direct_method.self_is_nil:
-  // CHECK-NEXT: call void @llvm.memset{{[^(]*}}({{[^,]*}}[[RETVAL]], i8 0,
+  // CHECK: [[RET0:%.*]] = bitcast{{.*}}[[RETVAL]]
+  // CHECK-NEXT: call void @llvm.memset{{[^(]*}}({{[^,]*}}[[RET0]], i8 0,
   // CHECK-NEXT: br label
 
   // set value
   // CHECK-LABEL: objc_direct_method.cont:
+  // CHECK: [[RET1:%.*]] = bitcast{{.*}}[[RETVAL]]
   // CHECK: br label
 
   // return
@@ -149,13 +155,13 @@ __attribute__((objc_root_class))
 // CHECK-LABEL: define hidden void @"\01-[Root accessCmd]"(
 - (void)accessCmd __attribute__((objc_direct)) {
   // CHECK-LABEL: entry:
-  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca ptr,
-  // CHECK-NEXT: [[CMDVAL:%_cmd]] = alloca ptr,
+  // CHECK-NEXT: [[SELFADDR:%.*]] = alloca %0*,
+  // CHECK-NEXT: [[CMDVAL:%_cmd]] = alloca i8*,
 
   // loading the _cmd selector
   // CHECK-LABEL: objc_direct_method.cont:
-  // CHECK-NEXT: [[CMD1:%.*]] = load ptr, ptr @OBJC_SELECTOR_REFERENCES_
-  // CHECK-NEXT: store ptr [[CMD1]], ptr [[CMDVAL]],
+  // CHECK-NEXT: [[CMD1:%.*]] = load i8*, i8** @OBJC_SELECTOR_REFERENCES_
+  // CHECK-NEXT: store i8* [[CMD1]], i8** [[CMDVAL]],
   SEL sel = _cmd;
 }
 
@@ -164,11 +170,12 @@ __attribute__((objc_root_class))
 
 // Check the synthesized objectProperty calls objc_getProperty(); this also
 // checks that the synthesized method passes undef for the `cmd` argument.
-// CHECK-LABEL: define hidden ptr @"\01-[Root objectProperty]"(
+// CHECK-LABEL: define hidden i8* @"\01-[Root objectProperty]"(
 // CHECK-LABEL: objc_direct_method.cont:
 // CHECK-NEXT: [[SELFVAL:%.*]] = load {{.*}} %self.addr,
+// CHECK-NEXT: [[SELF:%.*]] = bitcast {{.*}} [[SELFVAL]] to i8*
 // CHECK-NEXT: [[IVAR:%.*]] = load {{.*}} @"OBJC_IVAR_$_Root._objectProperty",
-// CHECK-NEXT: call ptr @objc_getProperty(ptr noundef [[SELFVAL]], ptr noundef poison, i64 noundef [[IVAR]], {{.*}})
+// CHECK-NEXT: call i8* @objc_getProperty(i8* noundef [[SELF]], i8* noundef poison, i64 noundef [[IVAR]], {{.*}})
 
 @interface Foo : Root {
   id __strong _cause_cxx_destruct;
@@ -213,19 +220,19 @@ __attribute__((objc_direct_members))
 
 int useRoot(Root *r) {
   // CHECK-LABEL: define{{.*}} i32 @useRoot
-  // CHECK: %{{[^ ]*}} = call i32  @"\01-[Root getInt]"
-  // CHECK: %{{[^ ]*}} = call i32  @"\01-[Root intProperty]"
-  // CHECK: %{{[^ ]*}} = call i32  @"\01-[Root intProperty2]"
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Root getInt]" to i32 (i8*)
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Root intProperty]" to i32 (i8*)
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Root intProperty2]" to i32 (i8*)
   return [r getInt] + [r intProperty] + [r intProperty2];
 }
 
 int useFoo(Foo *f) {
   // CHECK-LABEL: define{{.*}} i32 @useFoo
-  // CHECK: call void @"\01-[Foo setGetDynamic_setDirect:]"
-  // CHECK: %{{[^ ]*}} = call i32 @"\01-[Foo getDirect_setDynamic]"
-  // CHECK: %{{[^ ]*}} = call i32 @"\01-[Foo directMethodInExtension]"
-  // CHECK: %{{[^ ]*}} = call i32 @"\01-[Foo directMethodInCategory]"
-  // CHECK: %{{[^ ]*}} = call i32 @"\01-[Foo directMethodInCategoryNoDecl]"
+  // CHECK: call void bitcast {{.*}} @"\01-[Foo setGetDynamic_setDirect:]" to void (i8*, i32)
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Foo getDirect_setDynamic]" to i32 (i8*)
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Foo directMethodInExtension]" to i32 (i8*)
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Foo directMethodInCategory]" to i32 (i8*)
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[Foo directMethodInCategoryNoDecl]" to i32 (i8*)
   [f setGetDynamic_setDirect:1];
   return [f getDirect_setDynamic] +
          [f directMethodInExtension] +
@@ -240,6 +247,6 @@ __attribute__((objc_root_class))
 
 int useRootDeclOnly(RootDeclOnly *r) {
   // CHECK-LABEL: define{{.*}} i32 @useRootDeclOnly
-  // CHECK: %{{[^ ]*}} = call i32 @"\01-[RootDeclOnly intProperty]"
+  // CHECK: %{{[^ ]*}} = call i32 bitcast {{.*}} @"\01-[RootDeclOnly intProperty]"
   return [r intProperty];
 }

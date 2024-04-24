@@ -1,26 +1,27 @@
 ; Test that incorrect memprof and callsite metadata fail verification.
 ; RUN: not llvm-as -disable-output < %s 2>&1 | FileCheck %s
 
-define ptr @test1() {
+define i32* @test1() {
 entry:
-  %call1 = call noalias dereferenceable_or_null(40) ptr @malloc(i64 noundef 40), !memprof !0
-  %call2 = call noalias dereferenceable_or_null(40) ptr @malloc(i64 noundef 40), !memprof !1
-  %call3 = call noalias dereferenceable_or_null(40) ptr @malloc(i64 noundef 40), !memprof !3
-  %call4 = call noalias dereferenceable_or_null(40) ptr @malloc(i64 noundef 40), !memprof !5
-  %call5 = call noalias dereferenceable_or_null(40) ptr @malloc(i64 noundef 40), !memprof !7, !callsite !9
-  ret ptr %call5
+  %call1 = call noalias dereferenceable_or_null(40) i8* @malloc(i64 noundef 40), !memprof !0
+  %call2 = call noalias dereferenceable_or_null(40) i8* @malloc(i64 noundef 40), !memprof !1
+  %call3 = call noalias dereferenceable_or_null(40) i8* @malloc(i64 noundef 40), !memprof !3
+  %call4 = call noalias dereferenceable_or_null(40) i8* @malloc(i64 noundef 40), !memprof !5
+  %call5 = call noalias dereferenceable_or_null(40) i8* @malloc(i64 noundef 40), !memprof !7, !callsite !9
+  %0 = bitcast i8* %call5 to i32*
+  ret i32* %0
 }
 
-define ptr @test2() {
+define i32* @test2() {
 entry:
-  %call = call noundef ptr @test1(), !callsite !10
-  ret ptr %call
+  %call = call noundef i32* @test1(), !callsite !10
+  ret i32* %call
 }
 
-define ptr @test3() {
+define i32* @test3() {
 entry:
-  %call = call noundef ptr @test2(), !callsite !11
-  ret ptr %call
+  %call = call noundef i32* @test2(), !callsite !11
+  ret i32* %call
 }
 
 define void @wronginsttype() {
@@ -28,7 +29,7 @@ define void @wronginsttype() {
   ret void
 }
 
-declare dso_local noalias noundef ptr @malloc(i64 noundef)
+declare dso_local noalias noundef i8* @malloc(i64 noundef)
 
 ; CHECK: !memprof annotations should have at least 1 metadata operand (MemInfoBlock)
 !0 = !{}

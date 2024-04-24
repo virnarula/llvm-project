@@ -1,26 +1,26 @@
 ; RUN: llc < %s -mtriple=ve | FileCheck %s
 
 ; Function Attrs: noinline nounwind optnone
-define ptr @stacksave() {
+define i8* @stacksave() {
 ; CHECK-LABEL: stacksave:
 ; CHECK:       .LBB{{[0-9]+}}_2:
 ; CHECK-NEXT:    or %s0, 0, %s11
 ; CHECK-NEXT:    or %s11, 0, %s9
-  %ret = call ptr @llvm.stacksave()
-  ret ptr %ret
+  %ret = call i8* @llvm.stacksave()
+  ret i8* %ret
 }
 
 ; Function Attrs: noinline nounwind optnone
-define void @stackrestore(ptr %ptr) {
+define void @stackrestore(i8* %ptr) {
 ; CHECK-LABEL: stackrestore:
 ; CHECK:       .LBB{{[0-9]+}}_2:
 ; CHECK-NEXT:    or %s11, 0, %s0
 ; CHECK-NEXT:    or %s11, 0, %s9
-  call void @llvm.stackrestore(ptr %ptr)
+  call void @llvm.stackrestore(i8* %ptr)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare ptr @llvm.stacksave()
+declare i8* @llvm.stacksave()
 ; Function Attrs: nounwind
-declare void @llvm.stackrestore(ptr)
+declare void @llvm.stackrestore(i8*)

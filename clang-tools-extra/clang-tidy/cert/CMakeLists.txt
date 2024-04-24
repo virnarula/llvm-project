@@ -32,7 +32,6 @@ add_clang_library(clangTidyCERTModule
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyCERTModule

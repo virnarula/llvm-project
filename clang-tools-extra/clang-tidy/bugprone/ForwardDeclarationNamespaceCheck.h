@@ -14,7 +14,9 @@
 #include <set>
 #include <vector>
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Checks if an unused forward declaration is in a wrong namespace.
 ///
@@ -49,6 +51,8 @@ private:
   llvm::SmallPtrSet<const Type *, 16> FriendTypes;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_FORWARDDECLARATIONNAMESPACECHECK_H

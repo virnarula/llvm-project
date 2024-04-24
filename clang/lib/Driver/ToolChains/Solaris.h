@@ -17,11 +17,12 @@ namespace clang {
 namespace driver {
 namespace tools {
 
-/// Directly call Solaris assembler and linker
+/// solaris -- Directly call Solaris assembler and linker
 namespace solaris {
-class LLVM_LIBRARY_VISIBILITY Assembler final : public gnutools::Assembler {
+class LLVM_LIBRARY_VISIBILITY Assembler : public Tool {
 public:
-  Assembler(const ToolChain &TC) : gnutools::Assembler(TC) {}
+  Assembler(const ToolChain &TC)
+      : Tool("solaris::Assembler", "assembler", TC) {}
 
   bool hasIntegratedCPP() const override { return false; }
 
@@ -31,15 +32,12 @@ public:
                     const char *LinkingOutput) const override;
 };
 
-bool isLinkerGnuLd(const ToolChain &TC, const llvm::opt::ArgList &Args);
-
-class LLVM_LIBRARY_VISIBILITY Linker final : public Tool {
+class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
 public:
   Linker(const ToolChain &TC) : Tool("solaris::Linker", "linker", TC) {}
 
   bool hasIntegratedCPP() const override { return false; }
   bool isLinkJob() const override { return true; }
-  std::string getLinkerPath(const llvm::opt::ArgList &Args) const;
 
   void ConstructJob(Compilation &C, const JobAction &JA,
                     const InputInfo &Output, const InputInfoList &Inputs,
@@ -65,8 +63,12 @@ public:
                            llvm::opt::ArgStringList &CC1Args) const override;
 
   SanitizerMask getSupportedSanitizers() const override;
+  unsigned GetDefaultDwarfVersion() const override { return 2; }
 
-  const char *getDefaultLinker() const override;
+  const char *getDefaultLinker() const override {
+    // clang currently uses Solaris ld-only options.
+    return "/usr/bin/ld";
+  }
 
 protected:
   Tool *buildAssembler() const override;

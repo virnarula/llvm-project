@@ -60,7 +60,6 @@ set(PROFILE_SOURCES
   InstrProfilingNameVar.c
   InstrProfilingVersionVar.c
   InstrProfilingWriter.c
-  InstrProfilingPlatformAIX.c
   InstrProfilingPlatformDarwin.c
   InstrProfilingPlatformFuchsia.c
   InstrProfilingPlatformLinux.c

@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::fuchsia {
+namespace clang {
+namespace tidy {
+namespace fuchsia {
 
 namespace {
 AST_MATCHER(CXXRecordDecl, hasDirectVirtualBaseClass) {
@@ -35,4 +37,6 @@ void VirtualInheritanceCheck::check(const MatchFinder::MatchResult &Result) {
     diag(D->getBeginLoc(), "direct virtual inheritance is disallowed");
 }
 
-} // namespace clang::tidy::fuchsia
+}  // namespace fuchsia
+}  // namespace tidy
+}  // namespace clang

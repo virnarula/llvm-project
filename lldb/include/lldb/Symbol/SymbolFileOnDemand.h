@@ -10,7 +10,6 @@
 #define LLDB_SYMBOL_SYMBOLFILEONDEMAND_H
 
 #include <mutex>
-#include <optional>
 #include <vector>
 
 #include "lldb/Symbol/ObjectFile.h"
@@ -81,7 +80,7 @@ public:
       llvm::function_ref<bool(lldb_private::Module &)>) override;
 
   bool ParseSupportFiles(lldb_private::CompileUnit &comp_unit,
-                         lldb_private::SupportFileList &support_files) override;
+                         lldb_private::FileSpecList &support_files) override;
 
   bool ParseIsOptimized(lldb_private::CompileUnit &comp_unit) override;
 
@@ -97,7 +96,7 @@ public:
   ParseVariablesForContext(const lldb_private::SymbolContext &sc) override;
 
   lldb_private::Type *ResolveTypeUID(lldb::user_id_t type_uid) override;
-  std::optional<ArrayInfo> GetDynamicArrayInfoForUID(
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
       lldb::user_id_t type_uid,
       const lldb_private::ExecutionContext *exe_ctx) override;
 
@@ -117,9 +116,6 @@ public:
   uint32_t ResolveSymbolContext(const lldb_private::Address &so_addr,
                                 lldb::SymbolContextItem resolve_scope,
                                 lldb_private::SymbolContext &sc) override;
-
-  lldb_private::Status
-  CalculateFrameVariableError(lldb_private::StackFrame &frame) override;
 
   uint32_t ResolveSymbolContext(
       const lldb_private::SourceLocationSpec &src_location_spec,
@@ -152,20 +148,28 @@ public:
       const std::string &scope_qualified_name,
       std::vector<lldb_private::ConstString> &mangled_names) override;
 
-  void FindTypes(const lldb_private::TypeQuery &query,
-                 lldb_private::TypeResults &results) override;
+  void
+  FindTypes(lldb_private::ConstString name,
+            const lldb_private::CompilerDeclContext &parent_decl_ctx,
+            uint32_t max_matches,
+            llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
+            lldb_private::TypeMap &types) override;
+
+  void FindTypes(llvm::ArrayRef<lldb_private::CompilerContext> pattern,
+                 lldb_private::LanguageSet languages,
+                 llvm::DenseSet<SymbolFile *> &searched_symbol_files,
+                 lldb_private::TypeMap &types) override;
 
   void GetTypes(lldb_private::SymbolContextScope *sc_scope,
                 lldb::TypeClass type_mask,
                 lldb_private::TypeList &type_list) override;
 
-  llvm::Expected<lldb::TypeSystemSP>
+  llvm::Expected<lldb_private::TypeSystem &>
   GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
-  lldb_private::CompilerDeclContext
-  FindNamespace(lldb_private::ConstString name,
-                const lldb_private::CompilerDeclContext &parent_decl_ctx,
-                bool only_root_namespaces) override;
+  lldb_private::CompilerDeclContext FindNamespace(
+      lldb_private::ConstString name,
+      const lldb_private::CompilerDeclContext &parent_decl_ctx) override;
 
   std::vector<std::unique_ptr<lldb_private::CallEdge>>
   ParseCallEdgesInFunction(UserID func_id) override;
@@ -217,29 +221,6 @@ public:
   }
   void SetDebugInfoHadFrameVariableErrors() override {
     return m_sym_file_impl->SetDebugInfoHadFrameVariableErrors();
-  }
-
-  bool GetSeparateDebugInfo(StructuredData::Dictionary &d,
-                            bool errors_only) override {
-    return m_sym_file_impl->GetSeparateDebugInfo(d, errors_only);
-  }
-
-  lldb::TypeSP MakeType(lldb::user_id_t uid, ConstString name,
-                        std::optional<uint64_t> byte_size,
-                        SymbolContextScope *context,
-                        lldb::user_id_t encoding_uid,
-                        Type::EncodingDataType encoding_uid_type,
-                        const Declaration &decl,
-                        const CompilerType &compiler_qual_type,
-                        Type::ResolveState compiler_type_resolve_state,
-                        uint32_t opaque_payload = 0) override {
-    return m_sym_file_impl->MakeType(
-        uid, name, byte_size, context, encoding_uid, encoding_uid_type, decl,
-        compiler_qual_type, compiler_type_resolve_state, opaque_payload);
-  }
-
-  lldb::TypeSP CopyType(const lldb::TypeSP &other_type) override {
-    return m_sym_file_impl->CopyType(other_type);
   }
 
 private:

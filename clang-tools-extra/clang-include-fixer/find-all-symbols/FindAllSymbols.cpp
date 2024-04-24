@@ -16,8 +16,8 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Tooling/Tooling.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/FileSystem.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
@@ -69,7 +69,7 @@ std::vector<SymbolInfo::Context> GetContexts(const NamedDecl *ND) {
   return Contexts;
 }
 
-std::optional<SymbolInfo>
+llvm::Optional<SymbolInfo>
 CreateSymbolInfo(const NamedDecl *ND, const SourceManager &SM,
                  const HeaderMapCollector *Collector) {
   SymbolInfo::SymbolKind Type;
@@ -85,7 +85,7 @@ CreateSymbolInfo(const NamedDecl *ND, const SourceManager &SM,
     Type = SymbolInfo::SymbolKind::EnumDecl;
     // Ignore anonymous enum declarations.
     if (ND->getName().empty())
-      return std::nullopt;
+      return llvm::None;
   } else {
     assert(llvm::isa<RecordDecl>(ND) &&
            "Matched decl must be one of VarDecl, "
@@ -93,7 +93,7 @@ CreateSymbolInfo(const NamedDecl *ND, const SourceManager &SM,
            "EnumDecl and RecordDecl!");
     // C-style record decl can have empty name, e.g "struct { ... } var;".
     if (ND->getName().empty())
-      return std::nullopt;
+      return llvm::None;
     Type = SymbolInfo::SymbolKind::Class;
   }
 
@@ -102,12 +102,11 @@ CreateSymbolInfo(const NamedDecl *ND, const SourceManager &SM,
     llvm::errs() << "Declaration " << ND->getDeclName() << "("
                  << ND->getDeclKindName()
                  << ") has invalid declaration location.";
-    return std::nullopt;
+    return llvm::None;
   }
 
   std::string FilePath = getIncludePath(SM, Loc, Collector);
-  if (FilePath.empty())
-    return std::nullopt;
+  if (FilePath.empty()) return llvm::None;
 
   return SymbolInfo(ND->getNameAsString(), Type, FilePath, GetContexts(ND));
 }
@@ -254,7 +253,7 @@ void FindAllSymbols::run(const MatchFinder::MatchResult &Result) {
   const SourceManager *SM = Result.SourceManager;
   if (auto Symbol = CreateSymbolInfo(ND, *SM, Collector)) {
     Filename =
-        std::string(SM->getFileEntryRefForID(SM->getMainFileID())->getName());
+        std::string(SM->getFileEntryForID(SM->getMainFileID())->getName());
     FileSymbols[*Symbol] += Signals;
   }
 }

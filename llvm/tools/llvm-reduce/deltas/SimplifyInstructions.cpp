@@ -19,10 +19,9 @@ using namespace llvm;
 
 /// Calls simplifyInstruction in each instruction in functions, and replaces
 /// their values.
-static void extractInstrFromModule(Oracle &O, ReducerWorkItem &WorkItem) {
+static void extractInstrFromModule(Oracle &O, Module &Program) {
   std::vector<Instruction *> InstsToDelete;
 
-  Module &Program = WorkItem.getModule();
   const DataLayout &DL = Program.getDataLayout();
 
   std::vector<Instruction *> InstToDelete;

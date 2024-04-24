@@ -23,7 +23,8 @@ using namespace taint;
 
 namespace {
 class TaintTesterChecker : public Checker<check::PostStmt<Expr>> {
-  const BugType BT{this, "Tainted data", "General"};
+  std::unique_ptr<BugType> BT =
+      std::make_unique<BugType>(this, "Tainted data", "General");
 
 public:
   void checkPostStmt(const Expr *E, CheckerContext &C) const;
@@ -38,7 +39,7 @@ void TaintTesterChecker::checkPostStmt(const Expr *E,
 
   if (isTainted(State, E, C.getLocationContext())) {
     if (ExplodedNode *N = C.generateNonFatalErrorNode()) {
-      auto report = std::make_unique<PathSensitiveBugReport>(BT, "tainted", N);
+      auto report = std::make_unique<PathSensitiveBugReport>(*BT, "tainted", N);
       report->addRange(E->getSourceRange());
       C.emitReport(std::move(report));
     }

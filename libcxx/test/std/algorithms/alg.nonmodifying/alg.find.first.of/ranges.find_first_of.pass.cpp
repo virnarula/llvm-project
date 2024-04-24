@@ -30,6 +30,7 @@
 #include <ranges>
 
 #include "almost_satisfies_types.h"
+#include "boolean_testable.h"
 #include "test_iterators.h"
 
 template <class Iter1, class Iter2 = int*, class Sent1 = Iter1, class Sent2 = Iter2>
@@ -70,7 +71,7 @@ template <int N1, int N2>
 struct Data {
   std::array<int, N1> input1;
   std::array<int, N2> input2;
-  std::ptrdiff_t expected;
+  ptrdiff_t expected;
 };
 
 template <class Iter1, class Sent1, class Iter2, class Sent2, int N1, int N2>
@@ -189,6 +190,19 @@ constexpr bool test() {
       S1 a[] = {1, 2, 3, 4};
       S2 b[] = {2, 3};
       auto ret = std::ranges::find_first_of(a, b, &S1::compare, &S1::identity, &S2::i);
+      assert(ret == a + 1);
+    }
+  }
+
+  { // check that the implicit conversion to bool works
+    StrictComparable<int> a[] = {1, 2, 3, 4};
+    StrictComparable<int> b[] = {2, 3};
+    {
+      auto ret = std::ranges::find_first_of(a, std::end(a), b, std::end(b));
+      assert(ret == a + 1);
+    }
+    {
+      auto ret = std::ranges::find_first_of(a, b);
       assert(ret == a + 1);
     }
   }

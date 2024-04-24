@@ -14,7 +14,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 void MisplacedArrayIndexCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -50,4 +52,6 @@ void MisplacedArrayIndexCheck::check(const MatchFinder::MatchResult &Result) {
       ArraySubscriptE->getRHS()->getSourceRange(), LText);
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

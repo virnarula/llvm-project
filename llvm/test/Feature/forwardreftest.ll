@@ -4,11 +4,11 @@
 
 %myty = type i32 
 %myfn = type float (i32,double,i32,i16)
-%0 = type i32(ptr)
+%0 = type i32(%myfn*)
 %1 = type i32(i32)
-%2 = type i32(ptr)
+%2 = type i32(i32(i32)*)
 
-  %thisfuncty = type ptr
+  %thisfuncty = type i32 (i32) *
 
 declare void @F(%thisfuncty, %thisfuncty, %thisfuncty)
 

@@ -62,18 +62,9 @@ namespace clang {
 /// often used as if it meant "present".
 ///
 /// The actual scope is described by getScopeRep().
-///
-/// If the kind of getScopeRep() is TypeSpec then TemplateParamLists may be empty
-/// or contain the template parameter lists attached to the current declaration.
-/// Consider the following example:
-/// template <class T> void SomeType<T>::some_method() {}
-/// If CXXScopeSpec refers to SomeType<T> then TemplateParamLists will contain
-/// a single element referring to template <class T>.
-
 class CXXScopeSpec {
   SourceRange Range;
   NestedNameSpecifierLocBuilder Builder;
-  ArrayRef<TemplateParameterList *> TemplateParamLists;
 
 public:
   SourceRange getRange() const { return Range; }
@@ -82,13 +73,6 @@ public:
   void setEndLoc(SourceLocation Loc) { Range.setEnd(Loc); }
   SourceLocation getBeginLoc() const { return Range.getBegin(); }
   SourceLocation getEndLoc() const { return Range.getEnd(); }
-
-  void setTemplateParamLists(ArrayRef<TemplateParameterList *> L) {
-    TemplateParamLists = L;
-  }
-  ArrayRef<TemplateParameterList *> getTemplateParamLists() const {
-    return TemplateParamLists;
-  }
 
   /// Retrieve the representation of the nested-name-specifier.
   NestedNameSpecifier *getScopeRep() const {
@@ -1529,7 +1513,7 @@ struct DeclaratorChunk {
     /// prototype. Typically these are tag declarations.
     ArrayRef<NamedDecl *> getDeclsInPrototype() const {
       assert(ExceptionSpecType == EST_None);
-      return llvm::ArrayRef(DeclsInPrototype, NumExceptionsOrDecls);
+      return llvm::makeArrayRef(DeclsInPrototype, NumExceptionsOrDecls);
     }
 
     /// Determine whether this function declarator had a
@@ -1776,7 +1760,7 @@ public:
   }
 
   ArrayRef<Binding> bindings() const {
-    return llvm::ArrayRef(Bindings, NumBindings);
+    return llvm::makeArrayRef(Bindings, NumBindings);
   }
 
   bool isSet() const { return LSquareLoc.isValid(); }
@@ -1972,10 +1956,9 @@ public:
         InventedTemplateParameterList(nullptr) {
     assert(llvm::all_of(DeclarationAttrs,
                         [](const ParsedAttr &AL) {
-                          return (AL.isStandardAttributeSyntax() ||
-                                  AL.isRegularKeywordAttribute());
+                          return AL.isStandardAttributeSyntax();
                         }) &&
-           "DeclarationAttrs may only contain [[]] and keyword attributes");
+           "DeclarationAttrs may only contain [[]] attributes");
   }
 
   ~Declarator() {
@@ -2620,6 +2603,14 @@ public:
     return false;
   }
 
+  /// Return a source range list of C++11 attributes associated
+  /// with the declarator.
+  void getCXX11AttributeRanges(SmallVectorImpl<SourceRange> &Ranges) {
+    for (const ParsedAttr &AL : Attrs)
+      if (AL.isCXX11Attribute())
+        Ranges.push_back(AL.getRange());
+  }
+
   void setAsmLabel(Expr *E) { AsmLabel = E; }
   Expr *getAsmLabel() const { return AsmLabel; }
 
@@ -2674,8 +2665,6 @@ public:
   /// redeclaration time if the decl is static.
   bool isStaticMember();
 
-  bool isExplicitObjectMemberFunction();
-
   /// Returns true if this declares a constructor or a destructor.
   bool isCtorOrDtor();
 
@@ -2707,7 +2696,7 @@ public:
     VS_Abstract = 16
   };
 
-  VirtSpecifiers() = default;
+  VirtSpecifiers() : Specifiers(0), LastSpecifier(VS_None) { }
 
   bool SetSpecifier(Specifier VS, SourceLocation Loc,
                     const char *&PrevSpec);
@@ -2731,8 +2720,8 @@ public:
   Specifier getLastSpecifier() const { return LastSpecifier; }
 
 private:
-  unsigned Specifiers = 0;
-  Specifier LastSpecifier = VS_None;
+  unsigned Specifiers;
+  Specifier LastSpecifier;
 
   SourceLocation VS_overrideLoc, VS_finalLoc, VS_abstractLoc;
   SourceLocation FirstLocation;
@@ -2771,10 +2760,11 @@ struct LambdaIntroducer {
 
   SourceRange Range;
   SourceLocation DefaultLoc;
-  LambdaCaptureDefault Default = LCD_None;
+  LambdaCaptureDefault Default;
   SmallVector<LambdaCapture, 4> Captures;
 
-  LambdaIntroducer() = default;
+  LambdaIntroducer()
+    : Default(LCD_None) {}
 
   bool hasLambdaCapture() const {
     return Captures.size() > 0 || Default != LCD_None;

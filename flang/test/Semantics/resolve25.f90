@@ -6,7 +6,7 @@ module m
     end
     !ERROR: 's2' is not a module procedure
     module procedure s2
-    !ERROR: 's3' is not a procedure
+    !ERROR: Procedure 's3' not found
     procedure s3
     !ERROR: Procedure 's1' is already specified in generic 'foo'
     procedure s1

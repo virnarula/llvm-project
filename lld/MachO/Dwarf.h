@@ -22,10 +22,10 @@ class DwarfObject final : public llvm::DWARFObject {
 public:
   bool isLittleEndian() const override { return true; }
 
-  std::optional<llvm::RelocAddrEntry> find(const llvm::DWARFSection &sec,
-                                           uint64_t pos) const override {
+  llvm::Optional<llvm::RelocAddrEntry> find(const llvm::DWARFSection &sec,
+                                            uint64_t pos) const override {
     // TODO: implement this
-    return std::nullopt;
+    return llvm::None;
   }
 
   void forEachInfoSections(

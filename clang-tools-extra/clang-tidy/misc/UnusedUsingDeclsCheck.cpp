@@ -8,13 +8,14 @@
 
 #include "UnusedUsingDeclsCheck.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 namespace {
 
@@ -37,24 +38,6 @@ static bool shouldCheckDecl(const Decl *TargetDecl) {
          isa<EnumConstantDecl>(TargetDecl);
 }
 
-UnusedUsingDeclsCheck::UnusedUsingDeclsCheck(StringRef Name,
-                                             ClangTidyContext *Context)
-    : ClangTidyCheck(Name, Context) {
-  std::optional<StringRef> HeaderFileExtensionsOption =
-      Options.get("HeaderFileExtensions");
-  RawStringHeaderFileExtensions =
-      HeaderFileExtensionsOption.value_or(utils::defaultHeaderFileExtensions());
-  if (HeaderFileExtensionsOption) {
-    if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
-                                    HeaderFileExtensions,
-                                    utils::defaultFileExtensionDelimiters())) {
-      this->configurationDiag("Invalid header file extension: '%0'")
-          << RawStringHeaderFileExtensions;
-    }
-  } else
-    HeaderFileExtensions = Context->getHeaderFileExtensions();
-}
-
 void UnusedUsingDeclsCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(usingDecl(isExpansionInMainFile()).bind("using"), this);
   auto DeclMatcher = hasDeclaration(namedDecl().bind("used"));
@@ -71,11 +54,6 @@ void UnusedUsingDeclsCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(loc(templateSpecializationType(forEachTemplateArgument(
                          templateArgument().bind("used")))),
                      this);
-  Finder->addMatcher(userDefinedLiteral().bind("used"), this);
-  Finder->addMatcher(
-      loc(elaboratedType(unless(hasQualifier(nestedNameSpecifier())),
-                         hasUnqualifiedDesugaredType(type().bind("usedType")))),
-      this);
   // Cases where we can identify the UsingShadowDecl directly, rather than
   // just its target.
   // FIXME: cover more cases in this way, as the AST supports it.
@@ -86,12 +64,6 @@ void UnusedUsingDeclsCheck::registerMatchers(MatchFinder *Finder) {
 
 void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
   if (Result.Context->getDiagnostics().hasUncompilableErrorOccurred())
-    return;
-  // We don't emit warnings on unused-using-decls from headers, so bail out if
-  // the main file is a header.
-  if (auto MainFile = Result.SourceManager->getFileEntryRefForID(
-          Result.SourceManager->getMainFileID());
-      utils::isFileExtension(MainFile->getName(), HeaderFileExtensions))
     return;
 
   if (const auto *Using = Result.Nodes.getNodeAs<UsingDecl>("using")) {
@@ -117,10 +89,8 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
             /*SkipTrailingWhitespaceAndNewLine=*/true));
     for (const auto *UsingShadow : Using->shadows()) {
       const auto *TargetDecl = UsingShadow->getTargetDecl()->getCanonicalDecl();
-      if (shouldCheckDecl(TargetDecl)) {
+      if (shouldCheckDecl(TargetDecl))
         Context.UsingTargetDecls.insert(TargetDecl);
-        UsingTargetDeclsCache.insert(TargetDecl);
-      }
     }
     if (!Context.UsingTargetDecls.empty())
       Contexts.push_back(Context);
@@ -133,14 +103,13 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
     // Also remove variants of Used.
     if (const auto *FD = dyn_cast<FunctionDecl>(Used)) {
       removeFromFoundDecls(FD->getPrimaryTemplate());
-      return;
-    }
-    if (const auto *Specialization =
-            dyn_cast<ClassTemplateSpecializationDecl>(Used)) {
+    } else if (const auto *Specialization =
+                   dyn_cast<ClassTemplateSpecializationDecl>(Used)) {
       removeFromFoundDecls(Specialization->getSpecializedTemplate());
-      return;
-    }
-    if (const auto *ECD = dyn_cast<EnumConstantDecl>(Used)) {
+    } else if (const auto *FD = dyn_cast<FunctionDecl>(Used)) {
+      if (const auto *FDT = FD->getPrimaryTemplate())
+        removeFromFoundDecls(FDT);
+    } else if (const auto *ECD = dyn_cast<EnumConstantDecl>(Used)) {
       if (const auto *ET = ECD->getType()->getAs<EnumType>())
         removeFromFoundDecls(ET->getDecl());
     }
@@ -149,12 +118,6 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
   // marked after a corresponding using decl has been found.
   if (const auto *Used = Result.Nodes.getNodeAs<NamedDecl>("used")) {
     RemoveNamedDecl(Used);
-    return;
-  }
-
-  if (const auto *T = Result.Nodes.getNodeAs<Type>("usedType")) {
-    if (const auto *ND = T->getAsTagDecl())
-      RemoveNamedDecl(ND);
     return;
   }
 
@@ -168,16 +131,10 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
     if (Used->getKind() == TemplateArgument::Template) {
       if (const auto *TD = Used->getAsTemplate().getAsTemplateDecl())
         removeFromFoundDecls(TD);
-      return;
-    }
-
-    if (Used->getKind() == TemplateArgument::Type) {
+    } else if (Used->getKind() == TemplateArgument::Type) {
       if (auto *RD = Used->getAsType()->getAsCXXRecordDecl())
         removeFromFoundDecls(RD);
-      return;
-    }
-
-    if (Used->getKind() == TemplateArgument::Declaration) {
+    } else if (Used->getKind() == TemplateArgument::Declaration) {
       RemoveNamedDecl(Used->getAsDecl());
     }
     return;
@@ -193,26 +150,19 @@ void UnusedUsingDeclsCheck::check(const MatchFinder::MatchResult &Result) {
       if (const auto *USD = dyn_cast<UsingShadowDecl>(ND))
         removeFromFoundDecls(USD->getTargetDecl()->getCanonicalDecl());
     }
-    return;
   }
-  // Check user-defined literals
-  if (const auto *UDL = Result.Nodes.getNodeAs<UserDefinedLiteral>("used"))
-    removeFromFoundDecls(UDL->getCalleeDecl());
 }
 
 void UnusedUsingDeclsCheck::removeFromFoundDecls(const Decl *D) {
   if (!D)
     return;
-  const Decl *CanonicalDecl = D->getCanonicalDecl();
-  if (!UsingTargetDeclsCache.contains(CanonicalDecl))
-    return;
   // FIXME: Currently, we don't handle the using-decls being used in different
   // scopes (such as different namespaces, different functions). Instead of
   // giving an incorrect message, we mark all of them as used.
+  //
+  // FIXME: Use a more efficient way to find a matching context.
   for (auto &Context : Contexts) {
-    if (Context.IsUsed)
-      continue;
-    if (Context.UsingTargetDecls.contains(CanonicalDecl))
+    if (Context.UsingTargetDecls.contains(D->getCanonicalDecl()))
       Context.IsUsed = true;
   }
 }
@@ -229,7 +179,8 @@ void UnusedUsingDeclsCheck::onEndOfTranslationUnit() {
     }
   }
   Contexts.clear();
-  UsingTargetDeclsCache.clear();
 }
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

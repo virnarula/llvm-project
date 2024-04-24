@@ -15,7 +15,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 void DurationUnnecessaryConversionCheck::registerMatchers(MatchFinder *Finder) {
   for (const auto &Scale : {"Hours", "Minutes", "Seconds", "Milliseconds",
@@ -111,4 +113,6 @@ void DurationUnnecessaryConversionCheck::check(
       << Hint;
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

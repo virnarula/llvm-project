@@ -18,7 +18,6 @@
 #include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/Utility/LLDBLog.h"
 #include <memory>
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -35,7 +34,7 @@ ScriptedThread::Create(ScriptedProcess &process,
     return llvm::createStringError(llvm::inconvertibleErrorCode(),
                                    "Invalid scripted process.");
 
-  process.CheckScriptedInterface();
+  process.CheckInterpreterAndScriptObject();
 
   auto scripted_thread_interface =
       process.GetInterface().CreateScriptedThreadInterface();
@@ -46,7 +45,7 @@ ScriptedThread::Create(ScriptedProcess &process,
 
   llvm::StringRef thread_class_name;
   if (!script_object) {
-    std::optional<std::string> class_name =
+    llvm::Optional<std::string> class_name =
         process.GetInterface().GetScriptedThreadPluginName();
     if (!class_name || class_name->empty())
       return llvm::createStringError(
@@ -56,18 +55,14 @@ ScriptedThread::Create(ScriptedProcess &process,
   }
 
   ExecutionContext exe_ctx(process);
-  auto obj_or_err = scripted_thread_interface->CreatePluginObject(
-      thread_class_name, exe_ctx, process.m_scripted_metadata.GetArgsSP(),
-      script_object);
+  StructuredData::GenericSP owned_script_object_sp =
+      scripted_thread_interface->CreatePluginObject(
+          thread_class_name, exe_ctx,
+          process.m_scripted_process_info.GetArgsSP(), script_object);
 
-  if (!obj_or_err) {
-    llvm::consumeError(obj_or_err.takeError());
+  if (!owned_script_object_sp)
     return llvm::createStringError(llvm::inconvertibleErrorCode(),
                                    "Failed to create script object.");
-  }
-
-  StructuredData::GenericSP owned_script_object_sp = *obj_or_err;
-
   if (!owned_script_object_sp->IsValid())
     return llvm::createStringError(llvm::inconvertibleErrorCode(),
                                    "Created script object is invalid.");
@@ -90,7 +85,7 @@ ScriptedThread::~ScriptedThread() { DestroyThread(); }
 
 const char *ScriptedThread::GetName() {
   CheckInterpreterAndScriptObject();
-  std::optional<std::string> thread_name = GetInterface()->GetName();
+  llvm::Optional<std::string> thread_name = GetInterface()->GetName();
   if (!thread_name)
     return nullptr;
   return ConstString(thread_name->c_str()).AsCString();
@@ -98,7 +93,7 @@ const char *ScriptedThread::GetName() {
 
 const char *ScriptedThread::GetQueueName() {
   CheckInterpreterAndScriptObject();
-  std::optional<std::string> queue_name = GetInterface()->GetQueue();
+  llvm::Optional<std::string> queue_name = GetInterface()->GetQueue();
   if (!queue_name)
     return nullptr;
   return ConstString(queue_name->c_str()).AsCString();
@@ -125,7 +120,7 @@ ScriptedThread::CreateRegisterContextForFrame(StackFrame *frame) {
   lldb::RegisterContextSP reg_ctx_sp;
   Status error;
 
-  std::optional<std::string> reg_data = GetInterface()->GetRegisterContext();
+  llvm::Optional<std::string> reg_data = GetInterface()->GetRegisterContext();
   if (!reg_data)
     return ScriptedInterface::ErrorWithMessage<lldb::RegisterContextSP>(
         LLVM_PRETTY_FUNCTION, "Failed to get scripted thread registers data.",
@@ -176,9 +171,10 @@ bool ScriptedThread::LoadArtificialStackFrames() {
   StackFrameListSP frames = GetStackFrameList();
 
   for (size_t idx = 0; idx < arr_size; idx++) {
-    std::optional<StructuredData::Dictionary *> maybe_dict =
-        arr_sp->GetItemAtIndexAsDictionary(idx);
-    if (!maybe_dict)
+
+    StructuredData::Dictionary *dict;
+
+    if (!arr_sp->GetItemAtIndexAsDictionary(idx, dict) || !dict)
       return ScriptedInterface::ErrorWithMessage<bool>(
           LLVM_PRETTY_FUNCTION,
           llvm::Twine(
@@ -186,7 +182,6 @@ bool ScriptedThread::LoadArtificialStackFrames() {
               llvm::Twine(idx) + llvm::Twine(") from stackframe array."))
               .str(),
           error, LLDBLog::Thread);
-    StructuredData::Dictionary *dict = *maybe_dict;
 
     lldb::addr_t pc;
     if (!dict->GetValueForKeyAsInteger("pc", pc))
@@ -256,18 +251,13 @@ bool ScriptedThread::CalculateStopInfo() {
         StopInfo::CreateStopReasonWithBreakpointSiteID(*this, break_id);
   } break;
   case lldb::eStopReasonSignal: {
-    uint32_t signal;
+    int signal;
     llvm::StringRef description;
-    if (!data_dict->GetValueForKeyAsInteger("signal", signal)) {
-        signal = LLDB_INVALID_SIGNAL_NUMBER;
-        return false;
-    }
+    data_dict->GetValueForKeyAsInteger("signal", signal,
+                                       LLDB_INVALID_SIGNAL_NUMBER);
     data_dict->GetValueForKeyAsString("desc", description);
     stop_info_sp =
         StopInfo::CreateStopReasonWithSignal(*this, signal, description.data());
-  } break;
-  case lldb::eStopReasonTrace: {
-    stop_info_sp = StopInfo::CreateStopReasonToTrace(*this);
   } break;
   case lldb::eStopReasonException: {
 #if defined(__APPLE__)
@@ -291,7 +281,7 @@ bool ScriptedThread::CalculateStopInfo() {
         auto fetch_data = [&raw_codes](StructuredData::Object *obj) {
           if (!obj)
             return false;
-          raw_codes.push_back(obj->GetUnsignedIntegerValue());
+          raw_codes.push_back(obj->GetIntegerValue());
           return true;
         };
 
@@ -344,27 +334,15 @@ std::shared_ptr<DynamicRegisterInfo> ScriptedThread::GetDynamicRegisterInfo() {
 
     Status error;
     if (!reg_info)
-      return ScriptedInterface::ErrorWithMessage<
-          std::shared_ptr<DynamicRegisterInfo>>(
-          LLVM_PRETTY_FUNCTION, "Failed to get scripted thread registers info.",
-          error, LLDBLog::Thread);
+      return GetInterface()
+          ->ErrorWithMessage<std::shared_ptr<DynamicRegisterInfo>>(
+              LLVM_PRETTY_FUNCTION,
+              "Failed to get scripted thread registers info.", error,
+              LLDBLog::Thread);
 
-    m_register_info_sp = DynamicRegisterInfo::Create(
+    m_register_info_sp = std::make_shared<DynamicRegisterInfo>(
         *reg_info, m_scripted_process.GetTarget().GetArchitecture());
   }
 
   return m_register_info_sp;
-}
-
-StructuredData::ObjectSP ScriptedThread::FetchThreadExtendedInfo() {
-  CheckInterpreterAndScriptObject();
-
-  Status error;
-  StructuredData::ArraySP extended_info_sp = GetInterface()->GetExtendedInfo();
-
-  if (!extended_info_sp || !extended_info_sp->GetSize())
-    return ScriptedInterface::ErrorWithMessage<StructuredData::ObjectSP>(
-        LLVM_PRETTY_FUNCTION, "No extended information found", error);
-
-  return extended_info_sp;
 }

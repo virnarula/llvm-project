@@ -10,10 +10,12 @@ define void @foo() #0 {
 entry:
   %x = alloca i32, align 4
   %y = alloca i32, align 32
-  call void @bar(ptr %x, ptr %y)
+  %0 = bitcast i32* %x to i8*
+  %1 = bitcast i32* %y to i8*
+  call void @bar(i8* %0, i8* %1)
   ret void
 }
 
-declare void @bar(ptr, ptr) #0
+declare void @bar(i8*, i8*) #0
 
 attributes #0 = { nounwind }

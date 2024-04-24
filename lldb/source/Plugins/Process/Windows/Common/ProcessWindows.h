@@ -95,11 +95,10 @@ public:
   void OnDebugString(const std::string &string) override;
   void OnDebuggerError(const Status &error, uint32_t type) override;
 
-  std::optional<uint32_t> GetWatchpointSlotCount() override;
-  Status EnableWatchpoint(lldb::WatchpointSP wp_sp,
-                          bool notify = true) override;
-  Status DisableWatchpoint(lldb::WatchpointSP wp_sp,
-                           bool notify = true) override;
+  Status GetWatchpointSupportInfo(uint32_t &num) override;
+  Status GetWatchpointSupportInfo(uint32_t &num, bool &after) override;
+  Status EnableWatchpoint(Watchpoint *wp, bool notify = true) override;
+  Status DisableWatchpoint(Watchpoint *wp, bool notify = true) override;
 
 protected:
   ProcessWindows(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp);

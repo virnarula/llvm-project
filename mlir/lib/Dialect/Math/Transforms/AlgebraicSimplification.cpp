@@ -64,7 +64,7 @@ PowFStrengthReduction::matchAndRewrite(math::PowFOp op,
 
   // Maybe broadcasts scalar value into vector type compatible with `op`.
   auto bcast = [&](Value value) -> Value {
-    if (auto vec = dyn_cast<VectorType>(op.getType()))
+    if (auto vec = op.getType().dyn_cast<VectorType>())
       return rewriter.create<vector::BroadcastOp>(op.getLoc(), vec, value);
     return value;
   };
@@ -106,15 +106,6 @@ PowFStrengthReduction::matchAndRewrite(math::PowFOp op,
   // Replace `pow(x, -0.5)` with `rsqrt(x)`.
   if (isExponentValue(-0.5)) {
     rewriter.replaceOpWithNewOp<math::RsqrtOp>(op, x);
-    return success();
-  }
-
-  // Replace `pow(x, 0.75)` with `sqrt(sqrt(x)) * sqrt(x)`.
-  if (isExponentValue(0.75)) {
-    Value powHalf = rewriter.create<math::SqrtOp>(op.getLoc(), x);
-    Value powQuarter = rewriter.create<math::SqrtOp>(op.getLoc(), powHalf);
-    rewriter.replaceOpWithNewOp<arith::MulFOp>(op,
-                                               ValueRange{powHalf, powQuarter});
     return success();
   }
 
@@ -167,7 +158,7 @@ PowIStrengthReduction<PowIOpTy, DivOpTy, MulOpTy>::matchAndRewrite(
 
   // Maybe broadcasts scalar value into vector type compatible with `op`.
   auto bcast = [&loc, &op, &rewriter](Value value) -> Value {
-    if (auto vec = dyn_cast<VectorType>(op.getType()))
+    if (auto vec = op.getType().template dyn_cast<VectorType>())
       return rewriter.create<vector::BroadcastOp>(loc, vec, value);
     return value;
   };

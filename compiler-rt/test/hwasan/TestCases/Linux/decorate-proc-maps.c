@@ -48,11 +48,8 @@ void *ThreadFn(void *arg) {
 int main(void) {
   pthread_t t;
   void * volatile res = malloc(100);
-  void * volatile res2 = malloc(1000000);
+  void * volatile res2 = malloc(100000);
   pthread_create(&t, 0, ThreadFn, 0);
   pthread_join(t, 0);
-  int ret_val = (int)(size_t)res;
-  free(res);
-  free(res2);
-  return ret_val;
+  return (int)(size_t)res;
 }

@@ -166,7 +166,6 @@ TEST(ASTNodeKind, Name) {
   VERIFY_NAME(QualType);
   VERIFY_NAME(TypeLoc);
   VERIFY_NAME(CXXCtorInitializer);
-  VERIFY_NAME(ConceptReference);
   VERIFY_NAME(NestedNameSpecifier);
   VERIFY_NAME(Decl);
   VERIFY_NAME(CXXRecordDecl);
@@ -209,8 +208,6 @@ TEST(DynTypedNode, AttrSourceRange) {
   EXPECT_TRUE(Verifier.match("void x(char *y __attribute__((nonnull)) );",
                              ast_matchers::attr()));
 }
-
-// FIXME: add tests for ConceptReference once we add an ASTMatcher.
 
 TEST(DynTypedNode, DeclDump) {
   DumpVerifier Verifier;

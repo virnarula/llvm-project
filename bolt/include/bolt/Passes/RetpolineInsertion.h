@@ -30,7 +30,14 @@ public:
   bool isJump() const { return !IsCall; }
   bool isTailCall() const { return IsTailCall; }
 
-  using MemOpInfo = MCPlusBuilder::X86MemOperand;
+  struct MemOpInfo {
+    unsigned BaseRegNum;
+    int64_t ScaleValue;
+    unsigned IndexRegNum;
+    int64_t DispValue;
+    unsigned SegRegNum;
+    const MCExpr *DispExpr{nullptr};
+  };
 
   union {
     // Register branch information

@@ -18,9 +18,10 @@
 #include "lldb/lldb-private-enumerations.h"
 #include "lldb/lldb-types.h"
 
+#include "llvm/ADT/Optional.h"
+
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 
 namespace lldb_private {
 
@@ -29,7 +30,7 @@ class ValueObjectChild : public ValueObject {
 public:
   ~ValueObjectChild() override;
 
-  std::optional<uint64_t> GetByteSize() override { return m_byte_size; }
+  llvm::Optional<uint64_t> GetByteSize() override { return m_byte_size; }
 
   lldb::offset_t GetByteOffset() override { return m_byte_offset; }
 
@@ -68,12 +69,11 @@ protected:
   uint8_t m_bitfield_bit_offset;
   bool m_is_base_class;
   bool m_is_deref_of_parent;
-  std::optional<LazyBool> m_can_update_with_invalid_exe_ctx;
+  llvm::Optional<LazyBool> m_can_update_with_invalid_exe_ctx;
 
   friend class ValueObject;
   friend class ValueObjectConstResult;
   friend class ValueObjectConstResultImpl;
-  friend class ValueObjectVTable;
 
   ValueObjectChild(ValueObject &parent, const CompilerType &compiler_type,
                    ConstString name, uint64_t byte_size,

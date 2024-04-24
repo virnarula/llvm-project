@@ -33,23 +33,23 @@ constexpr void test() {
   };
 
   std::array<int, 5> array{0, 1, 2, 3, 4};
-  FilterView view = make_filter_view(array.data(), array.data() + array.size(), AlwaysTrue{});
+  FilterView view = make_filter_view(array.begin(), array.end(), AlwaysTrue{});
 
   // Test the const& version
   {
-    FilterIterator const iter(view, Iterator(array.data()));
+    FilterIterator const iter(view, Iterator(array.begin()));
     Iterator const& result = iter.base();
     ASSERT_SAME_TYPE(Iterator const&, decltype(iter.base()));
     ASSERT_NOEXCEPT(iter.base());
-    assert(base(result) == array.data());
+    assert(base(result) == array.begin());
   }
 
   // Test the && version
   {
-    FilterIterator iter(view, Iterator(array.data()));
+    FilterIterator iter(view, Iterator(array.begin()));
     Iterator result = std::move(iter).base();
     ASSERT_SAME_TYPE(Iterator, decltype(std::move(iter).base()));
-    assert(base(result) == array.data());
+    assert(base(result) == array.begin());
   }
 }
 

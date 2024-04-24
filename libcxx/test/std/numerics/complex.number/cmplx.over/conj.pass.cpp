@@ -8,11 +8,11 @@
 
 // <complex>
 
-// template<class T>      complex<T>           conj(const complex<T>&); // constexpr in C++20
-//                        complex<long double> conj(long double);       // constexpr in C++20
-//                        complex<double>      conj(double);            // constexpr in C++20
-// template<Integral T>   complex<double>      conj(T);                 // constexpr in C++20
-//                        complex<float>       conj(float);             // constexpr in C++20
+// template<class T>      complex<T>           conj(const complex<T>&);
+//                        complex<long double> conj(long double);
+//                        complex<double>      conj(double);
+// template<Integral T>   complex<double>      conj(T);
+//                        complex<float>       conj(float);
 
 #include <complex>
 #include <type_traits>
@@ -22,7 +22,6 @@
 #include "../cases.h"
 
 template <class T>
-TEST_CONSTEXPR_CXX20
 void
 test(T x, typename std::enable_if<std::is_integral<T>::value>::type* = 0)
 {
@@ -31,7 +30,6 @@ test(T x, typename std::enable_if<std::is_integral<T>::value>::type* = 0)
 }
 
 template <class T>
-TEST_CONSTEXPR_CXX20
 void
 test(T x, typename std::enable_if<std::is_floating_point<T>::value>::type* = 0)
 {
@@ -40,7 +38,6 @@ test(T x, typename std::enable_if<std::is_floating_point<T>::value>::type* = 0)
 }
 
 template <class T>
-TEST_CONSTEXPR_CXX20
 void
 test(T x, typename std::enable_if<!std::is_integral<T>::value &&
                                   !std::is_floating_point<T>::value>::type* = 0)
@@ -50,14 +47,12 @@ test(T x, typename std::enable_if<!std::is_integral<T>::value &&
 }
 
 template <class T>
-TEST_CONSTEXPR_CXX20
-bool
+void
 test()
 {
     test<T>(0);
     test<T>(1);
     test<T>(10);
-    return true;
 }
 
 int main(int, char**)
@@ -69,14 +64,5 @@ int main(int, char**)
     test<unsigned>();
     test<long long>();
 
-#if TEST_STD_VER >= 20
-    static_assert(test<float>());
-    static_assert(test<double>());
-    static_assert(test<long double>());
-    static_assert(test<int>());
-    static_assert(test<unsigned>());
-    static_assert(test<long long>());
-#endif
-
-    return 0;
+  return 0;
 }

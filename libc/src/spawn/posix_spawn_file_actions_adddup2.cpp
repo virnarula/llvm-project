@@ -9,13 +9,13 @@
 #include "posix_spawn_file_actions_adddup2.h"
 
 #include "file_actions.h"
-#include "src/__support/CPP/new.h"
 #include "src/__support/common.h"
 
 #include <errno.h>
 #include <spawn.h>
+#include <stdlib.h> // For malloc
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, posix_spawn_file_actions_adddup2,
                    (posix_spawn_file_actions_t * actions, int fd, int newfd)) {
@@ -24,13 +24,17 @@ LLVM_LIBC_FUNCTION(int, posix_spawn_file_actions_adddup2,
   if (fd < 0 || newfd < 0)
     return EBADF;
 
-  AllocChecker ac;
-  auto *act = new (ac) SpawnFileDup2Action(fd, newfd);
-  if (!ac)
+  auto *act = reinterpret_cast<SpawnFileDup2Action *>(
+      malloc(sizeof(SpawnFileDup2Action)));
+  if (act == nullptr)
     return ENOMEM;
-  BaseSpawnFileAction::add_action(actions, act);
 
+  act->type = BaseSpawnFileAction::DUP2;
+  act->fd = fd;
+  act->newfd = newfd;
+  act->next = nullptr;
+  enque_spawn_action(actions, act);
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

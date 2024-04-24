@@ -35,6 +35,13 @@
 #include "llvm/Support/SHA256.h"
 #endif
 
+#ifdef LLVM_HAVE_LIBXAR
+#include <fcntl.h>
+extern "C" {
+#include <xar/xar.h>
+}
+#endif
+
 using namespace llvm;
 using namespace llvm::MachO;
 using namespace llvm::support;
@@ -88,7 +95,7 @@ uint64_t MachHeaderSection::getSize() const {
   // If we are emitting an encryptable binary, our load commands must have a
   // separate (non-encrypted) page to themselves.
   if (config->emitEncryptionInfo)
-    size = alignToPowerOf2(size, target->getPageSize());
+    size = alignTo(size, target->getPageSize());
   return size;
 }
 
@@ -98,7 +105,7 @@ static uint32_t cpuSubtype() {
   if (config->outputType == MH_EXECUTE && !config->staticLink &&
       target->cpuSubtype == CPU_SUBTYPE_X86_64_ALL &&
       config->platform() == PLATFORM_MACOS &&
-      config->platformInfo.target.MinDeployment >= VersionTuple(10, 5))
+      config->platformInfo.minimum >= VersionTuple(10, 5))
     subtype |= CPU_SUBTYPE_LIB64;
 
   return subtype;
@@ -801,7 +808,7 @@ void StubHelperSection::setUp() {
                     /*isWeakDef=*/false,
                     /*isExternal=*/false, /*isPrivateExtern=*/false,
                     /*includeInSymtab=*/true,
-                    /*isReferencedDynamically=*/false,
+                    /*isThumb=*/false, /*isReferencedDynamically=*/false,
                     /*noDeadStrip=*/false);
   dyldPrivate->used = true;
 }
@@ -809,49 +816,31 @@ void StubHelperSection::setUp() {
 ObjCStubsSection::ObjCStubsSection()
     : SyntheticSection(segment_names::text, section_names::objcStubs) {
   flags = S_ATTR_SOME_INSTRUCTIONS | S_ATTR_PURE_INSTRUCTIONS;
-  align = config->objcStubsMode == ObjCStubsMode::fast
-              ? target->objcStubsFastAlignment
-              : target->objcStubsSmallAlignment;
+  align = target->objcStubsAlignment;
 }
 
 void ObjCStubsSection::addEntry(Symbol *sym) {
-  assert(sym->getName().starts_with(symbolPrefix) && "not an objc stub");
+  assert(sym->getName().startswith(symbolPrefix) && "not an objc stub");
   StringRef methname = sym->getName().drop_front(symbolPrefix.size());
   offsets.push_back(
       in.objcMethnameSection->getStringOffset(methname).outSecOff);
-
-  auto stubSize = config->objcStubsMode == ObjCStubsMode::fast
-                      ? target->objcStubsFastSize
-                      : target->objcStubsSmallSize;
   Defined *newSym = replaceSymbol<Defined>(
       sym, sym->getName(), nullptr, isec,
-      /*value=*/symbols.size() * stubSize,
-      /*size=*/stubSize,
+      /*value=*/symbols.size() * target->objcStubsFastSize,
+      /*size=*/target->objcStubsFastSize,
       /*isWeakDef=*/false, /*isExternal=*/true, /*isPrivateExtern=*/true,
-      /*includeInSymtab=*/true, /*isReferencedDynamically=*/false,
-      /*noDeadStrip=*/false);
+      /*includeInSymtab=*/true, /*isThumb=*/false,
+      /*isReferencedDynamically=*/false, /*noDeadStrip=*/false);
   symbols.push_back(newSym);
 }
 
 void ObjCStubsSection::setUp() {
-  objcMsgSend = symtab->addUndefined("_objc_msgSend", /*file=*/nullptr,
-                                     /*isWeakRef=*/false);
-  if (auto *undefined = dyn_cast<Undefined>(objcMsgSend))
-    treatUndefinedSymbol(*undefined,
-                         "lazy binding (normally in libobjc.dylib)");
+  Symbol *objcMsgSend = symtab->addUndefined("_objc_msgSend", /*file=*/nullptr,
+                                             /*isWeakRef=*/false);
   objcMsgSend->used = true;
-  if (config->objcStubsMode == ObjCStubsMode::fast) {
-    in.got->addEntry(objcMsgSend);
-    assert(objcMsgSend->isInGot());
-  } else {
-    assert(config->objcStubsMode == ObjCStubsMode::small);
-    // In line with ld64's behavior, when objc_msgSend is a direct symbol,
-    // we directly reference it.
-    // In other cases, typically when binding in libobjc.dylib,
-    // we generate a stub to invoke objc_msgSend.
-    if (!isa<Defined>(objcMsgSend))
-      in.stubs->addEntry(objcMsgSend);
-  }
+  in.got->addEntry(objcMsgSend);
+  assert(objcMsgSend->isInGot());
+  objcMsgSendGotIndex = objcMsgSend->gotIndex;
 
   size_t size = offsets.size() * target->wordSize;
   uint8_t *selrefsData = bAlloc().Allocate<uint8_t>(size);
@@ -881,10 +870,7 @@ void ObjCStubsSection::setUp() {
 }
 
 uint64_t ObjCStubsSection::getSize() const {
-  auto stubSize = config->objcStubsMode == ObjCStubsMode::fast
-                      ? target->objcStubsFastSize
-                      : target->objcStubsSmallSize;
-  return stubSize * symbols.size();
+  return target->objcStubsFastSize * symbols.size();
 }
 
 void ObjCStubsSection::writeTo(uint8_t *buf) const {
@@ -896,7 +882,8 @@ void ObjCStubsSection::writeTo(uint8_t *buf) const {
     Defined *sym = symbols[i];
     target->writeObjCMsgSendStub(buf + stubOffset, sym, in.objcStubs->addr,
                                  stubOffset, in.objcSelrefs->getVA(), i,
-                                 objcMsgSend);
+                                 in.got->addr, objcMsgSendGotIndex);
+    stubOffset += target->objcStubsFastSize;
   }
 }
 
@@ -991,9 +978,6 @@ void ExportSection::finalizeContents() {
         continue;
       trieBuilder.addSymbol(*defined);
       hasWeakSymbol = hasWeakSymbol || sym->isWeakDef();
-    } else if (auto *dysym = dyn_cast<DylibSymbol>(sym)) {
-      if (dysym->shouldReexport)
-        trieBuilder.addSymbol(*dysym);
     }
   }
   size = trieBuilder.build();
@@ -1077,6 +1061,8 @@ void FunctionStartsSection::finalizeContents() {
           if (!defined->isec || !isCodeSection(defined->isec) ||
               !defined->isLive())
             continue;
+          // TODO: Add support for thumbs, in that case
+          // the lowest bit of nextAddr needs to be set to 1.
           addrs.push_back(defined->getVA());
         }
       }
@@ -1358,6 +1344,7 @@ template <class LP> void SymtabSectionImpl<LP>::writeTo(uint8_t *buf) const {
         // For the N_SECT symbol type, n_value is the address of the symbol
         nList->n_value = defined->getVA();
       }
+      nList->n_desc |= defined->thumb ? N_ARM_THUMB_DEF : 0;
       nList->n_desc |= defined->isExternalWeakDef() ? N_WEAK_DEF : 0;
       nList->n_desc |=
           defined->referencedDynamically ? REFERENCED_DYNAMICALLY : 0;
@@ -1480,15 +1467,8 @@ static_assert((CodeSignatureSection::fixedHeadersSize % 8) == 0);
 CodeSignatureSection::CodeSignatureSection()
     : LinkEditSection(segment_names::linkEdit, section_names::codeSignature) {
   align = 16; // required by libstuff
-
-  // XXX: This mimics LD64, where it uses the install-name as codesign
-  // identifier, if available.
-  if (!config->installName.empty())
-    fileName = config->installName;
-  else
-    // FIXME: Consider using finalOutput instead of outputFile.
-    fileName = config->outputFile;
-
+  // FIXME: Consider using finalOutput instead of outputFile.
+  fileName = config->outputFile;
   size_t slashIndex = fileName.rfind("/");
   if (slashIndex != std::string::npos)
     fileName = fileName.drop_front(slashIndex + 1);
@@ -1573,6 +1553,62 @@ void CodeSignatureSection::writeTo(uint8_t *buf) const {
   memset(id + fileName.size(), 0, fileNamePad);
 }
 
+BitcodeBundleSection::BitcodeBundleSection()
+    : SyntheticSection(segment_names::llvm, section_names::bitcodeBundle) {}
+
+class ErrorCodeWrapper {
+public:
+  explicit ErrorCodeWrapper(std::error_code ec) : errorCode(ec.value()) {}
+  explicit ErrorCodeWrapper(int ec) : errorCode(ec) {}
+  operator int() const { return errorCode; }
+
+private:
+  int errorCode;
+};
+
+#define CHECK_EC(exp)                                                          \
+  do {                                                                         \
+    ErrorCodeWrapper ec(exp);                                                  \
+    if (ec)                                                                    \
+      fatal(Twine("operation failed with error code ") + Twine(ec) + ": " +    \
+            #exp);                                                             \
+  } while (0);
+
+void BitcodeBundleSection::finalize() {
+#ifdef LLVM_HAVE_LIBXAR
+  using namespace llvm::sys::fs;
+  CHECK_EC(createTemporaryFile("bitcode-bundle", "xar", xarPath));
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  xar_t xar(xar_open(xarPath.data(), O_RDWR));
+#pragma clang diagnostic pop
+  if (!xar)
+    fatal("failed to open XAR temporary file at " + xarPath);
+  CHECK_EC(xar_opt_set(xar, XAR_OPT_COMPRESSION, XAR_OPT_VAL_NONE));
+  // FIXME: add more data to XAR
+  CHECK_EC(xar_close(xar));
+
+  file_size(xarPath, xarSize);
+#endif // defined(LLVM_HAVE_LIBXAR)
+}
+
+void BitcodeBundleSection::writeTo(uint8_t *buf) const {
+  using namespace llvm::sys::fs;
+  file_t handle =
+      CHECK(openNativeFile(xarPath, CD_OpenExisting, FA_Read, OF_None),
+            "failed to open XAR file");
+  std::error_code ec;
+  mapped_file_region xarMap(handle, mapped_file_region::mapmode::readonly,
+                            xarSize, 0, ec);
+  if (ec)
+    fatal("failed to map XAR file");
+  memcpy(buf, xarMap.const_data(), xarSize);
+
+  closeFile(handle);
+  remove(xarPath);
+}
+
 CStringSection::CStringSection(const char *name)
     : SyntheticSection(segment_names::text, name) {
   flags = S_CSTRING_LITERALS;
@@ -1605,8 +1641,8 @@ void CStringSection::finalizeContents() {
       // See comment above DeduplicatedCStringSection for how alignment is
       // handled.
       uint32_t pieceAlign = 1
-                            << llvm::countr_zero(isec->align | piece.inSecOff);
-      offset = alignToPowerOf2(offset, pieceAlign);
+                            << countTrailingZeros(isec->align | piece.inSecOff);
+      offset = alignTo(offset, pieceAlign);
       piece.outSecOff = offset;
       isec->isFinal = true;
       StringRef string = isec->getStringRef(i);
@@ -1662,7 +1698,7 @@ void DeduplicatedCStringSection::finalizeContents() {
         continue;
       auto s = isec->getCachedHashStringRef(i);
       assert(isec->align != 0);
-      uint8_t trailingZeros = llvm::countr_zero(isec->align | piece.inSecOff);
+      uint8_t trailingZeros = countTrailingZeros(isec->align | piece.inSecOff);
       auto it = stringOffsetMap.insert(
           std::make_pair(s, StringOffset(trailingZeros)));
       if (!it.second && it.first->second.trailingZeros < trailingZeros)
@@ -1681,8 +1717,7 @@ void DeduplicatedCStringSection::finalizeContents() {
       assert(it != stringOffsetMap.end());
       StringOffset &offsetInfo = it->second;
       if (offsetInfo.outSecOff == UINT64_MAX) {
-        offsetInfo.outSecOff =
-            alignToPowerOf2(size, 1ULL << offsetInfo.trailingZeros);
+        offsetInfo.outSecOff = alignTo(size, 1ULL << offsetInfo.trailingZeros);
         size =
             offsetInfo.outSecOff + s.size() + 1; // account for null terminator
       }
@@ -1704,7 +1739,7 @@ void DeduplicatedCStringSection::writeTo(uint8_t *buf) const {
 DeduplicatedCStringSection::StringOffset
 DeduplicatedCStringSection::getStringOffset(StringRef str) const {
   // StringPiece uses 31 bits to store the hashes, so we replicate that
-  uint32_t hash = xxh3_64bits(str) & 0x7fffffff;
+  uint32_t hash = xxHash64(str) & 0x7fffffff;
   auto offset = stringOffsetMap.find(CachedHashStringRef(str, hash));
   assert(offset != stringOffsetMap.end() &&
          "Looked-up strings should always exist in section");
@@ -1836,7 +1871,7 @@ void ObjCImageInfoSection::finalizeContents() {
 
   info.hasCategoryClassProperties = true;
   const InputFile *firstFile;
-  for (const InputFile *file : files) {
+  for (auto file : files) {
     ImageInfo inputInfo = parseImageInfo(file);
     info.hasCategoryClassProperties &= inputInfo.hasCategoryClassProperties;
 
@@ -1864,7 +1899,6 @@ void ObjCImageInfoSection::writeTo(uint8_t *buf) const {
 InitOffsetsSection::InitOffsetsSection()
     : SyntheticSection(segment_names::text, section_names::initOffsets) {
   flags = S_INIT_FUNC_OFFSETS;
-  align = 4; // This section contains 32-bit integers.
 }
 
 uint64_t InitOffsetsSection::getSize() const {
@@ -2140,9 +2174,8 @@ void ChainedFixupsSection::writeTo(uint8_t *buf) const {
   uint64_t nameOffset = 0;
   for (auto [import, idx] : bindings) {
     const Symbol &sym = *import.first;
-    int16_t libOrdinal = needsWeakBind(sym)
-                             ? (int64_t)BIND_SPECIAL_DYLIB_WEAK_LOOKUP
-                             : ordinalForSymbol(sym);
+    int16_t libOrdinal = needsWeakBind(sym) ? BIND_SPECIAL_DYLIB_WEAK_LOOKUP
+                                            : ordinalForSymbol(sym);
     buf += writeImport(buf, importFormat, libOrdinal, sym.isWeakRef(),
                        nameOffset, import.second);
     nameOffset += sym.getName().size() + 1;

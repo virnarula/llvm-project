@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef LIBCPP_TEST_BITSET_TEST_CASES_H
 #define LIBCPP_TEST_BITSET_TEST_CASES_H
 

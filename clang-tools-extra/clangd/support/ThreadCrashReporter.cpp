@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "support/ThreadCrashReporter.h"
+#include "llvm/Support/ThreadLocal.h"
 #include <atomic>
 
 namespace clang {
@@ -37,7 +38,7 @@ ThreadCrashReporter::ThreadCrashReporter(SignalCallback ThreadLocalCallback)
   this->Next = CurrentReporter;
   CurrentReporter = this;
   // Don't reorder subsequent operations: whatever comes after might crash and
-  // we want the crash handler to see the reporter values we just set.
+  // we want the the crash handler to see the reporter values we just set.
   std::atomic_signal_fence(std::memory_order_seq_cst);
 }
 
@@ -45,7 +46,7 @@ ThreadCrashReporter::~ThreadCrashReporter() {
   assert(CurrentReporter == this);
   CurrentReporter = this->Next;
   // Don't reorder subsequent operations: whatever comes after might crash and
-  // we want the crash handler to see the reporter values we just set.
+  // we want the the crash handler to see the reporter values we just set.
   std::atomic_signal_fence(std::memory_order_seq_cst);
 }
 

@@ -10,11 +10,11 @@
 #include "flang/Frontend/CompilerInvocation.h"
 #include "flang/Frontend/FrontendOptions.h"
 #include "flang/FrontendTool/Utils.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/Triple.h"
 
 #include "gtest/gtest.h"
 
@@ -64,13 +64,6 @@ protected:
     compInst.createDiagnostics();
     invoc = std::make_shared<CompilerInvocation>();
 
-    // Set-up default target triple and initialize LLVM Targets so that the
-    // target data layout can be passed to the frontend.
-    invoc->getTargetOpts().triple =
-        llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple());
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllTargetMCs();
-
     compInst.setInvocation(std::move(invoc));
     compInst.getFrontendOpts().inputs.push_back(
         FrontendInputFile(inputFilePath, Language::Fortran));
@@ -112,7 +105,7 @@ TEST_F(FrontendActionTest, TestInputOutput) {
   EXPECT_TRUE(success);
   EXPECT_TRUE(!outputFileBuffer.empty());
   EXPECT_TRUE(llvm::StringRef(outputFileBuffer.data())
-                  .starts_with("End Program arithmetic"));
+                  .startswith("End Program arithmetic"));
 }
 
 TEST_F(FrontendActionTest, PrintPreprocessedInput) {
@@ -143,7 +136,7 @@ TEST_F(FrontendActionTest, PrintPreprocessedInput) {
   EXPECT_TRUE(success);
   EXPECT_TRUE(!outputFileBuffer.empty());
   EXPECT_TRUE(
-      llvm::StringRef(outputFileBuffer.data()).starts_with("program b\n"));
+      llvm::StringRef(outputFileBuffer.data()).startswith("program b\n"));
 }
 
 TEST_F(FrontendActionTest, ParseSyntaxOnly) {
@@ -181,8 +174,9 @@ TEST_F(FrontendActionTest, EmitLLVM) {
   // Set-up the action kind.
   compInst.getInvocation().getFrontendOpts().programAction = EmitLLVM;
 
-  // Initialise LLVM backend
-  llvm::InitializeAllAsmPrinters();
+  // Set-up default target triple.
+  compInst.getInvocation().getTargetOpts().triple =
+      llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple());
 
   // Set-up the output stream. We are using output buffer wrapped as an output
   // stream, as opposed to an actual file (or a file descriptor).
@@ -210,7 +204,13 @@ TEST_F(FrontendActionTest, EmitAsm) {
   // Set-up the action kind.
   compInst.getInvocation().getFrontendOpts().programAction = EmitAssembly;
 
+  // Set-up default target triple.
+  compInst.getInvocation().getTargetOpts().triple =
+      llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple());
+
   // Initialise LLVM backend
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
   llvm::InitializeAllAsmPrinters();
 
   // Set-up the output stream. We are using output buffer wrapped as an output

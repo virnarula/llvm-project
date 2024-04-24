@@ -13,7 +13,8 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace zircon {
 
 /// This module is for Zircon-specific checks.
@@ -34,4 +35,5 @@ static ClangTidyModuleRegistry::Add<ZirconModule>
 // and thus register the ZirconModule.
 volatile int ZirconModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

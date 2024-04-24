@@ -17,7 +17,8 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace altera {
 
 class AlteraModule : public ClangTidyModule {
@@ -45,4 +46,5 @@ static ClangTidyModuleRegistry::Add<altera::AlteraModule>
 // and thus register the AlteraModule.
 volatile int AlteraModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

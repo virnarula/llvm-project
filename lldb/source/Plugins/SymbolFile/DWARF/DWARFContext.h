@@ -11,13 +11,12 @@
 
 #include "DWARFDataExtractor.h"
 #include "lldb/Core/Section.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/Support/Threading.h"
 #include <memory>
-#include <optional>
 
-namespace lldb_private::plugin {
-namespace dwarf {
+namespace lldb_private {
 class DWARFContext {
 private:
   SectionList *m_main_section_list;
@@ -47,8 +46,8 @@ private:
   SectionData m_data_debug_types;
 
   const DWARFDataExtractor &
-  LoadOrGetSection(std::optional<lldb::SectionType> main_section_type,
-                   std::optional<lldb::SectionType> dwo_section_type,
+  LoadOrGetSection(llvm::Optional<lldb::SectionType> main_section_type,
+                   llvm::Optional<lldb::SectionType> dwo_section_type,
                    SectionData &data);
 
   const DWARFDataExtractor &getOrLoadCuIndexData();
@@ -79,7 +78,6 @@ public:
 
   llvm::DWARFContext &GetAsLLVM();
 };
-} // namespace dwarf
-} // namespace lldb_private::plugin
+} // namespace lldb_private
 
 #endif

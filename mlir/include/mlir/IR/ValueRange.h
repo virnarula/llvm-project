@@ -18,7 +18,6 @@
 #include "mlir/IR/Value.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/Sequence.h"
-#include <optional>
 
 namespace mlir {
 class ValueRange;
@@ -123,16 +122,13 @@ public:
   /// and range length. `operandSegments` is an optional set of operand segments
   /// to be updated when mutating the operand list.
   MutableOperandRange(Operation *owner, unsigned start, unsigned length,
-                      ArrayRef<OperandSegment> operandSegments = std::nullopt);
+                      ArrayRef<OperandSegment> operandSegments = llvm::None);
   MutableOperandRange(Operation *owner);
-
-  /// Construct a new mutable range for the given OpOperand.
-  MutableOperandRange(OpOperand &opOperand);
 
   /// Slice this range into a sub range, with the additional operand segment.
   MutableOperandRange
   slice(unsigned subStart, unsigned subLen,
-        std::optional<OperandSegment> segment = std::nullopt) const;
+        Optional<OperandSegment> segment = llvm::None) const;
 
   /// Append the given values to the range.
   void append(ValueRange values);
@@ -158,9 +154,6 @@ public:
   /// Allow implicit conversion to an OperandRange.
   operator OperandRange() const;
 
-  /// Allow implicit conversion to a MutableArrayRef.
-  operator MutableArrayRef<OpOperand>() const;
-
   /// Returns the owning operation.
   Operation *getOwner() const { return owner; }
 
@@ -168,12 +161,10 @@ public:
   /// elements attribute, which contains the sizes of the sub ranges.
   MutableOperandRangeRange split(NamedAttribute segmentSizes) const;
 
-  /// Returns the OpOperand at the given index.
-  OpOperand &operator[](unsigned index) const;
-
-  /// Iterators enumerate OpOperands.
-  MutableArrayRef<OpOperand>::iterator begin() const;
-  MutableArrayRef<OpOperand>::iterator end() const;
+  /// Returns the value at the given index.
+  Value operator[](unsigned index) const {
+    return operator OperandRange()[index];
+  }
 
 private:
   /// Update the length of this range to the one provided.
@@ -287,26 +278,6 @@ public:
   /// Replace all uses of results of this range with results of 'op'.
   void replaceAllUsesWith(Operation *op);
 
-  /// Replace uses of results of this range with the provided 'values' if the
-  /// given callback returns true. The size of `values` must match the size of
-  /// this range.
-  template <typename ValuesT>
-  std::enable_if_t<!std::is_convertible<ValuesT, Operation *>::value>
-  replaceUsesWithIf(ValuesT &&values,
-                    function_ref<bool(OpOperand &)> shouldReplace) {
-    assert(static_cast<size_t>(std::distance(values.begin(), values.end())) ==
-               size() &&
-           "expected 'values' to correspond 1-1 with the number of results");
-
-    for (auto it : llvm::zip(*this, values))
-      std::get<0>(it).replaceUsesWithIf(std::get<1>(it), shouldReplace);
-  }
-
-  /// Replace uses of results of this range with results of `op` if the given
-  /// callback returns true.
-  void replaceUsesWithIf(Operation *op,
-                         function_ref<bool(OpOperand &)> shouldReplace);
-
   //===--------------------------------------------------------------------===//
   // Users
   //===--------------------------------------------------------------------===//
@@ -398,7 +369,7 @@ public:
       : ValueRange(ResultRange(values)) {}
   ValueRange(ArrayRef<BlockArgument> values)
       : ValueRange(ArrayRef<Value>(values.data(), values.size())) {}
-  ValueRange(ArrayRef<Value> values = std::nullopt);
+  ValueRange(ArrayRef<Value> values = llvm::None);
   ValueRange(OperandRange values);
   ValueRange(ResultRange values);
 

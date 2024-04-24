@@ -11,10 +11,10 @@
 
 #include <stddef.h> // size_t
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void *memset(void *ptr, int value, size_t count);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_MEMSET_H

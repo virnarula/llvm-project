@@ -15,7 +15,8 @@
 // constexpr span<element_type, dynamic_extent> subspan(
 //   size_type offset, size_type count = dynamic_extent) const;
 //
-// Mandates: Offset <= Extent && (Count == dynamic_extent || Count <= Extent - Offset) is true.
+//  Requires: (0 <= Offset && Offset <= size())
+//      && (Count == dynamic_extent || Count >= 0 && Offset + Count <= size())
 
 #include <span>
 #include <cassert>
@@ -24,7 +25,7 @@
 
 #include "test_macros.h"
 
-template <typename Span, std::size_t Offset, size_t Count>
+template <typename Span, size_t Offset, size_t Count>
 constexpr bool testConstexprSpan(Span sp)
 {
     LIBCPP_ASSERT((noexcept(sp.template subspan<Offset, Count>())));
@@ -43,7 +44,7 @@ constexpr bool testConstexprSpan(Span sp)
      && std::equal(s1.begin(), s1.end(), sp.begin() + Offset);
 }
 
-template <typename Span, std::size_t Offset>
+template <typename Span, size_t Offset>
 constexpr bool testConstexprSpan(Span sp)
 {
     LIBCPP_ASSERT((noexcept(sp.template subspan<Offset>())));
@@ -63,7 +64,7 @@ constexpr bool testConstexprSpan(Span sp)
 }
 
 
-template <typename Span, std::size_t Offset, size_t Count>
+template <typename Span, size_t Offset, size_t Count>
 void testRuntimeSpan(Span sp)
 {
     LIBCPP_ASSERT((noexcept(sp.template subspan<Offset, Count>())));
@@ -82,7 +83,7 @@ void testRuntimeSpan(Span sp)
 }
 
 
-template <typename Span, std::size_t Offset>
+template <typename Span, size_t Offset>
 void testRuntimeSpan(Span sp)
 {
     LIBCPP_ASSERT((noexcept(sp.template subspan<Offset>())));

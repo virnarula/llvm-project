@@ -13,8 +13,16 @@ add_flang_library(flangFrontendTool
   LINK_COMPONENTS
   Option
   Support
+)
 
-  CLANG_LIBS
+if(CLANG_LINK_CLANG_DYLIB)
+  add_dependencies(flangFrontend clang-cpp)
+else()
+  add_dependencies(flangFrontendTool clangBasic)
+endif()
+
+clang_target_link_libraries(flangFrontendTool
+  PRIVATE
   clangBasic
   clangDriver
 )

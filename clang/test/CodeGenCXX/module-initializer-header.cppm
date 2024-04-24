@@ -8,24 +8,24 @@
 //
 //--- header.h
 int foo();
-static int i = foo();
+int i = foo();
 
 //--- M.cppm
 module;
 import "header.h";
 export module M;
 
-// CHECK: @_ZL1i = {{.*}}global i32 0
+// CHECK: @i = {{.*}}global i32 0
 // CHECK: void @__cxx_global_var_init()
 // CHECK-NEXT: entry:
 // CHECK-NEXT:  %call = call noundef{{.*}} i32 @_Z3foov()
-// CHECK-NEXT:  store i32 %call, ptr @_ZL1i
+// CHECK-NEXT:  store i32 %call, ptr @i  
 
 //--- Use.cpp
 import "header.h";
 
-// CHECK: @_ZL1i = {{.*}}global i32 0
+// CHECK: @i = {{.*}}global i32 0
 // CHECK: void @__cxx_global_var_init()
 // CHECK-NEXT: entry:
 // CHECK-NEXT:  %call = call noundef{{.*}} i32 @_Z3foov()
-// CHECK-NEXT:  store i32 %call, ptr @_ZL1i
+// CHECK-NEXT:  store i32 %call, ptr @i  

@@ -4,8 +4,6 @@ void foo1();
 void foo2();
 void foo3();
 
-#define E
-
 #define BLOCK \
   if (cond1)  \
     foo1();   \
@@ -111,13 +109,6 @@ void f()
   }
 
   BLOCK
-
-  if (cond1)
-    foo1();
-  else
-    foo2();
-  E foo3();
-  // CHECK-MESSAGES-NOT: :[[@LINE-1]]readability-misleading-indentation
 }
 
 void g(bool x) {

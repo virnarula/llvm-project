@@ -29,14 +29,6 @@ void LangOptions::resetNonModularOptions() {
   Name = static_cast<unsigned>(Default);
 #include "clang/Basic/LangOptions.def"
 
-  // Reset "benign" options with implied values (Options.td ImpliedBy relations)
-  // rather than their defaults. This avoids unexpected combinations and
-  // invocations that cannot be round-tripped to arguments.
-  // FIXME: we should derive this automatically from ImpliedBy in tablegen.
-  AllowFPReassoc = UnsafeFPMath;
-  NoHonorNaNs = FiniteMathOnly;
-  NoHonorInfs = FiniteMathOnly;
-
   // These options do not affect AST generation.
   NoSanitizeFiles.clear();
   XRayAlwaysInstrumentFiles.clear();
@@ -111,14 +103,13 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   Opts.C99 = Std.isC99();
   Opts.C11 = Std.isC11();
   Opts.C17 = Std.isC17();
-  Opts.C23 = Std.isC23();
+  Opts.C2x = Std.isC2x();
   Opts.CPlusPlus = Std.isCPlusPlus();
   Opts.CPlusPlus11 = Std.isCPlusPlus11();
   Opts.CPlusPlus14 = Std.isCPlusPlus14();
   Opts.CPlusPlus17 = Std.isCPlusPlus17();
   Opts.CPlusPlus20 = Std.isCPlusPlus20();
-  Opts.CPlusPlus23 = Std.isCPlusPlus23();
-  Opts.CPlusPlus26 = Std.isCPlusPlus26();
+  Opts.CPlusPlus2b = Std.isCPlusPlus2b();
   Opts.GNUMode = Std.isGNUMode();
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();
@@ -201,8 +192,8 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
 
   Opts.RenderScript = Lang == Language::RenderScript;
 
-  // OpenCL, C++ and C23 have bool, true, false keywords.
-  Opts.Bool = Opts.OpenCL || Opts.CPlusPlus || Opts.C23;
+  // OpenCL, C++ and C2x have bool, true, false keywords.
+  Opts.Bool = Opts.OpenCL || Opts.CPlusPlus || Opts.C2x;
 
   // OpenCL and HLSL have half keyword
   Opts.Half = Opts.OpenCL || Opts.HLSL;

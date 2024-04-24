@@ -25,8 +25,7 @@
 using namespace clang;
 
 // Returns a desugared version of the QualType, and marks ShouldAKA as true
-// whenever we remove significant sugar from the type. Make sure ShouldAKA
-// is initialized before passing it in.
+// whenever we remove significant sugar from the type.
 QualType clang::desugarForDiagnostic(ASTContext &Context, QualType QT,
                                      bool &ShouldAKA) {
   QualifierCollector QC;
@@ -228,7 +227,7 @@ break; \
           desugarForDiagnostic(Context, Ty->getBaseType(), ShouldAKA);
       QT = Context.getObjCObjectType(
           BaseType, Ty->getTypeArgsAsWritten(),
-          llvm::ArrayRef(Ty->qual_begin(), Ty->getNumProtocols()),
+          llvm::makeArrayRef(Ty->qual_begin(), Ty->getNumProtocols()),
           Ty->isKindOfTypeAsWritten());
     }
   }
@@ -539,7 +538,7 @@ class TemplateDiff {
   bool ShowColor;
 
   /// FromTemplateType - When single type printing is selected, this is the
-  /// type to be printed.  When tree printing is selected, this type will
+  /// type to be be printed.  When tree printing is selected, this type will
   /// show up first in the tree.
   QualType FromTemplateType;
 
@@ -1890,7 +1889,6 @@ class TemplateDiff {
         // FIXME: Diffing the APValue would be neat.
         // FIXME: Suppress this and use the full name of the declaration if the
         // parameter is a pointer or reference.
-        TPO->getType().getUnqualifiedType().print(OS, Policy);
         TPO->printAsInit(OS, Policy);
         return;
       }

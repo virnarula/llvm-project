@@ -1,4 +1,4 @@
-import("//third-party/unittest/unittest.gni")
+import("//llvm/utils/unittest/unittest.gni")
 
 unittest("MIRTests") {
   deps = [
@@ -7,15 +7,10 @@ unittest("MIRTests") {
     "//llvm/lib/FileCheck",
     "//llvm/lib/IR",
     "//llvm/lib/MC",
-    "//llvm/lib/Passes",
     "//llvm/lib/Support",
     "//llvm/lib/Target",
     "//llvm/lib/Target:TargetsToBuild",
-    "//llvm/lib/TargetParser",
     "//llvm/lib/Testing/Support",
   ]
-  sources = [
-    "MachineMetadata.cpp",
-    "PassBuilderCallbacksTest.cpp",
-  ]
+  sources = [ "MachineMetadata.cpp" ]
 }

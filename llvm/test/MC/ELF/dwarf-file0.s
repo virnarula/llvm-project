@@ -1,5 +1,5 @@
-# XFAIL: target={{.*}}-aix{{.*}}
-# UNSUPPORTED: target={{.*}}-zos{{.*}}
+# XFAIL: -aix
+# UNSUPPORTED: -zos
 # REQUIRES: object-emission
 # RUN: llvm-mc -dwarf-version 4 %s -filetype=obj -o - | llvm-dwarfdump -debug-line - | FileCheck %s
 # RUN: llvm-mc -dwarf-version 4 %s --fatal-warnings -o - | FileCheck %s --check-prefix=ASM

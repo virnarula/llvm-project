@@ -5,8 +5,8 @@
 cert-oop11-cpp
 ==============
 
-The `cert-oop11-cpp check` is an alias, please see
-:doc:`performance-move-constructor-init <../performance/move-constructor-init>`
+The cert-oop11-cpp check is an alias, please see
+`performance-move-constructor-init <../performance/move-constructor-init.html>`_
 for more information.
 
 This check corresponds to the CERT C++ Coding Standard recommendation

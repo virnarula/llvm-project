@@ -1,5 +1,5 @@
 // RUN: %clang -O2 %s -o %t && %run %t
-// UNSUPPORTED: android, darwin, target={{.*(netbsd|solaris).*}}
+// UNSUPPORTED: android, netbsd, darwin, solaris
 //
 
 #include <sys/types.h>
@@ -9,8 +9,7 @@
 #define __GLIBC_PREREQ(a, b) 0
 #endif
 
-#if (defined(__linux__) && __GLIBC_PREREQ(2, 25)) || defined(__FreeBSD__) || \
-    (defined(__sun) && defined(__svr4__))
+#if (defined(__linux__) && __GLIBC_PREREQ(2, 25)) || defined(__FreeBSD__)
 #define HAS_GETRANDOM
 #endif
 

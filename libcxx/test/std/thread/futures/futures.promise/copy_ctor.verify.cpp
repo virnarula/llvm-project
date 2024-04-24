@@ -16,7 +16,10 @@
 
 #include <future>
 
-void f() {
+#include "test_macros.h"
+
+int main(int, char**)
+{
     {
         std::promise<int> p0;
         std::promise<int> p(p0); // expected-error {{call to deleted constructor of 'std::promise<int>'}}
@@ -29,4 +32,6 @@ void f() {
         std::promise<void> p0;
         std::promise<void> p(p0); // expected-error {{call to deleted constructor of 'std::promise<void>'}}
     }
+
+    return 0;
 }

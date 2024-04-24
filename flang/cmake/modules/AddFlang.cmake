@@ -16,15 +16,12 @@ macro(add_flang_subdirectory name)
   add_llvm_subdirectory(FLANG TOOL ${name})
 endmacro()
 
-function(add_flang_library name)
-  set(options SHARED STATIC INSTALL_WITH_TOOLCHAIN)
-  set(multiValueArgs ADDITIONAL_HEADERS CLANG_LIBS)
+macro(add_flang_library name)
   cmake_parse_arguments(ARG
-    "${options}"
+    "SHARED;STATIC;INSTALL_WITH_TOOLCHAIN"
     ""
-    "${multiValueArgs}"
+    "ADDITIONAL_HEADERS"
     ${ARGN})
-
   set(srcs)
   if (MSVC_IDE OR XCODE)
     # Add public headers
@@ -66,8 +63,6 @@ function(add_flang_library name)
 
   llvm_add_library(${name} ${LIBTYPE} ${ARG_UNPARSED_ARGUMENTS} ${srcs})
 
-  clang_target_link_libraries(${name} PRIVATE ${ARG_CLANG_LIBS})
-
   if (TARGET ${name})
 
     if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY OR ${name} STREQUAL "libflang"
@@ -96,7 +91,7 @@ function(add_flang_library name)
 
   set_target_properties(${name} PROPERTIES FOLDER "Flang libraries")
   set_flang_windows_version_resource_properties(${name})
-endfunction(add_flang_library)
+endmacro(add_flang_library)
 
 macro(add_flang_executable name)
   add_llvm_executable(${name} ${ARGN})
@@ -132,3 +127,4 @@ macro(add_flang_symlink name dest)
   # Always generate install targets
   llvm_install_symlink(FLANG ${name} ${dest} ALWAYS_GENERATE)
 endmacro()
+

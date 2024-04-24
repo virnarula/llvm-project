@@ -14,9 +14,8 @@
 
 // void unlock();
 
-#include <cassert>
 #include <mutex>
-#include <system_error>
+#include <cassert>
 
 #include "test_macros.h"
 

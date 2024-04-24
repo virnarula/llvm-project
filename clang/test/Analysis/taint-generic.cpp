@@ -7,12 +7,6 @@ int scanf(const char*, ...);
 int mySource1();
 int mySource3();
 
-typedef struct _FILE FILE;
-extern "C" {
-extern FILE *stdin;
-}
-int fscanf(FILE *stream, const char *format, ...);
-
 bool isOutOfRange2(const int*);
 
 void mySink2(int);
@@ -46,7 +40,7 @@ void testConfigurationNamespacePropagation1() {
   Buffer[x] = 1; // no-warning
 
   scanf("%d", &x);
-  Buffer[x] = 1; // expected-warning {{Potential out of bound access }}
+  Buffer[x] = 1; // expected-warning {{Out of bound memory access }}
 }
 
 void testConfigurationNamespacePropagation2() {
@@ -54,19 +48,19 @@ void testConfigurationNamespacePropagation2() {
   Buffer[x] = 1; // no-warning
 
   int y = myNamespace::mySource3();
-  Buffer[y] = 1; // expected-warning {{Potential out of bound access }}
+  Buffer[y] = 1; // expected-warning {{Out of bound memory access }}
 }
 
 void testConfigurationNamespacePropagation3() {
   int x = myAnotherNamespace::mySource3();
-  Buffer[x] = 1; // expected-warning {{Potential out of bound access }}
+  Buffer[x] = 1; // expected-warning {{Out of bound memory access }}
 }
 
 void testConfigurationNamespacePropagation4() {
   int x;
   // Configured functions without scope should match for all function.
   myNamespace::myScanf("%d", &x);
-  Buffer[x] = 1; // expected-warning {{Potential out of bound access }}
+  Buffer[x] = 1; // expected-warning {{Out of bound memory access }}
 }
 
 void testConfigurationNamespaceFilter1() {
@@ -78,7 +72,7 @@ void testConfigurationNamespaceFilter1() {
   int y = mySource1();
   if (isOutOfRange2(&y))
     return;
-  Buffer[y] = 1; // expected-warning {{Potential out of bound access }}
+  Buffer[y] = 1; // expected-warning {{Out of bound memory access }}
 }
 
 void testConfigurationNamespaceFilter2() {
@@ -128,11 +122,5 @@ void testConfigurationMemberFunc() {
   Buffer[x] = 1; // no-warning
 
   foo.myMemberScanf("%d", &x);
-  Buffer[x] = 1; // expected-warning {{Potential out of bound access }}
-}
-
-void testReadingFromStdin(char **p) {
-  int n;
-  fscanf(stdin, "%d", &n);
-  Buffer[n] = 1; // expected-warning {{Potential out of bound access }}
+  Buffer[x] = 1; // expected-warning {{Out of bound memory access }}
 }

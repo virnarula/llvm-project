@@ -1,10 +1,11 @@
 set(LLVM_LINK_COMPONENTS
   AllTargetsDescs
-  AllTargetsDisassemblers
   AllTargetsInfos
+  AllTargetsDisassemblers
   BinaryFormat
-  DebugInfoCodeView
   DebugInfoLogicalView
+  DebugInfoCodeView
+  DebugInfoDWARF
   DebugInfoPDB
   MC
   MCDisassembler

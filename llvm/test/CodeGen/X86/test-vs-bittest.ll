@@ -571,20 +571,6 @@ define i64 @is_upper_bit_clear_i64(i64 %x) {
   ret i64 %r
 }
 
-define i32 @is_upper_bit_clear_i64_trunc(i64 %x) {
-; CHECK-LABEL: is_upper_bit_clear_i64_trunc:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    btq $42, %rdi
-; CHECK-NEXT:    setae %al
-; CHECK-NEXT:    retq
-  %sh = lshr i64 %x, 42
-  %t = trunc i64 %sh to i32
-  %m = and i32 %t, 1
-  %r = xor i32 %m, 1
-  ret i32 %r
-}
-
 define i64 @is_upper_bit_clear_i64_not(i64 %x) {
 ; CHECK-LABEL: is_upper_bit_clear_i64_not:
 ; CHECK:       # %bb.0:
@@ -654,8 +640,8 @@ define i16 @is_bit_clear_i16(i16 %x) {
 ; CHECK-LABEL: is_bit_clear_i16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    testb %dil, %dil
-; CHECK-NEXT:    setns %al
+; CHECK-NEXT:    testb $-128, %dil
+; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
   %sh = lshr i16 %x, 7
@@ -702,13 +688,16 @@ define i8 @is_bit_clear_i8_not(i8 %x) {
   ret i8 %r
 }
 
-; Use bt/test on the 64-bit value and truncate result.
+; TODO: We could use bt/test on the 64-bit value.
 
 define i8 @overshift(i64 %x) {
 ; CHECK-LABEL: overshift:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    btq $42, %rdi
-; CHECK-NEXT:    setae %al
+; CHECK-NEXT:    movq %rdi, %rax
+; CHECK-NEXT:    shrq $42, %rax
+; CHECK-NEXT:    notb %al
+; CHECK-NEXT:    andb $1, %al
+; CHECK-NEXT:    # kill: def $al killed $al killed $rax
 ; CHECK-NEXT:    retq
   %a = lshr i64 %x, 42
   %t = trunc i64 %a to i8

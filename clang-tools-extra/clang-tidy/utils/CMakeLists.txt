@@ -8,16 +8,13 @@ add_clang_library(clangTidyUtils
   ASTUtils.cpp
   DeclRefExprUtils.cpp
   ExceptionAnalyzer.cpp
-  ExceptionSpecAnalyzer.cpp
   ExprSequence.cpp
   FileExtensionsUtils.cpp
-  FormatStringConverter.cpp
   FixItHintUtils.cpp
   HeaderGuard.cpp
   IncludeInserter.cpp
   IncludeSorter.cpp
   LexerUtils.cpp
-  Matchers.cpp
   NamespaceAliaser.cpp
   OptionsUtils.cpp
   RenamerClangTidyCheck.cpp
@@ -30,7 +27,6 @@ add_clang_library(clangTidyUtils
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyUtils
@@ -40,6 +36,5 @@ clang_target_link_libraries(clangTidyUtils
   clangBasic
   clangLex
   clangSema
-  clangTooling
   clangTransformer
   )

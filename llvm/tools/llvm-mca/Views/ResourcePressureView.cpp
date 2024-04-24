@@ -54,12 +54,12 @@ void ResourcePressureView::onEvent(const HWInstructionEvent &Event) {
   const auto &IssueEvent = static_cast<const HWInstructionIssuedEvent &>(Event);
   ArrayRef<llvm::MCInst> Source = getSource();
   const unsigned SourceIdx = Event.IR.getSourceIndex() % Source.size();
-  for (const std::pair<ResourceRef, ReleaseAtCycles> &Use :
+  for (const std::pair<ResourceRef, ResourceCycles> &Use :
        IssueEvent.UsedResources) {
     const ResourceRef &RR = Use.first;
-    assert(Resource2VecIndex.contains(RR.first));
+    assert(Resource2VecIndex.find(RR.first) != Resource2VecIndex.end());
     unsigned R2VIndex = Resource2VecIndex[RR.first];
-    R2VIndex += llvm::countr_zero(RR.second);
+    R2VIndex += countTrailingZeros(RR.second);
     ResourceUsage[R2VIndex + NumResourceUnits * SourceIdx] += Use.second;
     ResourceUsage[R2VIndex + NumResourceUnits * Source.size()] += Use.second;
   }
@@ -181,7 +181,7 @@ json::Value ResourcePressureView::toJSON() const {
   ArrayRef<llvm::MCInst> Source = getSource();
   const unsigned Executions = LastInstructionIdx / Source.size() + 1;
   for (const auto &R : enumerate(ResourceUsage)) {
-    const ReleaseAtCycles &RU = R.value();
+    const ResourceCycles &RU = R.value();
     if (RU.getNumerator() == 0)
       continue;
     unsigned InstructionIndex = R.index() / NumResourceUnits;

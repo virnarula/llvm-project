@@ -17,10 +17,8 @@
 // typedef pthread_cond_t* native_handle_type;
 // native_handle_type native_handle();
 
-#include <cassert>
 #include <condition_variable>
-#include <pthread.h>
-#include <type_traits>
+#include <cassert>
 
 #include "test_macros.h"
 

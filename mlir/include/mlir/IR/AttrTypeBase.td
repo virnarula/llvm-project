@@ -14,25 +14,14 @@
 #ifndef ATTRTYPEBASE_TD
 #define ATTRTYPEBASE_TD
 
-include "mlir/IR/CommonAttrConstraints.td"
-include "mlir/IR/CommonTypeConstraints.td"
-include "mlir/IR/Constraints.td"
-include "mlir/IR/DialectBase.td"
-include "mlir/IR/Traits.td"
+include "mlir/IR/OpBase.td"
 
 //-------------------------------------------------------------------------===//
 // AttrTrait definitions
 //===----------------------------------------------------------------------===//
 
 // These classes are used to define attribute specific traits.
-
-// Specify attribute specific declarations and definitions in `extraAttrDeclaration`
-// and `extraAttrDefinition` template arguments.
-class NativeAttrTrait<string name,
-                      code extraAttrDeclaration = [{}],
-                      code extraAttrDefinition = [{}]>
-    : NativeTrait<name, "Attribute", extraAttrDeclaration, extraAttrDefinition>;
-
+class NativeAttrTrait<string name> : NativeTrait<name, "Attribute">;
 class ParamNativeAttrTrait<string prop, string params>
     : ParamNativeTrait<prop, params, "Attribute">;
 class GenInternalAttrTrait<string prop> : GenInternalTrait<prop, "Attribute">;
@@ -43,14 +32,7 @@ class PredAttrTrait<string descr, Pred pred> : PredTrait<descr, pred>;
 //===----------------------------------------------------------------------===//
 
 // These classes are used to define type specific traits.
-
-// Specify type specific declarations and definitions in `extraTypeDeclaration`
-// and `extraTypeDefinition` template arguments.
-class NativeTypeTrait<string name,
-                      code extraTypeDeclaration = [{}],
-                      code extraTypeDefinition = [{}]>
-    : NativeTrait<name, "Type", extraTypeDeclaration, extraTypeDefinition>;
-
+class NativeTypeTrait<string name> : NativeTrait<name, "Type">;
 class ParamNativeTypeTrait<string prop, string params>
     : ParamNativeTrait<prop, params, "Type">;
 class GenInternalTypeTrait<string prop> : GenInternalTrait<prop, "Type">;
@@ -264,9 +246,6 @@ class AttrDef<Dialect dialect, string name, list<Trait> traits = [],
   // Make it possible to use such attributes as parameters for other attributes.
   string cppType = dialect.cppNamespace # "::" # cppClassName;
 
-  // The unique attribute name.
-  string attrName = dialect.name # "." # mnemonic;
-
   // The call expression to convert from the storage type to the return
   // type. For example, an enum can be stored as an int but returned as an
   // enum class.
@@ -275,12 +254,12 @@ class AttrDef<Dialect dialect, string name, list<Trait> traits = [],
   //
   // For example, `$_self.getValue().getSExtValue()` for `IntegerAttr val` will
   // expand to `getAttrOfType<IntegerAttr>("val").getValue().getSExtValue()`.
-  let convertFromStorage = "::llvm::cast<" # dialect.cppNamespace #
-                                 "::" # cppClassName # ">($_self)";
+  let convertFromStorage = "$_self.cast<" # dialect.cppNamespace #
+                                 "::" # cppClassName # ">()";
 
   // The predicate for when this def is used as a constraint.
-  let predicate = CPred<"::llvm::isa<" # dialect.cppNamespace #
-                                 "::" # cppClassName # ">($_self)">;
+  let predicate = CPred<"$_self.isa<" # dialect.cppNamespace #
+                                 "::" # cppClassName # ">()">;
 }
 
 // Define a new type, named `name`, belonging to `dialect` that inherits from
@@ -292,17 +271,14 @@ class TypeDef<Dialect dialect, string name, list<Trait> traits = [],
   // Make it possible to use such type as parameters for other types.
   string cppType = dialect.cppNamespace # "::" # cppClassName;
 
-  // The unique type name.
-  string typeName = dialect.name # "." # mnemonic;
-
   // A constant builder provided when the type has no parameters.
   let builderCall = !if(!empty(parameters),
                            "$_builder.getType<" # dialect.cppNamespace #
                                "::" # cppClassName # ">()",
                            "");
   // The predicate for when this def is used as a constraint.
-  let predicate = CPred<"::llvm::isa<" # dialect.cppNamespace #
-                                 "::" # cppClassName # ">($_self)">;
+  let predicate = CPred<"$_self.isa<" # dialect.cppNamespace #
+                                 "::" # cppClassName # ">()">;
 }
 
 //===----------------------------------------------------------------------===//
@@ -321,7 +297,7 @@ class AttrOrTypeParameter<string type, string desc, string accessorType = ""> {
   string cppType = type;
   // The C++ type of the accessor for this parameter.
   string cppAccessorType = !if(!empty(accessorType), type, accessorType);
-  // The C++ storage type of this parameter if it is a reference, e.g.
+  // The C++ storage type of of this parameter if it is a reference, e.g.
   // `std::string` for `StringRef` or `SmallVector` for `ArrayRef`.
   string cppStorageType = cppType;
   // The C++ code to convert from the storage type to the parameter type.
@@ -366,12 +342,11 @@ class DefaultValuedParameter<string type, string value, string desc = ""> :
 }
 
 // For StringRefs, which require allocation.
-class StringRefParameter<string desc = "", string value = ""> :
+class StringRefParameter<string desc = ""> :
     AttrOrTypeParameter<"::llvm::StringRef", desc> {
   let allocator = [{$_dst = $_allocator.copyInto($_self);}];
-  let printer = [{$_printer.printString($_self);}];
+  let printer = [{$_printer << '"' << $_self << '"';}];
   let cppStorageType = "std::string";
-  let defaultValue = value;
 }
 
 // For APFloats, which require comparison.
@@ -393,7 +368,7 @@ class OptionalArrayRefParameter<string arrayOf, string desc = ""> :
     OptionalParameter<"::llvm::ArrayRef<" # arrayOf # ">", desc> {
   let allocator = [{$_dst = $_allocator.copyInto($_self);}];
   let cppStorageType = "::llvm::SmallVector<" # arrayOf # ">";
-  let comparator = cppType # "($_lhs) == " # cppType # "($_rhs)";
+  let comparator = "::llvm::makeArrayRef($_lhs) == ::llvm::makeArrayRef($_rhs)";
 }
 
 // For classes which require allocation and have their own allocateInto method.
@@ -437,15 +412,15 @@ class AttributeSelfTypeParameter<string desc,
 /// This class defines an attribute that contains an array of elements. The
 /// elements can be any type, but if they are attributes, the nested elements
 /// are parsed and printed using the custom attribute syntax.
-class ArrayOfAttr<Dialect dialect, string name, string attrMnemonic,
+class ArrayOfAttr<Dialect dialect, string attrName, string attrMnemonic,
                   string eltName, list<Trait> traits = []>
-    : AttrDef<dialect, name, traits> {
+    : AttrDef<dialect, attrName, traits> {
   let parameters = (ins OptionalArrayRefParameter<eltName>:$value);
   let mnemonic = attrMnemonic;
   let assemblyFormat = "`[` (`]`) : ($value^ `]`)?";
 
   let returnType = "::llvm::ArrayRef<" # eltName # ">";
-  let constBuilderCall = "$_builder.getAttr<" # name # "Attr>($0)";
+  let constBuilderCall = "$_builder.getAttr<" # attrName # "Attr>($0)";
   let convertFromStorage = "$_self.getValue()";
 
   let extraClassDeclaration = [{
@@ -456,7 +431,6 @@ class ArrayOfAttr<Dialect dialect, string name, string attrMnemonic,
     auto &front() const { return getValue().front(); }
     auto &back() const { return getValue().back(); }
     auto &operator[](size_t index) { return getValue()[index]; }
-    operator }] # returnType # [{() const { return getValue(); }
   }];
 }
 

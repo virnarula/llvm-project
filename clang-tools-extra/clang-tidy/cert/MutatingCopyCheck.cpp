@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 static constexpr llvm::StringLiteral SourceDeclName = "ChangedPVD";
 static constexpr llvm::StringLiteral MutatingOperatorName = "MutatingOp";
@@ -69,4 +71,6 @@ void MutatingCopyCheck::check(const MatchFinder::MatchResult &Result) {
     diag(Assignment->getBeginLoc(), "mutating copied object");
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

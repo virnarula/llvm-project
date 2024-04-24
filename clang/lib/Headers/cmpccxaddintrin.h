@@ -7,10 +7,9 @@
  *
  *===-----------------------------------------------------------------------===
  */
-#ifndef __X86GPRINTRIN_H
-#error                                                                         \
-    "Never use <cmpccxaddintrin.h> directly; include <x86gprintrin.h> instead."
-#endif // __X86GPRINTRIN_H
+#ifndef __IMMINTRIN_H
+#error "Never use <cmpccxaddintrin.h> directly; include <immintrin.h> instead."
+#endif // __IMMINTRIN_H
 
 #ifndef __CMPCCXADDINTRIN_H
 #define __CMPCCXADDINTRIN_H
@@ -58,11 +57,11 @@ typedef enum {
 ///
 /// \returns a integer which is the original value of first operand.
 
-#define _cmpccxadd_epi32(__A, __B, __C, __D)                                   \
+#define __cmpccxadd_epi32(__A, __B, __C, __D)                                  \
   ((int)(__builtin_ia32_cmpccxadd32((void *)(__A), (int)(__B), (int)(__C),     \
                                     (int)(__D))))
 
-#define _cmpccxadd_epi64(__A, __B, __C, __D)                                   \
+#define __cmpccxadd_epi64(__A, __B, __C, __D)                                  \
   ((long long)(__builtin_ia32_cmpccxadd64((void *)(__A), (long long)(__B),     \
                                           (long long)(__C), (int)(__D))))
 

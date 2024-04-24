@@ -29,7 +29,9 @@ public:
 
   StringRef getMessage() const { return message.getValue(); }
 
-  LogicalResult updateMapping(Operation *previous, Operation *updated);
+  LogicalResult updateMapping(Operation *previous, Operation *updated) {
+    return replacePayloadOp(previous, updated);
+  }
 
 private:
   StringAttr message;

@@ -86,7 +86,7 @@ struct DecomposeCallGraphTypesForFuncArgs
     if (failed(typeConverter->convertTypes(functionType.getResults(),
                                            newResultTypes)))
       return failure();
-    rewriter.modifyOpInPlace(op, [&] {
+    rewriter.updateRootInPlace(op, [&] {
       op.setType(rewriter.getFunctionType(conversion.getConvertedTypes(),
                                           newResultTypes));
     });

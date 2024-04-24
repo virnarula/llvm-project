@@ -19,7 +19,6 @@
 #define PASS_NAME "test-affine-loop-unswitch"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 namespace {
 

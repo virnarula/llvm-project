@@ -19,11 +19,11 @@
 
 #include "clang/Basic/HLSLRuntime.h"
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Frontend/HLSL/HLSLResource.h"
 
-#include <optional>
 #include <vector>
 
 namespace llvm {
@@ -37,6 +37,7 @@ class VarDecl;
 class ParmVarDecl;
 class HLSLBufferDecl;
 class HLSLResourceBindingAttr;
+class CallExpr;
 class Type;
 class DeclContext;
 
@@ -50,7 +51,7 @@ class CGHLSLRuntime {
 public:
   struct BufferResBinding {
     // The ID like 2 in register(b2, space1).
-    std::optional<unsigned> Reg;
+    llvm::Optional<unsigned> Reg;
     // The Space like 1 is register(b2, space1).
     // Default value is 0.
     unsigned Space;
@@ -90,9 +91,9 @@ public:
 
 private:
   void addBufferResourceAnnotation(llvm::GlobalVariable *GV,
+                                   llvm::StringRef TyName,
                                    llvm::hlsl::ResourceClass RC,
-                                   llvm::hlsl::ResourceKind RK, bool IsROV,
-                                   llvm::hlsl::ElementType ET,
+                                   llvm::hlsl::ResourceKind RK,
                                    BufferResBinding &Binding);
   void addConstant(VarDecl *D, Buffer &CB);
   void addBufferDecls(const DeclContext *DC, Buffer &CB);

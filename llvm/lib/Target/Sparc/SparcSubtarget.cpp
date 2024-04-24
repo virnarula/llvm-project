@@ -12,7 +12,6 @@
 
 #include "SparcSubtarget.h"
 #include "Sparc.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/MathExtras.h"
 
@@ -26,18 +25,37 @@ using namespace llvm;
 
 void SparcSubtarget::anchor() { }
 
-SparcSubtarget &SparcSubtarget::initializeSubtargetDependencies(
-    StringRef CPU, StringRef TuneCPU, StringRef FS) {
+SparcSubtarget &SparcSubtarget::initializeSubtargetDependencies(StringRef CPU,
+                                                                StringRef FS) {
+  UseSoftMulDiv = false;
+  IsV9 = false;
+  IsLeon = false;
+  V8DeprecatedInsts = false;
+  IsVIS = false;
+  IsVIS2 = false;
+  IsVIS3 = false;
+  HasHardQuad = false;
+  UsePopc = false;
+  UseSoftFloat = false;
+  HasNoFSMULD = false;
+  HasNoFMULS = false;
+
+  // Leon features
+  HasLeonCasa = false;
+  HasUmacSmac = false;
+  HasPWRPSR = false;
+  InsertNOPLoad = false;
+  FixAllFDIVSQRT = false;
+  DetectRoundChange = false;
+  HasLeonCycleCounter = false;
+
   // Determine default and user specified characteristics
   std::string CPUName = std::string(CPU);
   if (CPUName.empty())
     CPUName = (Is64Bit) ? "v9" : "v8";
 
-  if (TuneCPU.empty())
-    TuneCPU = CPUName;
-
   // Parse features string.
-  ParseSubtargetFeatures(CPUName, TuneCPU, FS);
+  ParseSubtargetFeatures(CPUName, /*TuneCPU*/ CPUName, FS);
 
   // Popc is a v9-only instruction.
   if (!IsV9)
@@ -46,13 +64,11 @@ SparcSubtarget &SparcSubtarget::initializeSubtargetDependencies(
   return *this;
 }
 
-SparcSubtarget::SparcSubtarget(const StringRef &CPU, const StringRef &TuneCPU,
-                               const StringRef &FS, const TargetMachine &TM,
+SparcSubtarget::SparcSubtarget(const Triple &TT, const std::string &CPU,
+                               const std::string &FS, const TargetMachine &TM,
                                bool is64Bit)
-    : SparcGenSubtargetInfo(TM.getTargetTriple(), CPU, TuneCPU, FS),
-      ReserveRegister(TM.getMCRegisterInfo()->getNumRegs()),
-      TargetTriple(TM.getTargetTriple()), Is64Bit(is64Bit),
-      InstrInfo(initializeSubtargetDependencies(CPU, TuneCPU, FS)),
+    : SparcGenSubtargetInfo(TT, CPU, /*TuneCPU*/ CPU, FS), TargetTriple(TT),
+      Is64Bit(is64Bit), InstrInfo(initializeSubtargetDependencies(CPU, FS)),
       TLInfo(TM, *this), FrameLowering(*this) {}
 
 int SparcSubtarget::getAdjustedFrameSize(int frameSize) const {

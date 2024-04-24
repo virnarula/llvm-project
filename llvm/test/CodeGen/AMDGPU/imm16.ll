@@ -2,11 +2,11 @@
 ; RUN: llc -mtriple=amdgcn--amdhsa -mcpu=gfx1010 -mattr=-flat-for-global -mattr=-flat-for-global -verify-machineinstrs -show-mc-encoding < %s | FileCheck -check-prefix=GFX10 %s
 ; RUN: llc -mtriple=amdgcn--amdhsa -mcpu=gfx1100 -mattr=-flat-for-global -mattr=-flat-for-global -verify-machineinstrs -show-mc-encoding < %s | FileCheck -check-prefix=GFX11 %s
 ; RUN: llc -mtriple=amdgcn--amdhsa -mcpu=tonga -mattr=-flat-for-global -mattr=-flat-for-global -verify-machineinstrs -show-mc-encoding < %s | FileCheck -check-prefix=VI %s
-; RUN: llc -mtriple=amdgcn -mcpu=tahiti -verify-machineinstrs < %s | FileCheck -check-prefix=SI %s
+; RUN: llc -march=amdgcn -mcpu=tahiti -verify-machineinstrs < %s | FileCheck -check-prefix=SI %s
 
 ; FIXME: Merge into imm.ll
 
-define amdgpu_kernel void @store_inline_imm_neg_0.0_i16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_neg_0.0_i16(i16 addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_neg_0.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -27,7 +27,6 @@ define amdgpu_kernel void @store_inline_imm_neg_0.0_i16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 dlc ; encoding: [0x00,0x20,0x64,0xe0,0x00,0x00,0x00,0x80]
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -52,11 +51,11 @@ define amdgpu_kernel void @store_inline_imm_neg_0.0_i16(ptr addrspace(1) %out) {
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_waitcnt vmcnt(0)
 ; SI-NEXT:    s_endpgm
-  store volatile i16 -32768, ptr addrspace(1) %out
+  store volatile i16 -32768, i16 addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_0.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_0.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_0.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -75,7 +74,6 @@ define amdgpu_kernel void @store_inline_imm_0.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -98,11 +96,11 @@ define amdgpu_kernel void @store_inline_imm_0.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 0.0, ptr addrspace(1) %out
+  store half 0.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_imm_neg_0.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_imm_neg_0.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_imm_neg_0.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -121,7 +119,6 @@ define amdgpu_kernel void @store_imm_neg_0.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -144,11 +141,11 @@ define amdgpu_kernel void @store_imm_neg_0.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half -0.0, ptr addrspace(1) %out
+  store half -0.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_0.5_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_0.5_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_0.5_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -167,7 +164,6 @@ define amdgpu_kernel void @store_inline_imm_0.5_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -190,11 +186,11 @@ define amdgpu_kernel void @store_inline_imm_0.5_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 0.5, ptr addrspace(1) %out
+  store half 0.5, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_m_0.5_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_m_0.5_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_m_0.5_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -213,7 +209,6 @@ define amdgpu_kernel void @store_inline_imm_m_0.5_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -236,11 +231,11 @@ define amdgpu_kernel void @store_inline_imm_m_0.5_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half -0.5, ptr addrspace(1) %out
+  store half -0.5, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_1.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_1.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_1.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -259,7 +254,6 @@ define amdgpu_kernel void @store_inline_imm_1.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -282,11 +276,11 @@ define amdgpu_kernel void @store_inline_imm_1.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 1.0, ptr addrspace(1) %out
+  store half 1.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_m_1.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_m_1.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_m_1.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -305,7 +299,6 @@ define amdgpu_kernel void @store_inline_imm_m_1.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -328,11 +321,11 @@ define amdgpu_kernel void @store_inline_imm_m_1.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half -1.0, ptr addrspace(1) %out
+  store half -1.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_2.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_2.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_2.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -351,7 +344,6 @@ define amdgpu_kernel void @store_inline_imm_2.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -374,11 +366,11 @@ define amdgpu_kernel void @store_inline_imm_2.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 2.0, ptr addrspace(1) %out
+  store half 2.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_m_2.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_m_2.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_m_2.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -397,7 +389,6 @@ define amdgpu_kernel void @store_inline_imm_m_2.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -420,11 +411,11 @@ define amdgpu_kernel void @store_inline_imm_m_2.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half -2.0, ptr addrspace(1) %out
+  store half -2.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_4.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_4.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_4.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -443,7 +434,6 @@ define amdgpu_kernel void @store_inline_imm_4.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -466,11 +456,11 @@ define amdgpu_kernel void @store_inline_imm_4.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 4.0, ptr addrspace(1) %out
+  store half 4.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_m_4.0_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_m_4.0_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_m_4.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -489,7 +479,6 @@ define amdgpu_kernel void @store_inline_imm_m_4.0_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -512,11 +501,11 @@ define amdgpu_kernel void @store_inline_imm_m_4.0_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half -4.0, ptr addrspace(1) %out
+  store half -4.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_inv_2pi_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_inv_2pi_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_inv_2pi_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -535,7 +524,6 @@ define amdgpu_kernel void @store_inline_imm_inv_2pi_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -558,11 +546,11 @@ define amdgpu_kernel void @store_inline_imm_inv_2pi_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 0xH3118, ptr addrspace(1) %out
+  store half 0xH3118, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_inline_imm_m_inv_2pi_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_inline_imm_m_inv_2pi_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_inline_imm_m_inv_2pi_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -581,7 +569,6 @@ define amdgpu_kernel void @store_inline_imm_m_inv_2pi_f16(ptr addrspace(1) %out)
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -604,11 +591,11 @@ define amdgpu_kernel void @store_inline_imm_m_inv_2pi_f16(ptr addrspace(1) %out)
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 0xHB118, ptr addrspace(1) %out
+  store half 0xHB118, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @store_literal_imm_f16(ptr addrspace(1) %out) {
+define amdgpu_kernel void @store_literal_imm_f16(half addrspace(1)* %out) {
 ; GFX10-LABEL: store_literal_imm_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx2 s[0:1], s[4:5], 0x0 ; encoding: [0x02,0x00,0x04,0xf4,0x00,0x00,0x00,0xfa]
@@ -627,7 +614,6 @@ define amdgpu_kernel void @store_literal_imm_f16(ptr addrspace(1) %out) {
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    s_waitcnt lgkmcnt(0) ; encoding: [0x07,0xfc,0x89,0xbf]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -650,11 +636,11 @@ define amdgpu_kernel void @store_literal_imm_f16(ptr addrspace(1) %out) {
 ; SI-NEXT:    s_waitcnt lgkmcnt(0)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
-  store half 4096.0, ptr addrspace(1) %out
+  store half 4096.0, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_0.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_0.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_0.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -677,7 +663,6 @@ define amdgpu_kernel void @add_inline_imm_0.0_f16(ptr addrspace(1) %out, half %x
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0x00,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -705,11 +690,11 @@ define amdgpu_kernel void @add_inline_imm_0.0_f16(ptr addrspace(1) %out, half %x
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_0.5_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_0.5_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_0.5_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -732,7 +717,6 @@ define amdgpu_kernel void @add_inline_imm_0.5_f16(ptr addrspace(1) %out, half %x
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 0.5 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xe0,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -760,11 +744,11 @@ define amdgpu_kernel void @add_inline_imm_0.5_f16(ptr addrspace(1) %out, half %x
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0.5
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_0.5_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_neg_0.5_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_neg_0.5_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -787,7 +771,6 @@ define amdgpu_kernel void @add_inline_imm_neg_0.5_f16(ptr addrspace(1) %out, hal
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, -0.5 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xe2,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -815,11 +798,11 @@ define amdgpu_kernel void @add_inline_imm_neg_0.5_f16(ptr addrspace(1) %out, hal
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, -0.5
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_1.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_1.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_1.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -842,7 +825,6 @@ define amdgpu_kernel void @add_inline_imm_1.0_f16(ptr addrspace(1) %out, half %x
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 1.0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xe4,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -870,11 +852,11 @@ define amdgpu_kernel void @add_inline_imm_1.0_f16(ptr addrspace(1) %out, half %x
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 1.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_1.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_neg_1.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_neg_1.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -897,7 +879,6 @@ define amdgpu_kernel void @add_inline_imm_neg_1.0_f16(ptr addrspace(1) %out, hal
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, -1.0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xe6,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -925,11 +906,11 @@ define amdgpu_kernel void @add_inline_imm_neg_1.0_f16(ptr addrspace(1) %out, hal
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, -1.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_2.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_2.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_2.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -952,7 +933,6 @@ define amdgpu_kernel void @add_inline_imm_2.0_f16(ptr addrspace(1) %out, half %x
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 2.0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xe8,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -980,11 +960,11 @@ define amdgpu_kernel void @add_inline_imm_2.0_f16(ptr addrspace(1) %out, half %x
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 2.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_2.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_neg_2.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_neg_2.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1007,7 +987,6 @@ define amdgpu_kernel void @add_inline_imm_neg_2.0_f16(ptr addrspace(1) %out, hal
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, -2.0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xea,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1035,11 +1014,11 @@ define amdgpu_kernel void @add_inline_imm_neg_2.0_f16(ptr addrspace(1) %out, hal
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, -2.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_4.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_4.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_4.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1062,7 +1041,6 @@ define amdgpu_kernel void @add_inline_imm_4.0_f16(ptr addrspace(1) %out, half %x
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 4.0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xec,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1090,11 +1068,11 @@ define amdgpu_kernel void @add_inline_imm_4.0_f16(ptr addrspace(1) %out, half %x
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 4.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_4.0_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_neg_4.0_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_neg_4.0_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1117,7 +1095,6 @@ define amdgpu_kernel void @add_inline_imm_neg_4.0_f16(ptr addrspace(1) %out, hal
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, -4.0 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0xee,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1145,11 +1122,11 @@ define amdgpu_kernel void @add_inline_imm_neg_4.0_f16(ptr addrspace(1) %out, hal
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, -4.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @commute_add_inline_imm_0.5_f16(ptr addrspace(1) %out, ptr addrspace(1) %in) {
+define amdgpu_kernel void @commute_add_inline_imm_0.5_f16(half addrspace(1)* %out, half addrspace(1)* %in) {
 ; GFX10-LABEL: commute_add_inline_imm_0.5_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x0 ; encoding: [0x02,0x00,0x08,0xf4,0x00,0x00,0x00,0xfa]
@@ -1184,7 +1161,6 @@ define amdgpu_kernel void @commute_add_inline_imm_0.5_f16(ptr addrspace(1) %out,
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0xf7,0x03,0x89,0xbf]
 ; GFX11-NEXT:    v_add_f16_e32 v0, 0.5, v0 ; encoding: [0xf0,0x00,0x00,0x64]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[4:7], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x01,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1225,13 +1201,13 @@ define amdgpu_kernel void @commute_add_inline_imm_0.5_f16(ptr addrspace(1) %out,
 ; SI-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; SI-NEXT:    buffer_store_short v0, off, s[4:7], 0
 ; SI-NEXT:    s_endpgm
-  %x = load half, ptr addrspace(1) %in
+  %x = load half, half addrspace(1)* %in
   %y = fadd half %x, 0.5
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @commute_add_literal_f16(ptr addrspace(1) %out, ptr addrspace(1) %in) {
+define amdgpu_kernel void @commute_add_literal_f16(half addrspace(1)* %out, half addrspace(1)* %in) {
 ; GFX10-LABEL: commute_add_literal_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x0 ; encoding: [0x02,0x00,0x08,0xf4,0x00,0x00,0x00,0xfa]
@@ -1266,7 +1242,6 @@ define amdgpu_kernel void @commute_add_literal_f16(ptr addrspace(1) %out, ptr ad
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0xf7,0x03,0x89,0xbf]
 ; GFX11-NEXT:    v_add_f16_e32 v0, 0x6400, v0 ; encoding: [0xff,0x00,0x00,0x64,0x00,0x64,0x00,0x00]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[4:7], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x01,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1307,13 +1282,13 @@ define amdgpu_kernel void @commute_add_literal_f16(ptr addrspace(1) %out, ptr ad
 ; SI-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; SI-NEXT:    buffer_store_short v0, off, s[4:7], 0
 ; SI-NEXT:    s_endpgm
-  %x = load half, ptr addrspace(1) %in
+  %x = load half, half addrspace(1)* %in
   %y = fadd half %x, 1024.0
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_1_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_1_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_1_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1336,7 +1311,6 @@ define amdgpu_kernel void @add_inline_imm_1_f16(ptr addrspace(1) %out, half %x) 
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 1 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0x02,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1364,11 +1338,11 @@ define amdgpu_kernel void @add_inline_imm_1_f16(ptr addrspace(1) %out, half %x) 
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0xH0001
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_2_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_2_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_2_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1391,7 +1365,6 @@ define amdgpu_kernel void @add_inline_imm_2_f16(ptr addrspace(1) %out, half %x) 
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 2 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0x04,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1419,11 +1392,11 @@ define amdgpu_kernel void @add_inline_imm_2_f16(ptr addrspace(1) %out, half %x) 
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0xH0002
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_16_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_16_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_16_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1446,7 +1419,6 @@ define amdgpu_kernel void @add_inline_imm_16_f16(ptr addrspace(1) %out, half %x)
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 16 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0x20,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1474,11 +1446,11 @@ define amdgpu_kernel void @add_inline_imm_16_f16(ptr addrspace(1) %out, half %x)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0xH0010
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_1_f16(ptr addrspace(1) %out, ptr addrspace(1) %in) {
+define amdgpu_kernel void @add_inline_imm_neg_1_f16(half addrspace(1)* %out, i16 addrspace(1)* %in) {
 ; GFX10-LABEL: add_inline_imm_neg_1_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x0 ; encoding: [0x02,0x00,0x08,0xf4,0x00,0x00,0x00,0xfa]
@@ -1513,7 +1485,6 @@ define amdgpu_kernel void @add_inline_imm_neg_1_f16(ptr addrspace(1) %out, ptr a
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0xf7,0x03,0x89,0xbf]
 ; GFX11-NEXT:    v_add_nc_u16 v0, v0, -1 ; encoding: [0x00,0x00,0x03,0xd7,0x00,0x83,0x01,0x00]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[4:7], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x01,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1552,14 +1523,14 @@ define amdgpu_kernel void @add_inline_imm_neg_1_f16(ptr addrspace(1) %out, ptr a
 ; SI-NEXT:    v_add_i32_e32 v0, vcc, -1, v0
 ; SI-NEXT:    buffer_store_short v0, off, s[4:7], 0
 ; SI-NEXT:    s_endpgm
-  %x = load i16, ptr addrspace(1) %in
+  %x = load i16, i16 addrspace(1)* %in
   %y = add i16 %x, -1
   %ybc = bitcast i16 %y to half
-  store half %ybc, ptr addrspace(1) %out
+  store half %ybc, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_2_f16(ptr addrspace(1) %out, ptr addrspace(1) %in) {
+define amdgpu_kernel void @add_inline_imm_neg_2_f16(half addrspace(1)* %out, i16 addrspace(1)* %in) {
 ; GFX10-LABEL: add_inline_imm_neg_2_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x0 ; encoding: [0x02,0x00,0x08,0xf4,0x00,0x00,0x00,0xfa]
@@ -1594,7 +1565,6 @@ define amdgpu_kernel void @add_inline_imm_neg_2_f16(ptr addrspace(1) %out, ptr a
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0xf7,0x03,0x89,0xbf]
 ; GFX11-NEXT:    v_add_nc_u16 v0, v0, -2 ; encoding: [0x00,0x00,0x03,0xd7,0x00,0x85,0x01,0x00]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[4:7], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x01,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1633,14 +1603,14 @@ define amdgpu_kernel void @add_inline_imm_neg_2_f16(ptr addrspace(1) %out, ptr a
 ; SI-NEXT:    v_add_i32_e32 v0, vcc, -2, v0
 ; SI-NEXT:    buffer_store_short v0, off, s[4:7], 0
 ; SI-NEXT:    s_endpgm
-  %x = load i16, ptr addrspace(1) %in
+  %x = load i16, i16 addrspace(1)* %in
   %y = add i16 %x, -2
   %ybc = bitcast i16 %y to half
-  store half %ybc, ptr addrspace(1) %out
+  store half %ybc, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_neg_16_f16(ptr addrspace(1) %out, ptr addrspace(1) %in) {
+define amdgpu_kernel void @add_inline_imm_neg_16_f16(half addrspace(1)* %out, i16 addrspace(1)* %in) {
 ; GFX10-LABEL: add_inline_imm_neg_16_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x0 ; encoding: [0x02,0x00,0x08,0xf4,0x00,0x00,0x00,0xfa]
@@ -1675,7 +1645,6 @@ define amdgpu_kernel void @add_inline_imm_neg_16_f16(ptr addrspace(1) %out, ptr 
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0xf7,0x03,0x89,0xbf]
 ; GFX11-NEXT:    v_add_nc_u16 v0, v0, -16 ; encoding: [0x00,0x00,0x03,0xd7,0x00,0xa1,0x01,0x00]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[4:7], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x01,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1714,14 +1683,14 @@ define amdgpu_kernel void @add_inline_imm_neg_16_f16(ptr addrspace(1) %out, ptr 
 ; SI-NEXT:    v_add_i32_e32 v0, vcc, -16, v0
 ; SI-NEXT:    buffer_store_short v0, off, s[4:7], 0
 ; SI-NEXT:    s_endpgm
-  %x = load i16, ptr addrspace(1) %in
+  %x = load i16, i16 addrspace(1)* %in
   %y = add i16 %x, -16
   %ybc = bitcast i16 %y to half
-  store half %ybc, ptr addrspace(1) %out
+  store half %ybc, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_63_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_63_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_63_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1744,7 +1713,6 @@ define amdgpu_kernel void @add_inline_imm_63_f16(ptr addrspace(1) %out, half %x)
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 63 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0x7e,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1772,11 +1740,11 @@ define amdgpu_kernel void @add_inline_imm_63_f16(ptr addrspace(1) %out, half %x)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0xH003F
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
-define amdgpu_kernel void @add_inline_imm_64_f16(ptr addrspace(1) %out, half %x) {
+define amdgpu_kernel void @add_inline_imm_64_f16(half addrspace(1)* %out, half %x) {
 ; GFX10-LABEL: add_inline_imm_64_f16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_clause 0x1 ; encoding: [0x01,0x00,0xa1,0xbf]
@@ -1799,7 +1767,6 @@ define amdgpu_kernel void @add_inline_imm_64_f16(ptr addrspace(1) %out, half %x)
 ; GFX11-NEXT:    v_add_f16_e64 v0, s2, 64 ; encoding: [0x00,0x00,0x32,0xd5,0x02,0x80,0x01,0x00]
 ; GFX11-NEXT:    s_mov_b32 s2, -1 ; encoding: [0xc1,0x00,0x82,0xbe]
 ; GFX11-NEXT:    buffer_store_b16 v0, off, s[0:3], 0 ; encoding: [0x00,0x00,0x64,0xe0,0x00,0x00,0x00,0x80]
-; GFX11-NEXT:    s_nop 0 ; encoding: [0x00,0x00,0x80,0xbf]
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS) ; encoding: [0x03,0x00,0xb6,0xbf]
 ; GFX11-NEXT:    s_endpgm ; encoding: [0x00,0x00,0xb0,0xbf]
 ;
@@ -1827,25 +1794,29 @@ define amdgpu_kernel void @add_inline_imm_64_f16(ptr addrspace(1) %out, half %x)
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
   %y = fadd half %x, 0xH0040
-  store half %y, ptr addrspace(1) %out
+  store half %y, half addrspace(1)* %out
   ret void
 }
 
 ; This needs to be emitted as a literal constant since the 16-bit
 ; float values do not work for 16-bit integer operations.
-define void @mul_inline_imm_0.5_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_0.5_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_0.5_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0x3800, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0x38,0x00,0x00]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_0.5_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0x3800, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0x38,0x00,0x00]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_0.5_i16:
@@ -1869,23 +1840,27 @@ define void @mul_inline_imm_0.5_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half 0.5 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @mul_inline_imm_neg_0.5_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_neg_0.5_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_neg_0.5_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0xb800, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0xb8,0xff,0xff]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_neg_0.5_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0xb800, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0xb8,0xff,0xff]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_neg_0.5_i16:
@@ -1909,23 +1884,27 @@ define void @mul_inline_imm_neg_0.5_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half -0.5 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @mul_inline_imm_1.0_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_1.0_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_1.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0x3c00, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0x3c,0x00,0x00]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_1.0_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0x3c00, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0x3c,0x00,0x00]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_1.0_i16:
@@ -1949,23 +1928,27 @@ define void @mul_inline_imm_1.0_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half 1.0 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @mul_inline_imm_neg_1.0_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_neg_1.0_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_neg_1.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0xbc00, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0xbc,0xff,0xff]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_neg_1.0_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0xbc00, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0xbc,0xff,0xff]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_neg_1.0_i16:
@@ -1989,23 +1972,27 @@ define void @mul_inline_imm_neg_1.0_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half -1.0 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @shl_inline_imm_2.0_i16(ptr addrspace(1) %out, i16 %x) {
+define void @shl_inline_imm_2.0_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: shl_inline_imm_2.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_lshlrev_b16 v2, v2, 0x4000 ; encoding: [0x02,0x00,0x14,0xd7,0x02,0xff,0x01,0x00,0x00,0x40,0x00,0x00]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: shl_inline_imm_2.0_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_lshlrev_b16 v2, v2, 0x4000 ; encoding: [0x02,0x00,0x38,0xd7,0x02,0xff,0x01,0x00,0x00,0x40,0x00,0x00]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: shl_inline_imm_2.0_i16:
@@ -2029,23 +2016,27 @@ define void @shl_inline_imm_2.0_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = shl i16 bitcast (half 2.0 to i16), %x
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @shl_inline_imm_neg_2.0_i16(ptr addrspace(1) %out, i16 %x) {
+define void @shl_inline_imm_neg_2.0_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: shl_inline_imm_neg_2.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_lshlrev_b16 v2, v2, 0xc000 ; encoding: [0x02,0x00,0x14,0xd7,0x02,0xff,0x01,0x00,0x00,0xc0,0xff,0xff]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: shl_inline_imm_neg_2.0_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_lshlrev_b16 v2, v2, 0xc000 ; encoding: [0x02,0x00,0x38,0xd7,0x02,0xff,0x01,0x00,0x00,0xc0,0xff,0xff]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: shl_inline_imm_neg_2.0_i16:
@@ -2069,23 +2060,27 @@ define void @shl_inline_imm_neg_2.0_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = shl i16 bitcast (half -2.0 to i16), %x
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @mul_inline_imm_4.0_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_4.0_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_4.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0x4400, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0x44,0x00,0x00]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_4.0_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0x4400, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0x44,0x00,0x00]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_4.0_i16:
@@ -2109,23 +2104,27 @@ define void @mul_inline_imm_4.0_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half 4.0 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @mul_inline_imm_neg_4.0_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_neg_4.0_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_neg_4.0_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0xc400, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0xc4,0xff,0xff]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_neg_4.0_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0xc400, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x00,0xc4,0xff,0xff]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_neg_4.0_i16:
@@ -2149,23 +2148,27 @@ define void @mul_inline_imm_neg_4.0_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half -4.0 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }
 
-define void @mul_inline_imm_inv2pi_i16(ptr addrspace(1) %out, i16 %x) {
+define void @mul_inline_imm_inv2pi_i16(i16 addrspace(1)* %out, i16 %x) {
 ; GFX10-LABEL: mul_inline_imm_inv2pi_i16:
 ; GFX10:       ; %bb.0:
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x8c,0xbf]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    v_mul_lo_u16 v2, 0x3118, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x18,0x31,0x00,0x00]
 ; GFX10-NEXT:    global_store_short v[0:1], v2, off ; encoding: [0x00,0x80,0x68,0xdc,0x00,0x02,0x7d,0x00]
+; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x20,0x80,0xbe]
 ;
 ; GFX11-LABEL: mul_inline_imm_inv2pi_i16:
 ; GFX11:       ; %bb.0:
 ; GFX11-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0) ; encoding: [0x00,0x00,0x89,0xbf]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    v_mul_lo_u16 v2, 0x3118, v2 ; encoding: [0x02,0x00,0x05,0xd7,0xff,0x04,0x02,0x00,0x18,0x31,0x00,0x00]
 ; GFX11-NEXT:    global_store_b16 v[0:1], v2, off ; encoding: [0x00,0x00,0x66,0xdc,0x00,0x02,0x7c,0x00]
+; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0x7c,0xbc]
 ; GFX11-NEXT:    s_setpc_b64 s[30:31] ; encoding: [0x1e,0x48,0x80,0xbe]
 ;
 ; VI-LABEL: mul_inline_imm_inv2pi_i16:
@@ -2189,6 +2192,6 @@ define void @mul_inline_imm_inv2pi_i16(ptr addrspace(1) %out, i16 %x) {
 ; SI-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
 ; SI-NEXT:    s_setpc_b64 s[30:31]
   %y = mul i16 %x, bitcast (half 0xH3118 to i16)
-  store i16 %y, ptr addrspace(1) %out
+  store i16 %y, i16 addrspace(1)* %out
   ret void
 }

@@ -8,7 +8,7 @@
 // UNSUPPORTED: android
 
 /// Fast unwinder does not work with Thumb code
-// UNSUPPORTED: target={{.*thumb.*}}
+// UNSUPPORTED: thumb
 
 /// No .eh_frame && -g => .debug_frame
 // SEC: .debug_frame

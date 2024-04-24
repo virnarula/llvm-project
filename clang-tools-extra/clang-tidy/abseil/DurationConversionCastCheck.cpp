@@ -11,11 +11,12 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Tooling/FixIt.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 void DurationConversionCastCheck::registerMatchers(MatchFinder *Finder) {
   auto CallMatcher = ignoringImpCasts(callExpr(
@@ -43,7 +44,7 @@ void DurationConversionCastCheck::check(
   const auto *Arg = Result.Nodes.getNodeAs<Expr>("arg");
   StringRef ConversionFuncName = FuncDecl->getName();
 
-  std::optional<DurationScale> Scale =
+  llvm::Optional<DurationScale> Scale =
       getScaleForDurationInverse(ConversionFuncName);
   if (!Scale)
     return;
@@ -79,4 +80,6 @@ void DurationConversionCastCheck::check(
   }
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

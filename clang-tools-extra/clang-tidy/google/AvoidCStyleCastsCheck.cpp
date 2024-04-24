@@ -14,7 +14,10 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::google::readability {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace readability {
 
 void AvoidCStyleCastsCheck::registerMatchers(
     ast_matchers::MatchFinder *Finder) {
@@ -23,16 +26,14 @@ void AvoidCStyleCastsCheck::registerMatchers(
           // Filter out (EnumType)IntegerLiteral construct, which is generated
           // for non-type template arguments of enum types.
           // FIXME: Remove this once this is fixed in the AST.
-          unless(hasParent(substNonTypeTemplateParmExpr())))
+          unless(hasParent(substNonTypeTemplateParmExpr())),
+          // Avoid matches in template instantiations.
+          unless(isInTemplateInstantiation()))
           .bind("cast"),
       this);
-
   Finder->addMatcher(
-      cxxFunctionalCastExpr(
-          hasDestinationType(hasCanonicalType(anyOf(
-              builtinType(), references(qualType()), pointsTo(qualType())))),
-          unless(
-              hasSourceExpression(anyOf(cxxConstructExpr(), initListExpr()))))
+      cxxFunctionalCastExpr(unless(hasDescendant(cxxConstructExpr())),
+                            unless(hasDescendant(initListExpr())))
           .bind("cast"),
       this);
 }
@@ -60,14 +61,15 @@ static bool pointedUnqualifiedTypesAreEqual(QualType T1, QualType T2) {
 }
 
 static clang::CharSourceRange getReplaceRange(const ExplicitCastExpr *Expr) {
-  if (const auto *CastExpr = dyn_cast<CStyleCastExpr>(Expr))
+  if (const auto *CastExpr = dyn_cast<CStyleCastExpr>(Expr)) {
     return CharSourceRange::getCharRange(
         CastExpr->getLParenLoc(),
         CastExpr->getSubExprAsWritten()->getBeginLoc());
-  if (const auto *CastExpr = dyn_cast<CXXFunctionalCastExpr>(Expr))
+  } else if (const auto *CastExpr = dyn_cast<CXXFunctionalCastExpr>(Expr)) {
     return CharSourceRange::getCharRange(CastExpr->getBeginLoc(),
                                          CastExpr->getLParenLoc());
-  llvm_unreachable("Unsupported CastExpr");
+  } else
+    llvm_unreachable("Unsupported CastExpr");
 }
 
 static StringRef getDestTypeString(const SourceManager &SM,
@@ -150,15 +152,14 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
     return;
   // Ignore code in .c files and headers included from them, even if they are
   // compiled as C++.
-  if (getCurrentMainFile().ends_with(".c"))
+  if (getCurrentMainFile().endswith(".c"))
     return;
 
   SourceManager &SM = *Result.SourceManager;
 
   // Ignore code in .c files #included in other files (which shouldn't be done,
   // but people still do this for test and other purposes).
-  if (SM.getFilename(SM.getSpellingLoc(CastExpr->getBeginLoc()))
-          .ends_with(".c"))
+  if (SM.getFilename(SM.getSpellingLoc(CastExpr->getBeginLoc())).endswith(".c"))
     return;
 
   // Leave type spelling exactly as it was (unlike
@@ -257,4 +258,7 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
   Diag << "static_cast/const_cast/reinterpret_cast";
 }
 
-} // namespace clang::tidy::google::readability
+} // namespace readability
+} // namespace google
+} // namespace tidy
+} // namespace clang

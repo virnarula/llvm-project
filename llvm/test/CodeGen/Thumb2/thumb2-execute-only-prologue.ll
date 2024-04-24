@@ -12,7 +12,8 @@ entry:
 ; CHECK: .LCPI0_0:
 ; CHECK-NEXT:    .long 4294965696
   %a = alloca [400 x i32], align 4
-  call void @bar(ptr %a)
+  %arraydecay = getelementptr inbounds [400 x i32], [400 x i32]* %a, i32 0, i32 0
+  call void @bar(i32* %arraydecay)
   ret void
 }
 
@@ -27,10 +28,11 @@ entry:
 ; CHECK-NEXT:    .pad #1600
 ; CHECK-NEXT:    add sp, r6
   %a = alloca [400 x i32], align 4
-  call void @bar(ptr %a)
+  %arraydecay = getelementptr inbounds [400 x i32], [400 x i32]* %a, i32 0, i32 0
+  call void @bar(i32* %arraydecay)
   ret void
 }
 
-declare dso_local void @bar(ptr)
+declare dso_local void @bar(i32*)
 
 attributes #0 = { noinline optnone "target-features"="+armv8-m.base,+execute-only,+thumb-mode" }

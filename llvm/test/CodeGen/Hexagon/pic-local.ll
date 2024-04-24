@@ -8,12 +8,12 @@ define internal void @f2() {
   ret void
 }
 
-define ptr @get_f1() {
+define void()* @get_f1() {
   ; CHECK:  r0 = add(pc,##.Lf1@PCREL)
-  ret ptr @f1
+  ret void()* @f1
 }
 
-define ptr @get_f2() {
+define void()* @get_f2() {
   ; CHECK: r0 = add(pc,##f2@PCREL)
-  ret ptr @f2
+  ret void()* @f2
 }

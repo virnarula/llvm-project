@@ -15,7 +15,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::altera {
+namespace clang {
+namespace tidy {
+namespace altera {
 
 namespace {
 
@@ -28,16 +30,16 @@ public:
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FileNameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override;
 
   void EndOfMainFile() override;
 
 private:
-  /// Returns true if the name of the file with path FileName is 'kernel.cl',
+  /// Returns true if the name of the file with path FilePath is 'kernel.cl',
   /// 'verilog.cl', or 'vhdl.cl'. The file name check is case insensitive.
-  bool fileNameIsRestricted(StringRef FileName);
+  bool fileNameIsRestricted(StringRef FilePath);
 
   struct IncludeDirective {
     SourceLocation Loc; // Location in the include directive.
@@ -60,8 +62,8 @@ void KernelNameRestrictionCheck::registerPPCallbacks(const SourceManager &SM,
 
 void KernelNameRestrictionPPCallbacks::InclusionDirective(
     SourceLocation HashLoc, const Token &, StringRef FileName, bool,
-    CharSourceRange, OptionalFileEntryRef, StringRef, StringRef, const Module *,
-    SrcMgr::CharacteristicKind) {
+    CharSourceRange, Optional<FileEntryRef>, StringRef, StringRef,
+    const Module *, SrcMgr::CharacteristicKind) {
   IncludeDirective ID = {HashLoc, FileName};
   IncludeDirectives.push_back(std::move(ID));
 }
@@ -76,7 +78,7 @@ bool KernelNameRestrictionPPCallbacks::fileNameIsRestricted(
 void KernelNameRestrictionPPCallbacks::EndOfMainFile() {
 
   // Check main file for restricted names.
-  OptionalFileEntryRef Entry = SM.getFileEntryRefForID(SM.getMainFileID());
+  const FileEntry *Entry = SM.getFileEntryForID(SM.getMainFileID());
   StringRef FileName = llvm::sys::path::filename(Entry->getName());
   if (fileNameIsRestricted(FileName))
     Check.diag(SM.getLocForStartOfFile(SM.getMainFileID()),
@@ -100,4 +102,6 @@ void KernelNameRestrictionPPCallbacks::EndOfMainFile() {
   }
 }
 
-} // namespace clang::tidy::altera
+} // namespace altera
+} // namespace tidy
+} // namespace clang

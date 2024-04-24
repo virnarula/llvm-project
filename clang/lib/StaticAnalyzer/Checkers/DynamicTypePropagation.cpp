@@ -31,8 +31,6 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/DynamicType.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
-#include "llvm/ADT/STLExtras.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -234,9 +232,11 @@ void DynamicTypePropagation::checkDeadSymbols(SymbolReaper &SR,
 
   MostSpecializedTypeArgsMapTy TyArgMap =
       State->get<MostSpecializedTypeArgsMap>();
-  for (SymbolRef Sym : llvm::make_first_range(TyArgMap)) {
-    if (SR.isDead(Sym)) {
-      State = State->remove<MostSpecializedTypeArgsMap>(Sym);
+  for (MostSpecializedTypeArgsMapTy::iterator I = TyArgMap.begin(),
+                                              E = TyArgMap.end();
+       I != E; ++I) {
+    if (SR.isDead(I->first)) {
+      State = State->remove<MostSpecializedTypeArgsMap>(I->first);
     }
   }
 
@@ -268,12 +268,12 @@ void DynamicTypePropagation::checkPreCall(const CallEvent &Call,
     //   a more-derived class.
 
     switch (Ctor->getOriginExpr()->getConstructionKind()) {
-    case CXXConstructionKind::Complete:
-    case CXXConstructionKind::Delegating:
+    case CXXConstructExpr::CK_Complete:
+    case CXXConstructExpr::CK_Delegating:
       // No additional type info necessary.
       return;
-    case CXXConstructionKind::NonVirtualBase:
-    case CXXConstructionKind::VirtualBase:
+    case CXXConstructExpr::CK_NonVirtualBase:
+    case CXXConstructExpr::CK_VirtualBase:
       if (const MemRegion *Target = Ctor->getCXXThisVal().getAsRegion())
         recordFixedType(Target, Ctor->getDecl(), C);
       return;
@@ -360,16 +360,16 @@ void DynamicTypePropagation::checkPostCall(const CallEvent &Call,
   if (const CXXConstructorCall *Ctor = dyn_cast<CXXConstructorCall>(&Call)) {
     // We may need to undo the effects of our pre-call check.
     switch (Ctor->getOriginExpr()->getConstructionKind()) {
-    case CXXConstructionKind::Complete:
-    case CXXConstructionKind::Delegating:
+    case CXXConstructExpr::CK_Complete:
+    case CXXConstructExpr::CK_Delegating:
       // No additional work necessary.
       // Note: This will leave behind the actual type of the object for
       // complete constructors, but arguably that's a good thing, since it
       // means the dynamic type info will be correct even for objects
       // constructed with operator new.
       return;
-    case CXXConstructionKind::NonVirtualBase:
-    case CXXConstructionKind::VirtualBase:
+    case CXXConstructExpr::CK_NonVirtualBase:
+    case CXXConstructExpr::CK_VirtualBase:
       if (const MemRegion *Target = Ctor->getCXXThisVal().getAsRegion()) {
         // We just finished a base constructor. Now we can use the subclass's
         // type when resolving virtual calls.
@@ -713,7 +713,7 @@ static bool isObjCTypeParamDependent(QualType Type) {
   class IsObjCTypeParamDependentTypeVisitor
       : public RecursiveASTVisitor<IsObjCTypeParamDependentTypeVisitor> {
   public:
-    IsObjCTypeParamDependentTypeVisitor() = default;
+    IsObjCTypeParamDependentTypeVisitor() : Result(false) {}
     bool VisitObjCTypeParamType(const ObjCTypeParamType *Type) {
       if (isa<ObjCTypeParamDecl>(Type->getDecl())) {
         Result = true;
@@ -722,7 +722,7 @@ static bool isObjCTypeParamDependent(QualType Type) {
       return true;
     }
 
-    bool Result = false;
+    bool Result;
   };
 
   IsObjCTypeParamDependentTypeVisitor Visitor;
@@ -741,6 +741,8 @@ findMethodDecl(const ObjCMessageExpr *MessageExpr,
   const ObjCMethodDecl *Method = nullptr;
 
   QualType ReceiverType = MessageExpr->getReceiverType();
+  const auto *ReceiverObjectPtrType =
+      ReceiverType->getAs<ObjCObjectPointerType>();
 
   // Do this "devirtualization" on instance and class methods only. Trust the
   // static type on super and super class calls.
@@ -750,8 +752,7 @@ findMethodDecl(const ObjCMessageExpr *MessageExpr,
     // type, look up the method in the tracked type, not in the receiver type.
     // This way we preserve more information.
     if (ReceiverType->isObjCIdType() || ReceiverType->isObjCClassType() ||
-        ASTCtxt.canAssignObjCInterfaces(
-            ReceiverType->castAs<ObjCObjectPointerType>(), TrackedType)) {
+        ASTCtxt.canAssignObjCInterfaces(ReceiverObjectPtrType, TrackedType)) {
       const ObjCInterfaceDecl *InterfaceDecl = TrackedType->getInterfaceDecl();
       // The method might not be found.
       Selector Sel = MessageExpr->getSelector();
@@ -845,7 +846,7 @@ void DynamicTypePropagation::checkPreObjCMessage(const ObjCMethodCall &M,
       return;
   }
 
-  std::optional<ArrayRef<QualType>> TypeArgs =
+  Optional<ArrayRef<QualType>> TypeArgs =
       (*TrackedType)->getObjCSubstitutions(Method->getDeclContext());
   // This case might happen when there is an unspecialized override of a
   // specialized method.
@@ -978,7 +979,7 @@ void DynamicTypePropagation::checkPostObjCMessage(const ObjCMethodCall &M,
   if (!Method)
     return;
 
-  std::optional<ArrayRef<QualType>> TypeArgs =
+  Optional<ArrayRef<QualType>> TypeArgs =
       (*TrackedType)->getObjCSubstitutions(Method->getDeclContext());
   if (!TypeArgs)
     return;

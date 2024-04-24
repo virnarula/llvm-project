@@ -140,7 +140,7 @@ MCSection *HexagonTargetObjectFile::SelectSectionForGlobal(
 
   // If the lookup table is used by more than one function, do not place
   // it in text section.
-  if (EmitLutInText && GO->getName().starts_with("switch.table")) {
+  if (EmitLutInText && GO->getName().startswith("switch.table")) {
     if (const Function *Fn = getLutUsedFunction(GO))
       return selectSectionForLookupTable(GO, TM, Fn);
   }
@@ -333,7 +333,6 @@ unsigned HexagonTargetObjectFile::getSmallestAddressableSize(const Type *Ty,
   case Type::X86_AMXTyID:
   case Type::TokenTyID:
   case Type::TypedPointerTyID:
-  case Type::TargetExtTyID:
     return 0;
   }
 

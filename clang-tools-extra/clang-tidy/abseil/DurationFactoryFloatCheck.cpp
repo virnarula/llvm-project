@@ -12,11 +12,12 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Tooling/FixIt.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 // Returns `true` if `Range` is inside a macro definition.
 static bool insideMacroDefinition(const MatchFinder::MatchResult &Result,
@@ -53,7 +54,7 @@ void DurationFactoryFloatCheck::check(const MatchFinder::MatchResult &Result) {
   if (Arg->getBeginLoc().isMacroID())
     return;
 
-  std::optional<std::string> SimpleArg = stripFloatCast(Result, *Arg);
+  llvm::Optional<std::string> SimpleArg = stripFloatCast(Result, *Arg);
   if (!SimpleArg)
     SimpleArg = stripFloatLiteralFraction(Result, *Arg);
 
@@ -64,4 +65,6 @@ void DurationFactoryFloatCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

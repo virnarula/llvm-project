@@ -49,11 +49,11 @@ public:
   bool Update() override {
     m_impl.Clear();
 
-    auto type_system = m_backend.GetCompilerType().GetTypeSystem();
+    TypeSystem *type_system = m_backend.GetCompilerType().GetTypeSystem();
     if (!type_system)
       return false;
 
-    auto ast = ScratchTypeSystemClang::GetForTarget(
+    TypeSystemClang *ast = ScratchTypeSystemClang::GetForTarget(
         *m_backend.GetExecutionContextRef().GetTargetSP());
     if (!ast)
       return false;

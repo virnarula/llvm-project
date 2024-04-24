@@ -2,7 +2,7 @@
 ; RUN: llc -mtriple=thumbv8.1m.main-none-none-eabi -mattr=+mve -verify-machineinstrs %s -o - | FileCheck %s --check-prefix=CHECK
 ; RUN: llc -mtriple=thumbebv8.1m.main-none-none-eabi -mattr=+mve -verify-machineinstrs %s -o - | FileCheck %s --check-prefix=CHECK
 
-define ptr @ldrwu32_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_4(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -11,15 +11,17 @@ define ptr @ldrwu32_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwu32_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_3(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -29,15 +31,17 @@ define ptr @ldrwu32_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwu32_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_2(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -47,15 +51,17 @@ define ptr @ldrwu32_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwu32_508(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_508(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -64,15 +70,17 @@ define ptr @ldrwu32_508(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 508
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwu32_512(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_512(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -82,15 +90,17 @@ define ptr @ldrwu32_512(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 512
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwu32_m508(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_m508(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_m508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -99,15 +109,17 @@ define ptr @ldrwu32_m508(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -508
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwu32_m512(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwu32_m512(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwu32_m512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -117,15 +129,17 @@ define ptr @ldrwu32_m512(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -512
+  %0 = bitcast i8* %z to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x i32> undef)
-  store <4 x i32> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* %0, i32 4, <4 x i1> %c, <4 x i32> undef)
+  %2 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %1, <4 x i32>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_4(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -134,16 +148,18 @@ define ptr @ldrhu32_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_3(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -153,16 +169,18 @@ define ptr @ldrhu32_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_2(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -171,16 +189,18 @@ define ptr @ldrhu32_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_254(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -189,16 +209,18 @@ define ptr @ldrhu32_254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 254
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 254
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_256(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -208,16 +230,18 @@ define ptr @ldrhu32_256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 256
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 256
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_m254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_m254(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -226,16 +250,18 @@ define ptr @ldrhu32_m254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -254
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -254
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu32_m256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu32_m256(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhu32_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -245,16 +271,18 @@ define ptr @ldrhu32_m256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -256
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -256
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = zext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = zext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_4(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -263,16 +291,18 @@ define ptr @ldrhs32_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_3(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -282,16 +312,18 @@ define ptr @ldrhs32_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_2(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -300,16 +332,18 @@ define ptr @ldrhs32_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_254(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -318,16 +352,18 @@ define ptr @ldrhs32_254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 254
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 254
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_256(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -337,16 +373,18 @@ define ptr @ldrhs32_256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 256
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 256
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_m254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_m254(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -355,16 +393,18 @@ define ptr @ldrhs32_m254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -254
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -254
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhs32_m256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhs32_m256(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrhs32_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -374,16 +414,18 @@ define ptr @ldrhs32_m256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -256
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -256
+  %0 = bitcast i8* %z to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr %z, i32 2, <4 x i1> %c, <4 x i16> undef)
-  %1 = sext <4 x i16> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>* %0, i32 2, <4 x i1> %c, <4 x i16> undef)
+  %2 = sext <4 x i16> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhu16_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_4(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -392,15 +434,17 @@ define ptr @ldrhu16_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhu16_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_3(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -410,15 +454,17 @@ define ptr @ldrhu16_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhu16_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_2(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -427,15 +473,17 @@ define ptr @ldrhu16_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhu16_254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_254(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -444,15 +492,17 @@ define ptr @ldrhu16_254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 254
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhu16_256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_256(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -462,15 +512,17 @@ define ptr @ldrhu16_256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 256
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhu16_m254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_m254(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -479,15 +531,17 @@ define ptr @ldrhu16_m254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -254
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhu16_m256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhu16_m256(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhu16_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -497,15 +551,17 @@ define ptr @ldrhu16_m256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -256
+  %0 = bitcast i8* %z to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i16> @llvm.masked.load.v8i16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x i16> undef)
-  store <8 x i16> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>* %0, i32 2, <8 x i1> %c, <8 x i16> undef)
+  %2 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %1, <8 x i16>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu32_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_4(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -514,16 +570,18 @@ define ptr @ldrbu32_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu32_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_3(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -532,16 +590,18 @@ define ptr @ldrbu32_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu32_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_2(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -550,16 +610,18 @@ define ptr @ldrbu32_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu32_127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_127(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -568,16 +630,18 @@ define ptr @ldrbu32_127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 127
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 127
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu32_128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_128(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -587,16 +651,18 @@ define ptr @ldrbu32_128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 128
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 128
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu32_m127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_m127(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -605,16 +671,18 @@ define ptr @ldrbu32_m127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -127
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -127
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu32_m128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu32_m128(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbu32_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -624,16 +692,18 @@ define ptr @ldrbu32_m128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -128
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -128
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = zext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = zext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_4(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -642,16 +712,18 @@ define ptr @ldrbs32_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_3(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -660,16 +732,18 @@ define ptr @ldrbs32_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_2(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -678,16 +752,18 @@ define ptr @ldrbs32_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_127(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -696,16 +772,18 @@ define ptr @ldrbs32_127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 127
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 127
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_128(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -715,16 +793,18 @@ define ptr @ldrbs32_128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 128
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 128
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_m127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_m127(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -733,16 +813,18 @@ define ptr @ldrbs32_m127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -127
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -127
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbs32_m128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs32_m128(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrbs32_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -752,16 +834,18 @@ define ptr @ldrbs32_m128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -128
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -128
+  %0 = bitcast i8* %z to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr %z, i32 1, <4 x i1> %c, <4 x i8> undef)
-  %1 = sext <4 x i8> %0 to <4 x i32>
-  store <4 x i32> %1, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>* %0, i32 1, <4 x i1> %c, <4 x i8> undef)
+  %2 = sext <4 x i8> %1 to <4 x i32>
+  %3 = bitcast i8* %y to <4 x i32>*
+  store <4 x i32> %2, <4 x i32>* %3, align 4
+  ret i8* %z
 }
 
-define ptr @ldrbu16_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_4(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -770,16 +854,18 @@ define ptr @ldrbu16_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu16_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_3(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -788,16 +874,18 @@ define ptr @ldrbu16_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu16_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_2(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -806,16 +894,18 @@ define ptr @ldrbu16_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu16_127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_127(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -824,16 +914,18 @@ define ptr @ldrbu16_127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 127
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 127
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu16_128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_128(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -843,16 +935,18 @@ define ptr @ldrbu16_128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 128
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 128
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu16_m127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_m127(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -861,16 +955,18 @@ define ptr @ldrbu16_m127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -127
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -127
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu16_m128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu16_m128(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbu16_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -880,16 +976,18 @@ define ptr @ldrbu16_m128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -128
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -128
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = zext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = zext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_4(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -898,16 +996,18 @@ define ptr @ldrbs16_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_3(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -916,16 +1016,18 @@ define ptr @ldrbs16_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_2(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -934,16 +1036,18 @@ define ptr @ldrbs16_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_127(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -952,16 +1056,18 @@ define ptr @ldrbs16_127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 127
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 127
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_128(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -971,16 +1077,18 @@ define ptr @ldrbs16_128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 128
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 128
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_m127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_m127(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -989,16 +1097,18 @@ define ptr @ldrbs16_m127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -127
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -127
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbs16_m128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbs16_m128(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrbs16_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1008,16 +1118,18 @@ define ptr @ldrbs16_m128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -128
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -128
+  %0 = bitcast i8* %z to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x i8> @llvm.masked.load.v8i8.p0(ptr %z, i32 1, <8 x i1> %c, <8 x i8> undef)
-  %1 = sext <8 x i8> %0 to <8 x i16>
-  store <8 x i16> %1, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>* %0, i32 1, <8 x i1> %c, <8 x i8> undef)
+  %2 = sext <8 x i8> %1 to <8 x i16>
+  %3 = bitcast i8* %y to <8 x i16>*
+  store <8 x i16> %2, <8 x i16>* %3, align 2
+  ret i8* %z
 }
 
-define ptr @ldrbu8_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_4(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1026,15 +1138,17 @@ define ptr @ldrbu8_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrbu8_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_3(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1043,15 +1157,17 @@ define ptr @ldrbu8_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrbu8_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_2(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1060,15 +1176,17 @@ define ptr @ldrbu8_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrbu8_127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_127(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1077,15 +1195,17 @@ define ptr @ldrbu8_127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 127
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 127
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrbu8_128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_128(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1095,15 +1215,17 @@ define ptr @ldrbu8_128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 128
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 128
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrbu8_m127(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_m127(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1112,15 +1234,17 @@ define ptr @ldrbu8_m127(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -127
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 -127
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrbu8_m128(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrbu8_m128(i8* %x, i8* %y, <16 x i8> *%m) {
 ; CHECK-LABEL: ldrbu8_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q0, [r2]
@@ -1130,15 +1254,17 @@ define ptr @ldrbu8_m128(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrb.8 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -128
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %x, i32 -128
+  %0 = bitcast i8* %z to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr %z, i32 1, <16 x i1> %c, <16 x i8> undef)
-  store <16 x i8> %0, ptr %y, align 1
-  ret ptr %z
+  %1 = call <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>* %0, i32 1, <16 x i1> %c, <16 x i8> undef)
+  %2 = bitcast i8* %y to <16 x i8>*
+  store <16 x i8> %1, <16 x i8>* %2, align 1
+  ret i8* %z
 }
 
-define ptr @ldrwf32_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_4(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1147,15 +1273,17 @@ define ptr @ldrwf32_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwf32_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_3(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1165,15 +1293,17 @@ define ptr @ldrwf32_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwf32_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_2(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1183,15 +1313,17 @@ define ptr @ldrwf32_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwf32_508(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_508(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1200,15 +1332,17 @@ define ptr @ldrwf32_508(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 508
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwf32_512(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_512(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1218,15 +1352,17 @@ define ptr @ldrwf32_512(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 512
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwf32_m508(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_m508(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_m508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1235,15 +1371,17 @@ define ptr @ldrwf32_m508(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -508
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrwf32_m512(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrwf32_m512(i8* %x, i8* %y, <4 x i32> *%m) {
 ; CHECK-LABEL: ldrwf32_m512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q0, [r2]
@@ -1253,15 +1391,17 @@ define ptr @ldrwf32_m512(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrw.32 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %x, i32 -512
+  %0 = bitcast i8* %z to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = call <4 x float> @llvm.masked.load.v4f32.p0(ptr %z, i32 4, <4 x i1> %c, <4 x float> undef)
-  store <4 x float> %0, ptr %y, align 4
-  ret ptr %z
+  %1 = call <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>* %0, i32 4, <4 x i1> %c, <4 x float> undef)
+  %2 = bitcast i8* %y to <4 x float>*
+  store <4 x float> %1, <4 x float>* %2, align 4
+  ret i8* %z
 }
 
-define ptr @ldrhf16_4(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_4(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1270,15 +1410,17 @@ define ptr @ldrhf16_4(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 4
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhf16_3(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_3(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1288,15 +1430,17 @@ define ptr @ldrhf16_3(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 3
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhf16_2(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_2(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1305,15 +1449,17 @@ define ptr @ldrhf16_2(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 2
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhf16_254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_254(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1322,15 +1468,17 @@ define ptr @ldrhf16_254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 254
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhf16_256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_256(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1340,15 +1488,17 @@ define ptr @ldrhf16_256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 256
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhf16_m254(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_m254(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1357,15 +1507,17 @@ define ptr @ldrhf16_m254(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -254
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
-define ptr @ldrhf16_m256(ptr %x, ptr %y, ptr %m) {
+define i8* @ldrhf16_m256(i8* %x, i8* %y, <8 x i16> *%m) {
 ; CHECK-LABEL: ldrhf16_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q0, [r2]
@@ -1375,18 +1527,20 @@ define ptr @ldrhf16_m256(ptr %x, ptr %y, ptr %m) {
 ; CHECK-NEXT:    vstrh.16 q0, [r1]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %x, i32 -256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %x, i32 -256
+  %0 = bitcast i8* %z to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = call <8 x half> @llvm.masked.load.v8f16.p0(ptr %z, i32 2, <8 x i1> %c, <8 x half> undef)
-  store <8 x half> %0, ptr %y, align 2
-  ret ptr %z
+  %1 = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %0, i32 2, <8 x i1> %c, <8 x half> undef)
+  %2 = bitcast i8* %y to <8 x half>*
+  store <8 x half> %1, <8 x half>* %2, align 2
+  ret i8* %z
 }
 
 
 
 
-define ptr @strw32_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_4(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1395,15 +1549,17 @@ define ptr @strw32_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strw32_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_3(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1413,15 +1569,17 @@ define ptr @strw32_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strw32_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_2(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1431,15 +1589,17 @@ define ptr @strw32_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strw32_508(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_508(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1448,15 +1608,17 @@ define ptr @strw32_508(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0, #508]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 508
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strw32_512(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_512(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1466,15 +1628,17 @@ define ptr @strw32_512(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 512
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strw32_m508(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_m508(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_m508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1483,15 +1647,17 @@ define ptr @strw32_m508(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0, #-508]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -508
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strw32_m512(ptr %y, ptr %x, ptr %m) {
+define i8* @strw32_m512(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strw32_m512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1501,15 +1667,17 @@ define ptr @strw32_m512(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -512
+  %0 = bitcast i8* %x to <4 x i32>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i32>, ptr %x, align 4
-  call void @llvm.masked.store.v4i32.p0(<4 x i32> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i32>, <4 x i32>* %0, align 4
+  %2 = bitcast i8* %z to <4 x i32>*
+  call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> %1, <4 x i32>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_4(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1518,15 +1686,17 @@ define ptr @strh32_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_3(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1536,15 +1706,17 @@ define ptr @strh32_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_2(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1553,15 +1725,17 @@ define ptr @strh32_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0, #2]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_254(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_254(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1570,15 +1744,17 @@ define ptr @strh32_254(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0, #254]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 254
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 254
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_256(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_256(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1588,15 +1764,17 @@ define ptr @strh32_256(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 256
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 256
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_m254(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_m254(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1605,15 +1783,17 @@ define ptr @strh32_m254(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0, #-254]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -254
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -254
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh32_m256(ptr %y, ptr %x, ptr %m) {
+define i8* @strh32_m256(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strh32_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1623,15 +1803,17 @@ define ptr @strh32_m256(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -256
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -256
+  %0 = bitcast i8* %x to <4 x i16>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v4i16.p0(<4 x i16> %0, ptr %z, i32 2, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i16>, <4 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <4 x i16>*
+  call void @llvm.masked.store.v4i16.p0v4i16(<4 x i16> %1, <4 x i16>* %2, i32 2, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_4(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1640,15 +1822,17 @@ define ptr @strh16_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_3(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1658,15 +1842,17 @@ define ptr @strh16_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_2(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1675,15 +1861,17 @@ define ptr @strh16_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #2]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_254(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_254(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1692,15 +1880,17 @@ define ptr @strh16_254(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #254]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 254
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_256(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_256(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1710,15 +1900,17 @@ define ptr @strh16_256(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 256
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_m254(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_m254(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1727,15 +1919,17 @@ define ptr @strh16_m254(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #-254]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 -254
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strh16_m256(ptr %y, ptr %x, ptr %m) {
+define i8* @strh16_m256(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strh16_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1745,15 +1939,17 @@ define ptr @strh16_m256(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 -256
+  %0 = bitcast i8* %x to <8 x i16>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i16>, ptr %x, align 2
-  call void @llvm.masked.store.v8i16.p0(<8 x i16> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i16>, <8 x i16>* %0, align 2
+  %2 = bitcast i8* %z to <8 x i16>*
+  call void @llvm.masked.store.v8i16.p0v8i16(<8 x i16> %1, <8 x i16>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_4(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1762,15 +1958,17 @@ define ptr @strb32_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_3(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1779,15 +1977,17 @@ define ptr @strb32_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0, #3]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_2(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1796,15 +1996,17 @@ define ptr @strb32_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0, #2]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_127(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_127(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1813,15 +2015,17 @@ define ptr @strb32_127(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0, #127]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 127
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 127
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_128(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_128(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1831,15 +2035,17 @@ define ptr @strb32_128(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 128
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 128
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_m127(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_m127(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1848,15 +2054,17 @@ define ptr @strb32_m127(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0, #-127]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -127
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -127
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb32_m128(ptr %y, ptr %x, ptr %m) {
+define i8* @strb32_m128(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strb32_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -1866,15 +2074,17 @@ define ptr @strb32_m128(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -128
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -128
+  %0 = bitcast i8* %x to <4 x i8>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v4i8.p0(<4 x i8> %0, ptr %z, i32 1, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x i8>, <4 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <4 x i8>*
+  call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> %1, <4 x i8>* %2, i32 1, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_4(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1883,15 +2093,17 @@ define ptr @strb16_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_3(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1900,15 +2112,17 @@ define ptr @strb16_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0, #3]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_2(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1917,15 +2131,17 @@ define ptr @strb16_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0, #2]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_127(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_127(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1934,15 +2150,17 @@ define ptr @strb16_127(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0, #127]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 127
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 127
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_128(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_128(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1952,15 +2170,17 @@ define ptr @strb16_128(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 128
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 128
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_m127(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_m127(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1969,15 +2189,17 @@ define ptr @strb16_m127(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0, #-127]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -127
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 -127
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb16_m128(ptr %y, ptr %x, ptr %m) {
+define i8* @strb16_m128(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strb16_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -1987,15 +2209,17 @@ define ptr @strb16_m128(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -128
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 -128
+  %0 = bitcast i8* %x to <8 x i8>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v8i8.p0(<8 x i8> %0, ptr %z, i32 1, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x i8>, <8 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <8 x i8>*
+  call void @llvm.masked.store.v8i8.p0v8i8(<8 x i8> %1, <8 x i8>* %2, i32 1, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_4(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2004,15 +2228,17 @@ define ptr @strb8_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_3(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2021,15 +2247,17 @@ define ptr @strb8_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0, #3]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_2(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2038,15 +2266,17 @@ define ptr @strb8_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0, #2]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_127(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_127(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2055,15 +2285,17 @@ define ptr @strb8_127(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0, #127]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 127
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 127
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_128(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_128(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2073,15 +2305,17 @@ define ptr @strb8_128(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 128
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 128
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_m127(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_m127(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_m127:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2090,15 +2324,17 @@ define ptr @strb8_m127(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0, #-127]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -127
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 -127
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strb8_m128(ptr %y, ptr %x, ptr %m) {
+define i8* @strb8_m128(i8* %y, i8* %x, <16 x i8> *%m) {
 ; CHECK-LABEL: strb8_m128:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrb.u8 q1, [r2]
@@ -2108,15 +2344,17 @@ define ptr @strb8_m128(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrbt.8 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -128
-  %mask = load <16 x i8>, ptr %m, align 1
+  %z = getelementptr inbounds i8, i8* %y, i32 -128
+  %0 = bitcast i8* %x to <16 x i8>*
+  %mask = load <16 x i8>, <16 x i8>* %m, align 1
   %c = icmp ne <16 x i8> %mask, zeroinitializer
-  %0 = load <16 x i8>, ptr %x, align 1
-  call void @llvm.masked.store.v16i8.p0(<16 x i8> %0, ptr %z, i32 1, <16 x i1> %c)
-  ret ptr %z
+  %1 = load <16 x i8>, <16 x i8>* %0, align 1
+  %2 = bitcast i8* %z to <16 x i8>*
+  call void @llvm.masked.store.v16i8.p0v16i8(<16 x i8> %1, <16 x i8>* %2, i32 1, <16 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_4(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2125,15 +2363,17 @@ define ptr @strwf32_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_3(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2143,15 +2383,17 @@ define ptr @strwf32_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_2(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2161,15 +2403,17 @@ define ptr @strwf32_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_508(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_508(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2178,15 +2422,17 @@ define ptr @strwf32_508(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0, #508]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 508
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_512(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_512(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2196,15 +2442,17 @@ define ptr @strwf32_512(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 512
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_m508(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_m508(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_m508:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2213,15 +2461,17 @@ define ptr @strwf32_m508(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0, #-508]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -508
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -508
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strwf32_m512(ptr %y, ptr %x, ptr %m) {
+define i8* @strwf32_m512(i8* %y, i8* %x, <4 x i32> *%m) {
 ; CHECK-LABEL: strwf32_m512:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrw.u32 q1, [r2]
@@ -2231,15 +2481,17 @@ define ptr @strwf32_m512(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrwt.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -512
-  %mask = load <4 x i32>, ptr %m, align 4
+  %z = getelementptr inbounds i8, i8* %y, i32 -512
+  %0 = bitcast i8* %x to <4 x float>*
+  %mask = load <4 x i32>, <4 x i32>* %m, align 4
   %c = icmp ne <4 x i32> %mask, zeroinitializer
-  %0 = load <4 x float>, ptr %x, align 4
-  call void @llvm.masked.store.v4f32.p0(<4 x float> %0, ptr %z, i32 4, <4 x i1> %c)
-  ret ptr %z
+  %1 = load <4 x float>, <4 x float>* %0, align 4
+  %2 = bitcast i8* %z to <4 x float>*
+  call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %1, <4 x float>* %2, i32 4, <4 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_4(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_4(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_4:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2248,15 +2500,17 @@ define ptr @strhf16_4(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #4]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 4
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 4
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_3(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_3(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_3:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2266,15 +2520,17 @@ define ptr @strhf16_3(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 3
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 3
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_2(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_2(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2283,15 +2539,17 @@ define ptr @strhf16_2(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #2]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 2
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 2
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_254(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_254(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2300,15 +2558,17 @@ define ptr @strhf16_254(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #254]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 254
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_256(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_256(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2318,15 +2578,17 @@ define ptr @strhf16_256(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 256
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_m254(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_m254(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_m254:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2335,15 +2597,17 @@ define ptr @strhf16_m254(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0, #-254]!
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -254
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 -254
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-define ptr @strhf16_m256(ptr %y, ptr %x, ptr %m) {
+define i8* @strhf16_m256(i8* %y, i8* %x, <8 x i16> *%m) {
 ; CHECK-LABEL: strhf16_m256:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    vldrh.u16 q1, [r2]
@@ -2353,28 +2617,30 @@ define ptr @strhf16_m256(ptr %y, ptr %x, ptr %m) {
 ; CHECK-NEXT:    vstrht.16 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
-  %z = getelementptr inbounds i8, ptr %y, i32 -256
-  %mask = load <8 x i16>, ptr %m, align 2
+  %z = getelementptr inbounds i8, i8* %y, i32 -256
+  %0 = bitcast i8* %x to <8 x half>*
+  %mask = load <8 x i16>, <8 x i16>* %m, align 2
   %c = icmp ne <8 x i16> %mask, zeroinitializer
-  %0 = load <8 x half>, ptr %x, align 2
-  call void @llvm.masked.store.v8f16.p0(<8 x half> %0, ptr %z, i32 2, <8 x i1> %c)
-  ret ptr %z
+  %1 = load <8 x half>, <8 x half>* %0, align 2
+  %2 = bitcast i8* %z to <8 x half>*
+  call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %1, <8 x half>* %2, i32 2, <8 x i1> %c)
+  ret i8* %z
 }
 
-declare <4 x i32> @llvm.masked.load.v4i32.p0(ptr, i32, <4 x i1>, <4 x i32>)
-declare <4 x i16> @llvm.masked.load.v4i16.p0(ptr, i32, <4 x i1>, <4 x i16>)
-declare <8 x i16> @llvm.masked.load.v8i16.p0(ptr, i32, <8 x i1>, <8 x i16>)
-declare <4 x i8> @llvm.masked.load.v4i8.p0(ptr, i32, <4 x i1>, <4 x i8>)
-declare <8 x i8> @llvm.masked.load.v8i8.p0(ptr, i32, <8 x i1>, <8 x i8>)
-declare <16 x i8> @llvm.masked.load.v16i8.p0(ptr, i32, <16 x i1>, <16 x i8>)
-declare <4 x float> @llvm.masked.load.v4f32.p0(ptr, i32, <4 x i1>, <4 x float>)
-declare <8 x half> @llvm.masked.load.v8f16.p0(ptr, i32, <8 x i1>, <8 x half>)
+declare <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>*, i32, <4 x i1>, <4 x i32>)
+declare <4 x i16> @llvm.masked.load.v4i16.p0v4i16(<4 x i16>*, i32, <4 x i1>, <4 x i16>)
+declare <8 x i16> @llvm.masked.load.v8i16.p0v8i16(<8 x i16>*, i32, <8 x i1>, <8 x i16>)
+declare <4 x i8> @llvm.masked.load.v4i8.p0v4i8(<4 x i8>*, i32, <4 x i1>, <4 x i8>)
+declare <8 x i8> @llvm.masked.load.v8i8.p0v8i8(<8 x i8>*, i32, <8 x i1>, <8 x i8>)
+declare <16 x i8> @llvm.masked.load.v16i8.p0v16i8(<16 x i8>*, i32, <16 x i1>, <16 x i8>)
+declare <4 x float> @llvm.masked.load.v4f32.p0v4f32(<4 x float>*, i32, <4 x i1>, <4 x float>)
+declare <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>*, i32, <8 x i1>, <8 x half>)
 
-declare void @llvm.masked.store.v4i32.p0(<4 x i32>, ptr, i32, <4 x i1>)
-declare void @llvm.masked.store.v8i16.p0(<8 x i16>, ptr, i32, <8 x i1>)
-declare void @llvm.masked.store.v4i16.p0(<4 x i16>, ptr, i32, <4 x i1>)
-declare void @llvm.masked.store.v16i8.p0(<16 x i8>, ptr, i32, <16 x i1>)
-declare void @llvm.masked.store.v8i8.p0(<8 x i8>, ptr, i32, <8 x i1>)
-declare void @llvm.masked.store.v4i8.p0(<4 x i8>, ptr, i32, <4 x i1>)
-declare void @llvm.masked.store.v4f32.p0(<4 x float>, ptr, i32, <4 x i1>)
-declare void @llvm.masked.store.v8f16.p0(<8 x half>, ptr, i32, <8 x i1>)
+declare void @llvm.masked.store.v4i32.p0v4i32(<4 x i32>, <4 x i32>*, i32, <4 x i1>)
+declare void @llvm.masked.store.v8i16.p0v8i16(<8 x i16>, <8 x i16>*, i32, <8 x i1>)
+declare void @llvm.masked.store.v4i16.p0v4i16(<4 x i16>, <4 x i16>*, i32, <4 x i1>)
+declare void @llvm.masked.store.v16i8.p0v16i8(<16 x i8>, <16 x i8>*, i32, <16 x i1>)
+declare void @llvm.masked.store.v8i8.p0v8i8(<8 x i8>, <8 x i8>*, i32, <8 x i1>)
+declare void @llvm.masked.store.v4i8.p0v4i8(<4 x i8>, <4 x i8>*, i32, <4 x i1>)
+declare void @llvm.masked.store.v4f32.p0v4f32(<4 x float>, <4 x float>*, i32, <4 x i1>)
+declare void @llvm.masked.store.v8f16.p0v8f16(<8 x half>, <8 x half>*, i32, <8 x i1>)

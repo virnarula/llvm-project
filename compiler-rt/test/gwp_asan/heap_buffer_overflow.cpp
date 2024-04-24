@@ -11,7 +11,8 @@
 #include "page_size.h"
 
 int main() {
-  char *Ptr = reinterpret_cast<char *>(malloc(pageSize()));
+  char *Ptr =
+      reinterpret_cast<char *>(malloc(pageSize()));
   volatile char x = *(Ptr + pageSize());
   return 0;
 }

@@ -7,17 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
-#include "mlir/Analysis/DataFlow/SparseAnalysis.h"
-#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Support/LLVM.h"
-#include "mlir/Support/LogicalResult.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
-#include <cassert>
 
 #define DEBUG_TYPE "constant-propagation"
 
@@ -98,14 +89,14 @@ void SparseConstantPropagation::visitOperation(
 
     // Merge in the result of the fold, either a constant or a value.
     OpFoldResult foldResult = std::get<1>(it);
-    if (Attribute attr = llvm::dyn_cast_if_present<Attribute>(foldResult)) {
+    if (Attribute attr = foldResult.dyn_cast<Attribute>()) {
       LLVM_DEBUG(llvm::dbgs() << "Folded to constant: " << attr << "\n");
       propagateIfChanged(lattice,
                          lattice->join(ConstantValue(attr, op->getDialect())));
     } else {
       LLVM_DEBUG(llvm::dbgs()
                  << "Folded to value: " << foldResult.get<Value>() << "\n");
-      AbstractSparseForwardDataFlowAnalysis::join(
+      AbstractSparseDataFlowAnalysis::join(
           lattice, *getLatticeElement(foldResult.get<Value>()));
     }
   }

@@ -11,10 +11,10 @@
 
 #undef isascii
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int isascii(int c);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif //  LLVM_LIBC_SRC_CTYPE_ISASCII_H

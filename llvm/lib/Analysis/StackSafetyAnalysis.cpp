@@ -159,7 +159,7 @@ ConstantRange getStaticAllocaSizeRange(const AllocaInst &AI) {
   ConstantRange R = ConstantRange::getEmpty(PointerSize);
   if (TS.isScalable())
     return R;
-  APInt APSize(PointerSize, TS.getFixedValue(), true);
+  APInt APSize(PointerSize, TS.getFixedSize(), true);
   if (APSize.isNonPositive())
     return R;
   if (AI.isArrayAllocation()) {
@@ -272,7 +272,7 @@ ConstantRange StackSafetyLocalAnalysis::offsetFrom(Value *Addr, Value *Base) {
   if (!SE.isSCEVable(Addr->getType()) || !SE.isSCEVable(Base->getType()))
     return UnknownRange;
 
-  auto *PtrTy = PointerType::getUnqual(SE.getContext());
+  auto *PtrTy = IntegerType::getInt8PtrTy(SE.getContext());
   const SCEV *AddrExp = SE.getTruncateOrZeroExtend(SE.getSCEV(Addr), PtrTy);
   const SCEV *BaseExp = SE.getTruncateOrZeroExtend(SE.getSCEV(Base), PtrTy);
   const SCEV *Diff = SE.getMinusSCEV(AddrExp, BaseExp);
@@ -307,7 +307,7 @@ ConstantRange StackSafetyLocalAnalysis::getAccessRange(Value *Addr, Value *Base,
                                                        TypeSize Size) {
   if (Size.isScalable())
     return UnknownRange;
-  APInt APSize(PointerSize, Size.getFixedValue(), true);
+  APInt APSize(PointerSize, Size.getFixedSize(), true);
   if (APSize.isNegative())
     return UnknownRange;
   return getAccessRange(Addr, Base,
@@ -331,7 +331,7 @@ ConstantRange StackSafetyLocalAnalysis::getMemIntrinsicAccessRange(
   const SCEV *Expr =
       SE.getTruncateOrZeroExtend(SE.getSCEV(MI->getLength()), CalculationTy);
   ConstantRange Sizes = SE.getSignedRange(Expr);
-  if (!Sizes.getUpper().isStrictlyPositive() || isUnsafe(Sizes))
+  if (Sizes.getUpper().isNegative() || isUnsafe(Sizes))
     return UnknownRange;
   Sizes = Sizes.sextOrTrunc(PointerSize);
   ConstantRange SizeRange(APInt::getZero(PointerSize), Sizes.getUpper() - 1);
@@ -348,7 +348,7 @@ bool StackSafetyLocalAnalysis::isSafeAccess(const Use &U, AllocaInst *AI,
   if (TS.isScalable())
     return false;
   auto *CalculationTy = IntegerType::getIntNTy(SE.getContext(), PointerSize);
-  const SCEV *SV = SE.getConstant(CalculationTy, TS.getFixedValue());
+  const SCEV *SV = SE.getConstant(CalculationTy, TS.getFixedSize());
   return isSafeAccess(U, AI, SV);
 }
 
@@ -356,14 +356,14 @@ bool StackSafetyLocalAnalysis::isSafeAccess(const Use &U, AllocaInst *AI,
                                             const SCEV *AccessSize) {
 
   if (!AI)
-    return true; // This only judges whether it is a safe *stack* access.
+    return true;
   if (isa<SCEVCouldNotCompute>(AccessSize))
     return false;
 
   const auto *I = cast<Instruction>(U.getUser());
 
   auto ToCharPtr = [&](const SCEV *V) {
-    auto *PtrTy = PointerType::getUnqual(SE.getContext());
+    auto *PtrTy = IntegerType::getInt8PtrTy(SE.getContext());
     return SE.getTruncateOrZeroExtend(V, PtrTy);
   };
 
@@ -408,23 +408,6 @@ void StackSafetyLocalAnalysis::analyzeAllUses(Value *Ptr,
 
       assert(V == UI.get());
 
-      auto RecordStore = [&](const Value* StoredVal) {
-        if (V == StoredVal) {
-          // Stored the pointer - conservatively assume it may be unsafe.
-          US.addRange(I, UnknownRange, /*IsSafe=*/false);
-          return;
-        }
-        if (AI && !SL.isAliveAfter(AI, I)) {
-          US.addRange(I, UnknownRange, /*IsSafe=*/false);
-          return;
-        }
-        auto TypeSize = DL.getTypeStoreSize(StoredVal->getType());
-        auto AccessRange = getAccessRange(UI, Ptr, TypeSize);
-        bool Safe = isSafeAccess(UI, AI, TypeSize);
-        US.addRange(I, AccessRange, Safe);
-        return;
-      };
-
       switch (I->getOpcode()) {
       case Instruction::Load: {
         if (AI && !SL.isAliveAfter(AI, I)) {
@@ -441,15 +424,22 @@ void StackSafetyLocalAnalysis::analyzeAllUses(Value *Ptr,
       case Instruction::VAArg:
         // "va-arg" from a pointer is safe.
         break;
-      case Instruction::Store:
-        RecordStore(cast<StoreInst>(I)->getValueOperand());
+      case Instruction::Store: {
+        if (V == I->getOperand(0)) {
+          // Stored the pointer - conservatively assume it may be unsafe.
+          US.addRange(I, UnknownRange, /*IsSafe=*/false);
+          break;
+        }
+        if (AI && !SL.isAliveAfter(AI, I)) {
+          US.addRange(I, UnknownRange, /*IsSafe=*/false);
+          break;
+        }
+        auto TypeSize = DL.getTypeStoreSize(I->getOperand(0)->getType());
+        auto AccessRange = getAccessRange(UI, Ptr, TypeSize);
+        bool Safe = isSafeAccess(UI, AI, TypeSize);
+        US.addRange(I, AccessRange, Safe);
         break;
-      case Instruction::AtomicCmpXchg:
-        RecordStore(cast<AtomicCmpXchgInst>(I)->getNewValOperand());
-        break;
-      case Instruction::AtomicRMW:
-        RecordStore(cast<AtomicRMWInst>(I)->getValOperand());
-        break;
+      }
 
       case Instruction::Ret:
         // Information leak.
@@ -996,7 +986,6 @@ void StackSafetyGlobalInfo::print(raw_ostream &O) const {
       for (const auto &I : instructions(F)) {
         const CallInst *Call = dyn_cast<CallInst>(&I);
         if ((isa<StoreInst>(I) || isa<LoadInst>(I) || isa<MemIntrinsic>(I) ||
-             isa<AtomicCmpXchgInst>(I) || isa<AtomicRMWInst>(I) ||
              (Call && Call->hasByValArgument())) &&
             stackAccessIsSafe(I)) {
           O << "     " << I << "\n";

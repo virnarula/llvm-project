@@ -279,7 +279,7 @@ public:
 
   AddressPointLocation getAddressPoint(BaseSubobject Base) const {
     assert(AddressPoints.count(Base) && "Did not find address point!");
-    return AddressPoints.lookup(Base);
+    return AddressPoints.find(Base)->second;
   }
 
   const AddressPointsMapTy &getAddressPoints() const {
@@ -562,6 +562,8 @@ private:
 
   llvm::DenseMap<const CXXRecordDecl *, std::unique_ptr<VirtualBaseInfo>>
       VBaseInfo;
+
+  void enumerateVFPtrs(const CXXRecordDecl *ForClass, VPtrInfoVector &Result);
 
   void computeVTableRelatedInformation(const CXXRecordDecl *RD) override;
 

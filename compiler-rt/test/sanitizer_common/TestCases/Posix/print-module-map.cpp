@@ -16,10 +16,10 @@
 // XFAIL: tsan
 
 // FIXME: Add linux support.
-// XFAIL: msan && target={{.*linux.*}}
+// XFAIL: msan && linux
 
-// FIXME: Implement.
-// XFAIL: lsan, hwasan
+// FIXME: Add lsan support.
+// XFAIL: lsan
 
 int global;
 

@@ -11,6 +11,7 @@ define i32 @table_size() {
 ; CHECK-NEXT:  .functype       table_size () -> (i32)
 ; CHECK-NEXT:  table.size      externref_table
 ; CHECK-NEXT:  end_function
-  %sz = call i32 @llvm.wasm.table.size(ptr addrspace(1) @externref_table)
+  %tableptr = getelementptr [0 x %externref], ptr addrspace(1) @externref_table, i32 0, i32 0
+  %sz = call i32 @llvm.wasm.table.size(ptr addrspace(1) %tableptr)
   ret i32 %sz
 }

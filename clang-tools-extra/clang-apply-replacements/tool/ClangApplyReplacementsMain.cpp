@@ -91,7 +91,7 @@ static void printVersion(raw_ostream &OS) {
 }
 
 int main(int argc, char **argv) {
-  cl::HideUnrelatedOptions(ArrayRef(VisibleCategories));
+  cl::HideUnrelatedOptions(makeArrayRef(VisibleCategories));
 
   cl::SetVersionPrinter(printVersion);
   cl::ParseCommandLineOptions(argc, argv);
@@ -146,8 +146,8 @@ int main(int argc, char **argv) {
                          : tooling::ApplyChangesSpec::kNone;
 
   for (const auto &FileChange : Changes) {
-    FileEntryRef Entry = FileChange.first;
-    StringRef FileName = Entry.getName();
+    const FileEntry *Entry = FileChange.first;
+    StringRef FileName = Entry->getName();
     llvm::Expected<std::string> NewFileData =
         applyChanges(FileName, FileChange.second, Spec, Diagnostics);
     if (!NewFileData) {

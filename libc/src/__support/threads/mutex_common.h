@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_THREADS_MUTEX_COMMON_H
-#define LLVM_LIBC_SRC___SUPPORT_THREADS_MUTEX_COMMON_H
+#ifndef LLVM_LIBC_SRC_SUPPORT_THREAD_MUTEX_COMMON_H
+#define LLVM_LIBC_SRC_SUPPORT_THREAD_MUTEX_COMMON_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 enum class MutexError : int {
   NONE,
@@ -19,6 +19,6 @@ enum class MutexError : int {
   BAD_LOCK_STATE,
 };
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC___SUPPORT_THREADS_MUTEX_COMMON_H
+#endif // LLVM_LIBC_SRC_SUPPORT_THREAD_MUTEX_COMMON_H

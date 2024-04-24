@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_FREXPL_H
 #define LLVM_LIBC_SRC_MATH_FREXPL_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 long double frexpl(long double x, int *exp);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_FREXPL_H

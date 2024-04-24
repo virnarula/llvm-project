@@ -21,7 +21,6 @@
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
-#include <optional>
 
 namespace clang {
 
@@ -171,12 +170,6 @@ bool Sema::CheckSpecifiedExceptionType(QualType &T, SourceRange Range) {
         PointeeT->castAs<RecordType>()->isBeingDefined()) &&
       RequireCompleteType(Range.getBegin(), PointeeT, DiagID, Kind, Range))
     return ReturnValueOnError;
-
-  // WebAssembly reference types can't be used in exception specifications.
-  if (PointeeT.isWebAssemblyReferenceType()) {
-    Diag(Range.getBegin(), diag::err_wasm_reftype_exception_spec);
-    return true;
-  }
 
   // The MSVC compatibility mode doesn't extend to sizeless types,
   // so diagnose them separately.
@@ -769,12 +762,14 @@ bool Sema::handlerCanCatch(QualType HandlerType, QualType ExceptionType) {
 /// CheckExceptionSpecSubset - Check whether the second function type's
 /// exception specification is a subset (or equivalent) of the first function
 /// type. This is used by override and pointer assignment checks.
-bool Sema::CheckExceptionSpecSubset(
-    const PartialDiagnostic &DiagID, const PartialDiagnostic &NestedDiagID,
-    const PartialDiagnostic &NoteID, const PartialDiagnostic &NoThrowDiagID,
-    const FunctionProtoType *Superset, bool SkipSupersetFirstParameter,
-    SourceLocation SuperLoc, const FunctionProtoType *Subset,
-    bool SkipSubsetFirstParameter, SourceLocation SubLoc) {
+bool Sema::CheckExceptionSpecSubset(const PartialDiagnostic &DiagID,
+                                    const PartialDiagnostic &NestedDiagID,
+                                    const PartialDiagnostic &NoteID,
+                                    const PartialDiagnostic &NoThrowDiagID,
+                                    const FunctionProtoType *Superset,
+                                    SourceLocation SuperLoc,
+                                    const FunctionProtoType *Subset,
+                                    SourceLocation SubLoc) {
 
   // Just auto-succeed under -fno-exceptions.
   if (!getLangOpts().CXXExceptions)
@@ -814,9 +809,8 @@ bool Sema::CheckExceptionSpecSubset(
   // done.
   if ((SuperCanThrow == CT_Can && SuperEST != EST_Dynamic) ||
       SubCanThrow == CT_Cannot)
-    return CheckParamExceptionSpec(NestedDiagID, NoteID, Superset,
-                                   SkipSupersetFirstParameter, SuperLoc, Subset,
-                                   SkipSubsetFirstParameter, SubLoc);
+    return CheckParamExceptionSpec(NestedDiagID, NoteID, Superset, SuperLoc,
+                                   Subset, SubLoc);
 
   // Allow __declspec(nothrow) to be missing on redeclaration as an extension in
   // some cases.
@@ -868,9 +862,8 @@ bool Sema::CheckExceptionSpecSubset(
     }
   }
   // We've run half the gauntlet.
-  return CheckParamExceptionSpec(NestedDiagID, NoteID, Superset,
-                                 SkipSupersetFirstParameter, SuperLoc, Subset,
-                                 SkipSupersetFirstParameter, SubLoc);
+  return CheckParamExceptionSpec(NestedDiagID, NoteID, Superset, SuperLoc,
+                                 Subset, SubLoc);
 }
 
 static bool
@@ -894,11 +887,12 @@ CheckSpecForTypesEquivalent(Sema &S, const PartialDiagnostic &DiagID,
 /// assignment and override compatibility check. We do not check the parameters
 /// of parameter function pointers recursively, as no sane programmer would
 /// even be able to write such a function type.
-bool Sema::CheckParamExceptionSpec(
-    const PartialDiagnostic &DiagID, const PartialDiagnostic &NoteID,
-    const FunctionProtoType *Target, bool SkipTargetFirstParameter,
-    SourceLocation TargetLoc, const FunctionProtoType *Source,
-    bool SkipSourceFirstParameter, SourceLocation SourceLoc) {
+bool Sema::CheckParamExceptionSpec(const PartialDiagnostic &DiagID,
+                                   const PartialDiagnostic &NoteID,
+                                   const FunctionProtoType *Target,
+                                   SourceLocation TargetLoc,
+                                   const FunctionProtoType *Source,
+                                   SourceLocation SourceLoc) {
   auto RetDiag = DiagID;
   RetDiag << 0;
   if (CheckSpecForTypesEquivalent(
@@ -909,16 +903,14 @@ bool Sema::CheckParamExceptionSpec(
 
   // We shouldn't even be testing this unless the arguments are otherwise
   // compatible.
-  assert((Target->getNumParams() - (unsigned)SkipTargetFirstParameter) ==
-             (Source->getNumParams() - (unsigned)SkipSourceFirstParameter) &&
+  assert(Target->getNumParams() == Source->getNumParams() &&
          "Functions have different argument counts.");
   for (unsigned i = 0, E = Target->getNumParams(); i != E; ++i) {
     auto ParamDiag = DiagID;
     ParamDiag << 1;
     if (CheckSpecForTypesEquivalent(
             *this, ParamDiag, PDiag(),
-            Target->getParamType(i + (SkipTargetFirstParameter ? 1 : 0)),
-            TargetLoc, Source->getParamType(SkipSourceFirstParameter ? 1 : 0),
+            Target->getParamType(i), TargetLoc, Source->getParamType(i),
             SourceLoc))
       return true;
   }
@@ -959,10 +951,9 @@ bool Sema::CheckExceptionSpecCompatibility(Expr *From, QualType ToType) {
   //     void (*q)(void (*) throw(int)) = p;
   //   }
   // ... because it might be instantiated with T=int.
-  return CheckExceptionSpecSubset(PDiag(DiagID), PDiag(NestedDiagID), PDiag(),
-                                  PDiag(), ToFunc, 0,
-                                  From->getSourceRange().getBegin(), FromFunc,
-                                  0, SourceLocation()) &&
+  return CheckExceptionSpecSubset(
+             PDiag(DiagID), PDiag(NestedDiagID), PDiag(), PDiag(), ToFunc,
+             From->getSourceRange().getBegin(), FromFunc, SourceLocation()) &&
          !getLangOpts().CPlusPlus17;
 }
 
@@ -991,14 +982,14 @@ bool Sema::CheckOverridingFunctionExceptionSpec(const CXXMethodDecl *New,
   unsigned DiagID = diag::err_override_exception_spec;
   if (getLangOpts().MSVCCompat)
     DiagID = diag::ext_override_exception_spec;
-  return CheckExceptionSpecSubset(
-      PDiag(DiagID), PDiag(diag::err_deep_exception_specs_differ),
-      PDiag(diag::note_overridden_virtual_function),
-      PDiag(diag::ext_override_exception_spec),
-      Old->getType()->castAs<FunctionProtoType>(),
-      Old->hasCXXExplicitFunctionObjectParameter(), Old->getLocation(),
-      New->getType()->castAs<FunctionProtoType>(),
-      New->hasCXXExplicitFunctionObjectParameter(), New->getLocation());
+  return CheckExceptionSpecSubset(PDiag(DiagID),
+                                  PDiag(diag::err_deep_exception_specs_differ),
+                                  PDiag(diag::note_overridden_virtual_function),
+                                  PDiag(diag::ext_override_exception_spec),
+                                  Old->getType()->castAs<FunctionProtoType>(),
+                                  Old->getLocation(),
+                                  New->getType()->castAs<FunctionProtoType>(),
+                                  New->getLocation());
 }
 
 static CanThrowResult canSubStmtsThrow(Sema &Self, const Stmt *S) {
@@ -1298,7 +1289,6 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Expr::StmtExprClass:
   case Expr::ConvertVectorExprClass:
   case Expr::VAArgExprClass:
-  case Expr::CXXParenListInitExprClass:
     return canSubStmtsThrow(*this, S);
 
   case Expr::CompoundLiteralExprClass:
@@ -1498,14 +1488,12 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass:
   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
   case Stmt::OMPTargetUpdateDirectiveClass:
-  case Stmt::OMPScopeDirectiveClass:
   case Stmt::OMPTaskDirectiveClass:
   case Stmt::OMPTaskgroupDirectiveClass:
   case Stmt::OMPTaskLoopDirectiveClass:
   case Stmt::OMPTaskLoopSimdDirectiveClass:
   case Stmt::OMPTaskwaitDirectiveClass:
   case Stmt::OMPTaskyieldDirectiveClass:
-  case Stmt::OMPErrorDirectiveClass:
   case Stmt::OMPTeamsDirectiveClass:
   case Stmt::OMPTeamsDistributeDirectiveClass:
   case Stmt::OMPTeamsDistributeParallelForDirectiveClass:
@@ -1557,7 +1545,7 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
 
     // For 'if constexpr', consider only the non-discarded case.
     // FIXME: We should add a DiscardedStmt marker to the AST.
-    if (std::optional<const Stmt *> Case = IS->getNondiscardedCase(Context))
+    if (Optional<const Stmt *> Case = IS->getNondiscardedCase(Context))
       return *Case ? mergeCanThrow(CT, canThrow(*Case)) : CT;
 
     CanThrowResult Then = canThrow(IS->getThen());

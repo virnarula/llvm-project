@@ -6,10 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_THREADS_MUTEX_H
-#define LLVM_LIBC_SRC___SUPPORT_THREADS_MUTEX_H
-
-#include "src/__support/macros/properties/architectures.h"
+#ifndef LLVM_LIBC_SRC_SUPPORT_THREAD_MUTEX_H
+#define LLVM_LIBC_SRC_SUPPORT_THREAD_MUTEX_H
 
 // Platform independent code will include this header file which pulls
 // the platfrom specific specializations using platform macros.
@@ -37,13 +35,11 @@
 // few global locks. So, to avoid static initialization order fiasco, we
 // want the constructors of the Mutex classes to be constexprs.
 
-#if defined(__linux__)
+#ifdef __unix__
 #include "linux/mutex.h"
-#elif defined(LIBC_TARGET_ARCH_IS_GPU)
-#include "gpu/mutex.h"
-#endif // __linux__
+#endif // __unix__
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // An RAII class for easy locking and unlocking of mutexes.
 class MutexLock {
@@ -55,6 +51,6 @@ public:
   ~MutexLock() { mutex->unlock(); }
 };
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC___SUPPORT_THREADS_MUTEX_H
+#endif // LLVM_LIBC_SRC_SUPPORT_THREAD_MUTEX_H

@@ -4,7 +4,7 @@
 ; RUN: llc --mtriple=loongarch64 --verify-machineinstrs < %s \
 ; RUN:   | FileCheck %s --check-prefix=LA64
 
-declare void @callee(ptr)
+declare void @callee(i8*)
 
 define void @caller32() {
 ; LA32-LABEL: caller32:
@@ -17,7 +17,8 @@ define void @caller32() {
 ; LA32-NEXT:    .cfi_offset 22, -8
 ; LA32-NEXT:    addi.w $fp, $sp, 32
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
-; LA32-NEXT:    bstrins.w $sp, $zero, 4, 0
+; LA32-NEXT:    srli.w $a0, $sp, 5
+; LA32-NEXT:    slli.w $sp, $a0, 5
 ; LA32-NEXT:    addi.w $a0, $sp, 0
 ; LA32-NEXT:    bl %plt(callee)
 ; LA32-NEXT:    addi.w $sp, $fp, -32
@@ -36,7 +37,8 @@ define void @caller32() {
 ; LA64-NEXT:    .cfi_offset 22, -16
 ; LA64-NEXT:    addi.d $fp, $sp, 32
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
-; LA64-NEXT:    bstrins.d $sp, $zero, 4, 0
+; LA64-NEXT:    srli.d $a0, $sp, 5
+; LA64-NEXT:    slli.d $sp, $a0, 5
 ; LA64-NEXT:    addi.d $a0, $sp, 0
 ; LA64-NEXT:    bl %plt(callee)
 ; LA64-NEXT:    addi.d $sp, $fp, -32
@@ -45,7 +47,7 @@ define void @caller32() {
 ; LA64-NEXT:    addi.d $sp, $sp, 32
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 32
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -74,7 +76,7 @@ define void @caller_no_realign32() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 32
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -89,7 +91,8 @@ define void @caller64() {
 ; LA32-NEXT:    .cfi_offset 22, -8
 ; LA32-NEXT:    addi.w $fp, $sp, 64
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
-; LA32-NEXT:    bstrins.w $sp, $zero, 5, 0
+; LA32-NEXT:    srli.w $a0, $sp, 6
+; LA32-NEXT:    slli.w $sp, $a0, 6
 ; LA32-NEXT:    addi.w $a0, $sp, 0
 ; LA32-NEXT:    bl %plt(callee)
 ; LA32-NEXT:    addi.w $sp, $fp, -64
@@ -108,7 +111,8 @@ define void @caller64() {
 ; LA64-NEXT:    .cfi_offset 22, -16
 ; LA64-NEXT:    addi.d $fp, $sp, 64
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
-; LA64-NEXT:    bstrins.d $sp, $zero, 5, 0
+; LA64-NEXT:    srli.d $a0, $sp, 6
+; LA64-NEXT:    slli.d $sp, $a0, 6
 ; LA64-NEXT:    addi.d $a0, $sp, 0
 ; LA64-NEXT:    bl %plt(callee)
 ; LA64-NEXT:    addi.d $sp, $fp, -64
@@ -117,7 +121,7 @@ define void @caller64() {
 ; LA64-NEXT:    addi.d $sp, $sp, 64
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 64
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -146,7 +150,7 @@ define void @caller_no_realign64() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 64
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -161,7 +165,8 @@ define void @caller128() {
 ; LA32-NEXT:    .cfi_offset 22, -8
 ; LA32-NEXT:    addi.w $fp, $sp, 128
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
-; LA32-NEXT:    bstrins.w $sp, $zero, 6, 0
+; LA32-NEXT:    srli.w $a0, $sp, 7
+; LA32-NEXT:    slli.w $sp, $a0, 7
 ; LA32-NEXT:    addi.w $a0, $sp, 0
 ; LA32-NEXT:    bl %plt(callee)
 ; LA32-NEXT:    addi.w $sp, $fp, -128
@@ -180,7 +185,8 @@ define void @caller128() {
 ; LA64-NEXT:    .cfi_offset 22, -16
 ; LA64-NEXT:    addi.d $fp, $sp, 128
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
-; LA64-NEXT:    bstrins.d $sp, $zero, 6, 0
+; LA64-NEXT:    srli.d $a0, $sp, 7
+; LA64-NEXT:    slli.d $sp, $a0, 7
 ; LA64-NEXT:    addi.d $a0, $sp, 0
 ; LA64-NEXT:    bl %plt(callee)
 ; LA64-NEXT:    addi.d $sp, $fp, -128
@@ -189,7 +195,7 @@ define void @caller128() {
 ; LA64-NEXT:    addi.d $sp, $sp, 128
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 128
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -218,7 +224,7 @@ define void @caller_no_realign128() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 128
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -233,7 +239,8 @@ define void @caller256() {
 ; LA32-NEXT:    .cfi_offset 22, -8
 ; LA32-NEXT:    addi.w $fp, $sp, 256
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
-; LA32-NEXT:    bstrins.w $sp, $zero, 7, 0
+; LA32-NEXT:    srli.w $a0, $sp, 8
+; LA32-NEXT:    slli.w $sp, $a0, 8
 ; LA32-NEXT:    addi.w $a0, $sp, 0
 ; LA32-NEXT:    bl %plt(callee)
 ; LA32-NEXT:    addi.w $sp, $fp, -256
@@ -252,7 +259,8 @@ define void @caller256() {
 ; LA64-NEXT:    .cfi_offset 22, -16
 ; LA64-NEXT:    addi.d $fp, $sp, 256
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
-; LA64-NEXT:    bstrins.d $sp, $zero, 7, 0
+; LA64-NEXT:    srli.d $a0, $sp, 8
+; LA64-NEXT:    slli.d $sp, $a0, 8
 ; LA64-NEXT:    addi.d $a0, $sp, 0
 ; LA64-NEXT:    bl %plt(callee)
 ; LA64-NEXT:    addi.d $sp, $fp, -256
@@ -261,7 +269,7 @@ define void @caller256() {
 ; LA64-NEXT:    addi.d $sp, $sp, 256
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 256
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -290,7 +298,7 @@ define void @caller_no_realign256() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 256
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -305,7 +313,8 @@ define void @caller512() {
 ; LA32-NEXT:    .cfi_offset 22, -8
 ; LA32-NEXT:    addi.w $fp, $sp, 1024
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
-; LA32-NEXT:    bstrins.w $sp, $zero, 8, 0
+; LA32-NEXT:    srli.w $a0, $sp, 9
+; LA32-NEXT:    slli.w $sp, $a0, 9
 ; LA32-NEXT:    addi.w $a0, $sp, 512
 ; LA32-NEXT:    bl %plt(callee)
 ; LA32-NEXT:    addi.w $sp, $fp, -1024
@@ -324,7 +333,8 @@ define void @caller512() {
 ; LA64-NEXT:    .cfi_offset 22, -16
 ; LA64-NEXT:    addi.d $fp, $sp, 1024
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
-; LA64-NEXT:    bstrins.d $sp, $zero, 8, 0
+; LA64-NEXT:    srli.d $a0, $sp, 9
+; LA64-NEXT:    slli.d $sp, $a0, 9
 ; LA64-NEXT:    addi.d $a0, $sp, 512
 ; LA64-NEXT:    bl %plt(callee)
 ; LA64-NEXT:    addi.d $sp, $fp, -1024
@@ -333,7 +343,7 @@ define void @caller512() {
 ; LA64-NEXT:    addi.d $sp, $sp, 1024
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 512
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -362,7 +372,7 @@ define void @caller_no_realign512() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 512
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -378,7 +388,8 @@ define void @caller1024() {
 ; LA32-NEXT:    addi.w $fp, $sp, 2032
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
 ; LA32-NEXT:    addi.w $sp, $sp, -16
-; LA32-NEXT:    bstrins.w $sp, $zero, 9, 0
+; LA32-NEXT:    srli.w $a0, $sp, 10
+; LA32-NEXT:    slli.w $sp, $a0, 10
 ; LA32-NEXT:    addi.w $a0, $sp, 1024
 ; LA32-NEXT:    bl %plt(callee)
 ; LA32-NEXT:    addi.w $sp, $fp, -2048
@@ -399,7 +410,8 @@ define void @caller1024() {
 ; LA64-NEXT:    addi.d $fp, $sp, 2032
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
 ; LA64-NEXT:    addi.d $sp, $sp, -16
-; LA64-NEXT:    bstrins.d $sp, $zero, 9, 0
+; LA64-NEXT:    srli.d $a0, $sp, 10
+; LA64-NEXT:    slli.d $sp, $a0, 10
 ; LA64-NEXT:    addi.d $a0, $sp, 1024
 ; LA64-NEXT:    bl %plt(callee)
 ; LA64-NEXT:    addi.d $sp, $fp, -2048
@@ -409,7 +421,7 @@ define void @caller1024() {
 ; LA64-NEXT:    addi.d $sp, $sp, 2032
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 1024
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -438,7 +450,7 @@ define void @caller_no_realign1024() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 1024
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -455,7 +467,8 @@ define void @caller2048() {
 ; LA32-NEXT:    .cfi_def_cfa 22, 0
 ; LA32-NEXT:    addi.w $sp, $sp, -2048
 ; LA32-NEXT:    addi.w $sp, $sp, -16
-; LA32-NEXT:    bstrins.w $sp, $zero, 10, 0
+; LA32-NEXT:    srli.w $a0, $sp, 11
+; LA32-NEXT:    slli.w $sp, $a0, 11
 ; LA32-NEXT:    ori $a0, $zero, 2048
 ; LA32-NEXT:    add.w $a0, $sp, $a0
 ; LA32-NEXT:    bl %plt(callee)
@@ -480,7 +493,8 @@ define void @caller2048() {
 ; LA64-NEXT:    .cfi_def_cfa 22, 0
 ; LA64-NEXT:    addi.d $sp, $sp, -2048
 ; LA64-NEXT:    addi.d $sp, $sp, -16
-; LA64-NEXT:    bstrins.d $sp, $zero, 10, 0
+; LA64-NEXT:    srli.d $a0, $sp, 11
+; LA64-NEXT:    slli.d $sp, $a0, 11
 ; LA64-NEXT:    ori $a0, $zero, 2048
 ; LA64-NEXT:    add.d $a0, $sp, $a0
 ; LA64-NEXT:    bl %plt(callee)
@@ -493,7 +507,7 @@ define void @caller2048() {
 ; LA64-NEXT:    addi.d $sp, $sp, 2032
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 2048
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -522,7 +536,7 @@ define void @caller_no_realign2048() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 2048
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -540,7 +554,8 @@ define void @caller4096() {
 ; LA32-NEXT:    lu12i.w $a0, 1
 ; LA32-NEXT:    ori $a0, $a0, 2064
 ; LA32-NEXT:    sub.w $sp, $sp, $a0
-; LA32-NEXT:    bstrins.w $sp, $zero, 11, 0
+; LA32-NEXT:    srli.w $a0, $sp, 12
+; LA32-NEXT:    slli.w $sp, $a0, 12
 ; LA32-NEXT:    lu12i.w $a0, 1
 ; LA32-NEXT:    add.w $a0, $sp, $a0
 ; LA32-NEXT:    bl %plt(callee)
@@ -567,7 +582,8 @@ define void @caller4096() {
 ; LA64-NEXT:    lu12i.w $a0, 1
 ; LA64-NEXT:    ori $a0, $a0, 2064
 ; LA64-NEXT:    sub.d $sp, $sp, $a0
-; LA64-NEXT:    bstrins.d $sp, $zero, 11, 0
+; LA64-NEXT:    srli.d $a0, $sp, 12
+; LA64-NEXT:    slli.d $sp, $a0, 12
 ; LA64-NEXT:    lu12i.w $a0, 1
 ; LA64-NEXT:    add.d $a0, $sp, $a0
 ; LA64-NEXT:    bl %plt(callee)
@@ -581,7 +597,7 @@ define void @caller4096() {
 ; LA64-NEXT:    addi.d $sp, $sp, 2032
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 4096
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }
 
@@ -610,6 +626,6 @@ define void @caller_no_realign4096() "no-realign-stack" {
 ; LA64-NEXT:    addi.d $sp, $sp, 16
 ; LA64-NEXT:    ret
   %1 = alloca i8, align 4096
-  call void @callee(ptr %1)
+  call void @callee(i8* %1)
   ret void
 }

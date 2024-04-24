@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC_SIGNAL_SIGALTSTACK_H
-#define LLVM_LIBC_SRC_SIGNAL_SIGALTSTACK_H
+#ifndef LLVM_LIBC_SRC_SIGNAL_SIGALSTACK_H
+#define LLVM_LIBC_SRC_SIGNAL_SIGALSTACK_H
 
 #include <signal.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int sigaltstack(const stack_t *__restrict ss, stack_t *__restrict oss);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC_SIGNAL_SIGALTSTACK_H
+#endif // LLVM_LIBC_SRC_SIGNAL_SIGALSTACK_H

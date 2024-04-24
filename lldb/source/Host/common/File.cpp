@@ -13,7 +13,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include <fcntl.h>
-#include <optional>
 
 #ifdef _WIN32
 #include "lldb/Host/windows/windows.h"
@@ -31,7 +30,6 @@
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/VASPrintf.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/Errno.h"
 #include "llvm/Support/FileSystem.h"
@@ -219,7 +217,7 @@ size_t File::Printf(const char *format, ...) {
 size_t File::PrintfVarArg(const char *format, va_list args) {
   llvm::SmallString<0> s;
   if (VASprintf(s, format, args)) {
-    size_t written = s.size();
+    size_t written = s.size();;
     Write(s.data(), written);
     return written;
   }
@@ -247,21 +245,15 @@ uint32_t File::GetPermissions(Status &error) const {
   return file_stats.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
 }
 
-bool NativeFile::IsValid() const {
-  std::scoped_lock<std::mutex, std::mutex> lock(m_descriptor_mutex, m_stream_mutex);
-  return DescriptorIsValidUnlocked() || StreamIsValidUnlocked();
-}
-
 Expected<File::OpenOptions> NativeFile::GetOptions() const { return m_options; }
 
 int NativeFile::GetDescriptor() const {
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (DescriptorIsValid())
     return m_descriptor;
-  }
 
   // Don't open the file descriptor if we don't need to, just get it from the
   // stream if we have one.
-  if (ValueGuard stream_guard = StreamIsValid()) {
+  if (StreamIsValid()) {
 #if defined(_WIN32)
     return _fileno(m_stream);
 #else
@@ -278,9 +270,8 @@ IOObject::WaitableHandle NativeFile::GetWaitableHandle() {
 }
 
 FILE *NativeFile::GetStream() {
-  ValueGuard stream_guard = StreamIsValid();
-  if (!stream_guard) {
-    if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (!StreamIsValid()) {
+    if (DescriptorIsValid()) {
       auto mode = GetStreamOpenModeFromOptions(m_options);
       if (!mode)
         llvm::consumeError(mode.takeError());
@@ -289,9 +280,9 @@ FILE *NativeFile::GetStream() {
 // We must duplicate the file descriptor if we don't own it because when you
 // call fdopen, the stream will own the fd
 #ifdef _WIN32
-          m_descriptor = ::_dup(m_descriptor);
+          m_descriptor = ::_dup(GetDescriptor());
 #else
-          m_descriptor = dup(m_descriptor);
+          m_descriptor = dup(GetDescriptor());
 #endif
           m_own_descriptor = true;
         }
@@ -313,11 +304,8 @@ FILE *NativeFile::GetStream() {
 }
 
 Status NativeFile::Close() {
-  std::scoped_lock<std::mutex, std::mutex> lock(m_descriptor_mutex, m_stream_mutex);
-
   Status error;
-
-  if (StreamIsValidUnlocked()) {
+  if (StreamIsValid()) {
     if (m_own_stream) {
       if (::fclose(m_stream) == EOF)
         error.SetErrorToErrno();
@@ -332,17 +320,15 @@ Status NativeFile::Close() {
       }
     }
   }
-
-  if (DescriptorIsValidUnlocked() && m_own_descriptor) {
+  if (DescriptorIsValid() && m_own_descriptor) {
     if (::close(m_descriptor) != 0)
       error.SetErrorToErrno();
   }
-
-  m_stream = kInvalidStream;
-  m_own_stream = false;
   m_descriptor = kInvalidDescriptor;
-  m_own_descriptor = false;
+  m_stream = kInvalidStream;
   m_options = OpenOptions(0);
+  m_own_stream = false;
+  m_own_descriptor = false;
   m_is_interactive = eLazyBoolCalculate;
   m_is_real_terminal = eLazyBoolCalculate;
   return error;
@@ -386,7 +372,7 @@ Status NativeFile::GetFileSpec(FileSpec &file_spec) const {
 
 off_t NativeFile::SeekFromStart(off_t offset, Status *error_ptr) {
   off_t result = 0;
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (DescriptorIsValid()) {
     result = ::lseek(m_descriptor, offset, SEEK_SET);
 
     if (error_ptr) {
@@ -395,10 +381,7 @@ off_t NativeFile::SeekFromStart(off_t offset, Status *error_ptr) {
       else
         error_ptr->Clear();
     }
-    return result;
-  }
-
-  if (ValueGuard stream_guard = StreamIsValid()) {
+  } else if (StreamIsValid()) {
     result = ::fseek(m_stream, offset, SEEK_SET);
 
     if (error_ptr) {
@@ -407,17 +390,15 @@ off_t NativeFile::SeekFromStart(off_t offset, Status *error_ptr) {
       else
         error_ptr->Clear();
     }
-    return result;
-  }
-
-  if (error_ptr)
+  } else if (error_ptr) {
     error_ptr->SetErrorString("invalid file handle");
+  }
   return result;
 }
 
 off_t NativeFile::SeekFromCurrent(off_t offset, Status *error_ptr) {
   off_t result = -1;
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (DescriptorIsValid()) {
     result = ::lseek(m_descriptor, offset, SEEK_CUR);
 
     if (error_ptr) {
@@ -426,10 +407,7 @@ off_t NativeFile::SeekFromCurrent(off_t offset, Status *error_ptr) {
       else
         error_ptr->Clear();
     }
-    return result;
-  }
-
-  if (ValueGuard stream_guard = StreamIsValid()) {
+  } else if (StreamIsValid()) {
     result = ::fseek(m_stream, offset, SEEK_CUR);
 
     if (error_ptr) {
@@ -438,17 +416,15 @@ off_t NativeFile::SeekFromCurrent(off_t offset, Status *error_ptr) {
       else
         error_ptr->Clear();
     }
-    return result;
-  }
-
-  if (error_ptr)
+  } else if (error_ptr) {
     error_ptr->SetErrorString("invalid file handle");
+  }
   return result;
 }
 
 off_t NativeFile::SeekFromEnd(off_t offset, Status *error_ptr) {
   off_t result = -1;
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (DescriptorIsValid()) {
     result = ::lseek(m_descriptor, offset, SEEK_END);
 
     if (error_ptr) {
@@ -457,10 +433,7 @@ off_t NativeFile::SeekFromEnd(off_t offset, Status *error_ptr) {
       else
         error_ptr->Clear();
     }
-    return result;
-  }
-
-  if (ValueGuard stream_guard = StreamIsValid()) {
+  } else if (StreamIsValid()) {
     result = ::fseek(m_stream, offset, SEEK_END);
 
     if (error_ptr) {
@@ -469,32 +442,26 @@ off_t NativeFile::SeekFromEnd(off_t offset, Status *error_ptr) {
       else
         error_ptr->Clear();
     }
-  }
-
-  if (error_ptr)
+  } else if (error_ptr) {
     error_ptr->SetErrorString("invalid file handle");
+  }
   return result;
 }
 
 Status NativeFile::Flush() {
   Status error;
-  if (ValueGuard stream_guard = StreamIsValid()) {
+  if (StreamIsValid()) {
     if (llvm::sys::RetryAfterSignal(EOF, ::fflush, m_stream) == EOF)
       error.SetErrorToErrno();
-    return error;
-  }
-
-  {
-    ValueGuard descriptor_guard = DescriptorIsValid();
-    if (!descriptor_guard)
-      error.SetErrorString("invalid file handle");
+  } else if (!DescriptorIsValid()) {
+    error.SetErrorString("invalid file handle");
   }
   return error;
 }
 
 Status NativeFile::Sync() {
   Status error;
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (DescriptorIsValid()) {
 #ifdef _WIN32
     int err = FlushFileBuffers((HANDLE)_get_osfhandle(m_descriptor));
     if (err == 0)
@@ -549,18 +516,14 @@ Status NativeFile::Read(void *buf, size_t &num_bytes) {
 #endif
 
   ssize_t bytes_read = -1;
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
-    bytes_read =
-        llvm::sys::RetryAfterSignal(-1, ::read, m_descriptor, buf, num_bytes);
+  if (DescriptorIsValid()) {
+    bytes_read = llvm::sys::RetryAfterSignal(-1, ::read, m_descriptor, buf, num_bytes);
     if (bytes_read == -1) {
       error.SetErrorToErrno();
       num_bytes = 0;
     } else
       num_bytes = bytes_read;
-    return error;
-  }
-
-  if (ValueGuard file_lock = StreamIsValid()) {
+  } else if (StreamIsValid()) {
     bytes_read = ::fread(buf, 1, num_bytes, m_stream);
 
     if (bytes_read == 0) {
@@ -571,11 +534,10 @@ Status NativeFile::Read(void *buf, size_t &num_bytes) {
       num_bytes = 0;
     } else
       num_bytes = bytes_read;
-    return error;
+  } else {
+    num_bytes = 0;
+    error.SetErrorString("invalid file handle");
   }
-
-  num_bytes = 0;
-  error.SetErrorString("invalid file handle");
   return error;
 }
 
@@ -613,7 +575,7 @@ Status NativeFile::Write(const void *buf, size_t &num_bytes) {
 #endif
 
   ssize_t bytes_written = -1;
-  if (ValueGuard descriptor_guard = DescriptorIsValid()) {
+  if (DescriptorIsValid()) {
     bytes_written =
         llvm::sys::RetryAfterSignal(-1, ::write, m_descriptor, buf, num_bytes);
     if (bytes_written == -1) {
@@ -621,10 +583,7 @@ Status NativeFile::Write(const void *buf, size_t &num_bytes) {
       num_bytes = 0;
     } else
       num_bytes = bytes_written;
-    return error;
-  }
-
-  if (ValueGuard stream_guard = StreamIsValid()) {
+  } else if (StreamIsValid()) {
     bytes_written = ::fwrite(buf, 1, num_bytes, m_stream);
 
     if (bytes_written == 0) {
@@ -635,11 +594,12 @@ Status NativeFile::Write(const void *buf, size_t &num_bytes) {
       num_bytes = 0;
     } else
       num_bytes = bytes_written;
-    return error;
+
+  } else {
+    num_bytes = 0;
+    error.SetErrorString("invalid file handle");
   }
 
-  num_bytes = 0;
-  error.SetErrorString("invalid file handle");
   return error;
 }
 
@@ -817,13 +777,13 @@ SerialPort::OptionsFromURL(llvm::StringRef urlqs) {
       serial_options.BaudRate = baud_rate;
     } else if (x.consume_front("parity=")) {
       serial_options.Parity =
-          llvm::StringSwitch<std::optional<Terminal::Parity>>(x)
+          llvm::StringSwitch<llvm::Optional<Terminal::Parity>>(x)
               .Case("no", Terminal::Parity::No)
               .Case("even", Terminal::Parity::Even)
               .Case("odd", Terminal::Parity::Odd)
               .Case("mark", Terminal::Parity::Mark)
               .Case("space", Terminal::Parity::Space)
-              .Default(std::nullopt);
+              .Default(llvm::None);
       if (!serial_options.Parity)
         return llvm::createStringError(
             llvm::inconvertibleErrorCode(),
@@ -831,14 +791,14 @@ SerialPort::OptionsFromURL(llvm::StringRef urlqs) {
             x.str().c_str());
     } else if (x.consume_front("parity-check=")) {
       serial_options.ParityCheck =
-          llvm::StringSwitch<std::optional<Terminal::ParityCheck>>(x)
+          llvm::StringSwitch<llvm::Optional<Terminal::ParityCheck>>(x)
               .Case("no", Terminal::ParityCheck::No)
               .Case("replace", Terminal::ParityCheck::ReplaceWithNUL)
               .Case("ignore", Terminal::ParityCheck::Ignore)
               // "mark" mode is not currently supported as it requires special
               // input processing
               // .Case("mark", Terminal::ParityCheck::Mark)
-              .Default(std::nullopt);
+              .Default(llvm::None);
       if (!serial_options.ParityCheck)
         return llvm::createStringError(
             llvm::inconvertibleErrorCode(),
@@ -873,19 +833,20 @@ SerialPort::Create(int fd, OpenOptions options, Options serial_options,
   if (llvm::Error error = term.SetRaw())
     return std::move(error);
   if (serial_options.BaudRate) {
-    if (llvm::Error error = term.SetBaudRate(*serial_options.BaudRate))
+    if (llvm::Error error = term.SetBaudRate(serial_options.BaudRate.value()))
       return std::move(error);
   }
   if (serial_options.Parity) {
-    if (llvm::Error error = term.SetParity(*serial_options.Parity))
+    if (llvm::Error error = term.SetParity(serial_options.Parity.value()))
       return std::move(error);
   }
   if (serial_options.ParityCheck) {
-    if (llvm::Error error = term.SetParityCheck(*serial_options.ParityCheck))
+    if (llvm::Error error =
+            term.SetParityCheck(serial_options.ParityCheck.value()))
       return std::move(error);
   }
   if (serial_options.StopBits) {
-    if (llvm::Error error = term.SetStopBits(*serial_options.StopBits))
+    if (llvm::Error error = term.SetStopBits(serial_options.StopBits.value()))
       return std::move(error);
   }
 

@@ -15,7 +15,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 namespace {
 const char DiagWording[] =
@@ -62,4 +64,6 @@ void SetLongJmpCheck::check(const MatchFinder::MatchResult &Result) {
   diag(E->getExprLoc(), DiagWording) << cast<NamedDecl>(E->getCalleeDecl());
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

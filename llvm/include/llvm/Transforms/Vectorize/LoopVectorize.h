@@ -15,7 +15,7 @@
 // 'wide' iteration. After this transformation the index is incremented
 // by the SIMD vector width, and not by one.
 //
-// This pass has four parts:
+// This pass has three parts:
 // 1. The main loop pass that drives the different parts.
 // 2. LoopVectorizationLegality - A unit that checks for the legality
 //    of the vectorization.
@@ -27,7 +27,7 @@
 //
 // There is a development effort going on to migrate loop vectorizer to the
 // VPlan infrastructure and to introduce outer loop vectorization support (see
-// docs/VectorizationPlan.rst and
+// docs/Proposal/VectorizationPlan.rst and
 // http://lists.llvm.org/pipermail/llvm-dev/2017-December/119523.html). For this
 // purpose, we temporarily introduced the VPlan-native vectorization path: an
 // alternative vectorization path that is natively implemented on top of the
@@ -62,6 +62,7 @@
 
 namespace llvm {
 
+class AAResults;
 class AssumptionCache;
 class BlockFrequencyInfo;
 class DemandedBits;
@@ -177,6 +178,7 @@ public:
   BlockFrequencyInfo *BFI;
   TargetLibraryInfo *TLI;
   DemandedBits *DB;
+  AAResults *AA;
   AssumptionCache *AC;
   LoopAccessInfoManager *LAIs;
   OptimizationRemarkEmitter *ORE;
@@ -187,13 +189,12 @@ public:
                      function_ref<StringRef(StringRef)> MapClassName2PassName);
 
   // Shim for old PM.
-  LoopVectorizeResult runImpl(Function &F, ScalarEvolution &SE_, LoopInfo &LI_,
-                              TargetTransformInfo &TTI_, DominatorTree &DT_,
-                              BlockFrequencyInfo *BFI_, TargetLibraryInfo *TLI_,
-                              DemandedBits &DB_, AssumptionCache &AC_,
-                              LoopAccessInfoManager &LAIs_,
-                              OptimizationRemarkEmitter &ORE_,
-                              ProfileSummaryInfo *PSI_);
+  LoopVectorizeResult
+  runImpl(Function &F, ScalarEvolution &SE_, LoopInfo &LI_,
+          TargetTransformInfo &TTI_, DominatorTree &DT_,
+          BlockFrequencyInfo &BFI_, TargetLibraryInfo *TLI_, DemandedBits &DB_,
+          AAResults &AA_, AssumptionCache &AC_, LoopAccessInfoManager &LAIs_,
+          OptimizationRemarkEmitter &ORE_, ProfileSummaryInfo *PSI_);
 
   bool processLoop(Loop *L);
 };

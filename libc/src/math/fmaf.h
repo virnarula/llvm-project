@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_FMAF_H
 #define LLVM_LIBC_SRC_MATH_FMAF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 float fmaf(float x, float y, float z);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_FMAF_H

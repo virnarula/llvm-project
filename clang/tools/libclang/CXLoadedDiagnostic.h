@@ -71,11 +71,11 @@ public:
 
   struct Location {
     CXFile file;
-    unsigned line = 0;
-    unsigned column = 0;
-    unsigned offset = 0;
+    unsigned line;
+    unsigned column;
+    unsigned offset;
     
-    Location() = default;
+    Location() : line(0), column(0), offset(0) {}    
   };
   
   Location DiagLoc;

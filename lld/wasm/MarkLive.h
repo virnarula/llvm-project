@@ -9,10 +9,12 @@
 #ifndef LLD_WASM_MARKLIVE_H
 #define LLD_WASM_MARKLIVE_H
 
-namespace lld::wasm {
+namespace lld {
+namespace wasm {
 
 void markLive();
 
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld
 
 #endif // LLD_WASM_MARKLIVE_H

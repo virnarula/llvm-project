@@ -12,7 +12,7 @@
 #include "src/__support/threads/mutex.h"
 #include "src/threads/cnd_wait.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, cnd_wait, (cnd_t * cond, mtx_t *mtx)) {
   CndVar *cndvar = reinterpret_cast<CndVar *>(cond);
@@ -20,4 +20,4 @@ LLVM_LIBC_FUNCTION(int, cnd_wait, (cnd_t * cond, mtx_t *mtx)) {
   return cndvar->wait(mutex);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

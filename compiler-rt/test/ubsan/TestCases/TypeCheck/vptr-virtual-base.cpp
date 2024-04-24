@@ -3,11 +3,9 @@
 
 // REQUIRES: shared_cxxabi
 // REQUIRES: cxxabi
-// UNSUPPORTED: target={{.*windows-msvc.*}}
+// UNSUPPORTED: windows-msvc
 // Nested crash reported
-// UNSUPPORTED: target={{.*freebsd.*}}
-// FIXME: Itanium demangling isn't done for the type names on MinGW targets.
-// XFAIL: target={{.*windows-gnu.*}}
+// UNSUPPORTED: freebsd
 
 struct S { virtual int f() { return 0; } };
 struct T : virtual S {};

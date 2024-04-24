@@ -55,7 +55,7 @@ public:
   /// this replacement. It is needed for determining how \p Spaces is turned
   /// into tabs and spaces for some format styles.
   void replaceWhitespace(FormatToken &Tok, unsigned Newlines, unsigned Spaces,
-                         unsigned StartOfTokenColumn, bool IsAligned = false,
+                         unsigned StartOfTokenColumn, bool isAligned = false,
                          bool InPPDirective = false);
 
   /// Adds information about an unchangeable token's whitespace.
@@ -199,10 +199,10 @@ private:
     SmallVector<unsigned> CellCounts;
     unsigned InitialSpaces = 0;
 
-    // Determine if every row in the array
+    // Determine if every row in the the array
     // has the same number of columns.
     bool isRectangular() const {
-      if (CellCounts.size() < 2)
+      if (CellCounts.empty())
         return false;
 
       for (auto NumberOfColumns : CellCounts)
@@ -231,9 +231,6 @@ private:
 
   /// Align consecutive declarations over all \c Changes.
   void alignChainedConditionals();
-
-  /// Align consecutive short case statements over all \c Changes.
-  void alignConsecutiveShortCaseStatements();
 
   /// Align trailing comments over all \c Changes.
   void alignTrailingComments();
@@ -282,7 +279,6 @@ private:
     for (auto PrevIter = Start; PrevIter != End; ++PrevIter) {
       // If we broke the line the initial spaces are already
       // accounted for.
-      assert(PrevIter->Index < Changes.size());
       if (Changes[PrevIter->Index].NewlinesBefore > 0)
         NetWidth = 0;
       NetWidth +=
@@ -298,7 +294,7 @@ private:
         calculateCellWidth(CellIter->Index, CellIter->EndIndex, true);
     if (Changes[CellIter->Index].NewlinesBefore == 0)
       CellWidth += NetWidth;
-    for (const auto *Next = CellIter->NextColumnElement; Next;
+    for (const auto *Next = CellIter->NextColumnElement; Next != nullptr;
          Next = Next->NextColumnElement) {
       auto ThisWidth = calculateCellWidth(Next->Index, Next->EndIndex, true);
       if (Changes[Next->Index].NewlinesBefore == 0)
@@ -316,9 +312,9 @@ private:
     auto MaxNetWidth = getNetWidth(CellStart, CellStop, InitialSpaces);
     auto RowCount = 1U;
     auto Offset = std::distance(CellStart, CellStop);
-    for (const auto *Next = CellStop->NextColumnElement; Next;
+    for (const auto *Next = CellStop->NextColumnElement; Next != nullptr;
          Next = Next->NextColumnElement) {
-      if (RowCount >= MaxRowCount)
+      if (RowCount > MaxRowCount)
         break;
       auto Start = (CellStart + RowCount * CellCount);
       auto End = Start + Offset;

@@ -5,13 +5,14 @@ target triple = "thumbv6m---eabi"
 
 ; CHECK-LABEL: test_fn
 ; CHECK-NOT: uxtb
-define dso_local zeroext i8 @test_fn(i32 %x, ptr nocapture %f) {
+define dso_local zeroext i8 @test_fn(i32 %x, void (...)* nocapture %f) {
 entry:
   %tobool = icmp eq i32 %x, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void %f() #1
+  %callee.knr.cast = bitcast void (...)* %f to void ()*
+  tail call void %callee.knr.cast() #1
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then

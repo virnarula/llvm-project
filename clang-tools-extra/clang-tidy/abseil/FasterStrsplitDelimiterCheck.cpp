@@ -10,24 +10,25 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Tooling/FixIt.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 namespace {
 
 AST_MATCHER(StringLiteral, lengthIsOne) { return Node.getLength() == 1; }
 
-std::optional<std::string> makeCharacterLiteral(const StringLiteral *Literal,
-                                                const ASTContext &Context) {
+llvm::Optional<std::string> makeCharacterLiteral(const StringLiteral *Literal,
+                                                 const ASTContext &Context) {
   assert(Literal->getLength() == 1 &&
          "Only single character string should be matched");
   assert(Literal->getCharByteWidth() == 1 &&
          "StrSplit doesn't support wide char");
   std::string Result = clang::tooling::fixit::getText(*Literal, Context).str();
-  bool IsRawStringLiteral = StringRef(Result).starts_with(R"(R")");
+  bool IsRawStringLiteral = StringRef(Result).startswith(R"(R")");
   // Since raw string literal might contain unescaped non-printable characters,
   // we normalize them using `StringLiteral::outputString`.
   if (IsRawStringLiteral) {
@@ -43,12 +44,12 @@ std::optional<std::string> makeCharacterLiteral(const StringLiteral *Literal,
 
   // Now replace the " with '.
   std::string::size_type Pos = Result.find_first_of('"');
-  if (Pos == std::string::npos)
-    return std::nullopt;
+  if (Pos == Result.npos)
+    return llvm::None;
   Result[Pos] = '\'';
   Pos = Result.find_last_of('"');
-  if (Pos == std::string::npos)
-    return std::nullopt;
+  if (Pos == Result.npos)
+    return llvm::None;
   Result[Pos] = '\'';
   return Result;
 }
@@ -104,7 +105,7 @@ void FasterStrsplitDelimiterCheck::check(
   if (Literal->getBeginLoc().isMacroID() || Literal->getEndLoc().isMacroID())
     return;
 
-  std::optional<std::string> Replacement =
+  llvm::Optional<std::string> Replacement =
       makeCharacterLiteral(Literal, *Result.Context);
   if (!Replacement)
     return;
@@ -123,4 +124,6 @@ void FasterStrsplitDelimiterCheck::check(
                                       *Replacement);
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

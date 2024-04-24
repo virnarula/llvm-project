@@ -8,7 +8,6 @@
 
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/SmallString.h"
-#include <optional>
 
 using namespace mlir;
 
@@ -31,7 +30,7 @@ void DialectResourceBlobManager::update(StringRef name,
 }
 
 auto DialectResourceBlobManager::insert(StringRef name,
-                                        std::optional<AsmResourceBlob> blob)
+                                        Optional<AsmResourceBlob> blob)
     -> BlobEntry & {
   llvm::sys::SmartScopedWriter<true> writer(blobMapLock);
 

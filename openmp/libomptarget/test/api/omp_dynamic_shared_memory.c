@@ -1,15 +1,7 @@
-// RUN: %libomptarget-compile-generic
+// RUN: %libomptarget-compile-nvptx64-nvidia-cuda
 // RUN: env LIBOMPTARGET_SHARED_MEMORY_SIZE=256 \
-// RUN:   %libomptarget-run-generic | %fcheck-generic
-
-// RUN: %libomptarget-compileopt-generic
-// RUN: env LIBOMPTARGET_SHARED_MEMORY_SIZE=256 \
-// RUN:   %libomptarget-run-generic | %fcheck-generic
-
-// UNSUPPORTED: x86_64-pc-linux-gnu
-// UNSUPPORTED: x86_64-pc-linux-gnu-LTO
-// UNSUPPORTED: aarch64-unknown-linux-gnu
-// UNSUPPORTED: aarch64-unknown-linux-gnu-LTO
+// RUN:   %libomptarget-run-nvptx64-nvidia-cuda | %fcheck-nvptx64-nvidia-cuda
+// REQUIRES: nvptx64-nvidia-cuda
 
 #include <omp.h>
 #include <stdio.h>

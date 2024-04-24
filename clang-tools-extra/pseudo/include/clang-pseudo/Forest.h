@@ -139,11 +139,12 @@ private:
 
   // Retrieves the trailing array.
   llvm::ArrayRef<const ForestNode *> children(uint16_t Num) const {
-    return llvm::ArrayRef(reinterpret_cast<ForestNode *const *>(this + 1), Num);
+    return llvm::makeArrayRef(reinterpret_cast<ForestNode *const *>(this + 1),
+                              Num);
   }
   llvm::MutableArrayRef<ForestNode *> children(uint16_t Num) {
-    return llvm::MutableArrayRef(reinterpret_cast<ForestNode **>(this + 1),
-                                 Num);
+    return llvm::makeMutableArrayRef(reinterpret_cast<ForestNode **>(this + 1),
+                                     Num);
   }
 
   Token::Index StartIndex;

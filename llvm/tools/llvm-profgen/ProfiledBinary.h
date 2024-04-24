@@ -12,6 +12,7 @@
 #include "CallContext.h"
 #include "ErrorHandling.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
@@ -33,6 +34,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/IPO/SampleContextTracker.h"
+#include <list>
 #include <map>
 #include <set>
 #include <sstream>
@@ -41,10 +43,8 @@
 #include <unordered_set>
 #include <vector>
 
-namespace llvm {
 extern cl::opt<bool> EnableCSPreInliner;
 extern cl::opt<bool> UseContextCostForPreInliner;
-} // namespace llvm
 
 using namespace llvm;
 using namespace sampleprof;
@@ -54,7 +54,6 @@ namespace llvm {
 namespace sampleprof {
 
 class ProfiledBinary;
-class MissingFrameInferrer;
 
 struct InstructionPointer {
   const ProfiledBinary *Binary;
@@ -189,12 +188,10 @@ class ProfiledBinary {
   std::string Path;
   // Path of the debug info binary.
   std::string DebugBinaryPath;
-  // The target triple.
-  Triple TheTriple;
   // Path of symbolizer path which should be pointed to binary with debug info.
   StringRef SymbolizerPath;
-  // Options used to configure the symbolizer
-  symbolize::LLVMSymbolizer::Options SymbolizerOpts;
+  // The target triple.
+  Triple TheTriple;
   // The runtime base address that the first executable segment is loaded at.
   uint64_t BaseAddress = 0;
   // The runtime base address that the first loadabe segment is loaded at.
@@ -219,19 +216,11 @@ class ProfiledBinary {
   // A map of mapping function name to BinaryFunction info.
   std::unordered_map<std::string, BinaryFunction> BinaryFunctions;
 
-  // Lookup BinaryFunctions using the function name's MD5 hash. Needed if the
-  // profile is using MD5.
-  std::unordered_map<uint64_t, BinaryFunction *> HashBinaryFunctions;
-
   // A list of binary functions that have samples.
   std::unordered_set<const BinaryFunction *> ProfiledFunctions;
 
   // GUID to Elf symbol start address map
   DenseMap<uint64_t, uint64_t> SymbolStartAddrs;
-
-  // These maps are for temporary use of warning diagnosis.
-  DenseSet<int64_t> AddrsWithMultipleSymbols;
-  DenseSet<std::pair<uint64_t, uint64_t>> AddrsWithInvalidInstruction;
 
   // Start address to Elf symbol GUID map
   std::unordered_multimap<uint64_t, uint64_t> StartAddrToSymMap;
@@ -261,10 +250,6 @@ class ProfiledBinary {
 
   // Estimate and track function prolog and epilog ranges.
   PrologEpilogTracker ProEpilogTracker;
-
-  // Infer missing frames due to compiler optimizations such as tail call
-  // elimination.
-  std::unique_ptr<MissingFrameInferrer> MissingContextInferrer;
 
   // Track function sizes under different context
   BinarySizeContextTracker FuncSizeTracker;
@@ -313,7 +298,7 @@ class ProfiledBinary {
 
   // Set up disassembler and related components.
   void setUpDisassembler(const ELFObjectFileBase *Obj);
-  symbolize::LLVMSymbolizer::Options getSymbolizerOpts() const;
+  void setupSymbolizer();
 
   // Load debug info of subprograms from DWARF section.
   void loadSymbolsFromDWARF(ObjectFile &Obj);
@@ -325,9 +310,9 @@ class ProfiledBinary {
   void populateElfSymbolAddressList(const ELFObjectFileBase *O);
 
   // A function may be spilt into multiple non-continuous address ranges. We use
-  // this to set whether start a function range is the real entry of the
+  // this to set whether start address of a function is the real entry of the
   // function and also set false to the non-function label.
-  void setIsFuncEntry(FuncRange *FRange, StringRef RangeSymName);
+  void setIsFuncEntry(uint64_t Address, StringRef RangeSymName);
 
   // Warn if no entry range exists in the function.
   void warnNoFuncEntry();
@@ -352,8 +337,15 @@ class ProfiledBinary {
   void load();
 
 public:
-  ProfiledBinary(const StringRef ExeBinPath, const StringRef DebugBinPath);
-  ~ProfiledBinary();
+  ProfiledBinary(const StringRef ExeBinPath, const StringRef DebugBinPath)
+      : Path(ExeBinPath), DebugBinaryPath(DebugBinPath), ProEpilogTracker(this),
+        TrackFuncContextSize(EnableCSPreInliner &&
+                             UseContextCostForPreInliner) {
+    // Point to executable binary if debug info binary is not specified.
+    SymbolizerPath = DebugBinPath.empty() ? ExeBinPath : DebugBinPath;
+    setupSymbolizer();
+    load();
+  }
 
   void decodePseudoProbe();
 
@@ -483,26 +475,17 @@ public:
   void setProfiledFunctions(std::unordered_set<const BinaryFunction *> &Funcs) {
     ProfiledFunctions = Funcs;
   }
-  
-  BinaryFunction *getBinaryFunction(FunctionId FName) {
-    if (FName.isStringRef()) {
-      auto I = BinaryFunctions.find(FName.str());
-      if (I == BinaryFunctions.end())
-        return nullptr;
-      return &I->second;
-    }
-    auto I = HashBinaryFunctions.find(FName.getHashCode());
-    if (I == HashBinaryFunctions.end())
+
+  BinaryFunction *getBinaryFunction(StringRef FName) {
+    auto I = BinaryFunctions.find(FName.str());
+    if (I == BinaryFunctions.end())
       return nullptr;
-    return I->second;
+    return &I->second;
   }
 
   uint32_t getFuncSizeForContext(const ContextTrieNode *ContextNode) {
     return FuncSizeTracker.getFuncSizeForContext(ContextNode);
   }
-
-  void inferMissingFrames(const SmallVectorImpl<uint64_t> &Context,
-                          SmallVectorImpl<uint64_t> &NewContext);
 
   // Load the symbols from debug table and populate into symbol list.
   void populateSymbolListFromDWARF(ProfileSymbolList &SymbolList);
@@ -510,7 +493,7 @@ public:
   SampleContextFrameVector
   getFrameLocationStack(uint64_t Address, bool UseProbeDiscriminator = false) {
     InstructionPointer IP(this, Address);
-    return symbolize(IP, SymbolizerOpts.UseSymbolTable, UseProbeDiscriminator);
+    return symbolize(IP, true, UseProbeDiscriminator);
   }
 
   const SampleContextFrameVector &
@@ -523,7 +506,7 @@ public:
     return I.first->second;
   }
 
-  std::optional<SampleContextFrame> getInlineLeafFrameLoc(uint64_t Address) {
+  Optional<SampleContextFrame> getInlineLeafFrameLoc(uint64_t Address) {
     const auto &Stack = getCachedFrameLocationStack(Address);
     if (Stack.empty())
       return {};
@@ -531,10 +514,6 @@ public:
   }
 
   void flushSymbolizer() { Symbolizer.reset(); }
-
-  MissingFrameInferrer *getMissingContextInferrer() {
-    return MissingContextInferrer.get();
-  }
 
   // Compare two addresses' inline context
   bool inlineContextEqual(uint64_t Add1, uint64_t Add2);
@@ -569,7 +548,7 @@ public:
         InlineContextStack.clear();
         continue;
       }
-      InlineContextStack.emplace_back(FunctionId(Callsite.first),
+      InlineContextStack.emplace_back(Callsite.first,
                                       LineLocation(Callsite.second, 0));
     }
   }

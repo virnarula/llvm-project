@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -16,18 +14,20 @@
 
 // int depth() const
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <set>
 #include <cassert>
 
-#include "assert_macros.h"
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void test_depth()
+TEST_SUITE(recursive_directory_iterator_depth_tests)
+
+TEST_CASE(test_depth)
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -37,8 +37,8 @@ static void test_depth()
 
     std::error_code ec;
     recursive_directory_iterator it(testDir, ec);
-    assert(!ec);
-    assert(it.depth() == 0);
+    TEST_REQUIRE(!ec);
+    TEST_CHECK(it.depth() == 0);
 
     bool seen_d1, seen_d2;
     seen_d1 = seen_d2 = false;
@@ -47,24 +47,20 @@ static void test_depth()
         const path entry = *it;
         const path parent = entry.parent_path();
         if (parent == testDir) {
-            assert(it.depth() == 0);
+            TEST_CHECK(it.depth() == 0);
         } else if (parent == DirDepth1) {
-            assert(it.depth() == 1);
+            TEST_CHECK(it.depth() == 1);
             seen_d1 = true;
         } else if (parent == DirDepth2) {
-            assert(it.depth() == 2);
+            TEST_CHECK(it.depth() == 2);
             seen_d2 = true;
         } else {
-            assert(!"Unexpected depth while iterating over static env");
+            TEST_CHECK(!"Unexpected depth while iterating over static env");
         }
         ++it;
     }
-    assert(seen_d1 && seen_d2);
-    assert(it == endIt);
+    TEST_REQUIRE(seen_d1 && seen_d2);
+    TEST_CHECK(it == endIt);
 }
 
-int main(int, char**) {
-    test_depth();
-
-    return 0;
-}
+TEST_SUITE_END()

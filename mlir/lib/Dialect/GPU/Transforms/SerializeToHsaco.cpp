@@ -42,13 +42,11 @@
 #include "llvm/MC/TargetRegistry.h"
 
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/Threading.h"
 #include "llvm/Support/WithColor.h"
 
 #include "llvm/Target/TargetMachine.h"
@@ -56,15 +54,13 @@
 
 #include "llvm/Transforms/IPO/Internalize.h"
 
-#include <optional>
+#include <mutex>
 
 using namespace mlir;
 
 namespace {
 class SerializeToHsacoPass
     : public PassWrapper<SerializeToHsacoPass, gpu::SerializeToBlobPass> {
-  static llvm::once_flag initializeBackendOnce;
-
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SerializeToHsacoPass)
 
@@ -77,6 +73,11 @@ public:
   }
 
 protected:
+  Option<int> optLevel{
+      *this, "opt-level",
+      llvm::cl::desc("Optimization level for HSACO compilation"),
+      llvm::cl::init(2)};
+
   Option<std::string> rocmPath{*this, "rocm-path",
                                llvm::cl::desc("Path to ROCm install")};
 
@@ -84,9 +85,15 @@ protected:
   std::unique_ptr<llvm::Module>
   translateToLLVMIR(llvm::LLVMContext &llvmContext) override;
 
+  /// Adds LLVM optimization passes
+  LogicalResult optimizeLlvm(llvm::Module &llvmModule,
+                             llvm::TargetMachine &targetMachine) override;
+
 private:
+  void getDependentDialects(DialectRegistry &registry) const override;
+
   // Loads LLVM bitcode libraries
-  std::optional<SmallVector<std::unique_ptr<llvm::Module>, 3>>
+  Optional<SmallVector<std::unique_ptr<llvm::Module>, 3>>
   loadLibraries(SmallVectorImpl<char> &path,
                 SmallVectorImpl<StringRef> &libraries,
                 llvm::LLVMContext &context);
@@ -95,9 +102,9 @@ private:
   std::unique_ptr<std::vector<char>>
   serializeISA(const std::string &isa) override;
 
-  LogicalResult assembleIsa(const std::string &isa,
-                            SmallVectorImpl<char> &result);
-  std::unique_ptr<std::vector<char>> createHsaco(ArrayRef<char> isaBinary);
+  std::unique_ptr<SmallVectorImpl<char>> assembleIsa(const std::string &isa);
+  std::unique_ptr<std::vector<char>>
+  createHsaco(const SmallVectorImpl<char> &isaBinary);
 
   std::string getRocmPath();
 };
@@ -123,20 +130,8 @@ static void maybeSetOption(Pass::Option<std::string> &option,
     option = getValue();
 }
 
-llvm::once_flag SerializeToHsacoPass::initializeBackendOnce;
-
 SerializeToHsacoPass::SerializeToHsacoPass(StringRef triple, StringRef arch,
                                            StringRef features, int optLevel) {
-  // No matter how this pass is constructed, ensure that the AMDGPU backend
-  // is initialized exactly once.
-  llvm::call_once(initializeBackendOnce, []() {
-    // Initialize LLVM AMDGPU backend.
-    LLVMInitializeAMDGPUAsmParser();
-    LLVMInitializeAMDGPUAsmPrinter();
-    LLVMInitializeAMDGPUTarget();
-    LLVMInitializeAMDGPUTargetInfo();
-    LLVMInitializeAMDGPUTargetMC();
-  });
   maybeSetOption(this->triple, [&triple] { return triple.str(); });
   maybeSetOption(this->chip, [&arch] { return arch.str(); });
   maybeSetOption(this->features, [&features] { return features.str(); });
@@ -144,7 +139,13 @@ SerializeToHsacoPass::SerializeToHsacoPass(StringRef triple, StringRef arch,
     this->optLevel.setValue(optLevel);
 }
 
-std::optional<SmallVector<std::unique_ptr<llvm::Module>, 3>>
+void SerializeToHsacoPass::getDependentDialects(
+    DialectRegistry &registry) const {
+  registerROCDLDialectTranslation(registry);
+  gpu::SerializeToBlobPass::getDependentDialects(registry);
+}
+
+Optional<SmallVector<std::unique_ptr<llvm::Module>, 3>>
 SerializeToHsacoPass::loadLibraries(SmallVectorImpl<char> &path,
                                     SmallVectorImpl<StringRef> &libraries,
                                     llvm::LLVMContext &context) {
@@ -154,7 +155,7 @@ SerializeToHsacoPass::loadLibraries(SmallVectorImpl<char> &path,
   if (!llvm::sys::fs::is_directory(path)) {
     getOperation().emitRemark() << "Bitcode path: " << path
                                 << " does not exist or is not a directory\n";
-    return std::nullopt;
+    return llvm::None;
   }
 
   for (const StringRef file : libraries) {
@@ -167,7 +168,7 @@ SerializeToHsacoPass::loadLibraries(SmallVectorImpl<char> &path,
     if (!library) {
       getOperation().emitError() << "Failed to load library " << file
                                  << " from " << path << error.getMessage();
-      return std::nullopt;
+      return llvm::None;
     }
     // Some ROCM builds don't strip this like they should
     if (auto *openclVersion = library->getNamedMetadata("opencl.ocl.version"))
@@ -178,7 +179,7 @@ SerializeToHsacoPass::loadLibraries(SmallVectorImpl<char> &path,
     ret.push_back(std::move(library));
   }
 
-  return std::move(ret);
+  return ret;
 }
 
 std::unique_ptr<llvm::Module>
@@ -201,9 +202,9 @@ SerializeToHsacoPass::translateToLLVMIR(llvm::LLVMContext &llvmContext) {
       StringRef funcName = f.getName();
       if ("printf" == funcName)
         needOpenCl = true;
-      if (funcName.starts_with("__ockl_"))
+      if (funcName.startswith("__ockl_"))
         needOckl = true;
-      if (funcName.starts_with("__ocml_"))
+      if (funcName.startswith("__ocml_"))
         needOcml = true;
     }
   }
@@ -253,7 +254,7 @@ SerializeToHsacoPass::translateToLLVMIR(llvm::LLVMContext &llvmContext) {
   if (needOcml || needOckl) {
     addControlConstant("__oclc_wavefrontsize64", 1, 8);
     StringRef chipSet = this->chip.getValue();
-    if (chipSet.starts_with("gfx"))
+    if (chipSet.startswith("gfx"))
       chipSet = chipSet.substr(3);
     uint32_t minor =
         llvm::APInt(32, chipSet.substr(chipSet.size() - 2), 16).getZExtValue();
@@ -264,7 +265,7 @@ SerializeToHsacoPass::translateToLLVMIR(llvm::LLVMContext &llvmContext) {
 
     // This constant must always match the default code object ABI version
     // of the AMDGPU backend.
-    addControlConstant("__oclc_ABI_version", 500, 32);
+    addControlConstant("__oclc_ABI_version", 400, 32);
   }
 
   // Determine libraries we need to link - order matters due to dependencies
@@ -276,7 +277,7 @@ SerializeToHsacoPass::translateToLLVMIR(llvm::LLVMContext &llvmContext) {
   if (needOckl)
     libraries.push_back("ockl.bc");
 
-  std::optional<SmallVector<std::unique_ptr<llvm::Module>, 3>> mbModules;
+  Optional<SmallVector<std::unique_ptr<llvm::Module>, 3>> mbModules;
   std::string theRocmPath = getRocmPath();
   llvm::SmallString<32> bitcodePath(theRocmPath);
   llvm::sys::path::append(bitcodePath, "amdgcn", "bitcode");
@@ -318,18 +319,45 @@ SerializeToHsacoPass::translateToLLVMIR(llvm::LLVMContext &llvmContext) {
   return ret;
 }
 
-LogicalResult SerializeToHsacoPass::assembleIsa(const std::string &isa,
-                                                SmallVectorImpl<char> &result) {
+LogicalResult
+SerializeToHsacoPass::optimizeLlvm(llvm::Module &llvmModule,
+                                   llvm::TargetMachine &targetMachine) {
+  int optLevel = this->optLevel.getValue();
+  if (optLevel < 0 || optLevel > 3)
+    return getOperation().emitError()
+           << "Invalid HSA optimization level" << optLevel << "\n";
+
+  targetMachine.setOptLevel(static_cast<llvm::CodeGenOpt::Level>(optLevel));
+
+  auto transformer =
+      makeOptimizingTransformer(optLevel, /*sizeLevel=*/0, &targetMachine);
+  auto error = transformer(&llvmModule);
+  if (error) {
+    InFlightDiagnostic mlirError = getOperation()->emitError();
+    llvm::handleAllErrors(
+        std::move(error), [&mlirError](const llvm::ErrorInfoBase &ei) {
+          mlirError << "Could not optimize LLVM IR: " << ei.message() << "\n";
+        });
+    return mlirError;
+  }
+  return success();
+}
+
+std::unique_ptr<SmallVectorImpl<char>>
+SerializeToHsacoPass::assembleIsa(const std::string &isa) {
   auto loc = getOperation().getLoc();
 
+  SmallVector<char, 0> result;
   llvm::raw_svector_ostream os(result);
 
   llvm::Triple triple(llvm::Triple::normalize(this->triple));
   std::string error;
   const llvm::Target *target =
       llvm::TargetRegistry::lookupTarget(triple.normalize(), error);
-  if (!target)
-    return emitError(loc, Twine("failed to lookup target: ") + error);
+  if (!target) {
+    emitError(loc, Twine("failed to lookup target: ") + error);
+    return {};
+  }
 
   llvm::SourceMgr srcMgr;
   srcMgr.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(isa), SMLoc());
@@ -370,17 +398,19 @@ LogicalResult SerializeToHsacoPass::assembleIsa(const std::string &isa,
   std::unique_ptr<llvm::MCTargetAsmParser> tap(
       target->createMCAsmParser(*sti, *parser, *mcii, mcOptions));
 
-  if (!tap)
-    return emitError(loc, "assembler initialization error");
+  if (!tap) {
+    emitError(loc, "assembler initialization error");
+    return {};
+  }
 
   parser->setTargetParser(*tap);
   parser->Run(false);
 
-  return success();
+  return std::make_unique<SmallVector<char, 0>>(std::move(result));
 }
 
 std::unique_ptr<std::vector<char>>
-SerializeToHsacoPass::createHsaco(ArrayRef<char> isaBinary) {
+SerializeToHsacoPass::createHsaco(const SmallVectorImpl<char> &isaBinary) {
   auto loc = getOperation().getLoc();
 
   // Save the ISA binary to a temp file.
@@ -397,8 +427,9 @@ SerializeToHsacoPass::createHsaco(ArrayRef<char> isaBinary) {
   tempIsaBinaryOs.close();
 
   // Create a temp file for HSA code object.
+  int tempHsacoFD = -1;
   SmallString<128> tempHsacoFilename;
-  if (llvm::sys::fs::createTemporaryFile("kernel", "hsaco",
+  if (llvm::sys::fs::createTemporaryFile("kernel", "hsaco", tempHsacoFD,
                                          tempHsacoFilename)) {
     emitError(loc, "temporary file for HSA code object creation error");
     return {};
@@ -417,28 +448,34 @@ SerializeToHsacoPass::createHsaco(ArrayRef<char> isaBinary) {
   }
 
   // Load the HSA code object.
-  auto hsacoFile =
-      llvm::MemoryBuffer::getFile(tempHsacoFilename, /*IsText=*/false);
+  auto hsacoFile = openInputFile(tempHsacoFilename);
   if (!hsacoFile) {
     emitError(loc, "read HSA code object from temp file error");
     return {};
   }
 
-  StringRef buffer = (*hsacoFile)->getBuffer();
+  StringRef buffer = hsacoFile->getBuffer();
   return std::make_unique<std::vector<char>>(buffer.begin(), buffer.end());
 }
 
 std::unique_ptr<std::vector<char>>
 SerializeToHsacoPass::serializeISA(const std::string &isa) {
-  SmallVector<char, 0> isaBinary;
-  if (failed(assembleIsa(isa, isaBinary)))
+  auto isaBinary = assembleIsa(isa);
+  if (!isaBinary)
     return {};
-  return createHsaco(isaBinary);
+  return createHsaco(*isaBinary);
 }
 
 // Register pass to serialize GPU kernel functions to a HSACO binary annotation.
 void mlir::registerGpuSerializeToHsacoPass() {
   PassRegistration<SerializeToHsacoPass> registerSerializeToHSACO([] {
+    // Initialize LLVM AMDGPU backend.
+    LLVMInitializeAMDGPUAsmParser();
+    LLVMInitializeAMDGPUAsmPrinter();
+    LLVMInitializeAMDGPUTarget();
+    LLVMInitializeAMDGPUTargetInfo();
+    LLVMInitializeAMDGPUTargetMC();
+
     return std::make_unique<SerializeToHsacoPass>("amdgcn-amd-amdhsa", "", "",
                                                   2);
   });

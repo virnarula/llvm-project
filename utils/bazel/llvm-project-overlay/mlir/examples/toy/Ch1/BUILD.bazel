@@ -7,8 +7,8 @@ package(default_visibility = ["//visibility:public"])
 cc_binary(
     name = "toyc-ch1",
     srcs = [
-        "parser/AST.cpp",
         "toyc.cpp",
+        "parser/AST.cpp",
     ] + glob(["include/toy/*"]),
     includes = ["include/"],
     deps = [

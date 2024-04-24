@@ -1,6 +1,6 @@
 # RUN: yaml2obj %s -o %t
-# RUN: llvm-objcopy --strip-all-gnu --allow-broken-links %t %t2
-# RUN: llvm-strip --strip-all-gnu --allow-broken-links %t -o %t3
+# RUN: llvm-objcopy --strip-all-gnu %t %t2
+# RUN: llvm-strip --strip-all-gnu %t -o %t3
 # RUN: llvm-readobj --file-headers --sections %t2 | FileCheck %s
 # RUN: cmp %t2 %t3
 
@@ -24,9 +24,10 @@ Sections:
   - Name:            .dynstr
     Type:            SHT_STRTAB
     Flags:           [ SHF_ALLOC ]
-  - Name:            .symtab
+  - Name:            .symtab.dyn
     Type:            SHT_SYMTAB
     Flags:           [ SHF_ALLOC ]
+    Type:            SHT_NOBITS
   - Name:            .text
     Type:            SHT_PROGBITS
     Flags:           [ SHF_ALLOC, SHF_EXECINSTR ]
@@ -62,7 +63,7 @@ ProgramHeaders:
 # CHECK: SectionHeaderCount: 8
 
 # CHECK:      Name: .dynstr
-# CHECK:      Name: .symtab
+# CHECK:      Name: .symtab.dyn
 # CHECK:      Name: .text
 # CHECK:      Name: .debug_loc
 # CHECK:      Name: .comment

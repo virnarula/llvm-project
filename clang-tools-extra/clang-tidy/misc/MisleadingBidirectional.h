@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 class MisleadingBidirectionalCheck : public ClangTidyCheck {
 public:
@@ -29,6 +31,8 @@ private:
   std::unique_ptr<MisleadingBidirectionalHandler> Handler;
 };
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MISC_MISLEADINGBIDIRECTIONALCHECK_H

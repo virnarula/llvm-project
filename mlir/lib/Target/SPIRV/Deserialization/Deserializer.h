@@ -21,7 +21,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include <cstdint>
-#include <optional>
 
 namespace mlir {
 namespace spirv {
@@ -186,11 +185,11 @@ private:
   LogicalResult processFunctionEnd(ArrayRef<uint32_t> operands);
 
   /// Gets the constant's attribute and type associated with the given <id>.
-  std::optional<std::pair<Attribute, Type>> getConstant(uint32_t id);
+  Optional<std::pair<Attribute, Type>> getConstant(uint32_t id);
 
   /// Gets the info needed to materialize the spec constant operation op
   /// associated with the given <id>.
-  std::optional<SpecConstOperationMaterializationInfo>
+  Optional<SpecConstOperationMaterializationInfo>
   getSpecConstantOperation(uint32_t id);
 
   /// Gets the constant's integer attribute with the given <id>. Returns a
@@ -220,7 +219,7 @@ private:
 
   /// Creates a spirv::SpecConstantOp.
   spirv::SpecConstantOp createSpecConstant(Location loc, uint32_t resultID,
-                                           TypedAttr defaultValue);
+                                           Attribute defaultValue);
 
   /// Processes the OpVariable instructions at current `offset` into `binary`.
   /// It is expected that this method is used for variables that are to be
@@ -231,19 +230,6 @@ private:
   /// Gets the global variable associated with a result <id> of OpVariable.
   spirv::GlobalVariableOp getGlobalVariable(uint32_t id) {
     return globalVariableMap.lookup(id);
-  }
-
-  /// Sets the function argument's attributes. |argID| is the function
-  /// argument's result <id>, and |argIndex| is its index in the function's
-  /// argument list.
-  LogicalResult setFunctionArgAttrs(uint32_t argID,
-                                    SmallVectorImpl<Attribute> &argAttrs,
-                                    size_t argIndex);
-
-  /// Gets the symbol name from the name of decoration.
-  StringAttr getSymbolDecoration(StringRef decorationName) {
-    auto attrName = llvm::convertToSnakeFromCamelCase(decorationName);
-    return opBuilder.getStringAttr(attrName);
   }
 
   //===--------------------------------------------------------------------===//
@@ -257,7 +243,7 @@ private:
   Type getUndefType(uint32_t id) { return undefMap.lookup(id); }
 
   /// Returns true if the given `type` is for SPIR-V void type.
-  bool isVoidType(Type type) const { return isa<NoneType>(type); }
+  bool isVoidType(Type type) const { return type.isa<NoneType>(); }
 
   /// Processes a SPIR-V type instruction with given `opcode` and `operands` and
   /// registers the type into `module`.
@@ -267,9 +253,7 @@ private:
 
   LogicalResult processArrayType(ArrayRef<uint32_t> operands);
 
-  LogicalResult processCooperativeMatrixTypeKHR(ArrayRef<uint32_t> operands);
-
-  LogicalResult processCooperativeMatrixTypeNV(ArrayRef<uint32_t> operands);
+  LogicalResult processCooperativeMatrixType(ArrayRef<uint32_t> operands);
 
   LogicalResult processFunctionType(ArrayRef<uint32_t> operands);
 
@@ -437,7 +421,7 @@ private:
   /// compose the error message) or the next instruction is malformed.
   LogicalResult
   sliceInstruction(spirv::Opcode &opcode, ArrayRef<uint32_t> &operands,
-                   std::optional<spirv::Opcode> expectedOpcode = std::nullopt);
+                   Optional<spirv::Opcode> expectedOpcode = llvm::None);
 
   /// Processes a SPIR-V instruction with the given `opcode` and `operands`.
   /// This method is the main entrance for handling SPIR-V instruction; it
@@ -498,7 +482,7 @@ private:
 
   /// Contains the data of the OpLine instruction which precedes the current
   /// processing instruction.
-  std::optional<DebugLine> debugLine;
+  llvm::Optional<DebugLine> debugLine;
 
   /// The current word offset into the binary module.
   unsigned curOffset = 0;
@@ -513,7 +497,7 @@ private:
   OwningOpRef<spirv::ModuleOp> module;
 
   /// The current function under construction.
-  std::optional<spirv::FuncOp> curFunction;
+  Optional<spirv::FuncOp> curFunction;
 
   /// The current block under construction.
   Block *curBlock = nullptr;

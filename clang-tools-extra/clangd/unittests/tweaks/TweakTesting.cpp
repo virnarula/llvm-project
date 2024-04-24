@@ -14,7 +14,6 @@
 #include "llvm/Support/Error.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <optional>
 #include <string>
 
 namespace clang {
@@ -43,7 +42,7 @@ llvm::StringRef unwrap(Context Ctx, llvm::StringRef Outer) {
   auto Wrapping = wrapping(Ctx);
   // Unwrap only if the code matches the expected wrapping.
   // Don't allow the begin/end wrapping to overlap!
-  if (Outer.starts_with(Wrapping.first) && Outer.ends_with(Wrapping.second) &&
+  if (Outer.startswith(Wrapping.first) && Outer.endswith(Wrapping.second) &&
       Outer.size() >= Wrapping.first.size() + Wrapping.second.size())
     return Outer.drop_front(Wrapping.first.size())
         .drop_back(Wrapping.second.size());
@@ -60,11 +59,11 @@ llvm::Annotations::Range rangeOrPoint(const llvm::Annotations &A) {
 }
 
 // Prepare and apply the specified tweak based on the selection in Input.
-// Returns std::nullopt if and only if prepare() failed.
-std::optional<llvm::Expected<Tweak::Effect>>
+// Returns None if and only if prepare() failed.
+llvm::Optional<llvm::Expected<Tweak::Effect>>
 applyTweak(ParsedAST &AST, llvm::Annotations::Range Range, StringRef TweakID,
            const SymbolIndex *Index, llvm::vfs::FileSystem *FS) {
-  std::optional<llvm::Expected<Tweak::Effect>> Result;
+  llvm::Optional<llvm::Expected<Tweak::Effect>> Result;
   SelectionTree::createEach(AST.getASTContext(), AST.getTokens(), Range.Begin,
                             Range.End, [&](SelectionTree ST) {
                               Tweak::Selection S(Index, AST, Range.Begin,
@@ -157,8 +156,7 @@ std::string TweakTest::decorate(llvm::StringRef Code, unsigned Point) {
 std::string TweakTest::decorate(llvm::StringRef Code,
                                 llvm::Annotations::Range Range) {
   return (Code.substr(0, Range.Begin) + "[[" +
-          Code.substr(Range.Begin, Range.End - Range.Begin) + "]]" +
-          Code.substr(Range.End))
+          Code.substr(Range.Begin, Range.End) + "]]" + Code.substr(Range.End))
       .str();
 }
 

@@ -66,10 +66,10 @@ void LVSymbol::addLocation(dwarf::Attribute Attr, LVAddress LowPC,
                            LVAddress HighPC, LVUnsigned SectionOffset,
                            uint64_t LocDescOffset, bool CallSiteLocation) {
   if (!Locations)
-    Locations = std::make_unique<LVLocations>();
+    Locations = new LVAutoLocations();
 
   // Create the location entry.
-  CurrentLocation = getReader().createLocationSymbol();
+  CurrentLocation = new LVLocationSymbol();
   CurrentLocation->setParent(this);
   CurrentLocation->setAttr(Attr);
   if (CallSiteLocation)
@@ -82,10 +82,10 @@ void LVSymbol::addLocation(dwarf::Attribute Attr, LVAddress LowPC,
 }
 
 // Add a Location Record.
-void LVSymbol::addLocationOperands(LVSmall Opcode,
-                                   ArrayRef<uint64_t> Operands) {
+void LVSymbol::addLocationOperands(LVSmall Opcode, uint64_t Operand1,
+                                   uint64_t Operand2) {
   if (CurrentLocation)
-    CurrentLocation->addObject(Opcode, Operands);
+    CurrentLocation->addObject(Opcode, Operand1, Operand2);
 }
 
 // Add a Location Entry.
@@ -97,14 +97,15 @@ void LVSymbol::addLocationConstant(dwarf::Attribute Attr, LVUnsigned Constant,
               /*SectionOffset=*/0, LocDescOffset);
 
   // Add records to Location Entry.
-  addLocationOperands(/*Opcode=*/LVLocationMemberOffset, {Constant});
+  addLocationOperands(/*Opcode=*/LVLocationMemberOffset,
+                      /*Operand1=*/Constant, /*Operand2=*/0);
 }
 
 LVLocations::iterator LVSymbol::addLocationGap(LVLocations::iterator Pos,
                                                LVAddress LowPC,
                                                LVAddress HighPC) {
   // Create a location entry for the gap.
-  LVLocation *Gap = getReader().createLocationSymbol();
+  LVLocation *Gap = new LVLocationSymbol();
   Gap->setParent(this);
   Gap->setAttr(dwarf::DW_AT_location);
   Gap->addObject(LowPC, HighPC,
@@ -114,7 +115,8 @@ LVLocations::iterator LVSymbol::addLocationGap(LVLocations::iterator Pos,
   LVLocations::iterator Iter = Locations->insert(Pos, Gap);
 
   // Add gap to Location Entry.
-  Gap->addObject(dwarf::DW_OP_hi_user, {});
+  Gap->addObject(/*op=*/dwarf::DW_OP_hi_user,
+                 /*opd1=*/0, /*opd2=*/0);
 
   // Mark the entry as a gap.
   Gap->setIsGapEntry();
@@ -188,7 +190,7 @@ void LVSymbol::getLocations(LVLocations &LocationList) const {
 
 // Calculate coverage factor.
 void LVSymbol::calculateCoverage() {
-  if (!LVLocation::calculateCoverage(Locations.get(), CoverageFactor,
+  if (!LVLocation::calculateCoverage(Locations, CoverageFactor,
                                      CoveragePercentage)) {
     LVScope *Parent = getParentScope();
     if (Parent->getIsInlinedFunction()) {
@@ -442,6 +444,6 @@ void LVSymbol::printExtra(raw_ostream &OS, bool Full) const {
       Reference->printReference(OS, Full, const_cast<LVSymbol *>(this));
 
     // Print location information.
-    LVLocation::print(Locations.get(), OS, Full);
+    LVLocation::print(Locations, OS, Full);
   }
 }

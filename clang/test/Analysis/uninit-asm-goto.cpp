@@ -9,9 +9,9 @@ int test1(int x) {
     return -1;
 }
 
-// test2: Expect no diagnostics
 int test2(int x) {
-  int y;
+  int y; // expected-warning {{variable 'y' is used uninitialized whenever its declaration is reached}}
+         // expected-note@-1 {{initialize the variable}}
   if (x < 42)
     asm goto("" : "+S"(x), "+D"(y) : "r"(x) :: indirect_1, indirect_2);
   else
@@ -20,29 +20,29 @@ int test2(int x) {
 indirect_1:
   return -42;
 indirect_2:
-  return y;
+  return y; // expected-note {{uninitialized use occurs here}}
 }
 
-// test3: Expect no diagnostics
 int test3(int x) {
-  int y;
+  int y; // expected-warning {{variable 'y' is used uninitialized whenever its declaration is reached}}
+         // expected-note@-1 {{initialize the variable}}
   asm goto("" : "=&r"(y) : "r"(x) : : fail);
 normal:
   y += x;
   return y;
   if (x) {
 fail:
-    return y;
+    return y; // expected-note {{uninitialized use occurs here}}
   }
   return 0;
 }
 
-// test4: Expect no diagnostics
 int test4(int x) {
-  int y;
+  int y; // expected-warning {{variable 'y' is used uninitialized whenever its declaration is reached}}
+         // expected-note@-1 {{initialize the variable}}
   goto forward;
 backward:
-  return y;
+  return y; // expected-note {{uninitialized use occurs here}}
 forward:
   asm goto("" : "=r"(y) : "r"(x) : : backward);
   return y;
@@ -70,40 +70,23 @@ indirect:
   return -1;
 }
 
-// test7: Expect no diagnostics.
 int test7(int z) {
-    int x;
+    int x; // expected-warning {{variable 'x' is used uninitialized whenever its declaration is reached}}
+           // expected-note@-1 {{initialize the variable 'x' to silence this warning}}
     if (z)
       asm goto ("":"=r"(x):::A1,A2);
     return 0;
     A1:
     A2:
-    return x;
+    return x; // expected-note {{uninitialized use occurs here}}
 }
 
-// test8: Expect no diagnostics
 int test8() {
-    int x = 0;
+    int x = 0; // expected-warning {{variable 'x' is used uninitialized whenever its declaration is reached}}
+               // expected-note@-1 {{variable 'x' is declared here}}
     asm goto ("":"=r"(x):::A1,A2);
     return 0;
     A1:
     A2:
-    return x;
-}
-
-// test9: Expect no diagnostics
-int test9 (int x) {
-    int y;
-    asm goto("": "=r"(y) :::out);
-    return 42;
-out:
-    return y;
-}
-
-int test10() {
-  int y; // expected-note {{initialize the variable 'y' to silence this warning}}
-  asm goto(""::::out);
-  return 42;
-out:
-  return y; // expected-warning {{variable 'y' is uninitialized when used here}}
+    return x; // expected-note {{uninitialized use occurs here}}
 }

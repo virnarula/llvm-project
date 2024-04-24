@@ -101,7 +101,7 @@ void msp430::getMSP430TargetFeatures(const Driver &D, const ArgList &Args,
     Features.push_back("+hwmultf5");
   } else {
     D.Diag(clang::diag::err_drv_unsupported_option_argument)
-        << HWMultArg->getSpelling() << HWMult;
+        << HWMultArg->getOption().getName() << HWMult;
   }
 }
 
@@ -142,7 +142,7 @@ std::string MSP430ToolChain::computeSysRoot() const {
   else
     llvm::sys::path::append(Dir, getDriver().Dir, "..");
 
-  return std::string(Dir);
+  return std::string(Dir.str());
 }
 
 void MSP430ToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
@@ -166,7 +166,7 @@ void MSP430ToolChain::addClangTargetOptions(const ArgList &DriverArgs,
     return;
 
   const StringRef MCU = MCUArg->getValue();
-  if (MCU.starts_with("msp430i")) {
+  if (MCU.startswith("msp430i")) {
     // 'i' should be in lower case as it's defined in TI MSP430-GCC headers
     CC1Args.push_back(DriverArgs.MakeArgString(
         "-D__MSP430i" + MCU.drop_front(7).upper() + "__"));
@@ -279,7 +279,8 @@ void msp430::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_r, options::OPT_g_Group))
     CmdArgs.push_back("--gc-sections");
 
-  Args.addAllArgs(CmdArgs, {
+  Args.AddAllArgs(CmdArgs, {
+                               options::OPT_e,
                                options::OPT_n,
                                options::OPT_s,
                                options::OPT_t,

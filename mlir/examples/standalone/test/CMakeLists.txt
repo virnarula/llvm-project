@@ -14,7 +14,6 @@ set(STANDALONE_TEST_DEPENDS
         standalone-capi-test
         standalone-opt
         standalone-translate
-        StandalonePlugin
         )
 if(MLIR_ENABLE_BINDINGS_PYTHON)
   list(APPEND STANDALONE_TEST_DEPENDS StandalonePythonModules)

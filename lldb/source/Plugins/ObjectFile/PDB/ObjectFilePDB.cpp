@@ -27,10 +27,10 @@ using namespace llvm::codeview;
 
 LLDB_PLUGIN_DEFINE(ObjectFilePDB)
 
-static UUID GetPDBUUID(InfoStream &IS, DbiStream &DS) {
+static UUID GetPDBUUID(InfoStream &IS) {
   UUID::CvRecordPdb70 debug_info;
   memcpy(&debug_info.Uuid, IS.getGuid().Guid, sizeof(debug_info.Uuid));
-  debug_info.Age = DS.getAge();
+  debug_info.Age = IS.getAge();
   return UUID(debug_info);
 }
 
@@ -82,12 +82,7 @@ bool ObjectFilePDB::initPDBFile() {
     llvm::consumeError(info_stream.takeError());
     return false;
   }
-  auto dbi_stream = m_file_up->getPDBDbiStream();
-  if (!dbi_stream) {
-    llvm::consumeError(dbi_stream.takeError());
-    return false;
-  }
-  m_uuid = GetPDBUUID(*info_stream, *dbi_stream);
+  m_uuid = GetPDBUUID(*info_stream);
   return true;
 }
 
@@ -131,7 +126,7 @@ size_t ObjectFilePDB::GetModuleSpecifications(
   }
 
   lldb_private::UUID &uuid = module_spec.GetUUID();
-  uuid = GetPDBUUID(*info_stream, *dbi_stream);
+  uuid = GetPDBUUID(*info_stream);
 
   ArchSpec &module_arch = module_spec.GetArchitecture();
   switch (dbi_stream->getMachineType()) {
@@ -179,7 +174,7 @@ ObjectFilePDB::loadPDBFile(std::string PdbPath,
 
   llvm::StringRef Path = Buffer->getBufferIdentifier();
   auto Stream = std::make_unique<llvm::MemoryBufferByteStream>(
-      std::move(Buffer), llvm::endianness::little);
+      std::move(Buffer), llvm::support::little);
 
   auto File = std::make_unique<PDBFile>(Path, std::move(Stream), Allocator);
   if (auto EC = File->parseFileHeaders()) {

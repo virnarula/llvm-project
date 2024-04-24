@@ -3,17 +3,21 @@ RUN: llvm-gsymutil --help 2>&1 | FileCheck --check-prefix=HELP %s
 HELP: OVERVIEW: A tool for dumping, searching and creating GSYM files.
 HELP: USAGE: llvm-gsymutil{{[^ ]*}} [options] <input GSYM files>
 HELP: OPTIONS:
-HELP: --address=<value>
-HELP: --addresses-from-stdin
-HELP: --arch=<value>
-HELP: --convert=<value>
-HELP: --help
-HELP: --num-threads=<value>
-HELP: --out-file=<value>
+HELP: Conversion Options:
+HELP: --arch=<arch>
+HELP: --convert=<path>
+HELP: --num-threads=<n>
+HELP: --out-file=<path>
 HELP: --quiet
-HELP: --verbose
 HELP: --verify
+HELP: Generic Options:
+HELP: --help
 HELP: --version
+HELP: Lookup Options:
+HELP: --address=<addr>
+HELP: --addresses-from-stdin
+HELP: Options:
+HELP: --verbose
 
 RUN: llvm-gsymutil --version 2>&1 | FileCheck --check-prefix=VERSION %s
 VERSION: {{ version }}

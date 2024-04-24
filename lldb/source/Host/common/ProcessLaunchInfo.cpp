@@ -31,8 +31,9 @@ using namespace lldb_private;
 
 ProcessLaunchInfo::ProcessLaunchInfo()
     : ProcessInfo(), m_working_dir(), m_plugin_name(), m_flags(0),
-      m_file_actions(), m_pty(new PseudoTerminal), m_monitor_callback(nullptr) {
-}
+      m_file_actions(), m_pty(new PseudoTerminal), m_monitor_callback(nullptr),
+      m_listener_sp(), m_hijack_listener_sp(), m_scripted_process_class_name(),
+      m_scripted_process_dictionary_sp() {}
 
 ProcessLaunchInfo::ProcessLaunchInfo(const FileSpec &stdin_file_spec,
                                      const FileSpec &stdout_file_spec,
@@ -40,7 +41,8 @@ ProcessLaunchInfo::ProcessLaunchInfo(const FileSpec &stdin_file_spec,
                                      const FileSpec &working_directory,
                                      uint32_t launch_flags)
     : ProcessInfo(), m_working_dir(), m_plugin_name(), m_flags(launch_flags),
-      m_file_actions(), m_pty(new PseudoTerminal) {
+      m_file_actions(), m_pty(new PseudoTerminal),
+      m_scripted_process_class_name(), m_scripted_process_dictionary_sp() {
   if (stdin_file_spec) {
     FileAction file_action;
     const bool read = true;
@@ -126,8 +128,8 @@ void ProcessLaunchInfo::SetWorkingDirectory(const FileSpec &working_dir) {
   m_working_dir = working_dir;
 }
 
-llvm::StringRef ProcessLaunchInfo::GetProcessPluginName() const {
-  return llvm::StringRef(m_plugin_name);
+const char *ProcessLaunchInfo::GetProcessPluginName() const {
+  return (m_plugin_name.empty() ? nullptr : m_plugin_name.c_str());
 }
 
 void ProcessLaunchInfo::SetProcessPluginName(llvm::StringRef plugin) {
@@ -169,6 +171,8 @@ void ProcessLaunchInfo::Clear() {
   m_resume_count = 0;
   m_listener_sp.reset();
   m_hijack_listener_sp.reset();
+  m_scripted_process_class_name.clear();
+  m_scripted_process_dictionary_sp.reset();
 }
 
 void ProcessLaunchInfo::NoOpMonitorCallback(lldb::pid_t pid, int signal,
@@ -182,8 +186,8 @@ bool ProcessLaunchInfo::MonitorProcess() const {
     llvm::Expected<HostThread> maybe_thread =
         Host::StartMonitoringChildProcess(m_monitor_callback, GetProcessID());
     if (!maybe_thread)
-      LLDB_LOG_ERROR(GetLog(LLDBLog::Host), maybe_thread.takeError(),
-                     "failed to launch host thread: {0}");
+      LLDB_LOG(GetLog(LLDBLog::Host), "failed to launch host thread: {}",
+               llvm::toString(maybe_thread.takeError()));
     return true;
   }
   return false;
@@ -321,8 +325,6 @@ bool ProcessLaunchInfo::ConvertArgumentsForLaunchingInShell(
       } else {
         for (size_t i = 0; argv[i] != nullptr; ++i) {
           std::string safe_arg = Args::GetShellSafeArgument(m_shell, argv[i]);
-          if (safe_arg.empty())
-            safe_arg = "\"\"";
           // Add a space to separate this arg from the previous one.
           shell_command.PutCString(" ");
           shell_command.PutCString(safe_arg);

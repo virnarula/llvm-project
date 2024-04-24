@@ -17,18 +17,17 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/TargetParser/TargetParser.h"
+#include "llvm/Support/TargetParser.h"
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <optional>
 
 namespace clang {
 namespace targets {
 
 M68kTargetInfo::M68kTargetInfo(const llvm::Triple &Triple,
-                               const TargetOptions &Opts)
-    : TargetInfo(Triple), TargetOpts(Opts) {
+                               const TargetOptions &)
+    : TargetInfo(Triple) {
 
   std::string Layout;
 
@@ -80,44 +79,45 @@ void M68kTargetInfo::getTargetDefines(const LangOptions &Opts,
 
   Builder.defineMacro("__m68k__");
 
-  DefineStd(Builder, "mc68000", Opts);
+  Builder.defineMacro("mc68000");
+  Builder.defineMacro("__mc68000");
+  Builder.defineMacro("__mc68000__");
 
   // For sub-architecture
   switch (CPU) {
   case CK_68010:
-    DefineStd(Builder, "mc68010", Opts);
+    Builder.defineMacro("mc68010");
+    Builder.defineMacro("__mc68010");
+    Builder.defineMacro("__mc68010__");
     break;
   case CK_68020:
-    DefineStd(Builder, "mc68020", Opts);
+    Builder.defineMacro("mc68020");
+    Builder.defineMacro("__mc68020");
+    Builder.defineMacro("__mc68020__");
     break;
   case CK_68030:
-    DefineStd(Builder, "mc68030", Opts);
+    Builder.defineMacro("mc68030");
+    Builder.defineMacro("__mc68030");
+    Builder.defineMacro("__mc68030__");
     break;
   case CK_68040:
-    DefineStd(Builder, "mc68040", Opts);
+    Builder.defineMacro("mc68040");
+    Builder.defineMacro("__mc68040");
+    Builder.defineMacro("__mc68040__");
     break;
   case CK_68060:
-    DefineStd(Builder, "mc68060", Opts);
+    Builder.defineMacro("mc68060");
+    Builder.defineMacro("__mc68060");
+    Builder.defineMacro("__mc68060__");
     break;
   default:
     break;
   }
-
-  if (CPU >= CK_68020) {
-    Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
-    Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
-    Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
-  }
-
-  // Floating point
-  if (TargetOpts.FeatureMap.lookup("isa-68881") ||
-      TargetOpts.FeatureMap.lookup("isa-68882"))
-    Builder.defineMacro("__HAVE_68881__");
 }
 
 ArrayRef<Builtin::Info> M68kTargetInfo::getTargetBuiltins() const {
   // FIXME: Implement.
-  return std::nullopt;
+  return None;
 }
 
 bool M68kTargetInfo::hasFeature(StringRef Feature) const {
@@ -131,12 +131,12 @@ const char *const M68kTargetInfo::GCCRegNames[] = {
     "pc"};
 
 ArrayRef<const char *> M68kTargetInfo::getGCCRegNames() const {
-  return llvm::ArrayRef(GCCRegNames);
+  return llvm::makeArrayRef(GCCRegNames);
 }
 
 ArrayRef<TargetInfo::GCCRegAlias> M68kTargetInfo::getGCCRegAliases() const {
   // No aliases.
-  return std::nullopt;
+  return None;
 }
 
 bool M68kTargetInfo::validateAsmConstraint(
@@ -185,19 +185,13 @@ bool M68kTargetInfo::validateAsmConstraint(
       break;
     }
     break;
-  case 'Q': // address register indirect addressing
-  case 'U': // address register indirect w/ constant offset addressing
-    // TODO: Handle 'S' (basically 'm' when pc-rel is enforced) when
-    // '-mpcrel' flag is properly handled by the driver.
-    info.setAllowsMemory();
-    return true;
   default:
     break;
   }
   return false;
 }
 
-std::optional<std::string>
+llvm::Optional<std::string>
 M68kTargetInfo::handleAsmEscapedChar(char EscChar) const {
   char C;
   switch (EscChar) {
@@ -215,7 +209,7 @@ M68kTargetInfo::handleAsmEscapedChar(char EscChar) const {
     C = 'd';
     break;
   default:
-    return std::nullopt;
+    return llvm::None;
   }
 
   return std::string(1, C);
@@ -229,7 +223,7 @@ std::string M68kTargetInfo::convertConstraint(const char *&Constraint) const {
   return std::string(1, *Constraint);
 }
 
-std::string_view M68kTargetInfo::getClobbers() const {
+const char *M68kTargetInfo::getClobbers() const {
   // FIXME: Is this really right?
   return "";
 }
@@ -238,15 +232,5 @@ TargetInfo::BuiltinVaListKind M68kTargetInfo::getBuiltinVaListKind() const {
   return TargetInfo::VoidPtrBuiltinVaList;
 }
 
-TargetInfo::CallingConvCheckResult
-M68kTargetInfo::checkCallingConvention(CallingConv CC) const {
-  switch (CC) {
-  case CC_C:
-  case CC_M68kRTD:
-    return CCCR_OK;
-  default:
-    return TargetInfo::checkCallingConvention(CC);
-  }
-}
 } // namespace targets
 } // namespace clang

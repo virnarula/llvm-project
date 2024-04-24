@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 void SpuriouslyWakeUpFunctionsCheck::registerMatchers(MatchFinder *Finder) {
 
@@ -25,29 +27,30 @@ void SpuriouslyWakeUpFunctionsCheck::registerMatchers(MatchFinder *Finder) {
 
   auto HasWaitDescendantCpp = hasDescendant(
       cxxMemberCallExpr(
-          anyOf(allOf(hasDescendant(memberExpr(hasDeclaration(functionDecl(
-                          hasName("::std::condition_variable::wait"),
-                          parameterCountIs(1))))),
-                      onImplicitObjectArgument(
-                          declRefExpr(to(varDecl(hasType(references(recordDecl(
-                              hasName("::std::condition_variable")))))))),
-                      HasUniqueLock),
-                allOf(hasDescendant(memberExpr(hasDeclaration(functionDecl(
-                          hasName("::std::condition_variable::wait_for"),
-                          parameterCountIs(2))))),
-                      onImplicitObjectArgument(
-                          declRefExpr(to(varDecl(hasType(references(recordDecl(
-                              hasName("::std::condition_variable")))))))),
-                      HasUniqueLock),
-                allOf(hasDescendant(memberExpr(hasDeclaration(functionDecl(
-                          hasName("::std::condition_variable::wait_until"),
-                          parameterCountIs(2))))),
-                      onImplicitObjectArgument(
-                          declRefExpr(to(varDecl(hasType(references(recordDecl(
-                              hasName("::std::condition_variable")))))))),
-                      HasUniqueLock)
+          anyOf(
+              allOf(hasDescendant(memberExpr(hasDeclaration(functionDecl(
+                        allOf(hasName("::std::condition_variable::wait"),
+                              parameterCountIs(1)))))),
+                    onImplicitObjectArgument(
+                        declRefExpr(to(varDecl(hasType(references(recordDecl(
+                            hasName("::std::condition_variable")))))))),
+                    HasUniqueLock),
+              allOf(hasDescendant(memberExpr(hasDeclaration(functionDecl(
+                        allOf(hasName("::std::condition_variable::wait_for"),
+                              parameterCountIs(2)))))),
+                    onImplicitObjectArgument(
+                        declRefExpr(to(varDecl(hasType(references(recordDecl(
+                            hasName("::std::condition_variable")))))))),
+                    HasUniqueLock),
+              allOf(hasDescendant(memberExpr(hasDeclaration(functionDecl(
+                        allOf(hasName("::std::condition_variable::wait_until"),
+                              parameterCountIs(2)))))),
+                    onImplicitObjectArgument(
+                        declRefExpr(to(varDecl(hasType(references(recordDecl(
+                            hasName("::std::condition_variable")))))))),
+                    HasUniqueLock)
 
-                    ))
+                  ))
           .bind("wait"));
 
   auto HasWaitDescendantC = hasDescendant(
@@ -83,4 +86,6 @@ void SpuriouslyWakeUpFunctionsCheck::check(
        "conditional parameter}1")
       << WaitName << (WaitName != "cnd_wait" && WaitName != "cnd_timedwait");
 }
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

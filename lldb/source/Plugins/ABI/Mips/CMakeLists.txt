@@ -9,5 +9,4 @@ add_lldb_library(lldbPluginABIMips PLUGIN
     lldbTarget
   LINK_COMPONENTS
     Support
-    TargetParser
   )

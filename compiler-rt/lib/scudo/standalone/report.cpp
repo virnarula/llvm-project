@@ -21,10 +21,14 @@ public:
   void append(const char *Format, ...) {
     va_list Args;
     va_start(Args, Format);
-    Message.vappend(Format, Args);
+    Message.append(Format, Args);
     va_end(Args);
   }
-  NORETURN ~ScopedErrorReport() { reportRawError(Message.data()); }
+  NORETURN ~ScopedErrorReport() {
+    outputRaw(Message.data());
+    setAbortMessage(Message.data());
+    die();
+  }
 
 private:
   ScopedString Message;
@@ -51,13 +55,6 @@ void NORETURN reportError(const char *Message) {
   Report.append("%s\n", Message);
 }
 
-// Generic fatal error message without ScopedString.
-void NORETURN reportRawError(const char *Message) {
-  outputRaw(Message);
-  setAbortMessage(Message);
-  die();
-}
-
 void NORETURN reportInvalidFlag(const char *FlagType, const char *Value) {
   ScopedErrorReport Report;
   Report.append("invalid value for %s option: '%s'\n", FlagType, Value);
@@ -68,6 +65,14 @@ void NORETURN reportInvalidFlag(const char *FlagType, const char *Value) {
 void NORETURN reportHeaderCorruption(void *Ptr) {
   ScopedErrorReport Report;
   Report.append("corrupted chunk header at address %p\n", Ptr);
+}
+
+// Two threads have attempted to modify a chunk header at the same time. This is
+// symptomatic of a race-condition in the application code, or general lack of
+// proper locking.
+void NORETURN reportHeaderRace(void *Ptr) {
+  ScopedErrorReport Report;
+  Report.append("race on chunk header at address %p\n", Ptr);
 }
 
 // The allocator was compiled with parameters that conflict with field size
@@ -93,11 +98,6 @@ void NORETURN reportAllocationSizeTooBig(uptr UserSize, uptr TotalSize,
   Report.append("requested allocation size %zu (%zu after adjustments) exceeds "
                 "maximum supported size of %zu\n",
                 UserSize, TotalSize, MaxSize);
-}
-
-void NORETURN reportOutOfBatchClass() {
-  ScopedErrorReport Report;
-  Report.append("BatchClass region is used up, can't hold any free block\n");
 }
 
 void NORETURN reportOutOfMemory(uptr RequestedSize) {

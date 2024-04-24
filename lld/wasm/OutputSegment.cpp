@@ -15,7 +15,9 @@
 using namespace llvm;
 using namespace llvm::wasm;
 
-namespace lld::wasm {
+namespace lld {
+
+namespace wasm {
 
 void OutputSegment::addInputSegment(InputChunk *inSeg) {
   alignment = std::max(alignment, inSeg->alignment);
@@ -80,4 +82,5 @@ void OutputSegment::finalizeInputSegments() {
   }
 }
 
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld

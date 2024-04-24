@@ -16,8 +16,8 @@
 define i1 @p0_scalar_urem_by_const(i32 %x, i32 %y) {
 ; CHECK-LABEL: p0_scalar_urem_by_const:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    testb %dil, %dil
-; CHECK-NEXT:    setns %al
+; CHECK-NEXT:    testb $-128, %dil
+; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
   %t0 = and i32 %x, 128 ; clearly a power-of-two or zero
   %t1 = urem i32 %t0, 6 ; '6' is clearly not a power of two
@@ -28,8 +28,8 @@ define i1 @p0_scalar_urem_by_const(i32 %x, i32 %y) {
 define i1 @p1_scalar_urem_by_nonconst(i32 %x, i32 %y) {
 ; CHECK-LABEL: p1_scalar_urem_by_nonconst:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    testb %dil, %dil
-; CHECK-NEXT:    setns %al
+; CHECK-NEXT:    testb $-128, %dil
+; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
   %t0 = and i32 %x, 128 ; clearly a power-of-two or zero
   %t1 = or i32 %y, 6 ; two bits set, clearly not a power of two
@@ -149,7 +149,7 @@ define <4 x i1> @p5_vector_urem_by_const__nonsplat(<4 x i32> %x, <4 x i32> %y) {
 ; SSE4:       # %bb.0:
 ; SSE4-NEXT:    pand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; SSE4-NEXT:    pmulld {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
-; SSE4-NEXT:    movdqa {{.*#+}} xmm1 = [1,u,2147483648,u]
+; SSE4-NEXT:    movdqa {{.*#+}} xmm1 = <1,u,2147483648,u>
 ; SSE4-NEXT:    pmuludq %xmm0, %xmm1
 ; SSE4-NEXT:    pblendw {{.*#+}} xmm0 = xmm1[0,1],xmm0[2,3],xmm1[4,5],xmm0[6,7]
 ; SSE4-NEXT:    psrlq $32, %xmm1

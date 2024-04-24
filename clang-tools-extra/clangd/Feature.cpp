@@ -9,7 +9,7 @@
 #include "Feature.h"
 #include "clang/Basic/Version.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/TargetParser/Host.h"
+#include "llvm/Support/Host.h"
 
 namespace clang {
 namespace clangd {
@@ -65,10 +65,6 @@ std::string featureString() {
 
 #if !CLANGD_TIDY_CHECKS
       "-tidy"
-#endif
-
-#if !CLANGD_DECISION_FOREST
-      "-decision_forest"
 #endif
       ;
 }

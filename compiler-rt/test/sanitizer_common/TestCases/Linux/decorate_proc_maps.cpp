@@ -49,10 +49,6 @@ int main(void) {
 // CHECK-asan: ---p {{.*}} [shadow gap]
 // CHECK-asan: rw-p {{.*}} [high shadow]
 
-// CHECK-hwasan: rw-p {{.*}} [low shadow]
-// CHECK-hwasan: ---p {{.*}} [shadow gap]
-// CHECK-hwasan: rw-p {{.*}} [high shadow]
-
 // CHECK-msan: ---p {{.*}} [invalid]
 // CHECK-msan: rw-p {{.*}} [shadow{{.*}}]
 // CHECK-msan: ---p {{.*}} [origin{{.*}}]

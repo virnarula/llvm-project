@@ -7,10 +7,9 @@
 -->
 # Design Guideline
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 ## Documenting the design
 

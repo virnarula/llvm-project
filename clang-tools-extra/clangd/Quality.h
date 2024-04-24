@@ -33,7 +33,6 @@
 #include "llvm/ADT/StringSet.h"
 #include <algorithm>
 #include <functional>
-#include <optional>
 #include <vector>
 
 namespace llvm {
@@ -106,7 +105,7 @@ struct SymbolRelevanceSignals {
 
   // Scope proximity is only considered (both index and sema) when this is set.
   ScopeDistance *ScopeProximityMatch = nullptr;
-  std::optional<llvm::StringRef> SymbolScope;
+  llvm::Optional<llvm::StringRef> SymbolScope;
   // A symbol from sema should be accessible from the current scope.
   bool SemaSaysInScope = false;
 

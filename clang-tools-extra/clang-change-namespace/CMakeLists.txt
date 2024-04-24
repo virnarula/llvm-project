@@ -8,7 +8,6 @@ add_clang_library(clangChangeNamespace
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
 )
 
 clang_target_link_libraries(clangChangeNamespace

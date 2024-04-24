@@ -34,7 +34,6 @@ enum ConversionResultFlags {
   Overflow = 1,
   Inexact = 2,
   Invalid = 4,
-  Underflow = 8,
 };
 
 struct ConversionToDecimalResult {
@@ -42,6 +41,14 @@ struct ConversionToDecimalResult {
   size_t length; /* does not include NUL terminator */
   int decimalExponent; /* assuming decimal point to the left of first digit */
   enum ConversionResultFlags flags;
+};
+
+enum FortranRounding {
+  RoundNearest, /* RN and RP */
+  RoundUp, /* RU */
+  RoundDown, /* RD */
+  RoundToZero, /* RZ - no rounding */
+  RoundCompatible, /* RC: like RN, but ties go away from 0 */
 };
 
 /* The "minimize" flag causes the fewest number of output digits

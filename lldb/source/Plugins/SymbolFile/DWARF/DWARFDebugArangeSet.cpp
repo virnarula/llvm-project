@@ -13,7 +13,6 @@
 #include <cassert>
 
 using namespace lldb_private;
-using namespace lldb_private::plugin::dwarf;
 
 DWARFDebugArangeSet::DWARFDebugArangeSet()
     : m_offset(DW_INVALID_OFFSET), m_next_offset(DW_INVALID_OFFSET) {}

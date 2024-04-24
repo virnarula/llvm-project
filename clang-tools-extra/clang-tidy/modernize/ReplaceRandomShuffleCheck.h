@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "../utils/IncludeInserter.h"
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 /// std::random_shuffle will be removed as of C++17. This check will find and
 /// replace all occurrences of std::random_shuffle with std::shuffle.
@@ -35,6 +37,8 @@ private:
   utils::IncludeInserter IncludeInserter;
 };
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_REPLACE_RANDOM_SHUFFLE_H

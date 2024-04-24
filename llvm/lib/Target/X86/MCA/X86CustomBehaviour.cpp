@@ -13,7 +13,7 @@
 
 #include "X86CustomBehaviour.h"
 #include "TargetInfo/X86TargetInfo.h"
-#include "MCTargetDesc/X86BaseInfo.h"
+#include "X86InstrInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/WithColor.h"
 

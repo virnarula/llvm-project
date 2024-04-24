@@ -91,40 +91,22 @@ struct InstRegexOp : public SetTheory::Operator {
         PrintFatalError(Loc, "instregex requires pattern string: " +
                                  Expr->getAsString());
       StringRef Original = SI->getValue();
-      // Drop an explicit ^ anchor to not interfere with prefix search.
-      bool HadAnchor = Original.consume_front("^");
 
       // Extract a prefix that we can binary search on.
       static const char RegexMetachars[] = "()^$|*+?.[]\\{}";
       auto FirstMeta = Original.find_first_of(RegexMetachars);
-      if (FirstMeta != StringRef::npos && FirstMeta > 0) {
-        // If we have a regex like ABC* we can only use AB as the prefix, as
-        // the * acts on C.
-        switch (Original[FirstMeta]) {
-        case '+':
-        case '*':
-        case '?':
-          --FirstMeta;
-          break;
-        default:
-          break;
-        }
-      }
 
       // Look for top-level | or ?. We cannot optimize them to binary search.
       if (removeParens(Original).find_first_of("|?") != std::string::npos)
         FirstMeta = 0;
 
-      std::optional<Regex> Regexpr;
+      Optional<Regex> Regexpr;
       StringRef Prefix = Original.substr(0, FirstMeta);
       StringRef PatStr = Original.substr(FirstMeta);
       if (!PatStr.empty()) {
         // For the rest use a python-style prefix match.
         std::string pat = std::string(PatStr);
-        // Add ^ anchor. If we had one originally, don't need the group.
-        if (HadAnchor) {
-          pat.insert(0, "^");
-        } else {
+        if (pat[0] != '^') {
           pat.insert(0, "^(");
           pat.insert(pat.end(), ')');
         }
@@ -136,7 +118,7 @@ struct InstRegexOp : public SetTheory::Operator {
       // The generic opcodes are unsorted, handle them manually.
       for (auto *Inst : Generics) {
         StringRef InstName = Inst->TheDef->getName();
-        if (InstName.starts_with(Prefix) &&
+        if (InstName.startswith(Prefix) &&
             (!Regexpr || Regexpr->match(InstName.substr(Prefix.size())))) {
           Elts.insert(Inst->TheDef);
           NumMatches++;
@@ -152,7 +134,7 @@ struct InstRegexOp : public SetTheory::Operator {
         }
         bool operator()(StringRef LHS, const CodeGenInstruction *RHS) {
           return LHS < RHS->TheDef->getName() &&
-                 !RHS->TheDef->getName().starts_with(LHS);
+                 !RHS->TheDef->getName().startswith(LHS);
         }
       };
       auto Range1 =
@@ -316,12 +298,12 @@ processSTIPredicate(STIPredicateFunction &Fn,
     RecVec Classes = Def->getValueAsListOfDefs("Classes");
     for (const Record *EC : Classes) {
       const Record *Pred = EC->getValueAsDef("Predicate");
-      if (!Predicate2Index.contains(Pred))
+      if (Predicate2Index.find(Pred) == Predicate2Index.end())
         Predicate2Index[Pred] = NumUniquePredicates++;
 
       RecVec Opcodes = EC->getValueAsListOfDefs("Opcodes");
       for (const Record *Opcode : Opcodes) {
-        if (!Opcode2Index.contains(Opcode)) {
+        if (Opcode2Index.find(Opcode) == Opcode2Index.end()) {
           Opcode2Index[Opcode] = OpcodeMappings.size();
           OpcodeMappings.emplace_back(Opcode, OpcodeInfo());
         }
@@ -387,20 +369,19 @@ processSTIPredicate(STIPredicateFunction &Fn,
                const std::pair<APInt, APInt> &LhsMasks = OpcodeMasks[LhsIdx];
                const std::pair<APInt, APInt> &RhsMasks = OpcodeMasks[RhsIdx];
 
-               auto PopulationCountAndLeftBit =
-                   [](const APInt &Other) -> std::pair<int, int> {
-                 return std::pair<int, int>(Other.popcount(),
-                                            -Other.countl_zero());
+               auto LessThan = [](const APInt &Lhs, const APInt &Rhs) {
+                 unsigned LhsCountPopulation = Lhs.countPopulation();
+                 unsigned RhsCountPopulation = Rhs.countPopulation();
+                 return ((LhsCountPopulation < RhsCountPopulation) ||
+                         ((LhsCountPopulation == RhsCountPopulation) &&
+                          (Lhs.countLeadingZeros() > Rhs.countLeadingZeros())));
                };
-               auto lhsmask_first = PopulationCountAndLeftBit(LhsMasks.first);
-               auto rhsmask_first = PopulationCountAndLeftBit(RhsMasks.first);
-               if (lhsmask_first != rhsmask_first)
-                 return lhsmask_first < rhsmask_first;
 
-               auto lhsmask_second = PopulationCountAndLeftBit(LhsMasks.second);
-               auto rhsmask_second = PopulationCountAndLeftBit(RhsMasks.second);
-               if (lhsmask_second != rhsmask_second)
-                 return lhsmask_second < rhsmask_second;
+               if (LhsMasks.first != RhsMasks.first)
+                 return LessThan(LhsMasks.first, RhsMasks.first);
+
+               if (LhsMasks.second != RhsMasks.second)
+                 return LessThan(LhsMasks.second, RhsMasks.second);
 
                return LhsIdx < RhsIdx;
              });
@@ -857,7 +838,7 @@ unsigned CodeGenSchedModels::findRWForSequence(ArrayRef<unsigned> Seq,
   std::vector<CodeGenSchedRW> &RWVec = IsRead ? SchedReads : SchedWrites;
 
   auto I = find_if(RWVec, [Seq](CodeGenSchedRW &RW) {
-    return ArrayRef(RW.Sequence) == Seq;
+    return makeArrayRef(RW.Sequence) == Seq;
   });
   // Index zero reserved for invalid RW.
   return I == RWVec.end() ? 0 : std::distance(RWVec.begin(), I);

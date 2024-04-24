@@ -13,7 +13,6 @@
 #include "support/ThreadCrashReporter.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Error.h"
-#include <optional>
 #include <system_error>
 
 namespace clang {
@@ -164,12 +163,12 @@ bool JSONTransport::handleMessage(llvm::json::Value Message,
   // Message must be an object with "jsonrpc":"2.0".
   auto *Object = Message.getAsObject();
   if (!Object ||
-      Object->getString("jsonrpc") != std::optional<llvm::StringRef>("2.0")) {
+      Object->getString("jsonrpc") != llvm::Optional<llvm::StringRef>("2.0")) {
     elog("Not a JSON-RPC 2.0 message: {0:2}", Message);
     return false;
   }
   // ID may be any JSON value. If absent, this is a notification.
-  std::optional<llvm::json::Value> ID;
+  llvm::Optional<llvm::json::Value> ID;
   if (auto *I = Object->get("id"))
     ID = std::move(*I);
   auto Method = Object->getString("method");
@@ -240,7 +239,7 @@ bool JSONTransport::readStandardMessage(std::string &JSON) {
     // We allow comments in headers. Technically this isn't part
 
     // of the LSP specification, but makes writing tests easier.
-    if (LineRef.starts_with("#"))
+    if (LineRef.startswith("#"))
       continue;
 
     // Content-Length is a mandatory header, and the only one we handle.
@@ -304,7 +303,7 @@ bool JSONTransport::readDelimitedMessage(std::string &JSON) {
   while (readLine(In, Line)) {
     InMirror << Line;
     auto LineRef = Line.str().trim();
-    if (LineRef.starts_with("#")) // comment
+    if (LineRef.startswith("#")) // comment
       continue;
 
     // found a delimiter

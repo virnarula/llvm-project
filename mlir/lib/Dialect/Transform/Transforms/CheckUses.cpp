@@ -140,23 +140,16 @@ public:
       return live();
 
 #ifndef NDEBUG
-    // Check that the definition point actually allocates the value. If the
-    // definition is a block argument, it may be just forwarding the operand of
-    // the parent op without doing a new allocation, allow that. We currently
-    // don't have the capability to analyze region-based control flow here.
-    //
-    // TODO: when this ported to the dataflow analysis infra, we should have
-    // proper support for region-based control flow.
+    // Check that the definition point actually allcoates the value.
     Operation *valueSource =
-        isa<OpResult>(operand.get())
+        operand.get().isa<OpResult>()
             ? operand.get().getDefiningOp()
             : operand.get().getParentBlock()->getParentOp();
     auto iface = cast<MemoryEffectOpInterface>(valueSource);
     SmallVector<MemoryEffects::EffectInstance> instances;
     iface.getEffectsOnResource(transform::TransformMappingResource::get(),
                                instances);
-    assert((isa<BlockArgument>(operand.get()) ||
-            hasEffect<MemoryEffects::Allocate>(instances, operand.get())) &&
+    assert(hasEffect<MemoryEffects::Allocate>(instances, operand.get()) &&
            "expected the op defining the value to have an allocation effect "
            "on it");
 #endif
@@ -182,7 +175,7 @@ public:
       // value is defined in the middle of the block, i.e., is not a block
       // argument.
       bool isOutermost = ancestor == ancestors.front();
-      bool isFromBlockPartial = isOutermost && isa<OpResult>(operand.get());
+      bool isFromBlockPartial = isOutermost && operand.get().isa<OpResult>();
 
       // Check if the value may be freed by operations between its definition
       // (allocation) point in its block and the terminator of the block or the

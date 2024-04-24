@@ -30,7 +30,7 @@ class DXContainerObjectWriter : public MCObjectWriter {
 public:
   DXContainerObjectWriter(std::unique_ptr<MCDXContainerTargetWriter> MOTW,
                           raw_pwrite_stream &OS)
-      : W(OS, llvm::endianness::little), TargetObjectWriter(std::move(MOTW)) {}
+      : W(OS, support::little), TargetObjectWriter(std::move(MOTW)) {}
 
   ~DXContainerObjectWriter() override {}
 
@@ -104,7 +104,7 @@ uint64_t DXContainerObjectWriter::writeObject(MCAssembler &Asm,
     // Write section header.
     W.write<char>(ArrayRef<char>(Sec.getName().data(), 4));
 
-    uint64_t PartSize = SectionSize;
+    uint64_t PartSize = SectionSize + sizeof(dxbc::PartHeader);
 
     if (Sec.getName() == "DXIL")
       PartSize += sizeof(dxbc::ProgramHeader);

@@ -14,7 +14,7 @@
 
 pseudo_barrier_t barrier;
 std::mutex print_mutex;
-std::atomic<bool> can_work;
+std::atomic<bool> can_work = ATOMIC_VAR_INIT(false);
 thread_local volatile sig_atomic_t can_exit_now = false;
 
 static void sigint_handler(int signo) {}

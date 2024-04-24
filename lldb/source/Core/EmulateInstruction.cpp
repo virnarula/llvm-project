@@ -11,7 +11,7 @@
 #include "lldb/Core/Address.h"
 #include "lldb/Core/DumpRegisterValue.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Host/StreamFile.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/Symbol/UnwindPlan.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
@@ -29,7 +29,6 @@
 
 #include <cstring>
 #include <memory>
-#include <optional>
 
 #include <cinttypes>
 #include <cstdio>
@@ -73,7 +72,7 @@ EmulateInstruction::FindPlugin(const ArchSpec &arch,
 
 EmulateInstruction::EmulateInstruction(const ArchSpec &arch) : m_arch(arch) {}
 
-std::optional<RegisterValue>
+llvm::Optional<RegisterValue>
 EmulateInstruction::ReadRegister(const RegisterInfo &reg_info) {
   if (m_read_reg_callback == nullptr)
     return {};
@@ -88,11 +87,11 @@ EmulateInstruction::ReadRegister(const RegisterInfo &reg_info) {
 bool EmulateInstruction::ReadRegister(lldb::RegisterKind reg_kind,
                                       uint32_t reg_num,
                                       RegisterValue &reg_value) {
-  std::optional<RegisterInfo> reg_info = GetRegisterInfo(reg_kind, reg_num);
+  llvm::Optional<RegisterInfo> reg_info = GetRegisterInfo(reg_kind, reg_num);
   if (!reg_info)
     return false;
 
-  std::optional<RegisterValue> value = ReadRegister(*reg_info);
+  llvm::Optional<RegisterValue> value = ReadRegister(*reg_info);
   if (value)
     reg_value = *value;
   return value.has_value();
@@ -113,7 +112,7 @@ uint64_t EmulateInstruction::ReadRegisterUnsigned(lldb::RegisterKind reg_kind,
 uint64_t EmulateInstruction::ReadRegisterUnsigned(const RegisterInfo &reg_info,
                                                   uint64_t fail_value,
                                                   bool *success_ptr) {
-  std::optional<RegisterValue> reg_value = ReadRegister(reg_info);
+  llvm::Optional<RegisterValue> reg_value = ReadRegister(reg_info);
   if (!reg_value) {
     if (success_ptr)
       *success_ptr = false;
@@ -135,7 +134,7 @@ bool EmulateInstruction::WriteRegister(const Context &context,
                                        lldb::RegisterKind reg_kind,
                                        uint32_t reg_num,
                                        const RegisterValue &reg_value) {
-  std::optional<RegisterInfo> reg_info = GetRegisterInfo(reg_kind, reg_num);
+  llvm::Optional<RegisterInfo> reg_info = GetRegisterInfo(reg_kind, reg_num);
   if (reg_info)
     return WriteRegister(context, *reg_info, reg_value);
   return false;
@@ -145,7 +144,7 @@ bool EmulateInstruction::WriteRegisterUnsigned(const Context &context,
                                                lldb::RegisterKind reg_kind,
                                                uint32_t reg_num,
                                                uint64_t uint_value) {
-  std::optional<RegisterInfo> reg_info = GetRegisterInfo(reg_kind, reg_num);
+  llvm::Optional<RegisterInfo> reg_info = GetRegisterInfo(reg_kind, reg_num);
   if (reg_info) {
     RegisterValue reg_value;
     if (reg_value.SetUInt(uint_value, reg_info->byte_size))
@@ -363,7 +362,7 @@ bool EmulateInstruction::WriteRegisterDefault(EmulateInstruction *instruction,
                                               const RegisterValue &reg_value) {
   StreamFile strm(stdout, false);
   strm.Printf("    Write to Register (name = %s, value = ", reg_info->name);
-  DumpRegisterValue(reg_value, strm, *reg_info, false, false, eFormatDefault);
+  DumpRegisterValue(reg_value, &strm, reg_info, false, false, eFormatDefault);
   strm.PutCString(", context = ");
   context.Dump(strm, instruction);
   strm.EOL();

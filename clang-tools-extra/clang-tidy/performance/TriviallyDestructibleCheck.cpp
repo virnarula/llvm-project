@@ -16,7 +16,9 @@ using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 using namespace clang::tidy::matchers;
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 namespace {
 
@@ -72,4 +74,6 @@ void TriviallyDestructibleCheck::check(const MatchFinder::MatchResult &Result) {
        DiagnosticIDs::Note);
 }
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang

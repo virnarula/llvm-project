@@ -88,8 +88,6 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
     MF.print(OS);
   }
 
-  MFProps.reset(ClearedProperties);
-
   bool RV = runOnMachineFunction(MF);
 
   if (ShouldEmitSizeRemarks) {
@@ -116,6 +114,7 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
   }
 
   MFProps.set(SetProperties);
+  MFProps.reset(ClearedProperties);
 
   // For --print-changed, print if the serialized MF has changed. Modes other
   // than quiet/verbose are unimplemented and treated the same as 'quiet'.

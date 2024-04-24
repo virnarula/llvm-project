@@ -171,7 +171,9 @@ public:
   ///
   /// Can provide false-negative in case the location was parsed after this
   /// instance had been constructed.
-  bool hasAlredyBeenParsed(SourceLocation Loc, FileID FID, FileEntryRef FE) {
+  bool hasAlredyBeenParsed(SourceLocation Loc, FileID FID,
+                           const FileEntry *FE) {
+    assert(FE);
     PPRegion region = getRegion(Loc, FID, FE);
     if (region.isInvalid())
       return false;
@@ -197,11 +199,12 @@ public:
   }
 
 private:
-  PPRegion getRegion(SourceLocation Loc, FileID FID, FileEntryRef FE) {
+  PPRegion getRegion(SourceLocation Loc, FileID FID, const FileEntry *FE) {
+    assert(FE);
     auto Bail = [this, FE]() {
       if (isParsedOnceInclude(FE)) {
-        const llvm::sys::fs::UniqueID &ID = FE.getUniqueID();
-        return PPRegion(ID, 0, FE.getModificationTime());
+        const llvm::sys::fs::UniqueID &ID = FE->getUniqueID();
+        return PPRegion(ID, 0, FE->getModificationTime());
       }
       return PPRegion();
     };
@@ -219,11 +222,11 @@ private:
     if (RegionFID != FID)
       return Bail();
 
-    const llvm::sys::fs::UniqueID &ID = FE.getUniqueID();
-    return PPRegion(ID, RegionOffset, FE.getModificationTime());
+    const llvm::sys::fs::UniqueID &ID = FE->getUniqueID();
+    return PPRegion(ID, RegionOffset, FE->getModificationTime());
   }
 
-  bool isParsedOnceInclude(FileEntryRef FE) {
+  bool isParsedOnceInclude(const FileEntry *FE) {
     return PP.getHeaderSearchInfo().isFileMultipleIncludeGuarded(FE) ||
            PP.getHeaderSearchInfo().hasFileBeenImported(FE);
   }
@@ -252,15 +255,14 @@ public:
 
     if (Loc == MainFileLoc && Reason == PPCallbacks::EnterFile) {
       IsMainFileEntered = true;
-      DataConsumer.enteredMainFile(
-          *SM.getFileEntryRefForID(SM.getMainFileID()));
+      DataConsumer.enteredMainFile(SM.getFileEntryForID(SM.getMainFileID()));
     }
   }
 
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override {
     bool isImport = (IncludeTok.is(tok::identifier) &&
@@ -348,8 +350,8 @@ public:
     PreprocessorOptions &PPOpts = CI.getPreprocessorOpts();
 
     if (!PPOpts.ImplicitPCHInclude.empty()) {
-      if (auto File =
-              CI.getFileManager().getOptionalFileRef(PPOpts.ImplicitPCHInclude))
+      auto File = CI.getFileManager().getFile(PPOpts.ImplicitPCHInclude);
+      if (File)
         DataConsumer->importedPCH(*File);
     }
 
@@ -393,11 +395,11 @@ public:
     // Don't skip bodies from main files; this may be revisited.
     if (SM.getMainFileID() == FID)
       return false;
-    OptionalFileEntryRef FE = SM.getFileEntryRefForID(FID);
+    const FileEntry *FE = SM.getFileEntryForID(FID);
     if (!FE)
       return false;
 
-    return ParsedLocsTracker->hasAlredyBeenParsed(Loc, FID, *FE);
+    return ParsedLocsTracker->hasAlredyBeenParsed(Loc, FID, FE);
   }
 
   TranslationUnitKind getTranslationUnitKind() override {
@@ -543,14 +545,14 @@ static CXErrorCode clang_indexSourceFile_Impl(
   // (often very broken) source code, where spell-checking can have a
   // significant negative impact on performance (particularly when 
   // precompiled headers are involved), we disable it.
-  CInvok->getLangOpts().SpellChecking = false;
+  CInvok->getLangOpts()->SpellChecking = false;
 
   if (index_options & CXIndexOpt_SuppressWarnings)
     CInvok->getDiagnosticOpts().IgnoreWarnings = true;
 
   // Make sure to use the raw module format.
   CInvok->getHeaderSearchOpts().ModuleFormat = std::string(
-      CXXIdx->getPCHContainerOperations()->getRawReader().getFormats().front());
+      CXXIdx->getPCHContainerOperations()->getRawReader().getFormat());
 
   auto Unit = ASTUnit::create(CInvok, Diags, CaptureDiagnostics,
                               /*UserFilesAreVolatile=*/true);
@@ -568,7 +570,7 @@ static CXErrorCode clang_indexSourceFile_Impl(
   // Enable the skip-parsed-bodies optimization only for C++; this may be
   // revisited.
   bool SkipBodies = (index_options & CXIndexOpt_SkipParsedBodiesInSession) &&
-      CInvok->getLangOpts().CPlusPlus;
+      CInvok->getLangOpts()->CPlusPlus;
   if (SkipBodies)
     CInvok->getFrontendOpts().SkipFunctionBodies = true;
 
@@ -605,7 +607,7 @@ static CXErrorCode clang_indexSourceFile_Impl(
     PPOpts.DetailedRecord = true;
   }
 
-  if (!requestedToGetTU && !CInvok->getLangOpts().Modules)
+  if (!requestedToGetTU && !CInvok->getLangOpts()->Modules)
     PPOpts.DetailedRecord = false;
 
   // Unless the user specified that they want the preamble on the first parse
@@ -692,18 +694,17 @@ static CXErrorCode clang_indexTranslationUnit_Impl(
 
   ASTUnit::ConcurrencyCheck Check(*Unit);
 
-  if (OptionalFileEntryRef PCHFile = Unit->getPCHFile())
-    DataConsumer.importedPCH(*PCHFile);
+  if (const FileEntry *PCHFile = Unit->getPCHFile())
+    DataConsumer.importedPCH(PCHFile);
 
   FileManager &FileMgr = Unit->getFileManager();
 
   if (Unit->getOriginalSourceFileName().empty())
-    DataConsumer.enteredMainFile(std::nullopt);
-  else if (auto MainFile =
-               FileMgr.getFileRef(Unit->getOriginalSourceFileName()))
+    DataConsumer.enteredMainFile(nullptr);
+  else if (auto MainFile = FileMgr.getFile(Unit->getOriginalSourceFileName()))
     DataConsumer.enteredMainFile(*MainFile);
   else
-    DataConsumer.enteredMainFile(std::nullopt);
+    DataConsumer.enteredMainFile(nullptr);
 
   DataConsumer.setASTContext(Unit->getASTContext());
   DataConsumer.startedTranslationUnit();
@@ -902,8 +903,9 @@ int clang_indexSourceFileFullArgv(
     result = clang_indexSourceFile_Impl(
         idxAction, client_data, index_callbacks, index_callbacks_size,
         index_options, source_filename, command_line_args,
-        num_command_line_args, llvm::ArrayRef(unsaved_files, num_unsaved_files),
-        out_TU, TU_options);
+        num_command_line_args,
+        llvm::makeArrayRef(unsaved_files, num_unsaved_files), out_TU,
+        TU_options);
   };
 
   llvm::CrashRecoveryContext CRC;

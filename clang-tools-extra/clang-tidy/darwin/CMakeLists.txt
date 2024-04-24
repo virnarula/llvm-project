@@ -14,7 +14,6 @@ add_clang_library(clangTidyDarwinModule
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyDarwinModule

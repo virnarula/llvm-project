@@ -18,8 +18,9 @@
 #ifndef MLIR_SUPPORT_LLVM_H
 #define MLIR_SUPPORT_LLVM_H
 
-// We include this header because it cannot be practically forward
+// We include these two headers because they cannot be practically forward
 // declared, and are effectively language features.
+#include "llvm/ADT/None.h"
 #include "llvm/Support/Casting.h"
 #include <vector>
 
@@ -57,9 +58,11 @@ class DenseSet;
 class MallocAllocator;
 template <typename T>
 class MutableArrayRef;
+template <typename T>
+class Optional;
 template <typename... PT>
 class PointerUnion;
-template <typename T, typename Vector, typename Set, unsigned N>
+template <typename T, typename Vector, typename Set>
 class SetVector;
 template <typename T, unsigned N>
 class SmallPtrSet;
@@ -94,14 +97,12 @@ class SMRange;
 namespace mlir {
 // Casting operators.
 using llvm::cast;
-using llvm::cast_if_present;
 using llvm::cast_or_null;
 using llvm::dyn_cast;
 using llvm::dyn_cast_if_present;
 using llvm::dyn_cast_or_null;
 using llvm::isa;
 using llvm::isa_and_nonnull;
-using llvm::isa_and_present;
 
 // String types
 using llvm::SmallString;
@@ -122,12 +123,14 @@ template <typename KeyT, typename ValueT,
 using DenseMap = llvm::DenseMap<KeyT, ValueT, KeyInfoT, BucketT>;
 template <typename ValueT, typename ValueInfoT = DenseMapInfo<ValueT>>
 using DenseSet = llvm::DenseSet<ValueT, ValueInfoT>;
-template <typename T, typename Vector = llvm::SmallVector<T, 0>,
-          typename Set = DenseSet<T>, unsigned N = 0>
-using SetVector = llvm::SetVector<T, Vector, Set, N>;
+template <typename T, typename Vector = std::vector<T>,
+          typename Set = DenseSet<T>>
+using SetVector = llvm::SetVector<T, Vector, Set>;
 template <typename AllocatorTy = llvm::MallocAllocator>
 using StringSet = llvm::StringSet<AllocatorTy>;
 using llvm::MutableArrayRef;
+using llvm::None;
+using llvm::Optional;
 using llvm::PointerUnion;
 using llvm::SmallPtrSet;
 using llvm::SmallPtrSetImpl;

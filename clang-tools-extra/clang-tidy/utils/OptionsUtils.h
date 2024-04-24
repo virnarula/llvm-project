@@ -13,7 +13,10 @@
 #include <string>
 #include <vector>
 
-namespace clang::tidy::utils::options {
+namespace clang {
+namespace tidy {
+namespace utils {
+namespace options {
 
 /// Parse a semicolon separated list of strings.
 std::vector<StringRef> parseStringList(StringRef Option);
@@ -24,6 +27,9 @@ std::vector<StringRef> parseListPair(StringRef L, StringRef R);
 /// ``parseStringList``.
 std::string serializeStringList(ArrayRef<StringRef> Strings);
 
-} // namespace clang::tidy::utils::options
+} // namespace options
+} // namespace utils
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MISC_OPTIONUTILS_H

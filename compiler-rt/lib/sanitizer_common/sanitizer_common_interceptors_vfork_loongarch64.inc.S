@@ -5,6 +5,12 @@
 ASM_HIDDEN(COMMON_INTERCEPTOR_SPILL_AREA)
 ASM_HIDDEN(_ZN14__interception10real_vforkE)
 
+.bss
+.type _ZN14__interception10real_vforkE, @object
+.size _ZN14__interception10real_vforkE, 8
+_ZN14__interception10real_vforkE:
+        .zero     8
+
 .text
 .globl ASM_WRAPPER_NAME(vfork)
 ASM_TYPE_FUNCTION(ASM_WRAPPER_NAME(vfork))
@@ -51,7 +57,7 @@ ASM_WRAPPER_NAME(vfork):
         jr        $ra
 ASM_SIZE(vfork)
 
-ASM_INTERCEPTOR_TRAMPOLINE(vfork)
-ASM_TRAMPOLINE_ALIAS(vfork, vfork)
+.weak vfork
+.set vfork, ASM_WRAPPER_NAME(vfork)
 
 #endif

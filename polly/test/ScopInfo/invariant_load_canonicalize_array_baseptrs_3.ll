@@ -28,7 +28,7 @@
 ; CHECK-NEXT:       { Stmt_body2[i0] -> MemRef_baseB[0] };
 
 
-define void @foo(ptr %A) {
+define void @foo(float** %A) {
 start:
   br label %loop
 
@@ -39,14 +39,14 @@ loop:
   br i1 %icmp, label %body1, label %exit
 
 body1:
-  %baseA = load ptr, ptr %A
-  store float 42.0, ptr %baseA
+  %baseA = load float*, float** %A
+  store float 42.0, float* %baseA
   %cmp = icmp slt i64 %indvar.next, 512
   br i1 %cmp, label %body2, label %latch
 
 body2:
-  %baseB = load ptr, ptr %A
-  store float 42.0, ptr %baseB
+  %baseB = load float*, float** %A
+  store float 42.0, float* %baseB
   br label %latch
 
 latch:

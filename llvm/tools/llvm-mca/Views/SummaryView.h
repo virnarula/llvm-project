@@ -28,6 +28,7 @@
 #ifndef LLVM_TOOLS_LLVM_MCA_SUMMARYVIEW_H
 #define LLVM_TOOLS_LLVM_MCA_SUMMARYVIEW_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/MC/MCSchedule.h"
 #include "llvm/MCA/View.h"
 #include "llvm/Support/raw_ostream.h"

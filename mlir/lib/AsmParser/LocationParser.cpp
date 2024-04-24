@@ -7,12 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Parser.h"
-#include "Token.h"
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/Location.h"
-#include "mlir/Support/LLVM.h"
-#include "mlir/Support/LogicalResult.h"
 
 using namespace mlir;
 using namespace mlir::detail;
@@ -128,7 +122,7 @@ ParseResult Parser::parseNameOrFileLineColLocation(LocationAttr &loc) {
       return emitError("expected integer column number in FileLineColLoc");
     consumeToken(Token::integer);
 
-    loc = FileLineColLoc::get(ctx, str, *line, *column);
+    loc = FileLineColLoc::get(ctx, str, line.value(), column.value());
     return success();
   }
 
@@ -155,16 +149,6 @@ ParseResult Parser::parseNameOrFileLineColLocation(LocationAttr &loc) {
 }
 
 ParseResult Parser::parseLocationInstance(LocationAttr &loc) {
-  // Handle aliases.
-  if (getToken().is(Token::hash_identifier)) {
-    Attribute locAttr = parseExtendedAttr(Type());
-    if (!locAttr)
-      return failure();
-    if (!(loc = dyn_cast<LocationAttr>(locAttr)))
-      return emitError("expected location attribute, but got") << locAttr;
-    return success();
-  }
-
   // Handle either name or filelinecol locations.
   if (getToken().is(Token::string))
     return parseNameOrFileLineColLocation(loc);

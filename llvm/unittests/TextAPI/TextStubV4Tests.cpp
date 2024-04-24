@@ -64,7 +64,7 @@ TEST(TBDv4, ReadFile) {
       "    objc-classes: []\n"
       "    objc-eh-types: []\n"
       "    objc-ivars: []\n"
-      "    weak-symbols: [weakReexport]\n"
+      "    weak-symbols: []\n"
       "    thread-local-symbols: []\n"
       "undefineds:\n"
       "  - targets: [ i386-macos ]\n"
@@ -72,7 +72,7 @@ TEST(TBDv4, ReadFile) {
       "    objc-classes: []\n"
       "    objc-eh-types: []\n"
       "    objc-ivars: []\n"
-      "    weak-symbols: [weakReference]\n"
+      "    weak-symbols: []\n"
       "    thread-local-symbols: []\n"
       "...\n";
 
@@ -90,7 +90,11 @@ TEST(TBDv4, ReadFile) {
       Target(AK_x86_64, PLATFORM_MACOS),
       Target(AK_x86_64, PLATFORM_IOS),
   };
+  UUIDs uuids = {{Targets[0], "00000000-0000-0000-0000-000000000000"},
+                 {Targets[1], "11111111-1111-1111-1111-111111111111"},
+                 {Targets[2], "11111111-1111-1111-1111-111111111111"}};
   EXPECT_EQ(Archs, File->getArchitectures());
+  EXPECT_EQ(uuids, File->uuids());
   EXPECT_EQ(Platforms.size(), File->getPlatforms().size());
   for (auto Platform : File->getPlatforms())
     EXPECT_EQ(Platforms.count(Platform), 1U);
@@ -100,7 +104,7 @@ TEST(TBDv4, ReadFile) {
   EXPECT_EQ(5U, File->getSwiftABIVersion());
   EXPECT_FALSE(File->isTwoLevelNamespace());
   EXPECT_TRUE(File->isApplicationExtensionSafe());
-  EXPECT_FALSE(File->isOSLibNotForSharedCache());
+  EXPECT_TRUE(File->isInstallAPI());
   InterfaceFileRef client("ClientA", Targets);
   InterfaceFileRef reexport("/System/Library/Frameworks/A.framework/A",
                             {Targets[0]});
@@ -110,23 +114,16 @@ TEST(TBDv4, ReadFile) {
   EXPECT_EQ(reexport, File->reexportedLibraries().front());
 
   ExportedSymbolSeq Exports, Reexports, Undefineds;
+  ExportedSymbol temp;
   for (const auto *Sym : File->symbols()) {
-    ExportedSymbol Temp =
-        ExportedSymbol{Sym->getKind(), std::string(Sym->getName()),
-                       Sym->isWeakDefined() || Sym->isWeakReferenced(),
-                       Sym->isThreadLocalValue()};
-    if (Sym->isUndefined()) {
-      EXPECT_FALSE(Sym->isWeakDefined());
-      Undefineds.emplace_back(std::move(Temp));
-    }
-    // Check that defined symbols cannot be set as weak referenced.
-    else if (Sym->isReexported()) {
-      EXPECT_FALSE(Sym->isWeakReferenced());
-      Reexports.emplace_back(std::move(Temp));
-    } else {
-      EXPECT_FALSE(Sym->isWeakReferenced());
-      Exports.emplace_back(std::move(Temp));
-    }
+    temp = ExportedSymbol{Sym->getKind(), std::string(Sym->getName()),
+                          Sym->isWeakDefined(), Sym->isThreadLocalValue()};
+    EXPECT_FALSE(Sym->isWeakReferenced());
+    if (Sym->isUndefined())
+      Undefineds.emplace_back(std::move(temp));
+    else
+      Sym->isReexported() ? Reexports.emplace_back(std::move(temp))
+                          : Exports.emplace_back(std::move(temp));
   }
   llvm::sort(Exports);
   llvm::sort(Reexports);
@@ -140,17 +137,18 @@ TEST(TBDv4, ReadFile) {
 
   static ExportedSymbol ExpectedReexportedSymbols[] = {
       {SymbolKind::GlobalSymbol, "_symC", false, false},
-      {SymbolKind::GlobalSymbol, "weakReexport", true, false},
   };
 
   static ExportedSymbol ExpectedUndefinedSymbols[] = {
       {SymbolKind::GlobalSymbol, "_symD", false, false},
-      {SymbolKind::GlobalSymbol, "weakReference", true, false},
   };
 
-  EXPECT_EQ(std::size(ExpectedExportedSymbols), Exports.size());
-  EXPECT_EQ(std::size(ExpectedReexportedSymbols), Reexports.size());
-  EXPECT_EQ(std::size(ExpectedUndefinedSymbols), Undefineds.size());
+  EXPECT_EQ(sizeof(ExpectedExportedSymbols) / sizeof(ExportedSymbol),
+            Exports.size());
+  EXPECT_EQ(sizeof(ExpectedReexportedSymbols) / sizeof(ExportedSymbol),
+            Reexports.size());
+  EXPECT_EQ(sizeof(ExpectedUndefinedSymbols) / sizeof(ExportedSymbol),
+            Undefineds.size());
   EXPECT_TRUE(std::equal(Exports.begin(), Exports.end(),
                          std::begin(ExpectedExportedSymbols)));
   EXPECT_TRUE(std::equal(Reexports.begin(), Reexports.end(),
@@ -165,6 +163,15 @@ TEST(TBDv4, ReadMultipleDocuments) {
       "tbd-version: 4\n"
       "targets: [ i386-macos, i386-maccatalyst, x86_64-macos, "
       "x86_64-maccatalyst ]\n"
+      "uuids:\n"
+      "  - target: i386-macos\n"
+      "    value: 00000000-0000-0000-0000-000000000000\n"
+      "  - target: i386-maccatalyst\n"
+      "    value: 00000000-0000-0000-0000-000000000002\n"
+      "  - target: x86_64-macos\n"
+      "    value: 11111111-1111-1111-1111-111111111111\n"
+      "  - target: x86_64-maccatalyst\n"
+      "    value: 11111111-1111-1111-1111-111111111112\n"
       "install-name: /System/Library/Frameworks/Umbrella.framework/Umbrella\n"
       "parent-umbrella:\n"
       "  - targets: [ i386-macos, x86_64-macos ]\n"
@@ -221,7 +228,7 @@ TEST(TBDv4, ReadMultipleDocuments) {
   for (auto &&Arch : Archs)
     for (auto &&Platform : Platforms)
       Targets.emplace_back(Target(Arch, Platform));
-  TargetToAttr Uuids = {
+  UUIDs Uuids = {
       {Targets[0], "00000000-0000-0000-0000-000000000000"},
       {Targets[1], "00000000-0000-0000-0000-000000000002"},
       {Targets[2], "11111111-1111-1111-1111-111111111111"},
@@ -234,12 +241,14 @@ TEST(TBDv4, ReadMultipleDocuments) {
   TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V4, File->getFileType());
   EXPECT_EQ(Archs, File->getArchitectures());
+  EXPECT_EQ(Uuids, File->uuids());
   EXPECT_EQ(Platforms, File->getPlatforms());
   EXPECT_EQ(
       std::string("/System/Library/Frameworks/Umbrella.framework/Umbrella"),
       File->getInstallName());
   EXPECT_TRUE(File->isTwoLevelNamespace());
   EXPECT_TRUE(File->isApplicationExtensionSafe());
+  EXPECT_FALSE(File->isInstallAPI());
   EXPECT_EQ(PackedVersion(1, 0, 0), File->getCurrentVersion());
   EXPECT_EQ(PackedVersion(1, 0, 0), File->getCompatibilityVersion());
   InterfaceFileRef reexport("/System/Library/Frameworks/A.framework/A",
@@ -262,6 +271,7 @@ TEST(TBDv4, ReadMultipleDocuments) {
   TBDReexportFile Document = File->documents().front();
   EXPECT_EQ(FileType::TBD_V4, Document->getFileType());
   EXPECT_EQ(Archs, Document->getArchitectures());
+  EXPECT_EQ(Uuids, Document->uuids());
   EXPECT_EQ(1U, Document->getPlatforms().size());
   EXPECT_EQ(Platform, *(Document->getPlatforms().begin()));
   EXPECT_EQ(std::string("/System/Library/Frameworks/A.framework/A"),
@@ -271,6 +281,7 @@ TEST(TBDv4, ReadMultipleDocuments) {
   EXPECT_EQ(5U, Document->getSwiftABIVersion());
   EXPECT_FALSE(Document->isTwoLevelNamespace());
   EXPECT_TRUE(Document->isApplicationExtensionSafe());
+  EXPECT_FALSE(Document->isInstallAPI());
 
   ExportedSymbolSeq Exports;
   ExportedSymbolSeq Reexports, Undefineds;
@@ -302,9 +313,12 @@ TEST(TBDv4, ReadMultipleDocuments) {
       {SymbolKind::GlobalSymbol, "_symD", false, false},
   };
 
-  EXPECT_EQ(std::size(ExpectedExportedSymbols), Exports.size());
-  EXPECT_EQ(std::size(ExpectedReexportedSymbols), Reexports.size());
-  EXPECT_EQ(std::size(ExpectedUndefinedSymbols), Undefineds.size());
+  EXPECT_EQ(sizeof(ExpectedExportedSymbols) / sizeof(ExportedSymbol),
+            Exports.size());
+  EXPECT_EQ(sizeof(ExpectedReexportedSymbols) / sizeof(ExportedSymbol),
+            Reexports.size());
+  EXPECT_EQ(sizeof(ExpectedUndefinedSymbols) / sizeof(ExportedSymbol),
+            Undefineds.size());
   EXPECT_TRUE(std::equal(Exports.begin(), Exports.end(),
                          std::begin(ExpectedExportedSymbols)));
   EXPECT_TRUE(std::equal(Reexports.begin(), Reexports.end(),
@@ -318,6 +332,12 @@ TEST(TBDv4, WriteFile) {
       "--- !tapi-tbd\n"
       "tbd-version:     4\n"
       "targets:         [ i386-macos, x86_64-ios-simulator ]\n"
+      "uuids:\n"
+      "  - target:          i386-macos\n"
+      "    value:           00000000-0000-0000-0000-000000000000\n"
+      "  - target:          x86_64-ios-simulator\n"
+      "    value:           11111111-1111-1111-1111-111111111111\n"
+      "flags:           [ installapi ]\n"
       "install-name:    'Umbrella.framework/Umbrella'\n"
       "current-version: 1.2.3\n"
       "compatibility-version: 0\n"
@@ -342,11 +362,16 @@ TEST(TBDv4, WriteFile) {
       Target(AK_i386, PLATFORM_MACOS),
       Target(AK_x86_64, PLATFORM_IOSSIMULATOR),
   };
+  UUIDs uuids = {{Targets[0], "00000000-0000-0000-0000-000000000000"},
+                 {Targets[1], "11111111-1111-1111-1111-111111111111"}};
   File.setInstallName("Umbrella.framework/Umbrella");
   File.setFileType(FileType::TBD_V4);
   File.addTargets(Targets);
+  File.addUUID(uuids[0].first, uuids[0].second);
+  File.addUUID(uuids[1].first, uuids[1].second);
   File.setCurrentVersion(PackedVersion(1, 2, 3));
   File.setTwoLevelNamespace();
+  File.setInstallAPI(true);
   File.setApplicationExtensionSafe(true);
   File.setSwiftABIVersion(5);
   File.addAllowableClient("ClientA", Targets[0]);
@@ -370,6 +395,11 @@ TEST(TBDv4, WriteMultipleDocuments) {
       "--- !tapi-tbd\n"
       "tbd-version:     4\n"
       "targets:         [ i386-maccatalyst, x86_64-maccatalyst ]\n"
+      "uuids:\n"
+      "  - target:          i386-maccatalyst\n"
+      "    value:           00000000-0000-0000-0000-000000000002\n"
+      "  - target:          x86_64-maccatalyst\n"
+      "    value:           11111111-1111-1111-1111-111111111112\n"
       "install-name:    "
       "'/System/Library/Frameworks/Umbrella.framework/Umbrella'\n"
       "reexported-libraries:\n"
@@ -378,6 +408,11 @@ TEST(TBDv4, WriteMultipleDocuments) {
       "--- !tapi-tbd\n"
       "tbd-version:     4\n"
       "targets:         [ i386-maccatalyst, x86_64-maccatalyst ]\n"
+      "uuids:\n"
+      "  - target:          i386-maccatalyst\n"
+      "    value:           00000000-0000-0000-0000-000000000000\n"
+      "  - target:          x86_64-maccatalyst\n"
+      "    value:           11111111-1111-1111-1111-111111111111\n"
       "install-name:    '/System/Library/Frameworks/A.framework/A'\n"
       "exports:\n"
       "  - targets:         [ i386-maccatalyst ]\n"
@@ -395,11 +430,13 @@ TEST(TBDv4, WriteMultipleDocuments) {
       Target(AK_i386, Platform),
       Target(AK_x86_64, Platform),
   };
-  TargetToAttr Uuids = {{Targets[0], "00000000-0000-0000-0000-000000000002"},
-                        {Targets[1], "11111111-1111-1111-1111-111111111112"}};
+  UUIDs Uuids = {{Targets[0], "00000000-0000-0000-0000-000000000002"},
+                 {Targets[1], "11111111-1111-1111-1111-111111111112"}};
   File.setInstallName("/System/Library/Frameworks/Umbrella.framework/Umbrella");
   File.setFileType(FileType::TBD_V4);
   File.addTargets(Targets);
+  File.addUUID(Uuids[0].first, Uuids[0].second);
+  File.addUUID(Uuids[1].first, Uuids[1].second);
   File.setCompatibilityVersion(PackedVersion(1, 0, 0));
   File.setCurrentVersion(PackedVersion(1, 0, 0));
   File.setTwoLevelNamespace();
@@ -416,6 +453,8 @@ TEST(TBDv4, WriteMultipleDocuments) {
   Document.setInstallName("/System/Library/Frameworks/A.framework/A");
   Document.setFileType(FileType::TBD_V4);
   Document.addTargets(Targets);
+  Document.addUUID(Uuids[0].first, Uuids[0].second);
+  Document.addUUID(Uuids[1].first, Uuids[1].second);
   Document.setCompatibilityVersion(PackedVersion(1, 0, 0));
   Document.setCurrentVersion(PackedVersion(1, 0, 0));
   Document.setTwoLevelNamespace();
@@ -541,22 +580,6 @@ TEST(TBDv4, Target_maccatalyst) {
   EXPECT_TRUE(!WriteResult);
   EXPECT_EQ(stripWhitespace(TBDv4TargetMacCatalyst),
             stripWhitespace(Buffer.c_str()));
-}
-
-TEST(TBDv4, Target_maccatalyst2) {
-  static const char TBDv4TargetMacCatalyst[] =
-      "--- !tapi-tbd\n"
-      "tbd-version: 4\n"
-      "targets: [  x86_64-maccatalyst ]\n"
-      "install-name: Test.dylib\n"
-      "...\n";
-
-  Expected<TBDFile> Result =
-      TextAPIReader::get(MemoryBufferRef(TBDv4TargetMacCatalyst, "Test.tbd"));
-  EXPECT_TRUE(!!Result);
-  TBDFile File = std::move(Result.get());
-  EXPECT_EQ(File->getPlatforms().size(), 1U);
-  EXPECT_EQ(getPlatformFromName("ios-macabi"), *File->getPlatforms().begin());
 }
 
 TEST(TBDv4, Target_x86_ios) {
@@ -751,35 +774,6 @@ TEST(TBDv4, Target_i386_driverkit) {
             stripWhitespace(Buffer.c_str()));
 }
 
-TEST(TBDv4, Target_arm64_xros) {
-  static const char TBDv4ArchArm64e[] =
-      "--- !tapi-tbd\n"
-      "tbd-version: 4\n"
-      "targets: [ arm64e-xros, arm64e-xros-simulator ]\n"
-      "install-name: Test.dylib\n"
-      "...\n";
-
-  auto Result =
-      TextAPIReader::get(MemoryBufferRef(TBDv4ArchArm64e, "Test.tbd"));
-  EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
-  EXPECT_EQ(FileType::TBD_V4, File->getFileType());
-  PlatformSet ExpectedSet;
-  ExpectedSet.insert(PLATFORM_XROS);
-  ExpectedSet.insert(PLATFORM_XROS_SIMULATOR);
-  EXPECT_EQ(File->getPlatforms().size(), 2U);
-  for (auto Platform : File->getPlatforms())
-    EXPECT_EQ(ExpectedSet.count(Platform), 1U);
-
-  EXPECT_EQ(ArchitectureSet(AK_arm64e), File->getArchitectures());
-
-  SmallString<4096> Buffer;
-  raw_svector_ostream OS(Buffer);
-  auto WriteResult = TextAPIWriter::writeToStream(OS, *File);
-  EXPECT_TRUE(!WriteResult);
-  EXPECT_EQ(stripWhitespace(TBDv4ArchArm64e), stripWhitespace(Buffer.c_str()));
-}
-
 TEST(TBDv4, Swift_1) {
   static const char TBDv4SwiftVersion1[] = "--- !tapi-tbd\n"
                                            "tbd-version: 4\n"
@@ -862,29 +856,6 @@ TEST(TBDv4, Swift_99) {
             stripWhitespace(Buffer.c_str()));
 }
 
-TEST(TBDv4, NotForSharedCache) {
-
-  static const char TBDv4NotForSharedCache[] =
-      "--- !tapi-tbd\n"
-      "tbd-version: 4\n"
-      "targets: [  arm64-macos ]\n"
-      "flags: [ not_for_dyld_shared_cache ]\n"
-      "install-name: /S/L/F/Foo.framework/Foo\n"
-      "...\n";
-
-  Expected<TBDFile> Result =
-      TextAPIReader::get(MemoryBufferRef(TBDv4NotForSharedCache, "Test.tbd"));
-  EXPECT_TRUE(!!Result);
-  Target ExpectedTarget = Target(AK_arm64, PLATFORM_MACOS);
-  TBDFile ReadFile = std::move(Result.get());
-  EXPECT_EQ(FileType::TBD_V4, ReadFile->getFileType());
-  EXPECT_EQ(std::string("/S/L/F/Foo.framework/Foo"),
-            ReadFile->getInstallName());
-  EXPECT_TRUE(ReadFile->targets().begin() != ReadFile->targets().end());
-  EXPECT_EQ(*ReadFile->targets().begin(), ExpectedTarget);
-  EXPECT_TRUE(ReadFile->isOSLibNotForSharedCache());
-}
-
 TEST(TBDv4, InvalidArchitecture) {
   static const char TBDv4UnknownArch[] = "--- !tapi-tbd\n"
                                          "tbd-version: 4\n"
@@ -938,8 +909,7 @@ TEST(TBDv4, MalformedFile2) {
                                             "tbd-version: 4\n"
                                             "targets: [ x86_64-macos ]\n"
                                             "install-name: Test.dylib\n"
-                                            "foobar: \"unsupported key\"\n"
-                                            "...\n";
+                                            "foobar: \"unsupported key\"\n";
 
   Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv4MalformedFile2, "Test.tbd"));
@@ -972,8 +942,15 @@ TEST(TBDv4, InterfaceEquality) {
   static const char TBDv4File[] =
       "--- !tapi-tbd\n"
       "tbd-version: 4\n"
-      "targets:  [ i386-macos, x86_64-macos, x86_64-ios, i386-maccatalyst, "
-      "x86_64-maccatalyst ]\n"
+      "targets:  [ i386-macos, x86_64-macos, x86_64-ios ]\n"
+      "uuids:\n"
+      "  - target: i386-macos\n"
+      "    value: 00000000-0000-0000-0000-000000000000\n"
+      "  - target: x86_64-macos\n"
+      "    value: 11111111-1111-1111-1111-111111111111\n"
+      "  - target: x86_64-ios\n"
+      "    value: 11111111-1111-1111-1111-111111111111\n"
+      "flags: [ flat_namespace, installapi ]\n"
       "install-name: Umbrella.framework/Umbrella\n"
       "current-version: 1.2.3\n"
       "compatibility-version: 1.2\n"
@@ -999,13 +976,6 @@ TEST(TBDv4, InterfaceEquality) {
       "    symbols: [_symB]\n"
       "  - targets: [ x86_64-macos, x86_64-ios ]\n"
       "    symbols: [_symAB]\n"
-      "  - targets: [ i386-maccatalyst ]\n"
-      "    weak-symbols: [ _symC ]\n"
-      "  - targets: [ i386-maccatalyst, x86_64-maccatalyst ]\n"
-      "    symbols: [ _symA ]\n"
-      "    objc-classes: [ Class1 ]\n"
-      "  - targets: [ x86_64-maccatalyst ]\n"
-      "    symbols: [ _symAB ]\n"
       "reexports:\n"
       "  - targets: [ i386-macos ]\n"
       "    symbols: [_symC]\n"
@@ -1022,6 +992,22 @@ TEST(TBDv4, InterfaceEquality) {
       "    objc-ivars: []\n"
       "    weak-symbols: []\n"
       "    thread-local-symbols: []\n"
+      "tbd-version:     4\n"
+      "targets:         [ i386-maccatalyst, x86_64-maccatalyst ]\n"
+      "uuids:\n"
+      "  - target:          i386-maccatalyst\n"
+      "    value:           00000000-0000-0000-0000-000000000000\n"
+      "  - target:          x86_64-maccatalyst\n"
+      "    value:           11111111-1111-1111-1111-111111111111\n"
+      "install-name:    '/System/Library/Frameworks/A.framework/A'\n"
+      "exports:\n"
+      "  - targets:         [ i386-maccatalyst ]\n"
+      "    weak-symbols:    [ _symC ]\n"
+      "  - targets:         [ i386-maccatalyst, x86_64-maccatalyst ]\n"
+      "    symbols:         [ _symA ]\n"
+      "    objc-classes:    [ Class1 ]\n"
+      "  - targets:         [ x86_64-maccatalyst ]\n"
+      "    symbols:         [ _symAB ]\n"
       "...\n";
 
   Expected<TBDFile> ResultA =
@@ -1040,6 +1026,12 @@ TEST(TBDv4, InterfaceDiffVersionsEquality) {
       "--- !tapi-tbd\n"
       "tbd-version: 4\n"
       "targets:  [ i386-macos, x86_64-macos ]\n"
+      "uuids:\n"
+      "  - target: i386-macos\n"
+      "    value: 00000000-0000-0000-0000-000000000000\n"
+      "  - target: x86_64-macos\n"
+      "    value: 11111111-1111-1111-1111-111111111111\n"
+      "flags: [ installapi ]\n"
       "install-name: Umbrella.framework/Umbrella\n"
       "current-version: 1.2.3\n"
       "compatibility-version: 1.0\n"
@@ -1082,7 +1074,10 @@ TEST(TBDv4, InterfaceDiffVersionsEquality) {
   static const char TBDv3File[] =
       "--- !tapi-tbd-v3\n"
       "archs: [ i386, x86_64 ]\n"
+      "uuids: [ 'i386: 00000000-0000-0000-0000-000000000000',\n"
+      "         'x86_64: 22222222-2222-2222-2222-222222222222']\n"
       "platform: macosx\n"
+      "flags: [ installapi ]\n"
       "install-name: Umbrella.framework/Umbrella\n"
       "current-version: 1.2.3\n"
       "compatibility-version: 1.0\n"
@@ -1118,6 +1113,7 @@ TEST(TBDv4, InterfaceDiffVersionsEquality) {
       TextAPIReader::get(MemoryBufferRef(TBDv3File, "TestB.tbd"));
   EXPECT_TRUE(!!ResultB);
   InterfaceFile FileB = std::move(*ResultB.get());
+  EXPECT_NE(FileA.uuids(), FileB.uuids());
   EXPECT_TRUE(FileA == FileB);
 }
 
@@ -1149,6 +1145,8 @@ TEST(TBDv4, InterfaceInequality) {
   EXPECT_TRUE(checkEqualityOnTransform(FileA, FileB, [](InterfaceFile *File) {
     File->setTwoLevelNamespace(false);
   }));
+  EXPECT_TRUE(checkEqualityOnTransform(
+      FileA, FileB, [](InterfaceFile *File) { File->setInstallAPI(true); }));
   EXPECT_TRUE(checkEqualityOnTransform(FileA, FileB, [](InterfaceFile *File) {
     File->setApplicationExtensionSafe(false);
   }));
@@ -1168,7 +1166,6 @@ TEST(TBDv4, InterfaceInequality) {
   }));
   EXPECT_TRUE(checkEqualityOnTransform(FileA, FileB, [](InterfaceFile *File) {
     InterfaceFile Document;
-    Document.setFileType(FileType::TBD_V4);
     Document.addTargets(TargetList{Target(AK_i386, PLATFORM_MACOS),
                                    Target(AK_x86_64, PLATFORM_MACOS)});
     Document.setInstallName("/System/Library/Frameworks/A.framework/A");

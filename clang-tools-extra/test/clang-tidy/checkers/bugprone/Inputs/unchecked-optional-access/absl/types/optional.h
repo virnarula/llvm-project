@@ -66,8 +66,6 @@ public:
   void reset() noexcept;
 
   void swap(optional &rhs) noexcept;
-
-  template <typename U> optional &operator=(const U &u);
 };
 
 } // namespace absl

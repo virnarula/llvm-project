@@ -56,8 +56,7 @@ static bool shouldRemoveArguments(const Function &F) {
 
 /// Removes out-of-chunk arguments from functions, and modifies their calls
 /// accordingly. It also removes allocations of out-of-chunk arguments.
-static void extractArgumentsFromModule(Oracle &O, ReducerWorkItem &WorkItem) {
-  Module &Program = WorkItem.getModule();
+static void extractArgumentsFromModule(Oracle &O, Module &Program) {
   std::vector<Argument *> InitArgsToKeep;
   std::vector<Function *> Funcs;
   // Get inside-chunk arguments, as well as their parent function
@@ -101,9 +100,9 @@ static void extractArgumentsFromModule(Oracle &O, ReducerWorkItem &WorkItem) {
       continue;
 
     std::set<int> ArgIndexesToKeep;
-    for (const auto &[Index, Arg] : enumerate(F->args()))
-      if (ArgsToKeep.count(&Arg))
-        ArgIndexesToKeep.insert(Index);
+    for (auto &Arg : enumerate(F->args()))
+      if (ArgsToKeep.count(&Arg.value()))
+        ArgIndexesToKeep.insert(Arg.index());
 
     auto *ClonedFunc = CloneFunction(F, VMap);
     // In order to preserve function order, we move Clone after old Function
@@ -113,7 +112,7 @@ static void extractArgumentsFromModule(Oracle &O, ReducerWorkItem &WorkItem) {
     replaceFunctionCalls(*F, *ClonedFunc, ArgIndexesToKeep);
     // Rename Cloned Function to Old's name
     std::string FName = std::string(F->getName());
-    F->replaceAllUsesWith(ClonedFunc);
+    F->replaceAllUsesWith(ConstantExpr::getBitCast(ClonedFunc, F->getType()));
     F->eraseFromParent();
     ClonedFunc->setName(FName);
   }

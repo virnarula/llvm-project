@@ -6,5 +6,5 @@
 ;
 
 define i32 @testfunc() {
-	ret ptr null
+	ret i32* null
 }

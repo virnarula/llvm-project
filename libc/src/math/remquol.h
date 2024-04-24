@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_REMQUOL_H
 #define LLVM_LIBC_SRC_MATH_REMQUOL_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 long double remquol(long double x, long double y, int *exp);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_REMQUOL_H

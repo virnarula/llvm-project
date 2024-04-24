@@ -11,10 +11,10 @@
 
 #include <fenv.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fegetexceptflag(fexcept_t *, int excepts);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_FENV_FEGETEXCEPTFLAG_H

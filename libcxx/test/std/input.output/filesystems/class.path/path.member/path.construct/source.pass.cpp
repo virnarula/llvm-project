@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // These tests require locale for non-char paths
 // UNSUPPORTED: no-localization
@@ -21,16 +20,16 @@
 // template <class InputIterator>
 //      path(InputIterator first, InputIterator last);
 
-#include <filesystem>
+
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
-#include "../../path_helper.h"
-#include "make_string.h"
-#include "min_allocator.h"
-#include "test_iterators.h"
 #include "test_macros.h"
-namespace fs = std::filesystem;
+#include "test_iterators.h"
+#include "min_allocator.h"
+#include "filesystem_test_helper.h"
+
 
 template <class CharT, class ...Args>
 void RunTestCaseImpl(MultiStringType const& MS, Args... args) {

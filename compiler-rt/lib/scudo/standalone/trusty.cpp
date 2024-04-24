@@ -12,18 +12,17 @@
 
 #include "common.h"
 #include "mutex.h"
-#include "report_linux.h"
+#include "string_utils.h"
 #include "trusty.h"
 
 #include <errno.h>           // for errno
-#include <lk/err_ptr.h>      // for PTR_ERR and IS_ERR
 #include <stdio.h>           // for printf()
 #include <stdlib.h>          // for getenv()
 #include <sys/auxv.h>        // for getauxval()
 #include <time.h>            // for clock_gettime()
-#include <trusty_err.h>      // for lk_err_to_errno()
 #include <trusty_syscalls.h> // for _trusty_brk()
-#include <uapi/mm.h>         // for MMAP flags
+
+#define SBRK_ALIGN 32
 
 namespace scudo {
 
@@ -31,39 +30,35 @@ uptr getPageSize() { return getauxval(AT_PAGESZ); }
 
 void NORETURN die() { abort(); }
 
-void *map(void *Addr, uptr Size, const char *Name, uptr Flags,
+void *map(UNUSED void *Addr, uptr Size, UNUSED const char *Name, uptr Flags,
           UNUSED MapPlatformData *Data) {
-  uint32_t MmapFlags =
-      MMAP_FLAG_ANONYMOUS | MMAP_FLAG_PROT_READ | MMAP_FLAG_PROT_WRITE;
+  // Calling _trusty_brk(0) returns the current program break.
+  uptr ProgramBreak = reinterpret_cast<uptr>(_trusty_brk(0));
+  uptr Start;
+  uptr End;
 
-  // If the MAP_NOACCESS flag is set, Scudo tries to reserve
-  // a memory region without mapping physical pages. This corresponds
-  // to MMAP_FLAG_NO_PHYSICAL in Trusty.
+  Start = roundUpTo(ProgramBreak, SBRK_ALIGN);
+  // Don't actually extend the heap if MAP_NOACCESS flag is set since this is
+  // the case where Scudo tries to reserve a memory region without mapping
+  // physical pages.
   if (Flags & MAP_NOACCESS)
-    MmapFlags |= MMAP_FLAG_NO_PHYSICAL;
-  if (Addr)
-    MmapFlags |= MMAP_FLAG_FIXED_NOREPLACE;
+    return reinterpret_cast<void *>(Start);
 
-  if (Flags & MAP_MEMTAG)
-    MmapFlags |= MMAP_FLAG_PROT_MTE;
-
-  void *P = (void *)_trusty_mmap(Addr, Size, MmapFlags, 0);
-
-  if (IS_ERR(P)) {
-    errno = lk_err_to_errno(PTR_ERR(P));
-    if (!(Flags & MAP_ALLOWNOMEM) || errno != ENOMEM)
-      reportMapError(Size);
+  // Attempt to extend the heap by Size bytes using _trusty_brk.
+  End = roundUpTo(Start + Size, SBRK_ALIGN);
+  ProgramBreak =
+      reinterpret_cast<uptr>(_trusty_brk(reinterpret_cast<void *>(End)));
+  if (ProgramBreak < End) {
+    errno = ENOMEM;
+    dieOnMapUnmapError(Size);
     return nullptr;
   }
-
-  return P;
+  return reinterpret_cast<void *>(Start); // Base of new reserved region.
 }
 
+// Unmap is a no-op since Trusty uses sbrk instead of memory mapping.
 void unmap(UNUSED void *Addr, UNUSED uptr Size, UNUSED uptr Flags,
-           UNUSED MapPlatformData *Data) {
-  if (_trusty_munmap(Addr, Size) != 0)
-    reportUnmapError(reinterpret_cast<uptr>(Addr), Size);
-}
+           UNUSED MapPlatformData *Data) {}
 
 void setMemoryPermission(UNUSED uptr Addr, UNUSED uptr Size, UNUSED uptr Flags,
                          UNUSED MapPlatformData *Data) {}
@@ -81,24 +76,11 @@ void HybridMutex::lockSlow() {}
 
 void HybridMutex::unlock() {}
 
-void HybridMutex::assertHeldImpl() {}
-
 u64 getMonotonicTime() {
   timespec TS;
   clock_gettime(CLOCK_MONOTONIC, &TS);
   return static_cast<u64>(TS.tv_sec) * (1000ULL * 1000 * 1000) +
          static_cast<u64>(TS.tv_nsec);
-}
-
-u64 getMonotonicTimeFast() {
-#if defined(CLOCK_MONOTONIC_COARSE)
-  timespec TS;
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &TS);
-  return static_cast<u64>(TS.tv_sec) * (1000ULL * 1000 * 1000) +
-         static_cast<u64>(TS.tv_nsec);
-#else
-  return getMonotonicTime();
-#endif
 }
 
 u32 getNumberOfCPUs() { return 0; }

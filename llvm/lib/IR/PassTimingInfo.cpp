@@ -252,14 +252,9 @@ static bool shouldIgnorePass(StringRef PassID) {
 void TimePassesHandler::startPassTimer(StringRef PassID) {
   if (shouldIgnorePass(PassID))
     return;
-  // Stop the previous pass timer to prevent double counting when a
-  // pass requests another pass.
-  if (!PassActiveTimerStack.empty()) {
-    assert(PassActiveTimerStack.back()->isRunning());
-    PassActiveTimerStack.back()->stopTimer();
-  }
+  assert(!ActivePassTimer && "should only have one pass timer at a time");
   Timer &MyTimer = getPassTimer(PassID, /*IsPass*/ true);
-  PassActiveTimerStack.push_back(&MyTimer);
+  ActivePassTimer = &MyTimer;
   assert(!MyTimer.isRunning());
   MyTimer.startTimer();
 }
@@ -267,17 +262,10 @@ void TimePassesHandler::startPassTimer(StringRef PassID) {
 void TimePassesHandler::stopPassTimer(StringRef PassID) {
   if (shouldIgnorePass(PassID))
     return;
-  assert(!PassActiveTimerStack.empty() && "empty stack in popTimer");
-  Timer *MyTimer = PassActiveTimerStack.pop_back_val();
-  assert(MyTimer && "timer should be present");
-  assert(MyTimer->isRunning());
-  MyTimer->stopTimer();
-
-  // Restart the previously stopped timer.
-  if (!PassActiveTimerStack.empty()) {
-    assert(!PassActiveTimerStack.back()->isRunning());
-    PassActiveTimerStack.back()->startTimer();
-  }
+  assert(ActivePassTimer);
+  assert(ActivePassTimer->isRunning());
+  ActivePassTimer->stopTimer();
+  ActivePassTimer = nullptr;
 }
 
 void TimePassesHandler::startAnalysisTimer(StringRef PassID) {

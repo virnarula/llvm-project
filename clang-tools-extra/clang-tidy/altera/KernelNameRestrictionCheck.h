@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::altera {
+namespace clang {
+namespace tidy {
+namespace altera {
 
 /// Finds kernel files and include directives whose filename is `kernel.cl`,
 /// `Verilog.cl`, or `VHDL.cl`.
@@ -26,6 +28,8 @@ public:
                            Preprocessor *) override;
 };
 
-} // namespace clang::tidy::altera
+} // namespace altera
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ALTERA_KERNEL_NAME_RESTRICTION_CHECK_H

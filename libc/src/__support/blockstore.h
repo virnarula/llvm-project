@@ -6,16 +6,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_BLOCKSTORE_H
-#define LLVM_LIBC_SRC___SUPPORT_BLOCKSTORE_H
-
-#include <src/__support/CPP/new.h>
-#include <src/__support/libc_assert.h>
+#ifndef LLVM_LIBC_SUPPORT_BLOCKSTORE_H
+#define LLVM_LIBC_SUPPORT_BLOCKSTORE_H
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
-namespace LIBC_NAMESPACE {
+// TODO: fix our assert.h to make it useable
+#define assert(x)                                                              \
+  if (!(x))                                                                    \
+  __builtin_trap()
+
+namespace __llvm_libc {
 namespace cpp {
 
 // The difference between BlockStore a traditional vector types is that,
@@ -52,7 +55,7 @@ protected:
     Block *curr = &first;
     for (; curr->next; prev = curr, curr = curr->next)
       ;
-    LIBC_ASSERT(curr == current);
+    assert(curr == current);
     return {curr, prev};
   }
 
@@ -111,10 +114,7 @@ public:
 
   T *new_obj() {
     if (fill_count == BLOCK_SIZE) {
-      AllocChecker ac;
-      auto new_block = new (ac) Block();
-      if (!ac)
-        return nullptr;
+      auto new_block = reinterpret_cast<Block *>(::malloc(sizeof(Block)));
       if (REVERSE_ORDER) {
         new_block->next = current;
       } else {
@@ -129,12 +129,9 @@ public:
     return obj;
   }
 
-  [[nodiscard]] bool push_back(const T &value) {
+  void push_back(const T &value) {
     T *ptr = new_obj();
-    if (ptr == nullptr)
-      return false;
     *ptr = value;
-    return true;
   }
 
   T &back() {
@@ -148,15 +145,15 @@ public:
       return;
     auto [last, prev] = getLastBlocks();
     if (REVERSE_ORDER) {
-      LIBC_ASSERT(last == current);
+      assert(last == current);
       current = current->next;
     } else {
-      LIBC_ASSERT(prev->next == last);
+      assert(prev->next == last);
       current = prev;
       current->next = nullptr;
     }
     if (last != &first)
-      delete last;
+      ::free(last);
     fill_count = BLOCK_SIZE;
   }
 
@@ -185,14 +182,14 @@ void BlockStore<T, BLOCK_SIZE, REVERSE_ORDER>::destroy(
     while (current->next != nullptr) {
       auto temp = current;
       current = current->next;
-      delete temp;
+      free(temp);
     }
   } else {
     auto current = block_store->first.next;
     while (current != nullptr) {
       auto temp = current;
       current = current->next;
-      delete temp;
+      free(temp);
     }
   }
   block_store->current = nullptr;
@@ -204,6 +201,6 @@ template <typename T, size_t BLOCK_SIZE>
 using ReverseOrderBlockStore = BlockStore<T, BLOCK_SIZE, true>;
 
 } // namespace cpp
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC___SUPPORT_BLOCKSTORE_H
+#endif // LLVM_LIBC_SUPPORT_BLOCKSTORE_H

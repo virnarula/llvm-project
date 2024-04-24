@@ -1,4 +1,5 @@
-// RUN: %check_clang_tidy %s abseil-string-find-str-contains %t --
+// RUN: %check_clang_tidy %s abseil-string-find-str-contains %t -- \
+// RUN:   -config="{CheckOptions: []}"
 
 using size_t = decltype(sizeof(int));
 

@@ -20,13 +20,12 @@
 #include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/STLForwardCompat.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <array>
 #include <cassert>
-#include <optional>
 #include <stack>
 #include <tuple>
 #include <type_traits>
@@ -34,7 +33,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 namespace {
 
 struct CognitiveComplexity final {
@@ -101,8 +102,8 @@ struct CognitiveComplexity final {
     std::pair<unsigned, unsigned short> process() const {
       assert(C != Criteria::None && "invalid criteria");
 
-      unsigned MsgId = 0;           // The id of the message to output.
-      unsigned short Increment = 0; // How much of an increment?
+      unsigned MsgId;           // The id of the message to output.
+      unsigned short Increment; // How much of an increment?
 
       if (C == Criteria::All) {
         Increment = 1 + Nesting;
@@ -168,13 +169,15 @@ static const std::array<const StringRef, 4> Msgs = {{
 // Criteria is a bitset, thus a few helpers are needed.
 CognitiveComplexity::Criteria operator|(CognitiveComplexity::Criteria LHS,
                                         CognitiveComplexity::Criteria RHS) {
-  return static_cast<CognitiveComplexity::Criteria>(llvm::to_underlying(LHS) |
-                                                    llvm::to_underlying(RHS));
+  return static_cast<CognitiveComplexity::Criteria>(
+      static_cast<std::underlying_type_t<CognitiveComplexity::Criteria>>(LHS) |
+      static_cast<std::underlying_type_t<CognitiveComplexity::Criteria>>(RHS));
 }
 CognitiveComplexity::Criteria operator&(CognitiveComplexity::Criteria LHS,
                                         CognitiveComplexity::Criteria RHS) {
-  return static_cast<CognitiveComplexity::Criteria>(llvm::to_underlying(LHS) &
-                                                    llvm::to_underlying(RHS));
+  return static_cast<CognitiveComplexity::Criteria>(
+      static_cast<std::underlying_type_t<CognitiveComplexity::Criteria>>(LHS) &
+      static_cast<std::underlying_type_t<CognitiveComplexity::Criteria>>(RHS));
 }
 CognitiveComplexity::Criteria &operator|=(CognitiveComplexity::Criteria &LHS,
                                           CognitiveComplexity::Criteria RHS) {
@@ -195,8 +198,8 @@ void CognitiveComplexity::account(SourceLocation Loc, unsigned short Nesting,
   Details.emplace_back(Loc, Nesting, C);
   const Detail &D = Details.back();
 
-  unsigned MsgId = 0;
-  unsigned short Increase = 0;
+  unsigned MsgId;
+  unsigned short Increase;
   std::tie(MsgId, Increase) = D.process();
 
   Total += Increase;
@@ -215,7 +218,7 @@ class FunctionASTVisitor final
   // Used to efficiently know the last type of the binary sequence operator
   // that was encountered. It would make sense for the function call to start
   // the new sequence, thus it is a stack.
-  using OBO = std::optional<BinaryOperator::Opcode>;
+  using OBO = Optional<BinaryOperator::Opcode>;
   std::stack<OBO, SmallVector<OBO, 4>> BinaryOperatorsStack;
 
 public:
@@ -241,8 +244,9 @@ public:
       return Base::TraverseIfStmt(Node);
 
     {
-      CognitiveComplexity::Criteria Reasons =
-          CognitiveComplexity::Criteria::None;
+      CognitiveComplexity::Criteria Reasons;
+
+      Reasons = CognitiveComplexity::Criteria::None;
 
       // "If" increases cognitive complexity.
       Reasons |= CognitiveComplexity::Criteria::Increment;
@@ -288,8 +292,9 @@ public:
       return TraverseIfStmt(E, true);
 
     {
-      CognitiveComplexity::Criteria Reasons =
-          CognitiveComplexity::Criteria::None;
+      CognitiveComplexity::Criteria Reasons;
+
+      Reasons = CognitiveComplexity::Criteria::None;
 
       // "Else" increases cognitive complexity.
       Reasons |= CognitiveComplexity::Criteria::Increment;
@@ -326,8 +331,7 @@ public:
 
     // We might encounter a function call, which starts a new sequence, thus
     // we need to save the current previous binary operator.
-    const std::optional<BinaryOperator::Opcode> BinOpCopy(
-        CurrentBinaryOperator);
+    const Optional<BinaryOperator::Opcode> BinOpCopy(CurrentBinaryOperator);
 
     // Record the operator that we are currently processing and traverse it.
     CurrentBinaryOperator = Op->getOpcode();
@@ -546,8 +550,8 @@ void FunctionCognitiveComplexityCheck::check(
 
   // Output all the basic increments of complexity.
   for (const auto &Detail : Visitor.CC.Details) {
-    unsigned MsgId = 0;          // The id of the message to output.
-    unsigned short Increase = 0; // How much of an increment?
+    unsigned MsgId;          // The id of the message to output.
+    unsigned short Increase; // How much of an increment?
     std::tie(MsgId, Increase) = Detail.process();
     assert(MsgId < Msgs.size() && "MsgId should always be valid");
     // Increase, on the other hand, can be 0.
@@ -557,4 +561,6 @@ void FunctionCognitiveComplexityCheck::check(
   }
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

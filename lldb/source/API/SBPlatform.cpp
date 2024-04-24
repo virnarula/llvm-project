@@ -7,15 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/API/SBPlatform.h"
-#include "lldb/API/SBDebugger.h"
 #include "lldb/API/SBEnvironment.h"
 #include "lldb/API/SBError.h"
 #include "lldb/API/SBFileSpec.h"
 #include "lldb/API/SBLaunchInfo.h"
-#include "lldb/API/SBModuleSpec.h"
 #include "lldb/API/SBPlatform.h"
-#include "lldb/API/SBProcessInfoList.h"
-#include "lldb/API/SBTarget.h"
 #include "lldb/API/SBUnixSignals.h"
 #include "lldb/Host/File.h"
 #include "lldb/Target/Platform.h"
@@ -73,7 +69,7 @@ struct PlatformShellCommand {
   std::string m_output;
   int m_status = 0;
   int m_signo = 0;
-  Timeout<std::ratio<1>> m_timeout = std::nullopt;
+  Timeout<std::ratio<1>> m_timeout = llvm::None;
 };
 // SBPlatformConnectOptions
 SBPlatformConnectOptions::SBPlatformConnectOptions(const char *url)
@@ -104,7 +100,7 @@ const char *SBPlatformConnectOptions::GetURL() {
 
   if (m_opaque_ptr->m_url.empty())
     return nullptr;
-  return ConstString(m_opaque_ptr->m_url.c_str()).GetCString();
+  return m_opaque_ptr->m_url.c_str();
 }
 
 void SBPlatformConnectOptions::SetURL(const char *url) {
@@ -207,7 +203,7 @@ const char *SBPlatformShellCommand::GetShell() {
 
   if (m_opaque_ptr->m_shell.empty())
     return nullptr;
-  return ConstString(m_opaque_ptr->m_shell.c_str()).GetCString();
+  return m_opaque_ptr->m_shell.c_str();
 }
 
 void SBPlatformShellCommand::SetShell(const char *shell_interpreter) {
@@ -224,7 +220,7 @@ const char *SBPlatformShellCommand::GetCommand() {
 
   if (m_opaque_ptr->m_command.empty())
     return nullptr;
-  return ConstString(m_opaque_ptr->m_command.c_str()).GetCString();
+  return m_opaque_ptr->m_command.c_str();
 }
 
 void SBPlatformShellCommand::SetCommand(const char *shell_command) {
@@ -241,7 +237,7 @@ const char *SBPlatformShellCommand::GetWorkingDirectory() {
 
   if (m_opaque_ptr->m_working_dir.empty())
     return nullptr;
-  return ConstString(m_opaque_ptr->m_working_dir.c_str()).GetCString();
+  return m_opaque_ptr->m_working_dir.c_str();
 }
 
 void SBPlatformShellCommand::SetWorkingDirectory(const char *path) {
@@ -265,7 +261,7 @@ void SBPlatformShellCommand::SetTimeoutSeconds(uint32_t sec) {
   LLDB_INSTRUMENT_VA(this, sec);
 
   if (sec == UINT32_MAX)
-    m_opaque_ptr->m_timeout = std::nullopt;
+    m_opaque_ptr->m_timeout = llvm::None;
   else
     m_opaque_ptr->m_timeout = std::chrono::seconds(sec);
 }
@@ -287,7 +283,7 @@ const char *SBPlatformShellCommand::GetOutput() {
 
   if (m_opaque_ptr->m_output.empty())
     return nullptr;
-  return ConstString(m_opaque_ptr->m_output.c_str()).GetCString();
+  return m_opaque_ptr->m_output.c_str();
 }
 
 // SBPlatform
@@ -458,7 +454,7 @@ const char *SBPlatform::GetHostname() {
 
   PlatformSP platform_sp(GetSP());
   if (platform_sp)
-    return ConstString(platform_sp->GetHostname()).GetCString();
+    return platform_sp->GetHostname();
   return nullptr;
 }
 
@@ -492,7 +488,7 @@ uint32_t SBPlatform::GetOSUpdateVersion() {
 void SBPlatform::SetSDKRoot(const char *sysroot) {
   LLDB_INSTRUMENT_VA(this, sysroot);
   if (PlatformSP platform_sp = GetSP())
-    platform_sp->SetSDKRootDirectory(llvm::StringRef(sysroot).str());
+    platform_sp->SetSDKRootDirectory(ConstString(sysroot));
 }
 
 SBError SBPlatform::Get(SBFileSpec &src, SBFileSpec &dst) {
@@ -577,43 +573,6 @@ SBError SBPlatform::Launch(SBLaunchInfo &launch_info) {
   });
 }
 
-SBProcess SBPlatform::Attach(SBAttachInfo &attach_info,
-                             const SBDebugger &debugger, SBTarget &target,
-                             SBError &error) {
-  LLDB_INSTRUMENT_VA(this, attach_info, debugger, target, error);
-
-  if (PlatformSP platform_sp = GetSP()) {
-    if (platform_sp->IsConnected()) {
-      ProcessAttachInfo &info = attach_info.ref();
-      Status status;
-      ProcessSP process_sp = platform_sp->Attach(info, debugger.ref(),
-                                                 target.GetSP().get(), status);
-      error.SetError(status);
-      return SBProcess(process_sp);
-    }
-
-    error.SetErrorString("not connected");
-    return {};
-  }
-
-  error.SetErrorString("invalid platform");
-  return {};
-}
-
-SBProcessInfoList SBPlatform::GetAllProcesses(SBError &error) {
-  if (PlatformSP platform_sp = GetSP()) {
-    if (platform_sp->IsConnected()) {
-      ProcessInstanceInfoList list = platform_sp->GetAllProcesses();
-      return SBProcessInfoList(list);
-    }
-    error.SetErrorString("not connected");
-    return {};
-  }
-
-  error.SetErrorString("invalid platform");
-  return {};
-}
-
 SBError SBPlatform::Kill(const lldb::pid_t pid) {
   LLDB_INSTRUMENT_VA(this, pid);
   return ExecuteConnected([&](const lldb::PlatformSP &platform_sp) {
@@ -695,42 +654,4 @@ SBEnvironment SBPlatform::GetEnvironment() {
   }
 
   return SBEnvironment();
-}
-
-SBError SBPlatform::SetLocateModuleCallback(
-    lldb::SBPlatformLocateModuleCallback callback, void *callback_baton) {
-  LLDB_INSTRUMENT_VA(this, callback, callback_baton);
-  PlatformSP platform_sp(GetSP());
-  if (!platform_sp)
-    return SBError("invalid platform");
-
-  if (!callback) {
-    // Clear the callback.
-    platform_sp->SetLocateModuleCallback(nullptr);
-    return SBError();
-  }
-
-  // Platform.h does not accept lldb::SBPlatformLocateModuleCallback directly
-  // because of the SBModuleSpec and SBFileSpec dependencies. Use a lambda to
-  // convert ModuleSpec/FileSpec <--> SBModuleSpec/SBFileSpec for the callback
-  // arguments.
-  platform_sp->SetLocateModuleCallback(
-      [callback, callback_baton](const ModuleSpec &module_spec,
-                                 FileSpec &module_file_spec,
-                                 FileSpec &symbol_file_spec) {
-        SBModuleSpec module_spec_sb(module_spec);
-        SBFileSpec module_file_spec_sb;
-        SBFileSpec symbol_file_spec_sb;
-
-        SBError error = callback(callback_baton, module_spec_sb,
-                                 module_file_spec_sb, symbol_file_spec_sb);
-
-        if (error.Success()) {
-          module_file_spec = module_file_spec_sb.ref();
-          symbol_file_spec = symbol_file_spec_sb.ref();
-        }
-
-        return error.ref();
-      });
-  return SBError();
 }

@@ -1,21 +1,21 @@
 ; RUN: split-file %s %t
 ; RUN: cat %t/main.ll %t/a.ll > %t/a2.ll
 ; RUN: cat %t/main.ll %t/b.ll > %t/b2.ll
-; RUN: llc %t/a2.ll -mtriple=armv7-unknown-linux-gnueabihf -mattr=+read-tp-tpidruro -o - | \
+; RUN: llc %t/a2.ll -mtriple=armv7-unknown-linux-gnueabihf -mattr=+read-tp-hard -o - | \
 ; RUN: FileCheck --check-prefixes=CHECK,CHECK-SMALL %s
-; RUN: llc %t/a2.ll -mtriple=thumbv7-unknown-linux-gnueabihf -mattr=+read-tp-tpidruro -o - | \
+; RUN: llc %t/a2.ll -mtriple=thumbv7-unknown-linux-gnueabihf -mattr=+read-tp-hard -o - | \
 ; RUN: FileCheck --check-prefixes=CHECK,CHECK-SMALL %s
-; RUN: llc %t/b2.ll -mtriple=armv7-unknown-linux-gnueabihf -mattr=+read-tp-tpidruro -o - | \
+; RUN: llc %t/b2.ll -mtriple=armv7-unknown-linux-gnueabihf -mattr=+read-tp-hard -o - | \
 ; RUN: FileCheck --check-prefixes=CHECK,CHECK-LARGE %s
-; RUN: llc %t/b2.ll -mtriple=thumbv7-unknown-linux-gnueabihf -mattr=+read-tp-tpidruro -o - | \
+; RUN: llc %t/b2.ll -mtriple=thumbv7-unknown-linux-gnueabihf -mattr=+read-tp-hard -o - | \
 ; RUN: FileCheck --check-prefixes=CHECK,CHECK-LARGE %s
 
 ;--- main.ll
-declare void @baz(ptr)
+declare void @baz(i32*)
 
 define void @foo(i64 %t) sspstrong {
   %vla = alloca i32, i64 %t, align 4
-  call void @baz(ptr nonnull %vla)
+  call void @baz(i32* nonnull %vla)
   ret void
 }
 !llvm.module.flags = !{!1, !2}

@@ -48,7 +48,7 @@ public:
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override;
 
@@ -66,15 +66,21 @@ void clang::AttachDependencyGraphGen(Preprocessor &PP, StringRef OutputFile,
 }
 
 void DependencyGraphCallback::InclusionDirective(
-    SourceLocation HashLoc, const Token &IncludeTok, StringRef FileName,
-    bool IsAngled, CharSourceRange FilenameRange, OptionalFileEntryRef File,
-    StringRef SearchPath, StringRef RelativePath, const Module *Imported,
+    SourceLocation HashLoc,
+    const Token &IncludeTok,
+    StringRef FileName,
+    bool IsAngled,
+    CharSourceRange FilenameRange,
+    Optional<FileEntryRef> File,
+    StringRef SearchPath,
+    StringRef RelativePath,
+    const Module *Imported,
     SrcMgr::CharacteristicKind FileType) {
   if (!File)
     return;
 
   SourceManager &SM = PP->getSourceManager();
-  OptionalFileEntryRef FromFile =
+  Optional<FileEntryRef> FromFile =
       SM.getFileEntryRefForID(SM.getFileID(SM.getExpansionLoc(HashLoc)));
   if (!FromFile)
     return;
@@ -110,7 +116,8 @@ void DependencyGraphCallback::OutputGraphFile() {
     writeNodeReference(OS, AllFiles[I]);
     OS << " [ shape=\"box\", label=\"";
     StringRef FileName = AllFiles[I].getName();
-    FileName.consume_front(SysRoot);
+    if (FileName.startswith(SysRoot))
+      FileName = FileName.substr(SysRoot.size());
 
     OS << DOT::EscapeString(std::string(FileName)) << "\"];\n";
   }

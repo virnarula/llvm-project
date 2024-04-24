@@ -21,7 +21,9 @@ foreach(arch ${DFSAN_TEST_ARCH})
 endforeach()
 
 set(DFSAN_TEST_DEPS ${SANITIZER_COMMON_LIT_TEST_DEPS})
-list(APPEND DFSAN_TEST_DEPS dfsan)
+if(NOT COMPILER_RT_STANDALONE_BUILD)
+  list(APPEND DFSAN_TEST_DEPS dfsan)
+endif()
 
 add_lit_testsuite(check-dfsan "Running the DataFlowSanitizer tests"
   ${DFSAN_TESTSUITES}

@@ -22,6 +22,7 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ExecutionEngine/JITLink/JITLinkMemoryManager.h"
+#include "llvm/ExecutionEngine/Orc/EPCDynamicLibrarySearchGenerator.h"
 #include "llvm/ExecutionEngine/Orc/EPCIndirectionUtils.h"
 #include "llvm/ExecutionEngine/Orc/ExecutorProcessControl.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
@@ -106,8 +107,10 @@ static void *reenter(void *Ctx, void *TrampolineAddr) {
 
   auto *EPCIU = static_cast<EPCIndirectionUtils *>(Ctx);
   EPCIU->getLazyCallThroughManager().resolveTrampolineLandingAddress(
-      ExecutorAddr::fromPtr(TrampolineAddr), [&](ExecutorAddr LandingAddress) {
-        LandingAddressP.set_value(LandingAddress.toPtr<void *>());
+      pointerToJITTargetAddress(TrampolineAddr),
+      [&](JITTargetAddress LandingAddress) {
+        LandingAddressP.set_value(
+            jitTargetAddressToPointer<void *>(LandingAddress));
       });
   return LandingAddressF.get();
 }
@@ -144,12 +147,16 @@ int main(int argc, char *argv[]) {
       });
 
   // (3) Create stubs and call-through managers:
-  auto EPCIU = ExitOnErr(EPCIndirectionUtils::Create(J->getExecutionSession()));
-  ExitOnErr(EPCIU->writeResolverBlock(ExecutorAddr::fromPtr(&reenter),
-                                      ExecutorAddr::fromPtr(EPCIU.get())));
+  auto EPCIU = ExitOnErr(EPCIndirectionUtils::Create(
+      J->getExecutionSession().getExecutorProcessControl()));
+  ExitOnErr(EPCIU->writeResolverBlock(pointerToJITTargetAddress(&reenter),
+                                      pointerToJITTargetAddress(EPCIU.get())));
   EPCIU->createLazyCallThroughManager(
-      J->getExecutionSession(), ExecutorAddr::fromPtr(&reportErrorAndExit));
+      J->getExecutionSession(), pointerToJITTargetAddress(&reportErrorAndExit));
   auto ISM = EPCIU->createIndirectStubsManager();
+  J->getMainJITDylib().addGenerator(
+      ExitOnErr(EPCDynamicLibrarySearchGenerator::GetForTargetProcess(
+          J->getExecutionSession())));
 
   // (4) Add modules.
   ExitOnErr(J->addIRModule(ExitOnErr(parseExampleModule(FooMod, "foo-mod"))));

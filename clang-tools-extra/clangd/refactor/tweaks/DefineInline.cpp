@@ -32,13 +32,14 @@
 #include "clang/Tooling/Core/Replacement.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstddef>
-#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -52,14 +53,14 @@ namespace {
 // Returns semicolon location for the given FD. Since AST doesn't contain that
 // information, searches for a semicolon by lexing from end of function decl
 // while skipping comments.
-std::optional<SourceLocation> getSemicolonForDecl(const FunctionDecl *FD) {
+llvm::Optional<SourceLocation> getSemicolonForDecl(const FunctionDecl *FD) {
   const SourceManager &SM = FD->getASTContext().getSourceManager();
   const LangOptions &LangOpts = FD->getASTContext().getLangOpts();
 
   SourceLocation CurLoc = FD->getEndLoc();
   auto NextTok = Lexer::findNextToken(CurLoc, SM, LangOpts);
   if (!NextTok || !NextTok->is(tok::semi))
-    return std::nullopt;
+    return llvm::None;
   return NextTok->getLocation();
 }
 
@@ -348,21 +349,21 @@ const SourceLocation getBeginLoc(const FunctionDecl *FD) {
   return FD->getBeginLoc();
 }
 
-std::optional<tooling::Replacement>
+llvm::Optional<tooling::Replacement>
 addInlineIfInHeader(const FunctionDecl *FD) {
   // This includes inline functions and constexpr functions.
   if (FD->isInlined() || llvm::isa<CXXMethodDecl>(FD))
-    return std::nullopt;
+    return llvm::None;
   // Primary template doesn't need inline.
   if (FD->isTemplated() && !FD->isFunctionTemplateSpecialization())
-    return std::nullopt;
+    return llvm::None;
 
   const SourceManager &SM = FD->getASTContext().getSourceManager();
   llvm::StringRef FileName = SM.getFilename(FD->getLocation());
 
   // If it is not a header we don't need to mark function as "inline".
   if (!isHeaderFile(FileName, FD->getASTContext().getLangOpts()))
-    return std::nullopt;
+    return llvm::None;
 
   return tooling::Replacement(SM, FD->getInnerLocStart(), 0, "inline ");
 }

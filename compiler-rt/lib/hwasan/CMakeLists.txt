@@ -164,8 +164,6 @@ function(add_hwasan_runtimes arch use_aliases)
                 RTSanitizerCommonLibc
                 RTSanitizerCommonCoverage
                 RTSanitizerCommonSymbolizer
-                RTSanitizerCommonSymbolizerInternal
-                RTLSanCommon
                 RTUbsan
     CFLAGS ${hwasan_rtl_flags}
     PARENT_TARGET hwasan)
@@ -202,8 +200,6 @@ function(add_hwasan_runtimes arch use_aliases)
             RTSanitizerCommonLibc
             RTSanitizerCommonCoverage
             RTSanitizerCommonSymbolizer
-            RTSanitizerCommonSymbolizerInternal
-            RTLSanCommon
             RTUbsan
             RTUbsan_cxx
             # The only purpose of RTHWAsan_dynamic_version_script_dummy is to

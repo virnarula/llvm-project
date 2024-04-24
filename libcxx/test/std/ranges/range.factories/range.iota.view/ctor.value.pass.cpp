@@ -10,9 +10,8 @@
 
 // constexpr explicit iota_view(W value);
 
-#include <cassert>
 #include <ranges>
-#include <type_traits>
+#include <cassert>
 
 #include "test_macros.h"
 #include "types.h"

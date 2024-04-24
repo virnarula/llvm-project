@@ -99,8 +99,7 @@ public:
     case Opcode::eType8:
       return m_data.inst8;
     case Opcode::eType16:
-      return GetEndianSwap() ? llvm::byteswap<uint16_t>(m_data.inst16)
-                             : m_data.inst16;
+      return GetEndianSwap() ? llvm::ByteSwap_16(m_data.inst16) : m_data.inst16;
     case Opcode::eType16_2:
       break;
     case Opcode::eType32:
@@ -120,12 +119,10 @@ public:
     case Opcode::eType8:
       return m_data.inst8;
     case Opcode::eType16:
-      return GetEndianSwap() ? llvm::byteswap<uint16_t>(m_data.inst16)
-                             : m_data.inst16;
+      return GetEndianSwap() ? llvm::ByteSwap_16(m_data.inst16) : m_data.inst16;
     case Opcode::eType16_2: // passthrough
     case Opcode::eType32:
-      return GetEndianSwap() ? llvm::byteswap<uint32_t>(m_data.inst32)
-                             : m_data.inst32;
+      return GetEndianSwap() ? llvm::ByteSwap_32(m_data.inst32) : m_data.inst32;
     case Opcode::eType64:
       break;
     case Opcode::eTypeBytes:
@@ -141,15 +138,12 @@ public:
     case Opcode::eType8:
       return m_data.inst8;
     case Opcode::eType16:
-      return GetEndianSwap() ? llvm::byteswap<uint16_t>(m_data.inst16)
-                             : m_data.inst16;
+      return GetEndianSwap() ? llvm::ByteSwap_16(m_data.inst16) : m_data.inst16;
     case Opcode::eType16_2: // passthrough
     case Opcode::eType32:
-      return GetEndianSwap() ? llvm::byteswap<uint32_t>(m_data.inst32)
-                             : m_data.inst32;
+      return GetEndianSwap() ? llvm::ByteSwap_32(m_data.inst32) : m_data.inst32;
     case Opcode::eType64:
-      return GetEndianSwap() ? llvm::byteswap<uint64_t>(m_data.inst64)
-                             : m_data.inst64;
+      return GetEndianSwap() ? llvm::ByteSwap_64(m_data.inst64) : m_data.inst64;
     case Opcode::eTypeBytes:
       break;
     }

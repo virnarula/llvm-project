@@ -19,7 +19,6 @@ class CFGSCCPrinterPass : public PassInfoMixin<CFGSCCPrinterPass> {
 public:
   explicit CFGSCCPrinterPass(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-  static bool isRequired() { return true; }
 };
 } // namespace llvm
 

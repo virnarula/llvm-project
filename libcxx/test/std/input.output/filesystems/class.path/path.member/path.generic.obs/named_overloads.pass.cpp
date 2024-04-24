@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // These tests require locale for non-char paths
 // UNSUPPORTED: no-localization
@@ -22,17 +21,16 @@
 // std::u16string generic_u16string() const;
 // std::u32string generic_u32string() const;
 
-#include <filesystem>
-#include <cassert>
-#include <string>
-#include <type_traits>
 
-#include "count_new.h"
-#include "make_string.h"
-#include "min_allocator.h"
-#include "test_iterators.h"
+#include "filesystem_include.h"
+#include <type_traits>
+#include <cassert>
+
 #include "test_macros.h"
-namespace fs = std::filesystem;
+#include "test_iterators.h"
+#include "count_new.h"
+#include "min_allocator.h"
+#include "filesystem_test_helper.h"
 
 MultiStringType input = MKSTR("c:\\foo\\bar");
 #ifdef _WIN32

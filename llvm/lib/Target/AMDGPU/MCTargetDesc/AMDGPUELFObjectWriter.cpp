@@ -18,7 +18,8 @@ namespace {
 
 class AMDGPUELFObjectWriter : public MCELFObjectTargetWriter {
 public:
-  AMDGPUELFObjectWriter(bool Is64Bit, uint8_t OSABI, bool HasRelocationAddend);
+  AMDGPUELFObjectWriter(bool Is64Bit, uint8_t OSABI, bool HasRelocationAddend,
+                        uint8_t ABIVersion);
 
 protected:
   unsigned getRelocType(MCContext &Ctx, const MCValue &Target,
@@ -28,10 +29,12 @@ protected:
 
 } // end anonymous namespace
 
-AMDGPUELFObjectWriter::AMDGPUELFObjectWriter(bool Is64Bit, uint8_t OSABI,
-                                             bool HasRelocationAddend)
-    : MCELFObjectTargetWriter(Is64Bit, OSABI, ELF::EM_AMDGPU,
-                              HasRelocationAddend) {}
+AMDGPUELFObjectWriter::AMDGPUELFObjectWriter(bool Is64Bit,
+                                             uint8_t OSABI,
+                                             bool HasRelocationAddend,
+                                             uint8_t ABIVersion)
+  : MCELFObjectTargetWriter(Is64Bit, OSABI, ELF::EM_AMDGPU,
+                            HasRelocationAddend, ABIVersion) {}
 
 unsigned AMDGPUELFObjectWriter::getRelocType(MCContext &Ctx,
                                              const MCValue &Target,
@@ -60,10 +63,6 @@ unsigned AMDGPUELFObjectWriter::getRelocType(MCContext &Ctx,
     return ELF::R_AMDGPU_REL32_HI;
   case MCSymbolRefExpr::VK_AMDGPU_REL64:
     return ELF::R_AMDGPU_REL64;
-  case MCSymbolRefExpr::VK_AMDGPU_ABS32_LO:
-    return ELF::R_AMDGPU_ABS32_LO;
-  case MCSymbolRefExpr::VK_AMDGPU_ABS32_HI:
-    return ELF::R_AMDGPU_ABS32_HI;
   }
 
   MCFixupKind Kind = Fixup.getKind();
@@ -75,9 +74,9 @@ unsigned AMDGPUELFObjectWriter::getRelocType(MCContext &Ctx,
     return ELF::R_AMDGPU_REL32;
   case FK_Data_4:
   case FK_SecRel_4:
-    return IsPCRel ? ELF::R_AMDGPU_REL32 : ELF::R_AMDGPU_ABS32;
+    return ELF::R_AMDGPU_ABS32;
   case FK_Data_8:
-    return IsPCRel ? ELF::R_AMDGPU_REL64 : ELF::R_AMDGPU_ABS64;
+    return ELF::R_AMDGPU_ABS64;
   }
 
   if (Fixup.getTargetKind() == AMDGPU::fixup_si_sopp_br) {
@@ -97,7 +96,9 @@ unsigned AMDGPUELFObjectWriter::getRelocType(MCContext &Ctx,
 
 std::unique_ptr<MCObjectTargetWriter>
 llvm::createAMDGPUELFObjectWriter(bool Is64Bit, uint8_t OSABI,
-                                  bool HasRelocationAddend) {
+                                  bool HasRelocationAddend,
+                                  uint8_t ABIVersion) {
   return std::make_unique<AMDGPUELFObjectWriter>(Is64Bit, OSABI,
-                                                 HasRelocationAddend);
+                                                  HasRelocationAddend,
+                                                  ABIVersion);
 }

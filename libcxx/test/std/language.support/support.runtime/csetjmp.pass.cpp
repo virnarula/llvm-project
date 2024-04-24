@@ -6,34 +6,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-// MSVC warning C4611: interaction between '_setjmp' and C++ object destruction is non-portable
-// ADDITIONAL_COMPILE_FLAGS(cl-style-warnings): /wd4611
-
 // test <csetjmp>
 
 #include <csetjmp>
-#include <cassert>
 #include <type_traits>
 
-int main(int, char**) {
-  std::jmp_buf jb;
+#include "test_macros.h"
 
-  switch (setjmp(jb)) {
-  // First time we set the buffer, the function should return 0
-  case 0:
-    break;
+#ifndef setjmp
+#error setjmp not defined
+#endif
 
-  // If it returned 42, then we're coming from the std::longjmp call below
-  case 42:
-    return 0;
+int main(int, char**)
+{
+    std::jmp_buf jb;
+    ((void)jb); // Prevent unused warning
+    static_assert((std::is_same<decltype(std::longjmp(jb, 0)), void>::value),
+                  "std::is_same<decltype(std::longjmp(jb, 0)), void>::value");
 
-  // Otherwise, something is wrong
-  default:
-    return 1;
-  }
-
-  std::longjmp(jb, 42);
-  static_assert(std::is_same<decltype(std::longjmp(jb, 0)), void>::value, "");
-
-  return 1;
+  return 0;
 }

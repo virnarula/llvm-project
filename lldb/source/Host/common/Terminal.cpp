@@ -14,7 +14,6 @@
 
 #include <csignal>
 #include <fcntl.h>
-#include <optional>
 
 #if LLDB_ENABLE_TERMIOS
 #include <termios.h>
@@ -126,7 +125,7 @@ llvm::Error Terminal::SetRaw() {
 }
 
 #if LLDB_ENABLE_TERMIOS
-static std::optional<speed_t> baudRateToConst(unsigned int baud_rate) {
+static llvm::Optional<speed_t> baudRateToConst(unsigned int baud_rate) {
   switch (baud_rate) {
 #if defined(B50)
   case 50:
@@ -265,7 +264,7 @@ static std::optional<speed_t> baudRateToConst(unsigned int baud_rate) {
     return B4000000;
 #endif
   default:
-    return std::nullopt;
+    return llvm::None;
   }
 }
 #endif
@@ -277,16 +276,16 @@ llvm::Error Terminal::SetBaudRate(unsigned int baud_rate) {
     return data.takeError();
 
   struct termios &fd_termios = data->m_termios;
-  std::optional<speed_t> val = baudRateToConst(baud_rate);
+  llvm::Optional<speed_t> val = baudRateToConst(baud_rate);
   if (!val) // invalid value
     return llvm::createStringError(llvm::inconvertibleErrorCode(),
                                    "baud rate %d unsupported by the platform",
                                    baud_rate);
-  if (::cfsetispeed(&fd_termios, *val) != 0)
+  if (::cfsetispeed(&fd_termios, val.value()) != 0)
     return llvm::createStringError(
         std::error_code(errno, std::generic_category()),
         "setting input baud rate failed");
-  if (::cfsetospeed(&fd_termios, *val) != 0)
+  if (::cfsetospeed(&fd_termios, val.value()) != 0)
     return llvm::createStringError(
         std::error_code(errno, std::generic_category()),
         "setting output baud rate failed");

@@ -3,8 +3,8 @@ target triple = "x86_64-pc-windows-msvc19.0.24215"
 
 define void @main() {
 entry:
-  call ptr @lwt_fun()
+  call i8* @lwt_fun()
   ret void
 }
 
-declare ptr @lwt_fun()
+declare i8* @lwt_fun()

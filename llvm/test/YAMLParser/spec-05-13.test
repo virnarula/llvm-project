@@ -1,5 +1,4 @@
-# RUN: yaml-bench -canonical %s | FileCheck %s --strict-whitespace
-# CHECK: "Text containing both space and tab\tcharacters"
+# RUN: yaml-bench -canonical %s
 
   "Text containing   
   both space and	

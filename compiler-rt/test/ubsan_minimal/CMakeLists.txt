@@ -7,7 +7,9 @@ endif()
 
 set(UBSAN_TESTSUITES)
 set(UBSAN_TEST_DEPS ${SANITIZER_COMMON_LIT_TEST_DEPS})
-list(APPEND UBSAN_TEST_DEPS ubsan-minimal)
+if(NOT COMPILER_RT_STANDALONE_BUILD)
+  list(APPEND UBSAN_TEST_DEPS ubsan-minimal)
+endif()
 
 foreach(arch ${UBSAN_TEST_ARCH})
   get_test_cc_for_arch(${arch} UBSAN_TEST_TARGET_CC UBSAN_TEST_TARGET_CFLAGS)

@@ -13,7 +13,12 @@ define double @fabs(double %f) {
 define float @bitcast_fabs(float %x) {
 ; CHECK-LABEL: bitcast_fabs:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT: fabs f1, f1
+; CHECK:         stfs f1, 8(r1)
+; CHECK:         lwz r3, 8(r1)
+; CHECK-NEXT:    clrlwi r3, r3, 1
+; CHECK-NEXT:    stw r3, 12(r1)
+; CHECK-NEXT:    lfs f1, 12(r1)
+; CHECK-NEXT:    addi r1, r1, 16
 ; CHECK-NEXT:    blr
 ;
   %bc1 = bitcast float %x to i32

@@ -11,7 +11,9 @@
 
 #include "clang/AST/Decl.h"
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 /// Returns whether \p Var has a pointer or reference in \p Func.
 ///
@@ -27,6 +29,8 @@ namespace clang::tidy::utils {
 
 bool hasPtrOrReferenceInFunc(const Decl *Func, const VarDecl *Var);
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_UTILS_ALIASING_H

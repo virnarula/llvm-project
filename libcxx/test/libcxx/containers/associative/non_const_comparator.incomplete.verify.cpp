@@ -17,6 +17,9 @@
 #include <map>
 #include <functional>
 
+#include "test_macros.h"
+
+
 template <template <typename ...> class Container>
 void test_set() {
   struct KeyBase { };
@@ -45,10 +48,12 @@ void test_map() {
   C c;
 }
 
-void f() {
+int main(int, char**) {
   // expected-no-diagnostics
   test_set<std::set>();
   test_set<std::multiset>();
   test_map<std::map>();
   test_map<std::multimap>();
+
+  return 0;
 }

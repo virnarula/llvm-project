@@ -62,7 +62,7 @@ bool SlotIndexes::runOnMachineFunction(MachineFunction &fn) {
 
   mf = &fn;
 
-  // Check that the list contains only the sentinel.
+  // Check that the list contains only the sentinal.
   assert(indexList.empty() && "Index list non-empty at initial numbering?");
   assert(idx2MBBMap.empty() &&
          "Index -> MBB mapping non-empty at initial numbering?");
@@ -215,7 +215,7 @@ void SlotIndexes::repairIndexesInRange(MachineBasicBlock *MBB,
         --MBBI;
       else
         pastStart = true;
-    } else if (MI && !mi2iMap.contains(MI)) {
+    } else if (MI && mi2iMap.find(MI) == mi2iMap.end()) {
       if (MBBI != Begin)
         --MBBI;
       else
@@ -232,14 +232,9 @@ void SlotIndexes::repairIndexesInRange(MachineBasicBlock *MBB,
   for (MachineBasicBlock::iterator I = End; I != Begin;) {
     --I;
     MachineInstr &MI = *I;
-    if (!MI.isDebugOrPseudoInstr() && !mi2iMap.contains(&MI))
+    if (!MI.isDebugOrPseudoInstr() && mi2iMap.find(&MI) == mi2iMap.end())
       insertMachineInstrInMaps(MI);
   }
-}
-
-void SlotIndexes::packIndexes() {
-  for (auto [Index, Entry] : enumerate(indexList))
-    Entry.setIndex(Index * SlotIndex::InstrDist);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

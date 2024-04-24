@@ -9,7 +9,6 @@
 #include <cstdio>
 #include <deque>
 #include <cassert>
-#include <inttypes.h>
 
 #include <__threading_support>
 
@@ -25,14 +24,9 @@
 
 typedef std::deque<void *> container;
 
-TEST_DIAGNOSTIC_PUSH
-TEST_CLANG_DIAGNOSTIC_IGNORED("-Wprivate-header")
-#define _LIBCXXABI_ASSERT(expr, msg) assert((expr) && (msg))
-
 // #define  DEBUG_FALLBACK_MALLOC
 #define INSTRUMENT_FALLBACK_MALLOC
 #include "../src/fallback_malloc.cpp"
-TEST_DIAGNOSTIC_POP
 
 void assertAlignment(void* ptr) { assert(reinterpret_cast<size_t>(ptr) % alignof(FallbackMaxAlignType) == 0); }
 
@@ -195,11 +189,11 @@ int main () {
     print_free_list ();
 
     char *p = (char *) fallback_malloc ( 1024 );    // too big!
-    std::printf("fallback_malloc ( 1024 ) --> %" PRIuPTR"\n", (uintptr_t) p);
+    std::printf("fallback_malloc ( 1024 ) --> %lu\n", (unsigned long ) p);
     print_free_list ();
 
     p = (char *) fallback_malloc ( 32 );
-    std::printf("fallback_malloc ( 32 ) --> %" PRIuPTR"\n", (uintptr_t) (p - heap));
+    std::printf("fallback_malloc ( 32 ) --> %lu\n", (unsigned long) (p - heap));
     if ( !is_fallback_ptr ( p ))
         std::printf("### p is not a fallback pointer!!\n");
 

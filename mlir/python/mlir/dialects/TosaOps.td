@@ -9,6 +9,7 @@
 #ifndef PYTHON_BINDINGS_TOSA_OPS
 #define PYTHON_BINDINGS_TOSA_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/Tosa/IR/TosaOps.td"
 
 #endif

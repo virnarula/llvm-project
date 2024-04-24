@@ -11,10 +11,10 @@
 
 #include <sys/utsname.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int uname(struct utsname *name);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SYS_UTSNAME_UNAME_H

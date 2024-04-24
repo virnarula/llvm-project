@@ -11,13 +11,15 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 /// Checks the string pattern used as a date format specifier and reports
 /// warnings if it contains any incorrect sub-pattern.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/objc/nsdate-formatter.html
+/// http://clang.llvm.org/extra/clang-tidy/checks/objc-NSDateFormatter.html
 class NSDateFormatterCheck : public ClangTidyCheck {
 public:
   NSDateFormatterCheck(StringRef Name, ClangTidyContext *Context)
@@ -29,6 +31,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::objc
+} // namespace objc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_OBJC_NSDATEFORMATTERCHECK_H

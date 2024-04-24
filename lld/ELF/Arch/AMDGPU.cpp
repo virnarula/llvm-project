@@ -34,7 +34,6 @@ public:
   RelExpr getRelExpr(RelType type, const Symbol &s,
                      const uint8_t *loc) const override;
   RelType getDynRel(RelType type) const override;
-  int64_t getImplicitAddend(const uint8_t *buf, RelType type) const override;
 };
 } // namespace
 
@@ -52,7 +51,7 @@ uint32_t AMDGPU::calcEFlagsV3() const {
   uint32_t ret = getEFlags(ctx.objectFiles[0]);
 
   // Verify that all input files have the same e_flags.
-  for (InputFile *f : ArrayRef(ctx.objectFiles).slice(1)) {
+  for (InputFile *f : makeArrayRef(ctx.objectFiles).slice(1)) {
     if (ret == getEFlags(f))
       continue;
     error("incompatible e_flags: " + toString(f));
@@ -70,7 +69,7 @@ uint32_t AMDGPU::calcEFlagsV4() const {
 
   // Verify that all input files have compatible e_flags (same mach, all
   // features in the same category are either ANY, ANY and ON, or ANY and OFF).
-  for (InputFile *f : ArrayRef(ctx.objectFiles).slice(1)) {
+  for (InputFile *f : makeArrayRef(ctx.objectFiles).slice(1)) {
     if (retMach != (getEFlags(f) & EF_AMDGPU_MACH)) {
       error("incompatible mach: " + toString(f));
       return 0;
@@ -182,20 +181,6 @@ RelType AMDGPU::getDynRel(RelType type) const {
   if (type == R_AMDGPU_ABS64)
     return type;
   return R_AMDGPU_NONE;
-}
-
-int64_t AMDGPU::getImplicitAddend(const uint8_t *buf, RelType type) const {
-  switch (type) {
-  case R_AMDGPU_NONE:
-    return 0;
-  case R_AMDGPU_ABS64:
-  case R_AMDGPU_RELATIVE64:
-    return read64(buf);
-  default:
-    internalLinkerError(getErrorLocation(buf),
-                        "cannot read addend for relocation " + toString(type));
-    return 0;
-  }
 }
 
 TargetInfo *elf::getAMDGPUTargetInfo() {

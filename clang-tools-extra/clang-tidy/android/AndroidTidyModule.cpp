@@ -27,7 +27,8 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace android {
 
 /// This module is for Android specific checks.
@@ -68,4 +69,5 @@ static ClangTidyModuleRegistry::Add<AndroidModule>
 // and thus register the AndroidModule.
 volatile int AndroidModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

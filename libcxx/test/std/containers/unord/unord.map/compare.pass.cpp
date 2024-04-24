@@ -30,7 +30,7 @@ namespace std
     template <>
     struct hash<Key>
     {
-        std::size_t operator()(Key const &) const {return 0;}
+        size_t operator()(Key const &) const {return 0;}
     };
 }
 

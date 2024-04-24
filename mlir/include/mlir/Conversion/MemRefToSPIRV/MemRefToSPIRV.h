@@ -23,25 +23,21 @@ class SPIRVTypeConverter;
 namespace spirv {
 /// Mapping from numeric MemRef memory spaces into SPIR-V symbolic ones.
 using MemorySpaceToStorageClassMap =
-    std::function<std::optional<spirv::StorageClass>(Attribute)>;
+    std::function<Optional<spirv::StorageClass>(unsigned)>;
 
 /// Maps MemRef memory spaces to storage classes for Vulkan-flavored SPIR-V
-/// using the default rule. Returns std::nullopt if the memory space is unknown.
-std::optional<spirv::StorageClass>
-    mapMemorySpaceToVulkanStorageClass(Attribute);
+/// using the default rule. Returns None if the memory space is unknown.
+Optional<spirv::StorageClass> mapMemorySpaceToVulkanStorageClass(unsigned);
 /// Maps storage classes for Vulkan-flavored SPIR-V to MemRef memory spaces
-/// using the default rule. Returns std::nullopt if the storage class is
-/// unsupported.
-std::optional<unsigned> mapVulkanStorageClassToMemorySpace(spirv::StorageClass);
+/// using the default rule. Returns None if the storage class is unsupported.
+Optional<unsigned> mapVulkanStorageClassToMemorySpace(spirv::StorageClass);
 
 /// Maps MemRef memory spaces to storage classes for OpenCL-flavored SPIR-V
-/// using the default rule. Returns std::nullopt if the memory space is unknown.
-std::optional<spirv::StorageClass>
-    mapMemorySpaceToOpenCLStorageClass(Attribute);
+/// using the default rule. Returns None if the memory space is unknown.
+Optional<spirv::StorageClass> mapMemorySpaceToOpenCLStorageClass(unsigned);
 /// Maps storage classes for OpenCL-flavored SPIR-V to MemRef memory spaces
-/// using the default rule. Returns std::nullopt if the storage class is
-/// unsupported.
-std::optional<unsigned> mapOpenCLStorageClassToMemorySpace(spirv::StorageClass);
+/// using the default rule. Returns None if the storage class is unsupported.
+Optional<unsigned> mapOpenCLStorageClassToMemorySpace(spirv::StorageClass);
 
 /// Type converter for converting numeric MemRef memory spaces into SPIR-V
 /// symbolic ones.

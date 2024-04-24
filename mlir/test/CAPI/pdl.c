@@ -325,7 +325,7 @@ void testValueType(MlirContext ctx) {
   fprintf(stderr, "\n\n");
 }
 
-int main(void) {
+int main() {
   MlirContext ctx = mlirContextCreate();
   mlirDialectHandleRegisterDialect(mlirGetDialectHandle__pdl__(), ctx);
   testAttributeType(ctx);
@@ -333,6 +333,5 @@ int main(void) {
   testRangeType(ctx);
   testTypeType(ctx);
   testValueType(ctx);
-  mlirContextDestroy(ctx);
   return EXIT_SUCCESS;
 }

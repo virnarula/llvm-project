@@ -74,16 +74,16 @@
 #define LLVM_USE_PERF 0
 
 /* Major version of the LLVM API */
-/* #undef LLVM_VERSION_MAJOR */
+#define LLVM_VERSION_MAJOR 16
 
 /* Minor version of the LLVM API */
-/* #undef LLVM_VERSION_MINOR */
+#define LLVM_VERSION_MINOR 0
 
 /* Patch version of the LLVM API */
-/* #undef LLVM_VERSION_PATCH */
+#define LLVM_VERSION_PATCH 0
 
 /* LLVM version string */
-/* #undef LLVM_VERSION_STRING */
+#define LLVM_VERSION_STRING "16.0.0git"
 
 /* Whether LLVM records statistics for use with GetStatistics(),
  * PrintStatistics() or PrintStatisticsJSON()
@@ -98,6 +98,9 @@
 
 /* Define if we have cpp-httplib and want to use it */
 /* #undef LLVM_ENABLE_HTTPLIB */
+
+/* Define if LLVM was built with a dependency to the libtensorflow dynamic library */
+/* #undef LLVM_HAVE_TF_API */
 
 /* Define if LLVM was built with a dependency to the tensorflow compiler */
 /* #undef LLVM_HAVE_TF_AOT */

@@ -30,8 +30,9 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS32-EL-NEXT:    addu $1, $2, $25
 ; MIPS32-EL-NEXT:    lw $1, %got(si)($1)
 ; MIPS32-EL-NEXT:    lwl $2, 3($1)
-; MIPS32-EL-NEXT:    jr $ra
 ; MIPS32-EL-NEXT:    lwr $2, 0($1)
+; MIPS32-EL-NEXT:    jr $ra
+; MIPS32-EL-NEXT:    nop
 ;
 ; MIPS32-EB-LABEL: load_SI:
 ; MIPS32-EB:       # %bb.0: # %entry
@@ -40,8 +41,9 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS32-EB-NEXT:    addu $1, $2, $25
 ; MIPS32-EB-NEXT:    lw $1, %got(si)($1)
 ; MIPS32-EB-NEXT:    lwl $2, 0($1)
-; MIPS32-EB-NEXT:    jr $ra
 ; MIPS32-EB-NEXT:    lwr $2, 3($1)
+; MIPS32-EB-NEXT:    jr $ra
+; MIPS32-EB-NEXT:    nop
 ;
 ; MIPS32R6-LABEL: load_SI:
 ; MIPS32R6:       # %bb.0: # %entry
@@ -49,8 +51,8 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS32R6-NEXT:    addiu $2, $2, %lo(_gp_disp)
 ; MIPS32R6-NEXT:    addu $1, $2, $25
 ; MIPS32R6-NEXT:    lw $1, %got(si)($1)
-; MIPS32R6-NEXT:    jr $ra
 ; MIPS32R6-NEXT:    lw $2, 0($1)
+; MIPS32R6-NEXT:    jrc $ra
 ;
 ; MIPS64-EL-LABEL: load_SI:
 ; MIPS64-EL:       # %bb.0: # %entry
@@ -59,8 +61,9 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS64-EL-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI)))
 ; MIPS64-EL-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64-EL-NEXT:    lwl $2, 3($1)
-; MIPS64-EL-NEXT:    jr $ra
 ; MIPS64-EL-NEXT:    lwr $2, 0($1)
+; MIPS64-EL-NEXT:    jr $ra
+; MIPS64-EL-NEXT:    nop
 ;
 ; MIPS64-EB-LABEL: load_SI:
 ; MIPS64-EB:       # %bb.0: # %entry
@@ -69,8 +72,9 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS64-EB-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI)))
 ; MIPS64-EB-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64-EB-NEXT:    lwl $2, 0($1)
-; MIPS64-EB-NEXT:    jr $ra
 ; MIPS64-EB-NEXT:    lwr $2, 3($1)
+; MIPS64-EB-NEXT:    jr $ra
+; MIPS64-EB-NEXT:    nop
 ;
 ; MIPS64R2-EL-LABEL: load_SI:
 ; MIPS64R2-EL:       # %bb.0: # %entry
@@ -79,8 +83,9 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS64R2-EL-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI)))
 ; MIPS64R2-EL-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64R2-EL-NEXT:    lwl $2, 3($1)
-; MIPS64R2-EL-NEXT:    jr $ra
 ; MIPS64R2-EL-NEXT:    lwr $2, 0($1)
+; MIPS64R2-EL-NEXT:    jr $ra
+; MIPS64R2-EL-NEXT:    nop
 ;
 ; MIPS64R2-EB-LABEL: load_SI:
 ; MIPS64R2-EB:       # %bb.0: # %entry
@@ -89,8 +94,9 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS64R2-EB-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI)))
 ; MIPS64R2-EB-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64R2-EB-NEXT:    lwl $2, 0($1)
-; MIPS64R2-EB-NEXT:    jr $ra
 ; MIPS64R2-EB-NEXT:    lwr $2, 3($1)
+; MIPS64R2-EB-NEXT:    jr $ra
+; MIPS64R2-EB-NEXT:    nop
 ;
 ; MIPS64R6-LABEL: load_SI:
 ; MIPS64R6:       # %bb.0: # %entry
@@ -98,10 +104,10 @@ define i32 @load_SI() nounwind readonly {
 ; MIPS64R6-NEXT:    daddu $1, $1, $25
 ; MIPS64R6-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI)))
 ; MIPS64R6-NEXT:    ld $1, %got_disp(si)($1)
-; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    lw $2, 0($1)
+; MIPS64R6-NEXT:    jrc $ra
 entry:
-  %0 = load i32, ptr @si, align 1
+  %0 = load i32, i32* getelementptr inbounds (%struct.SI, %struct.SI* @si, i32 0, i32 0), align 1
   ret i32 %0
 }
 
@@ -184,7 +190,7 @@ define void @store_SI(i32 signext %a) nounwind {
 ; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    sw $4, 0($1)
 entry:
-  store i32 %a, ptr @si, align 1
+  store i32 %a, i32* getelementptr inbounds (%struct.SI, %struct.SI* @si, i32 0, i32 0), align 1
   ret void
 }
 
@@ -198,8 +204,9 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS32-EL-NEXT:    lwl $2, 3($1)
 ; MIPS32-EL-NEXT:    lwr $2, 0($1)
 ; MIPS32-EL-NEXT:    lwl $3, 7($1)
-; MIPS32-EL-NEXT:    jr $ra
 ; MIPS32-EL-NEXT:    lwr $3, 4($1)
+; MIPS32-EL-NEXT:    jr $ra
+; MIPS32-EL-NEXT:    nop
 ;
 ; MIPS32-EB-LABEL: load_SLL:
 ; MIPS32-EB:       # %bb.0: # %entry
@@ -210,8 +217,9 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS32-EB-NEXT:    lwl $2, 0($1)
 ; MIPS32-EB-NEXT:    lwr $2, 3($1)
 ; MIPS32-EB-NEXT:    lwl $3, 4($1)
-; MIPS32-EB-NEXT:    jr $ra
 ; MIPS32-EB-NEXT:    lwr $3, 7($1)
+; MIPS32-EB-NEXT:    jr $ra
+; MIPS32-EB-NEXT:    nop
 ;
 ; MIPS32R6-LABEL: load_SLL:
 ; MIPS32R6:       # %bb.0: # %entry
@@ -220,8 +228,8 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS32R6-NEXT:    addu $1, $2, $25
 ; MIPS32R6-NEXT:    lw $1, %got(sll)($1)
 ; MIPS32R6-NEXT:    lw $2, 0($1)
-; MIPS32R6-NEXT:    jr $ra
 ; MIPS32R6-NEXT:    lw $3, 4($1)
+; MIPS32R6-NEXT:    jrc $ra
 ;
 ; MIPS64-EL-LABEL: load_SLL:
 ; MIPS64-EL:       # %bb.0: # %entry
@@ -230,8 +238,9 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS64-EL-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SLL)))
 ; MIPS64-EL-NEXT:    ld $1, %got_disp(sll)($1)
 ; MIPS64-EL-NEXT:    ldl $2, 7($1)
-; MIPS64-EL-NEXT:    jr $ra
 ; MIPS64-EL-NEXT:    ldr $2, 0($1)
+; MIPS64-EL-NEXT:    jr $ra
+; MIPS64-EL-NEXT:    nop
 ;
 ; MIPS64-EB-LABEL: load_SLL:
 ; MIPS64-EB:       # %bb.0: # %entry
@@ -240,8 +249,9 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS64-EB-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SLL)))
 ; MIPS64-EB-NEXT:    ld $1, %got_disp(sll)($1)
 ; MIPS64-EB-NEXT:    ldl $2, 0($1)
-; MIPS64-EB-NEXT:    jr $ra
 ; MIPS64-EB-NEXT:    ldr $2, 7($1)
+; MIPS64-EB-NEXT:    jr $ra
+; MIPS64-EB-NEXT:    nop
 ;
 ; MIPS64R2-EL-LABEL: load_SLL:
 ; MIPS64R2-EL:       # %bb.0: # %entry
@@ -250,8 +260,9 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS64R2-EL-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SLL)))
 ; MIPS64R2-EL-NEXT:    ld $1, %got_disp(sll)($1)
 ; MIPS64R2-EL-NEXT:    ldl $2, 7($1)
-; MIPS64R2-EL-NEXT:    jr $ra
 ; MIPS64R2-EL-NEXT:    ldr $2, 0($1)
+; MIPS64R2-EL-NEXT:    jr $ra
+; MIPS64R2-EL-NEXT:    nop
 ;
 ; MIPS64R2-EB-LABEL: load_SLL:
 ; MIPS64R2-EB:       # %bb.0: # %entry
@@ -260,8 +271,9 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS64R2-EB-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SLL)))
 ; MIPS64R2-EB-NEXT:    ld $1, %got_disp(sll)($1)
 ; MIPS64R2-EB-NEXT:    ldl $2, 0($1)
-; MIPS64R2-EB-NEXT:    jr $ra
 ; MIPS64R2-EB-NEXT:    ldr $2, 7($1)
+; MIPS64R2-EB-NEXT:    jr $ra
+; MIPS64R2-EB-NEXT:    nop
 ;
 ; MIPS64R6-LABEL: load_SLL:
 ; MIPS64R6:       # %bb.0: # %entry
@@ -269,10 +281,10 @@ define i64 @load_SLL() nounwind readonly {
 ; MIPS64R6-NEXT:    daddu $1, $1, $25
 ; MIPS64R6-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SLL)))
 ; MIPS64R6-NEXT:    ld $1, %got_disp(sll)($1)
-; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    ld $2, 0($1)
+; MIPS64R6-NEXT:    jrc $ra
 entry:
-  %0 = load i64, ptr @sll, align 1
+  %0 = load i64, i64* getelementptr inbounds (%struct.SLL, %struct.SLL* @sll, i64 0, i32 0), align 1
   ret i64 %0
 }
 
@@ -326,8 +338,9 @@ define i64 @load_SI_sext_to_i64() nounwind readonly {
 ; MIPS64-EL-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI_sext_to_i64)))
 ; MIPS64-EL-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64-EL-NEXT:    lwl $2, 3($1)
-; MIPS64-EL-NEXT:    jr $ra
 ; MIPS64-EL-NEXT:    lwr $2, 0($1)
+; MIPS64-EL-NEXT:    jr $ra
+; MIPS64-EL-NEXT:    nop
 ;
 ; MIPS64-EB-LABEL: load_SI_sext_to_i64:
 ; MIPS64-EB:       # %bb.0: # %entry
@@ -336,8 +349,9 @@ define i64 @load_SI_sext_to_i64() nounwind readonly {
 ; MIPS64-EB-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI_sext_to_i64)))
 ; MIPS64-EB-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64-EB-NEXT:    lwl $2, 0($1)
-; MIPS64-EB-NEXT:    jr $ra
 ; MIPS64-EB-NEXT:    lwr $2, 3($1)
+; MIPS64-EB-NEXT:    jr $ra
+; MIPS64-EB-NEXT:    nop
 ;
 ; MIPS64R2-EL-LABEL: load_SI_sext_to_i64:
 ; MIPS64R2-EL:       # %bb.0: # %entry
@@ -346,8 +360,9 @@ define i64 @load_SI_sext_to_i64() nounwind readonly {
 ; MIPS64R2-EL-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI_sext_to_i64)))
 ; MIPS64R2-EL-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64R2-EL-NEXT:    lwl $2, 3($1)
-; MIPS64R2-EL-NEXT:    jr $ra
 ; MIPS64R2-EL-NEXT:    lwr $2, 0($1)
+; MIPS64R2-EL-NEXT:    jr $ra
+; MIPS64R2-EL-NEXT:    nop
 ;
 ; MIPS64R2-EB-LABEL: load_SI_sext_to_i64:
 ; MIPS64R2-EB:       # %bb.0: # %entry
@@ -356,8 +371,9 @@ define i64 @load_SI_sext_to_i64() nounwind readonly {
 ; MIPS64R2-EB-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI_sext_to_i64)))
 ; MIPS64R2-EB-NEXT:    ld $1, %got_disp(si)($1)
 ; MIPS64R2-EB-NEXT:    lwl $2, 0($1)
-; MIPS64R2-EB-NEXT:    jr $ra
 ; MIPS64R2-EB-NEXT:    lwr $2, 3($1)
+; MIPS64R2-EB-NEXT:    jr $ra
+; MIPS64R2-EB-NEXT:    nop
 ;
 ; MIPS64R6-LABEL: load_SI_sext_to_i64:
 ; MIPS64R6:       # %bb.0: # %entry
@@ -365,10 +381,10 @@ define i64 @load_SI_sext_to_i64() nounwind readonly {
 ; MIPS64R6-NEXT:    daddu $1, $1, $25
 ; MIPS64R6-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_SI_sext_to_i64)))
 ; MIPS64R6-NEXT:    ld $1, %got_disp(si)($1)
-; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    lw $2, 0($1)
+; MIPS64R6-NEXT:    jrc $ra
 entry:
-  %0 = load i32, ptr @si, align 1
+  %0 = load i32, i32* getelementptr inbounds (%struct.SI, %struct.SI* @si, i64 0, i32 0), align 1
   %conv = sext i32 %0 to i64
   ret i64 %conv
 }
@@ -472,10 +488,10 @@ define i64 @load_UI() nounwind readonly {
 ; MIPS64R6-NEXT:    daddu $1, $1, $25
 ; MIPS64R6-NEXT:    daddiu $1, $1, %lo(%neg(%gp_rel(load_UI)))
 ; MIPS64R6-NEXT:    ld $1, %got_disp(sui)($1)
-; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    lwu $2, 0($1)
+; MIPS64R6-NEXT:    jrc $ra
 entry:
-  %0 = load i32, ptr @sui, align 1
+  %0 = load i32, i32* getelementptr inbounds (%struct.SUI, %struct.SUI* @sui, i64 0, i32 0), align 1
   %conv = zext i32 %0 to i64
   ret i64 %conv
 }
@@ -564,7 +580,7 @@ define void @store_SLL(i64 %a) nounwind {
 ; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    sd $4, 0($1)
 entry:
-  store i64 %a, ptr @sll, align 1
+  store i64 %a, i64* getelementptr inbounds (%struct.SLL, %struct.SLL* @sll, i64 0, i32 0), align 1
   ret void
 }
 
@@ -647,7 +663,7 @@ define void @store_SI_trunc_from_i64(i32 signext %a) nounwind {
 ; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    sw $4, 0($1)
 entry:
-  store i32 %a, ptr @si, align 1
+  store i32 %a, i32* getelementptr inbounds (%struct.SI, %struct.SI* @si, i64 0, i32 0), align 1
   ret void
 }
 
@@ -708,8 +724,8 @@ define void @copy_struct_S0() nounwind {
 ; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    sh $2, 2($1)
 entry:
-  %0 = load %struct.S0, ptr @struct_s0, align 1
-  store %struct.S0 %0, ptr getelementptr inbounds (%struct.S0, ptr @struct_s0, i32 1), align 1
+  %0 = load %struct.S0, %struct.S0* getelementptr inbounds (%struct.S0, %struct.S0* @struct_s0, i32 0), align 1
+  store %struct.S0 %0, %struct.S0* getelementptr inbounds (%struct.S0, %struct.S0* @struct_s0, i32 1), align 1
   ret void
 }
 
@@ -806,8 +822,8 @@ define void @copy_struct_S1() nounwind {
 ; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    sw $2, 4($1)
 entry:
-  %0 = load %struct.S1, ptr @struct_s1, align 1
-  store %struct.S1 %0, ptr getelementptr inbounds (%struct.S1, ptr @struct_s1, i32 1), align 1
+  %0 = load %struct.S1, %struct.S1* getelementptr inbounds (%struct.S1, %struct.S1* @struct_s1, i32 0), align 1
+  store %struct.S1 %0, %struct.S1* getelementptr inbounds (%struct.S1, %struct.S1* @struct_s1, i32 1), align 1
   ret void
 }
 
@@ -914,8 +930,8 @@ define void @copy_struct_S2() nounwind {
 ; MIPS64R6-NEXT:    jr $ra
 ; MIPS64R6-NEXT:    sd $2, 8($1)
 entry:
-  %0 = load %struct.S2, ptr @struct_s2, align 1
-  store %struct.S2 %0, ptr getelementptr inbounds (%struct.S2, ptr @struct_s2, i32 1), align 1
+  %0 = load %struct.S2, %struct.S2* getelementptr inbounds (%struct.S2, %struct.S2* @struct_s2, i32 0), align 1
+  store %struct.S2 %0, %struct.S2* getelementptr inbounds (%struct.S2, %struct.S2* @struct_s2, i32 1), align 1
   ret void
 }
 
@@ -1145,8 +1161,8 @@ define void @pass_array_byval() nounwind {
 ; MIPS64R2-EB-NEXT:    jr $ra
 ; MIPS64R2-EB-NEXT:    daddiu $sp, $sp, 16
 entry:
-  tail call void @extern_func(ptr byval([7 x i8]) @arr) nounwind
+  tail call void @extern_func([7 x i8]* byval([7 x i8]) @arr) nounwind
   ret void
 }
 
-declare void @extern_func(ptr byval([7 x i8]))
+declare void @extern_func([7 x i8]* byval([7 x i8]))

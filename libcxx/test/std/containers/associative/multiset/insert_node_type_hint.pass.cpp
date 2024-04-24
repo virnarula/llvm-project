@@ -36,7 +36,7 @@ void test(Container& c)
     {
         typename Container::node_type node = nf(i);
         assert(!node.empty());
-        std::size_t prev = c.size();
+        size_t prev = c.size();
         auto it = c.insert(c.end(), std::move(node));
         assert(prev + 1 == c.size());
         assert(*it == i);

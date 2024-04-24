@@ -49,7 +49,6 @@
 ---
 name: beans
 tracksRegLiveness: True
-debugInstrRef: true
 body: |
   bb.0:
     liveins: $edi

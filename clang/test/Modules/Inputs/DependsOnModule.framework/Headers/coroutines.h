@@ -1,3 +1,3 @@
-#ifndef __cpp_impl_coroutine
+#ifndef __cpp_coroutines
 #error coroutines must be enabled
 #endif

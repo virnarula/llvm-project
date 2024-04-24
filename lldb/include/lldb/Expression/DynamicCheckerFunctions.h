@@ -11,8 +11,6 @@
 
 #include "lldb/lldb-types.h"
 
-#include "llvm/Support/Error.h"
-
 namespace lldb_private {
 
 class DiagnosticManager;
@@ -48,10 +46,10 @@ public:
   ///     The execution context to install the functions into.
   ///
   /// \return
-  ///     Either llvm::ErrorSuccess or Error with llvm::ErrorInfo
-  ///
-  virtual llvm::Error Install(DiagnosticManager &diagnostic_manager,
-                              ExecutionContext &exe_ctx) = 0;
+  ///     True on success; false on failure, or if the functions have
+  ///     already been installed.
+  virtual bool Install(DiagnosticManager &diagnostic_manager,
+                       ExecutionContext &exe_ctx) = 0;
   virtual bool DoCheckersExplainStop(lldb::addr_t addr, Stream &message) = 0;
 
   DynamicCheckerFunctionsKind GetKind() const { return m_kind; }

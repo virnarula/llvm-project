@@ -10,7 +10,6 @@
 #define LLVM_DEBUGINFO_PDB_NATIVE_FORMATUTIL_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/Support/Endian.h"
@@ -35,7 +34,8 @@ namespace pdb {
     return Ret;
 
 template <typename T> std::string formatUnknownEnum(T Value) {
-  return formatv("unknown ({0})", llvm::to_underlying(Value)).str();
+  return formatv("unknown ({0})", static_cast<std::underlying_type_t<T>>(Value))
+      .str();
 }
 
 std::string formatSegmentOffset(uint16_t Segment, uint32_t Offset);
@@ -107,9 +107,10 @@ namespace detail {
 template <typename T>
 struct EndianAdapter final
     : public FormatAdapter<support::detail::packed_endian_specific_integral<
-          T, llvm::endianness::little, support::unaligned>> {
-  using EndianType = support::detail::packed_endian_specific_integral<
-      T, llvm::endianness::little, support::unaligned>;
+          T, support::little, support::unaligned>> {
+  using EndianType =
+      support::detail::packed_endian_specific_integral<T, support::little,
+                                                       support::unaligned>;
 
   explicit EndianAdapter(EndianType &&Item)
       : FormatAdapter<EndianType>(std::move(Item)) {}
@@ -121,9 +122,10 @@ struct EndianAdapter final
 } // namespace detail
 
 template <typename T>
-detail::EndianAdapter<T> fmtle(support::detail::packed_endian_specific_integral<
-                               T, llvm::endianness::little, support::unaligned>
-                                   Value) {
+detail::EndianAdapter<T>
+fmtle(support::detail::packed_endian_specific_integral<T, support::little,
+                                                       support::unaligned>
+          Value) {
   return detail::EndianAdapter<T>(std::move(Value));
 }
 } // namespace pdb

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSKYTargetStreamer.h"
+#include "CSKYSubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/MC/MCContext.h"
@@ -29,7 +30,7 @@ void CSKYConstantPool::emitAll(MCStreamer &Streamer) {
   Streamer.emitDataRegion(MCDR_DataRegion);
   for (const ConstantPoolEntry &Entry : Entries) {
     Streamer.emitCodeAlignment(
-        Align(Entry.Size),
+        Entry.Size,
         Streamer.getContext().getSubtargetInfo()); // align naturally
     Streamer.emitLabel(Entry.Label);
     Streamer.emitValue(Entry.Value, Entry.Size, Entry.Loc);

@@ -12,7 +12,6 @@
 
 // template <class T> constexpr bool is_error_condition_enum_v;
 
-#include <string>
 #include <system_error>
 #include <type_traits>
 #include "test_macros.h"

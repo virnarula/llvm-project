@@ -63,7 +63,6 @@ define amdgpu_ps void @load_1d_f16_tfe_dmask0(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v2, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -89,8 +88,8 @@ define amdgpu_ps void @load_1d_f16_tfe_dmask0(<8 x i32> inreg %rsrc, i32 %s) {
   %v = call { half, i32 } @llvm.amdgcn.image.load.1d.sl_f16i32s.i32(i32 0, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { half, i32 } %v, 0
   %v.err = extractvalue { half, i32 } %v, 1
-  store volatile half %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile half %v.data, half addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 
@@ -153,7 +152,6 @@ define amdgpu_ps void @load_1d_f16_tfe_dmask1(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v2, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -179,8 +177,8 @@ define amdgpu_ps void @load_1d_f16_tfe_dmask1(<8 x i32> inreg %rsrc, i32 %s) {
   %v = call { half, i32 } @llvm.amdgcn.image.load.1d.sl_f16i32s.i32(i32 1, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { half, i32 } %v, 0
   %v.err = extractvalue { half, i32 } %v, 1
-  store volatile half %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile half %v.data, half addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 
@@ -243,7 +241,6 @@ define amdgpu_ps void @load_1d_v2f16_tfe_dmask0(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v2, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -269,8 +266,8 @@ define amdgpu_ps void @load_1d_v2f16_tfe_dmask0(<8 x i32> inreg %rsrc, i32 %s) {
   %v = call { <2 x half>, i32 } @llvm.amdgcn.image.load.1d.sl_v2f16i32s.i32(i32 0, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { <2 x half>, i32 } %v, 0
   %v.err = extractvalue { <2 x half>, i32 } %v, 1
-  store volatile <2 x half> %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile <2 x half> %v.data, <2 x half> addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 
@@ -333,7 +330,6 @@ define amdgpu_ps void @load_1d_v2f16_tfe_dmask1(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v2, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -359,8 +355,8 @@ define amdgpu_ps void @load_1d_v2f16_tfe_dmask1(<8 x i32> inreg %rsrc, i32 %s) {
   %v = call { <2 x half>, i32 } @llvm.amdgcn.image.load.1d.sl_v2f16i32s.i32(i32 1, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { <2 x half>, i32 } %v, 0
   %v.err = extractvalue { <2 x half>, i32 } %v, 1
-  store volatile <2 x half> %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile <2 x half> %v.data, <2 x half> addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 
@@ -423,7 +419,6 @@ define amdgpu_ps void @load_1d_v2f16_tfe_dmask3(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v2, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -452,8 +447,8 @@ define amdgpu_ps void @load_1d_v2f16_tfe_dmask3(<8 x i32> inreg %rsrc, i32 %s) {
   %v = call { <2 x half>, i32 } @llvm.amdgcn.image.load.1d.sl_v2f16i32s.i32(i32 3, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { <2 x half>, i32 } %v, 0
   %v.err = extractvalue { <2 x half>, i32 } %v, 1
-  store volatile <2 x half> %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile <2 x half> %v.data, <2 x half> addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 
@@ -525,7 +520,6 @@ define amdgpu_ps void @load_1d_v3f16_tfe_dmask7(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v3, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -544,11 +538,11 @@ define amdgpu_ps void @load_1d_v3f16_tfe_dmask7(<8 x i32> inreg %rsrc, i32 %s) {
 ; GFX8-UNPACKED-NEXT:    v_mov_b32_e32 v3, v1
 ; GFX8-UNPACKED-NEXT:    v_mov_b32_e32 v4, v1
 ; GFX8-UNPACKED-NEXT:    image_load v[1:4], v0, s[4:11] dmask:0x7 unorm tfe d16
-; GFX8-UNPACKED-NEXT:    s_mov_b32 s0, 0x1000504
 ; GFX8-UNPACKED-NEXT:    s_waitcnt vmcnt(0)
-; GFX8-UNPACKED-NEXT:    v_perm_b32 v0, v1, v2, s0
+; GFX8-UNPACKED-NEXT:    v_lshlrev_b32_e32 v0, 16, v2
 ; GFX8-UNPACKED-NEXT:    flat_store_short v[0:1], v3
 ; GFX8-UNPACKED-NEXT:    s_waitcnt vmcnt(0)
+; GFX8-UNPACKED-NEXT:    v_or_b32_sdwa v0, v1, v0 dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:WORD_0 src1_sel:DWORD
 ; GFX8-UNPACKED-NEXT:    flat_store_dword v[0:1], v0
 ; GFX8-UNPACKED-NEXT:    s_waitcnt vmcnt(0)
 ; GFX8-UNPACKED-NEXT:    flat_store_dword v[0:1], v4
@@ -557,8 +551,8 @@ define amdgpu_ps void @load_1d_v3f16_tfe_dmask7(<8 x i32> inreg %rsrc, i32 %s) {
   %v = call { <3 x half>, i32 } @llvm.amdgcn.image.load.1d.sl_v3f16i32s.i32(i32 7, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { <3 x half>, i32 } %v, 0
   %v.err = extractvalue { <3 x half>, i32 } %v, 1
-  store volatile <3 x half> %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile <3 x half> %v.data, <3 x half> addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 
@@ -624,7 +618,6 @@ define amdgpu_ps void @load_1d_v4f16_tfe_dmask15(<8 x i32> inreg %rsrc, i32 %s) 
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
 ; GFX11-NEXT:    global_store_b32 v[0:1], v3, off dlc
 ; GFX11-NEXT:    s_waitcnt_vscnt null, 0x0
-; GFX11-NEXT:    s_nop 0
 ; GFX11-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-NEXT:    s_endpgm
 ;
@@ -644,11 +637,12 @@ define amdgpu_ps void @load_1d_v4f16_tfe_dmask15(<8 x i32> inreg %rsrc, i32 %s) 
 ; GFX8-UNPACKED-NEXT:    v_mov_b32_e32 v4, v1
 ; GFX8-UNPACKED-NEXT:    v_mov_b32_e32 v5, v1
 ; GFX8-UNPACKED-NEXT:    image_load v[1:5], v0, s[4:11] dmask:0xf unorm tfe d16
-; GFX8-UNPACKED-NEXT:    s_mov_b32 s0, 0x1000504
 ; GFX8-UNPACKED-NEXT:    s_waitcnt vmcnt(0)
-; GFX8-UNPACKED-NEXT:    v_perm_b32 v3, v3, v4, s0
-; GFX8-UNPACKED-NEXT:    v_perm_b32 v2, v1, v2, s0
-; GFX8-UNPACKED-NEXT:    flat_store_dwordx2 v[0:1], v[2:3]
+; GFX8-UNPACKED-NEXT:    v_lshlrev_b32_e32 v0, 16, v4
+; GFX8-UNPACKED-NEXT:    v_lshlrev_b32_e32 v4, 16, v2
+; GFX8-UNPACKED-NEXT:    v_or_b32_sdwa v2, v3, v0 dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:WORD_0 src1_sel:DWORD
+; GFX8-UNPACKED-NEXT:    v_or_b32_sdwa v1, v1, v4 dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:WORD_0 src1_sel:DWORD
+; GFX8-UNPACKED-NEXT:    flat_store_dwordx2 v[0:1], v[1:2]
 ; GFX8-UNPACKED-NEXT:    s_waitcnt vmcnt(0)
 ; GFX8-UNPACKED-NEXT:    flat_store_dword v[0:1], v5
 ; GFX8-UNPACKED-NEXT:    s_waitcnt vmcnt(0)
@@ -656,8 +650,8 @@ define amdgpu_ps void @load_1d_v4f16_tfe_dmask15(<8 x i32> inreg %rsrc, i32 %s) 
   %v = call { <4 x half>, i32 } @llvm.amdgcn.image.load.1d.sl_v4f16i32s.i32(i32 15, i32 %s, <8 x i32> %rsrc, i32 1, i32 0)
   %v.data = extractvalue { <4 x half>, i32 } %v, 0
   %v.err = extractvalue { <4 x half>, i32 } %v, 1
-  store volatile <4 x half> %v.data, ptr addrspace(1) undef
-  store volatile i32 %v.err, ptr addrspace(1) undef
+  store volatile <4 x half> %v.data, <4 x half> addrspace(1)* undef
+  store volatile i32 %v.err, i32 addrspace(1)* undef
   ret void
 }
 

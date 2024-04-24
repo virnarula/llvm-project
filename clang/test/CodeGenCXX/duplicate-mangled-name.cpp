@@ -1,10 +1,11 @@
-// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST1
-// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST2 -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST3
-// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST4
+// RUN: %clang_cc1 -no-opaque-pointers -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST1
+// RUN: %clang_cc1 -no-opaque-pointers -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST2 -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST3
+// RUN: %clang_cc1 -no-opaque-pointers -triple %itanium_abi_triple -emit-llvm-only %s -verify -DTEST4
 
 #ifdef TEST1
 
+// rdar://15522601
 class MyClass {
  static void meth();
 };
@@ -37,9 +38,9 @@ namespace nm {
 
 float foo() {
   _ZN1TD1Ev();
-// CHECK: call void @_ZN1TD1Ev()
+// CHECK: call void bitcast ({{.*}} (%struct.T*)* @_ZN1TD1Ev to void ()*)()
   T t;
-// CHECK: call {{.*}} @_ZN1TD1Ev(ptr {{[^,]*}} %t)
+// CHECK: call {{.*}} @_ZN1TD1Ev(%struct.T* {{[^,]*}} %t)
   return _ZN2nm3abcE + nm::abc;
 }
 

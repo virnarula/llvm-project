@@ -42,18 +42,12 @@ std::string getDeclComment(const ASTContext &Ctx, const NamedDecl &D);
 /// If set, RequiredQualifiers is the text that must be typed before the name.
 /// e.g "Base::" when calling a base class member function that's hidden.
 ///
-/// If \p IncludeFunctionArguments is disabled, the \p Snippet will only
-/// contain function name and template arguments, if any.
-///
-/// When \p ResultKind is RK_Pattern, the last placeholder will be $0,
-/// indicating the cursor should stay there.
-/// Note that for certain \p CursorKind like \p CXCursor_Constructor, $0 won't
-/// be emitted in order to avoid overlapping normal parameters.
+/// When \p CompletingPattern is true, the last placeholder will be of the form
+/// ${0:…}, indicating the cursor should stay there.
 void getSignature(const CodeCompletionString &CCS, std::string *Signature,
                   std::string *Snippet,
-                  CodeCompletionResult::ResultKind ResultKind,
-                  CXCursorKind CursorKind, bool IncludeFunctionArguments = true,
-                  std::string *RequiredQualifiers = nullptr);
+                  std::string *RequiredQualifiers = nullptr,
+                  bool CompletingPattern = false);
 
 /// Assembles formatted documentation for a completion result. This includes
 /// documentation comments and other relevant information like annotations.

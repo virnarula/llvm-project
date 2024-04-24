@@ -101,10 +101,7 @@ void CommandReturnObject::AppendError(llvm::StringRef in_string) {
   SetStatus(eReturnStatusFailed);
   if (in_string.empty())
     return;
-  // Workaround to deal with already fully formatted compiler diagnostics.
-  llvm::StringRef msg(in_string.rtrim());
-  msg.consume_front("error: ");
-  error(GetErrorStream()) << msg << '\n';
+  error(GetErrorStream()) << in_string.rtrim() << '\n';
 }
 
 void CommandReturnObject::SetError(const Status &error,

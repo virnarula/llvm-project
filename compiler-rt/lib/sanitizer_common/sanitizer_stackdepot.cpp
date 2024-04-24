@@ -215,16 +215,16 @@ StackTrace StackDepotGet(u32 id) {
   return theDepot.Get(id);
 }
 
-void StackDepotLockBeforeFork() {
-  theDepot.LockBeforeFork();
+void StackDepotLockAll() {
+  theDepot.LockAll();
   compress_thread.LockAndStop();
   stackStore.LockAll();
 }
 
-void StackDepotUnlockAfterFork(bool fork_child) {
+void StackDepotUnlockAll() {
   stackStore.UnlockAll();
   compress_thread.Unlock();
-  theDepot.UnlockAfterFork(fork_child);
+  theDepot.UnlockAll();
 }
 
 void StackDepotPrintAll() {

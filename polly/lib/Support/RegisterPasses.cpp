@@ -21,6 +21,7 @@
 #include "polly/RegisterPasses.h"
 #include "polly/Canonicalization.h"
 #include "polly/CodeGen/CodeGeneration.h"
+#include "polly/CodeGen/CodegenCleanup.h"
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodePreparation.h"
 #include "polly/DeLICM.h"
@@ -48,6 +49,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 namespace cl = llvm::cl;
 
@@ -102,6 +104,7 @@ static cl::opt<VectorizerChoice, true> Vectorizer(
     "polly-vectorizer", cl::desc("Select the vectorization strategy"),
     cl::values(
         clEnumValN(VECTORIZER_NONE, "none", "No Vectorization"),
+        clEnumValN(VECTORIZER_POLLY, "polly", "Polly internal vectorizer"),
         clEnumValN(
             VECTORIZER_STRIPMINE, "stripmine",
             "Strip-mine outer loops for the loop-vectorizer to trigger")),
@@ -216,6 +219,14 @@ static StaticInitializer InitializeEverything;
 void initializePollyPasses(llvm::PassRegistry &Registry) {
   initializeCodeGenerationPass(Registry);
 
+#ifdef GPU_CODEGEN
+  initializePPCGCodeGenerationPass(Registry);
+  initializeManagedMemoryRewritePassPass(Registry);
+  LLVMInitializeNVPTXTarget();
+  LLVMInitializeNVPTXTargetInfo();
+  LLVMInitializeNVPTXTargetMC();
+  LLVMInitializeNVPTXAsmPrinter();
+#endif
   initializeCodePreparationPass(Registry);
   initializeDeadCodeElimWrapperPassPass(Registry);
   initializeDependenceInfoPass(Registry);
@@ -240,6 +251,7 @@ void initializePollyPasses(llvm::PassRegistry &Registry) {
   initializeScopInfoPrinterLegacyRegionPassPass(Registry);
   initializeScopInfoWrapperPassPass(Registry);
   initializeScopInfoPrinterLegacyFunctionPassPass(Registry);
+  initializeCodegenCleanupPass(Registry);
   initializeFlattenSchedulePass(Registry);
   initializeFlattenSchedulePrinterLegacyPassPass(Registry);
   initializeForwardOpTreeWrapperPassPass(Registry);

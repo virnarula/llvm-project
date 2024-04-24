@@ -17,11 +17,9 @@
 #include "DWARFCompileUnit.h"
 #include "DWARFDebugInfo.h"
 #include "DWARFUnit.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
-using namespace lldb_private::plugin::dwarf;
 
 char SymbolFileDWARFDwo::ID;
 
@@ -30,7 +28,7 @@ SymbolFileDWARFDwo::SymbolFileDWARFDwo(SymbolFileDWARF &base_symbol_file,
     : SymbolFileDWARF(objfile, objfile->GetSectionList(
                                    /*update_module_section_list*/ false)),
       m_base_symbol_file(base_symbol_file) {
-  SetFileIndex(id);
+  SetID(user_id_t(id) << 32);
 
   // Parsing of the dwarf unit index is not thread-safe, so we need to prime it
   // to enable subsequent concurrent lookups.
@@ -43,7 +41,7 @@ DWARFCompileUnit *SymbolFileDWARFDwo::GetDWOCompileUnitForHash(uint64_t hash) {
       if (auto *unit_contrib = entry->getContribution())
         return llvm::dyn_cast_or_null<DWARFCompileUnit>(
             DebugInfo().GetUnitAtOffset(DIERef::Section::DebugInfo,
-                                        unit_contrib->getOffset()));
+                                        unit_contrib->Offset));
     }
     return nullptr;
   }
@@ -51,7 +49,7 @@ DWARFCompileUnit *SymbolFileDWARFDwo::GetDWOCompileUnitForHash(uint64_t hash) {
   DWARFCompileUnit *cu = FindSingleCompileUnit();
   if (!cu)
     return nullptr;
-  std::optional<uint64_t> dwo_id = cu->GetDWOId();
+  llvm::Optional<uint64_t> dwo_id = cu->GetDWOId();
   if (!dwo_id || hash != *dwo_id)
     return nullptr;
   return cu;
@@ -79,18 +77,6 @@ DWARFCompileUnit *SymbolFileDWARFDwo::FindSingleCompileUnit() {
   return cu;
 }
 
-lldb::offset_t SymbolFileDWARFDwo::GetVendorDWARFOpcodeSize(
-    const lldb_private::DataExtractor &data, const lldb::offset_t data_offset,
-    const uint8_t op) const {
-  return GetBaseSymbolFile().GetVendorDWARFOpcodeSize(data, data_offset, op);
-}
-
-bool SymbolFileDWARFDwo::ParseVendorDWARFOpcode(
-    uint8_t op, const lldb_private::DataExtractor &opcodes,
-    lldb::offset_t &offset, std::vector<lldb_private::Value> &stack) const {
-  return GetBaseSymbolFile().ParseVendorDWARFOpcode(op, opcodes, offset, stack);
-}
-
 SymbolFileDWARF::DIEToTypePtr &SymbolFileDWARFDwo::GetDIEToType() {
   return GetBaseSymbolFile().GetDIEToType();
 }
@@ -99,14 +85,14 @@ SymbolFileDWARF::DIEToVariableSP &SymbolFileDWARFDwo::GetDIEToVariable() {
   return GetBaseSymbolFile().GetDIEToVariable();
 }
 
-SymbolFileDWARF::DIEToCompilerType &
-SymbolFileDWARFDwo::GetForwardDeclDIEToCompilerType() {
-  return GetBaseSymbolFile().GetForwardDeclDIEToCompilerType();
+SymbolFileDWARF::DIEToClangType &
+SymbolFileDWARFDwo::GetForwardDeclDieToClangType() {
+  return GetBaseSymbolFile().GetForwardDeclDieToClangType();
 }
 
-SymbolFileDWARF::CompilerTypeToDIE &
-SymbolFileDWARFDwo::GetForwardDeclCompilerTypeToDIE() {
-  return GetBaseSymbolFile().GetForwardDeclCompilerTypeToDIE();
+SymbolFileDWARF::ClangTypeToDIE &
+SymbolFileDWARFDwo::GetForwardDeclClangTypeToDie() {
+  return GetBaseSymbolFile().GetForwardDeclClangTypeToDie();
 }
 
 void SymbolFileDWARFDwo::GetObjCMethods(
@@ -119,9 +105,10 @@ UniqueDWARFASTTypeMap &SymbolFileDWARFDwo::GetUniqueDWARFASTTypeMap() {
   return GetBaseSymbolFile().GetUniqueDWARFASTTypeMap();
 }
 
-lldb::TypeSP
-SymbolFileDWARFDwo::FindDefinitionTypeForDWARFDeclContext(const DWARFDIE &die) {
-  return GetBaseSymbolFile().FindDefinitionTypeForDWARFDeclContext(die);
+lldb::TypeSP SymbolFileDWARFDwo::FindDefinitionTypeForDWARFDeclContext(
+    const DWARFDeclContext &die_decl_ctx) {
+  return GetBaseSymbolFile().FindDefinitionTypeForDWARFDeclContext(
+      die_decl_ctx);
 }
 
 lldb::TypeSP SymbolFileDWARFDwo::FindCompleteObjCDefinitionTypeForDIE(
@@ -131,21 +118,14 @@ lldb::TypeSP SymbolFileDWARFDwo::FindCompleteObjCDefinitionTypeForDIE(
       die, type_name, must_be_implementation);
 }
 
-llvm::Expected<lldb::TypeSystemSP>
+llvm::Expected<TypeSystem &>
 SymbolFileDWARFDwo::GetTypeSystemForLanguage(LanguageType language) {
   return GetBaseSymbolFile().GetTypeSystemForLanguage(language);
 }
 
 DWARFDIE
 SymbolFileDWARFDwo::GetDIE(const DIERef &die_ref) {
-  if (die_ref.file_index() == GetFileIndex())
+  if (die_ref.dwo_num() == GetDwoNum())
     return DebugInfo().GetDIE(die_ref);
   return GetBaseSymbolFile().GetDIE(die_ref);
-}
-
-void SymbolFileDWARFDwo::FindGlobalVariables(
-    ConstString name, const CompilerDeclContext &parent_decl_ctx,
-    uint32_t max_matches, VariableList &variables) {
-  GetBaseSymbolFile().FindGlobalVariables(name, parent_decl_ctx, max_matches,
-                                          variables);
 }

@@ -17,7 +17,6 @@
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Object/COFF.h"
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Object/Error.h"
 #include "llvm/Object/IRObjectFile.h"
@@ -42,10 +41,6 @@ Error extractOffloadFiles(MemoryBufferRef Contents,
     std::unique_ptr<MemoryBuffer> Buffer =
         MemoryBuffer::getMemBuffer(Contents.getBuffer().drop_front(Offset), "",
                                    /*RequiresNullTerminator*/ false);
-    if (!isAddrAligned(Align(OffloadBinary::getAlignment()),
-                       Buffer->getBufferStart()))
-      Buffer = MemoryBuffer::getMemBufferCopy(Buffer->getBuffer(),
-                                              Buffer->getBufferIdentifier());
     auto BinaryOrErr = OffloadBinary::create(*Buffer);
     if (!BinaryOrErr)
       return BinaryOrErr.takeError();
@@ -67,25 +62,11 @@ Error extractOffloadFiles(MemoryBufferRef Contents,
 }
 
 // Extract offloading binaries from an Object file \p Obj.
-Error extractFromObject(const ObjectFile &Obj,
+Error extractFromBinary(const ObjectFile &Obj,
                         SmallVectorImpl<OffloadFile> &Binaries) {
-  assert((Obj.isELF() || Obj.isCOFF()) && "Invalid file type");
-
-  for (SectionRef Sec : Obj.sections()) {
-    // ELF files contain a section with the LLVM_OFFLOADING type.
-    if (Obj.isELF() &&
-        static_cast<ELFSectionRef>(Sec).getType() != ELF::SHT_LLVM_OFFLOADING)
+  for (ELFSectionRef Sec : Obj.sections()) {
+    if (Sec.getType() != ELF::SHT_LLVM_OFFLOADING)
       continue;
-
-    // COFF has no section types so we rely on the name of the section.
-    if (Obj.isCOFF()) {
-      Expected<StringRef> NameOrErr = Sec.getName();
-      if (!NameOrErr)
-        return NameOrErr.takeError();
-
-      if (!NameOrErr->equals(".llvm.offloading"))
-        continue;
-    }
 
     Expected<StringRef> Buffer = Sec.getContents();
     if (!Buffer)
@@ -204,12 +185,13 @@ OffloadBinary::create(MemoryBufferRef Buf) {
       new OffloadBinary(Buf, TheHeader, TheEntry));
 }
 
-SmallString<0> OffloadBinary::write(const OffloadingImage &OffloadingData) {
+std::unique_ptr<MemoryBuffer>
+OffloadBinary::write(const OffloadingImage &OffloadingData) {
   // Create a null-terminated string table with all the used strings.
   StringTableBuilder StrTab(StringTableBuilder::ELF);
   for (auto &KeyAndValue : OffloadingData.StringData) {
-    StrTab.add(KeyAndValue.first);
-    StrTab.add(KeyAndValue.second);
+    StrTab.add(KeyAndValue.getKey());
+    StrTab.add(KeyAndValue.getValue());
   }
   StrTab.finalize();
 
@@ -242,15 +224,15 @@ SmallString<0> OffloadBinary::write(const OffloadingImage &OffloadingData) {
   TheEntry.ImageOffset = BinaryDataSize;
   TheEntry.ImageSize = OffloadingData.Image->getBufferSize();
 
-  SmallString<0> Data;
+  SmallVector<char> Data;
   Data.reserve(TheHeader.Size);
   raw_svector_ostream OS(Data);
   OS << StringRef(reinterpret_cast<char *>(&TheHeader), sizeof(Header));
   OS << StringRef(reinterpret_cast<char *>(&TheEntry), sizeof(Entry));
   for (auto &KeyAndValue : OffloadingData.StringData) {
     uint64_t Offset = sizeof(Header) + sizeof(Entry) + StringEntrySize;
-    StringEntry Map{Offset + StrTab.getOffset(KeyAndValue.first),
-                    Offset + StrTab.getOffset(KeyAndValue.second)};
+    StringEntry Map{Offset + StrTab.getOffset(KeyAndValue.getKey()),
+                    Offset + StrTab.getOffset(KeyAndValue.getValue())};
     OS << StringRef(reinterpret_cast<char *>(&Map), sizeof(StringEntry));
   }
   StrTab.write(OS);
@@ -263,7 +245,7 @@ SmallString<0> OffloadBinary::write(const OffloadingImage &OffloadingData) {
   OS.write_zeros(TheHeader.Size - OS.tell());
   assert(TheHeader.Size == OS.tell() && "Size mismatch");
 
-  return Data;
+  return MemoryBuffer::getMemBufferCopy(OS.str());
 }
 
 Error object::extractOffloadBinaries(MemoryBufferRef Buffer,
@@ -272,15 +254,12 @@ Error object::extractOffloadBinaries(MemoryBufferRef Buffer,
   switch (Type) {
   case file_magic::bitcode:
     return extractFromBitcode(Buffer, Binaries);
-  case file_magic::elf_relocatable:
-  case file_magic::elf_executable:
-  case file_magic::elf_shared_object:
-  case file_magic::coff_object: {
+  case file_magic::elf_relocatable: {
     Expected<std::unique_ptr<ObjectFile>> ObjFile =
         ObjectFile::createObjectFile(Buffer, Type);
     if (!ObjFile)
       return ObjFile.takeError();
-    return extractFromObject(*ObjFile->get(), Binaries);
+    return extractFromBinary(*ObjFile->get(), Binaries);
   }
   case file_magic::archive: {
     Expected<std::unique_ptr<llvm::object::Archive>> LibFile =
@@ -342,36 +321,4 @@ StringRef object::getImageKindName(ImageKind Kind) {
   default:
     return "";
   }
-}
-
-bool object::areTargetsCompatible(const OffloadFile::TargetID &LHS,
-                                  const OffloadFile::TargetID &RHS) {
-  // Exact matches are not considered compatible because they are the same
-  // target. We are interested in different targets that are compatible.
-  if (LHS == RHS)
-    return false;
-
-  // The triples must match at all times.
-  if (LHS.first != RHS.first)
-    return false;
-
-  // Only The AMDGPU target requires additional checks.
-  llvm::Triple T(LHS.first);
-  if (!T.isAMDGPU())
-    return false;
-
-  // The base processor must always match.
-  if (LHS.second.split(":").first != RHS.second.split(":").first)
-    return false;
-
-  // Check combintions of on / off features that must match.
-  if (LHS.second.contains("xnack+") && RHS.second.contains("xnack-"))
-    return false;
-  if (LHS.second.contains("xnack-") && RHS.second.contains("xnack+"))
-    return false;
-  if (LHS.second.contains("sramecc-") && RHS.second.contains("sramecc+"))
-    return false;
-  if (LHS.second.contains("sramecc+") && RHS.second.contains("sramecc-"))
-    return false;
-  return true;
 }

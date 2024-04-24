@@ -15,7 +15,7 @@ DEFINE_DEFAULT_CONSTRUCTORS_AND_ASSIGNMENTS(OffsetSymbol)
 
 std::optional<OffsetSymbol> DesignatorFolder::FoldDesignator(
     const Symbol &symbol, ConstantSubscript which) {
-  if (!getLastComponent_ && IsAllocatableOrPointer(symbol)) {
+  if (IsAllocatableOrPointer(symbol)) {
     // A pointer may appear as a DATA statement object if it is the
     // rightmost symbol in a designator and has no subscripts.
     // An allocatable may appear if its initializer is NULL().
@@ -90,8 +90,6 @@ std::optional<OffsetSymbol> DesignatorFolder::FoldDesignator(
                               result->Augment((at - lower) * stride);
                               which = quotient;
                               return true;
-                            } else {
-                              isEmpty_ = true;
                             }
                           }
                           return false;
@@ -102,20 +100,16 @@ std::optional<OffsetSymbol> DesignatorFolder::FoldDesignator(
                           auto end{ToInt64(Fold(context_,
                               triplet.upper().value_or(ExtentExpr{upper})))};
                           auto step{ToInt64(Fold(context_, triplet.stride()))};
-                          if (start && end && step) {
-                            if (*step != 0) {
-                              ConstantSubscript range{
-                                  (*end - *start + *step) / *step};
-                              if (range > 0) {
-                                auto quotient{which / range};
-                                auto remainder{which - range * quotient};
-                                auto j{*start + remainder * *step};
-                                result->Augment((j - lower) * stride);
-                                which = quotient;
-                                return true;
-                              } else {
-                                isEmpty_ = true;
-                              }
+                          if (start && end && step && *step != 0) {
+                            ConstantSubscript range{
+                                (*end - *start + *step) / *step};
+                            if (range > 0) {
+                              auto quotient{which / range};
+                              auto remainder{which - range * quotient};
+                              auto j{*start + remainder * *step};
+                              result->Augment((j - lower) * stride);
+                              which = quotient;
+                              return true;
                             }
                           }
                           return false;
@@ -142,26 +136,21 @@ std::optional<OffsetSymbol> DesignatorFolder::FoldDesignator(
 std::optional<OffsetSymbol> DesignatorFolder::FoldDesignator(
     const Component &component, ConstantSubscript which) {
   const Symbol &comp{component.GetLastSymbol()};
-  if (getLastComponent_) {
-    return FoldDesignator(comp, which);
+  const DataRef &base{component.base()};
+  std::optional<OffsetSymbol> baseResult, compResult;
+  if (base.Rank() == 0) { // A%X(:) - apply "which" to component
+    baseResult = FoldDesignator(base, 0);
+    compResult = FoldDesignator(comp, which);
+  } else { // A(:)%X - apply "which" to base
+    baseResult = FoldDesignator(base, which);
+    compResult = FoldDesignator(comp, 0);
+  }
+  if (baseResult && compResult) {
+    OffsetSymbol result{baseResult->symbol(), compResult->size()};
+    result.Augment(baseResult->offset() + compResult->offset() + comp.offset());
+    return {std::move(result)};
   } else {
-    const DataRef &base{component.base()};
-    std::optional<OffsetSymbol> baseResult, compResult;
-    if (base.Rank() == 0) { // A%X(:) - apply "which" to component
-      baseResult = FoldDesignator(base, 0);
-      compResult = FoldDesignator(comp, which);
-    } else { // A(:)%X - apply "which" to base
-      baseResult = FoldDesignator(base, which);
-      compResult = FoldDesignator(comp, 0);
-    }
-    if (baseResult && compResult) {
-      OffsetSymbol result{baseResult->symbol(), compResult->size()};
-      result.Augment(
-          baseResult->offset() + compResult->offset() + comp.offset());
-      return {std::move(result)};
-    } else {
-      return std::nullopt;
-    }
+    return std::nullopt;
   }
 }
 
@@ -373,9 +362,7 @@ ConstantObjectPointer ConstantObjectPointer::From(
     FoldingContext &context, const Expr<SomeType> &expr) {
   auto extents{GetConstantExtents(context, expr)};
   CHECK(extents);
-  std::optional<uint64_t> optElements{TotalElementCount(*extents)};
-  CHECK(optElements);
-  uint64_t elements{*optElements};
+  std::size_t elements{TotalElementCount(*extents)};
   CHECK(elements > 0);
   int rank{GetRank(*extents)};
   ConstantSubscripts at(rank, 1);

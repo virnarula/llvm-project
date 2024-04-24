@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: libcpp-has-no-incomplete-format
 
 // libc++ supports basic_format_string in C++20 as an extension
 // UNSUPPORTED: !stdlib=libc++ && c++20
@@ -28,11 +29,12 @@
 
 static_assert(std::same_as<std::format_string<>, std::basic_format_string<char>>);
 static_assert(std::same_as<std::format_string<int>, std::basic_format_string<char, int>>);
-static_assert(std::same_as<std::format_string<int, bool>, std::basic_format_string<char, int, bool>>);
-static_assert(std::same_as<std::format_string<int, bool, void*>, std::basic_format_string<char, int, bool, void*>>);
+static_assert(std::same_as<std::format_string<int, float>, std::basic_format_string<char, int, float>>);
+static_assert(std::same_as<std::format_string<int, float, void*>, std::basic_format_string<char, int, float, void*>>);
 #ifndef TEST_HAS_NO_WIDE_CHARACTERS
 static_assert(std::same_as<std::wformat_string<>, std::basic_format_string<wchar_t>>);
 static_assert(std::same_as<std::wformat_string<int>, std::basic_format_string<wchar_t, int>>);
-static_assert(std::same_as<std::wformat_string<int, bool>, std::basic_format_string<wchar_t, int, bool>>);
-static_assert(std::same_as<std::wformat_string<int, bool, void*>, std::basic_format_string<wchar_t, int, bool, void*>>);
+static_assert(std::same_as<std::wformat_string<int, float>, std::basic_format_string<wchar_t, int, float>>);
+static_assert(
+    std::same_as<std::wformat_string<int, float, void*>, std::basic_format_string<wchar_t, int, float, void*>>);
 #endif

@@ -12,7 +12,7 @@
 // template<size_t Count>
 //  constexpr span<element_type, Count> last() const;
 //
-// Mandates: Count <= Extent is true.
+//  Requires: Count <= size().
 
 #include <span>
 #include <cstddef>

@@ -13,8 +13,6 @@
 #include <cstdint>
 #include <vector>
 
-namespace lldb_private::plugin {
-namespace dwarf {
 class DWARFDebugArangeSet {
 public:
   struct Header {
@@ -44,7 +42,7 @@ public:
   DWARFDebugArangeSet();
   void Clear();
   void SetOffset(uint32_t offset) { m_offset = offset; }
-  llvm::Error extract(const DWARFDataExtractor &data,
+  llvm::Error extract(const lldb_private::DWARFDataExtractor &data,
                       lldb::offset_t *offset_ptr);
   dw_offset_t FindAddress(dw_addr_t address) const;
   size_t NumDescriptors() const { return m_arange_descriptors.size(); }
@@ -64,7 +62,5 @@ protected:
   Header m_header;
   DescriptorColl m_arange_descriptors;
 };
-} // namespace dwarf
-} // namespace lldb_private::plugin
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFDEBUGARANGESET_H

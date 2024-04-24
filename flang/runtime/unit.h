@@ -59,8 +59,7 @@ public:
   static void CloseAll(IoErrorHandler &);
   static void FlushAll(IoErrorHandler &);
 
-  // Returns true if an existing unit was closed
-  bool OpenUnit(std::optional<OpenStatus>, std::optional<Action>, Position,
+  void OpenUnit(std::optional<OpenStatus>, std::optional<Action>, Position,
       OwningPtr<char> &&path, std::size_t pathLength, Convert,
       IoErrorHandler &);
   void OpenAnonymousUnit(std::optional<OpenStatus>, std::optional<Action>,
@@ -72,14 +71,17 @@ public:
 
   template <typename A, typename... X>
   IoStatementState &BeginIoStatement(const Terminator &terminator, X &&...xs) {
-    // Take lock_ and hold it until EndIoStatement().
-#if USE_PTHREADS
-    if (!lock_.TakeIfNoDeadlock()) {
-      terminator.Crash("Recursive I/O attempted on unit %d", unitNumber_);
+    bool alreadyBusy{false};
+    {
+      CriticalSection critical{lock_};
+      alreadyBusy = isBusy_;
+      isBusy_ = true; // cleared in EndIoStatement()
     }
-#else
-    lock_.Take();
-#endif
+    if (alreadyBusy) {
+      terminator.Crash("Could not acquire exclusive lock on unit %d, perhaps "
+                       "due to an attempt to perform recursive I/O",
+          unitNumber_);
+    }
     A &state{u_.emplace<A>(std::forward<X>(xs)...)};
     if constexpr (!std::is_same_v<A, OpenStatementState>) {
       state.mutableModes() = ConnectionState::modes;
@@ -135,12 +137,13 @@ private:
   std::int32_t ReadHeaderOrFooter(std::int64_t frameOffset);
 
   Lock lock_;
+  // TODO: replace with a thread ID
+  bool isBusy_{false}; // under lock_
 
   int unitNumber_{-1};
   Direction direction_{Direction::Output};
   bool impliedEndfile_{false}; // sequential/stream output has taken place
   bool beganReadingRecord_{false};
-  bool anyWriteSinceLastPositioning_{false};
   bool directAccessRecWasSet_{false}; // REC= appeared
   // Subtle: The beginning of the frame can't be allowed to advance
   // during a single list-directed READ due to the possibility of a
@@ -167,14 +170,14 @@ private:
   // Points to the active alternative (if any) in u_ for use as a Cookie
   std::optional<IoStatementState> io_;
 
-  // A stack of child I/O pseudo-units for defined I/O that have this
-  // unit number.
+  // A stack of child I/O pseudo-units for user-defined derived type
+  // I/O that have this unit number.
   OwningPtr<ChildIo> child_;
 };
 
-// A pseudo-unit for child I/O statements in defined I/O subroutines;
-// it forwards operations to the parent I/O statement, which might also
-// be a child I/O statement.
+// A pseudo-unit for child I/O statements in user-defined derived type
+// I/O subroutines; it forwards operations to the parent I/O statement,
+// which can also be a child I/O statement.
 class ChildIo {
 public:
   ChildIo(IoStatementState &parent, OwningPtr<ChildIo> &&previous)
@@ -205,7 +208,7 @@ private:
       ChildListIoStatementState<Direction::Input>,
       ChildUnformattedIoStatementState<Direction::Output>,
       ChildUnformattedIoStatementState<Direction::Input>, InquireUnitState,
-      ErroneousIoStatementState, ExternalMiscIoStatementState>
+      ErroneousIoStatementState>
       u_;
   std::optional<IoStatementState> io_;
 };

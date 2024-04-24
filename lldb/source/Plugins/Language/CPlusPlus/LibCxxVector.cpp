@@ -11,7 +11,6 @@
 #include "lldb/Core/ValueObject.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/Utility/ConstString.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -119,22 +118,22 @@ lldb_private::formatters::LibcxxStdVectorSyntheticFrontEnd::GetChildAtIndex(
 bool lldb_private::formatters::LibcxxStdVectorSyntheticFrontEnd::Update() {
   m_start = m_finish = nullptr;
   ValueObjectSP data_type_finder_sp(
-      m_backend.GetChildMemberWithName("__end_cap_"));
+      m_backend.GetChildMemberWithName(ConstString("__end_cap_"), true));
   if (!data_type_finder_sp)
     return false;
 
   switch (data_type_finder_sp->GetCompilerType().GetNumDirectBaseClasses()) {
   case 1:
     // Assume a pre llvm r300140 __compressed_pair implementation:
-    data_type_finder_sp =
-        data_type_finder_sp->GetChildMemberWithName("__first_");
+    data_type_finder_sp = data_type_finder_sp->GetChildMemberWithName(
+      ConstString("__first_"), true);
     break;
   case 2: {
     // Assume a post llvm r300140 __compressed_pair implementation:
     ValueObjectSP first_elem_parent_sp =
-      data_type_finder_sp->GetChildAtIndex(0);
-    data_type_finder_sp =
-        first_elem_parent_sp->GetChildMemberWithName("__value_");
+      data_type_finder_sp->GetChildAtIndex(0, true);
+    data_type_finder_sp = first_elem_parent_sp->GetChildMemberWithName(
+      ConstString("__value_"), true);
     break;
   }
   default:
@@ -144,13 +143,15 @@ bool lldb_private::formatters::LibcxxStdVectorSyntheticFrontEnd::Update() {
   if (!data_type_finder_sp)
     return false;
   m_element_type = data_type_finder_sp->GetCompilerType().GetPointeeType();
-  if (std::optional<uint64_t> size = m_element_type.GetByteSize(nullptr)) {
+  if (llvm::Optional<uint64_t> size = m_element_type.GetByteSize(nullptr)) {
     m_element_size = *size;
 
     if (m_element_size > 0) {
       // store raw pointers or end up with a circular dependency
-      m_start = m_backend.GetChildMemberWithName("__begin_").get();
-      m_finish = m_backend.GetChildMemberWithName("__end_").get();
+      m_start =
+          m_backend.GetChildMemberWithName(ConstString("__begin_"), true).get();
+      m_finish =
+          m_backend.GetChildMemberWithName(ConstString("__end_"), true).get();
     }
   }
   return false;
@@ -210,7 +211,7 @@ lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::GetChildAtIndex(
     return {};
   mask = 1 << bit_index;
   bool bit_set = ((byte & mask) != 0);
-  std::optional<uint64_t> size = m_bool_type.GetByteSize(nullptr);
+  llvm::Optional<uint64_t> size = m_bool_type.GetByteSize(nullptr);
   if (!size)
     return {};
   WritableDataBufferSP buffer_sp(new DataBufferHeap(*size, 0));
@@ -247,13 +248,15 @@ bool lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::Update() {
   if (!valobj_sp)
     return false;
   m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  ValueObjectSP size_sp(valobj_sp->GetChildMemberWithName("__size_"));
+  ValueObjectSP size_sp(
+      valobj_sp->GetChildMemberWithName(ConstString("__size_"), true));
   if (!size_sp)
     return false;
   m_count = size_sp->GetValueAsUnsigned(0);
   if (!m_count)
     return true;
-  ValueObjectSP begin_sp(valobj_sp->GetChildMemberWithName("__begin_"));
+  ValueObjectSP begin_sp(
+      valobj_sp->GetChildMemberWithName(ConstString("__begin_"), true));
   if (!begin_sp) {
     m_count = 0;
     return false;

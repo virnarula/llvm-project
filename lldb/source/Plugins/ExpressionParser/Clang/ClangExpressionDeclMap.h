@@ -12,7 +12,6 @@
 #include <csignal>
 #include <cstdint>
 
-#include <memory>
 #include <vector>
 
 #include "ClangASTSource.h"
@@ -53,7 +52,7 @@ class ClangPersistentVariables;
 /// struct so that it can be passed to the JITted version of the IR.
 ///
 /// Fourth and finally, it "dematerializes" the struct after the JITted code
-/// has executed, placing the new values back where it found the old ones.
+/// has has executed, placing the new values back where it found the old ones.
 class ClangExpressionDeclMap : public ClangASTSource {
 public:
   /// Constructor
@@ -378,7 +377,7 @@ private:
   /// Deallocate struct variables
   void DisableStructVars() { m_struct_vars.reset(); }
 
-  lldb::TypeSystemClangSP GetScratchContext(Target &target) {
+  TypeSystemClang *GetScratchContext(Target &target) {
     return ScratchTypeSystemClang::GetForTarget(target,
                                                 m_ast_context->getLangOpts());
   }

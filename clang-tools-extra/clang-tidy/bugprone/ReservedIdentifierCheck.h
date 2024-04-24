@@ -10,11 +10,13 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_RESERVEDIDENTIFIERCHECK_H
 
 #include "../utils/RenamerClangTidyCheck.h"
-#include <optional>
+#include "llvm/ADT/Optional.h"
 #include <string>
 #include <vector>
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Checks for usages of identifiers reserved for use by the implementation.
 ///
@@ -30,8 +32,7 @@ namespace clang::tidy::bugprone {
 /// http://clang.llvm.org/extra/clang-tidy/checks/bugprone/reserved-identifier.html
 class ReservedIdentifierCheck final : public RenamerClangTidyCheck {
   const bool Invert;
-  const std::vector<StringRef> AllowedIdentifiersRaw;
-  const llvm::SmallVector<llvm::Regex> AllowedIdentifiers;
+  const std::vector<StringRef> AllowedIdentifiers;
 
 public:
   ReservedIdentifierCheck(StringRef Name, ClangTidyContext *Context);
@@ -39,17 +40,18 @@ public:
   void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
 
 private:
-  std::optional<FailureInfo>
+  llvm::Optional<FailureInfo>
   getDeclFailureInfo(const NamedDecl *Decl,
                      const SourceManager &SM) const override;
-  std::optional<FailureInfo>
+  llvm::Optional<FailureInfo>
   getMacroFailureInfo(const Token &MacroNameTok,
                       const SourceManager &SM) const override;
   DiagInfo getDiagInfo(const NamingCheckId &ID,
                        const NamingCheckFailure &Failure) const override;
-  llvm::SmallVector<llvm::Regex> parseAllowedIdentifiers() const;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_RESERVEDIDENTIFIERCHECK_H

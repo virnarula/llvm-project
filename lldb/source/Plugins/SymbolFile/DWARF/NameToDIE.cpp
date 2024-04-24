@@ -16,11 +16,9 @@
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
-using namespace lldb_private::plugin::dwarf;
 
 void NameToDIE::Finalize() {
   m_map.Sort(std::less<DIERef>());
@@ -51,11 +49,12 @@ bool NameToDIE::Find(const RegularExpression &regex,
 
 void NameToDIE::FindAllEntriesForUnit(
     DWARFUnit &s_unit, llvm::function_ref<bool(DIERef ref)> callback) const {
+  lldbassert(!s_unit.GetSymbolFileDWARF().GetDwoNum());
   const DWARFUnit &ns_unit = s_unit.GetNonSkeletonUnit();
   const uint32_t size = m_map.GetSize();
   for (uint32_t i = 0; i < size; ++i) {
     const DIERef &die_ref = m_map.GetValueAtIndexUnchecked(i);
-    if (ns_unit.GetSymbolFileDWARF().GetFileIndex() == die_ref.file_index() &&
+    if (ns_unit.GetSymbolFileDWARF().GetDwoNum() == die_ref.dwo_num() &&
         ns_unit.GetDebugSection() == die_ref.section() &&
         ns_unit.GetOffset() <= die_ref.die_offset() &&
         die_ref.die_offset() < ns_unit.GetNextUnitOffset()) {
@@ -107,7 +106,7 @@ bool NameToDIE::Decode(const DataExtractor &data, lldb::offset_t *offset_ptr,
     // No empty strings allowed in the name to DIE maps.
     if (str.empty())
       return false;
-    if (std::optional<DIERef> die_ref = DIERef::Decode(data, offset_ptr))
+    if (llvm::Optional<DIERef> die_ref = DIERef::Decode(data, offset_ptr))
       m_map.Append(ConstString(str), *die_ref);
     else
       return false;

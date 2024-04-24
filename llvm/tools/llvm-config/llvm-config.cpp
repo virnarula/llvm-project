@@ -20,13 +20,13 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Config/config.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cstdlib>
 #include <set>
 #include <unordered_set>
@@ -234,6 +234,7 @@ Options:\n\
   --obj-root        Print the object root used to build LLVM.\n\
   --prefix          Print the installation prefix.\n\
   --shared-mode     Print how the provided components can be collectively linked (`shared` or `static`).\n\
+  --src-root        Print the source root LLVM was built from.\n\
   --system-libs     System Libraries needed to link against LLVM components.\n\
   --targets-built   List of all targets currently built.\n\
   --version         Print LLVM version.\n\
@@ -359,18 +360,18 @@ int main(int argc, char **argv) {
     {
       SmallString<256> Path(LLVM_INSTALL_INCLUDEDIR);
       sys::fs::make_absolute(ActivePrefix, Path);
-      ActiveIncludeDir = std::string(Path);
+      ActiveIncludeDir = std::string(Path.str());
     }
     {
       SmallString<256> Path(LLVM_TOOLS_INSTALL_DIR);
       sys::fs::make_absolute(ActivePrefix, Path);
-      ActiveBinDir = std::string(Path);
+      ActiveBinDir = std::string(Path.str());
     }
     ActiveLibDir = ActivePrefix + "/lib" + LLVM_LIBDIR_SUFFIX;
     {
       SmallString<256> Path(LLVM_INSTALL_PACKAGE_DIR);
       sys::fs::make_absolute(ActivePrefix, Path);
-      ActiveCMakeDir = std::string(Path);
+      ActiveCMakeDir = std::string(Path.str());
     }
     ActiveIncludeOption = "-I" + ActiveIncludeDir;
   }
@@ -454,11 +455,11 @@ int main(int argc, char **argv) {
   /// extension. Returns true if Lib is in a recognized format.
   auto GetComponentLibraryNameSlice = [&](const StringRef &Lib,
                                           StringRef &Out) {
-    if (Lib.starts_with("lib")) {
+    if (Lib.startswith("lib")) {
       unsigned FromEnd;
-      if (Lib.ends_with(StaticExt)) {
+      if (Lib.endswith(StaticExt)) {
         FromEnd = StaticExt.size() + 1;
-      } else if (Lib.ends_with(SharedExt)) {
+      } else if (Lib.endswith(SharedExt)) {
         FromEnd = SharedExt.size() + 1;
       } else {
         FromEnd = 0;
@@ -481,7 +482,7 @@ int main(int argc, char **argv) {
         // Treat the DyLibName specially. It is not a component library and
         // already has the necessary prefix and suffix (e.g. `.so`) added so
         // just return it unmodified.
-        assert(Lib.ends_with(SharedExt) && "DyLib is missing suffix");
+        assert(Lib.endswith(SharedExt) && "DyLib is missing suffix");
         LibFileName = std::string(Lib);
       } else {
         LibFileName = (SharedPrefix + Lib + "." + SharedExt).str();
@@ -507,7 +508,7 @@ int main(int argc, char **argv) {
   for (int i = 1; i != argc; ++i) {
     StringRef Arg = argv[i];
 
-    if (Arg.starts_with("-")) {
+    if (Arg.startswith("-")) {
       HasAnyOption = true;
       if (Arg == "--version") {
         OS << PACKAGE_VERSION << '\n';
@@ -591,6 +592,8 @@ int main(int argc, char **argv) {
         PrintSharedMode = true;
       } else if (Arg == "--obj-root") {
         OS << ActivePrefix << '\n';
+      } else if (Arg == "--src-root") {
+        OS << LLVM_SRC_ROOT << '\n';
       } else if (Arg == "--ignore-libllvm") {
         LinkDyLib = false;
         LinkMode = BuiltSharedLibs ? LinkModeShared : LinkModeAuto;

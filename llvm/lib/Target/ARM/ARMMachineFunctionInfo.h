@@ -15,19 +15,12 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/CodeGen/MIRYamlMapping.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <utility>
 
 namespace llvm {
-
-namespace yaml {
-struct ARMFunctionInfo;
-} // end namespace yaml
-
-class ARMSubtarget;
 
 /// ARMFunctionInfo - This class is derived from MachineFunctionInfo and
 /// contains private ARM-specific information for each MachineFunction.
@@ -42,6 +35,13 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   /// to determine if function is compiled under Thumb mode, for that use
   /// 'isThumb'.
   bool hasThumb2 = false;
+
+  /// StByValParamsPadding - For parameter that is split between
+  /// GPRs and memory; while recovering GPRs part, when
+  /// StackAlignment > 4, and GPRs-part-size mod StackAlignment != 0,
+  /// we need to insert gap before parameter start address. It allows to
+  /// "attach" GPR-part to the part that was passed via stack.
+  unsigned StByValParamsPadding = 0;
 
   /// ArgsRegSaveSize - Size of the register save area for vararg functions or
   /// those making guaranteed tail calls that need more stack argument space
@@ -157,7 +157,7 @@ class ARMFunctionInfo : public MachineFunctionInfo {
 public:
   ARMFunctionInfo() = default;
 
-  explicit ARMFunctionInfo(const Function &F, const ARMSubtarget *STI);
+  explicit ARMFunctionInfo(MachineFunction &MF);
 
   MachineFunctionInfo *
   clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
@@ -170,6 +170,9 @@ public:
 
   bool isCmseNSEntryFunction() const { return IsCmseNSEntry; }
   bool isCmseNSCallFunction() const { return IsCmseNSCall; }
+
+  unsigned getStoredByValParamsPadding() const { return StByValParamsPadding; }
+  void setStoredByValParamsPadding(unsigned p) { StByValParamsPadding = p; }
 
   unsigned getArgRegsSaveSize() const { return ArgRegsSaveSize; }
   void setArgRegsSaveSize(unsigned s) { ArgRegsSaveSize = s; }
@@ -298,28 +301,7 @@ public:
   }
 
   bool branchTargetEnforcement() const { return BranchTargetEnforcement; }
-
-  void initializeBaseYamlFields(const yaml::ARMFunctionInfo &YamlMFI);
 };
-
-namespace yaml {
-struct ARMFunctionInfo final : public yaml::MachineFunctionInfo {
-  bool LRSpilled;
-
-  ARMFunctionInfo() = default;
-  ARMFunctionInfo(const llvm::ARMFunctionInfo &MFI);
-
-  void mappingImpl(yaml::IO &YamlIO) override;
-  ~ARMFunctionInfo() = default;
-};
-
-template <> struct MappingTraits<ARMFunctionInfo> {
-  static void mapping(IO &YamlIO, ARMFunctionInfo &MFI) {
-    YamlIO.mapOptional("isLRSpilled", MFI.LRSpilled);
-  }
-};
-
-} // end namespace yaml
 
 } // end namespace llvm
 

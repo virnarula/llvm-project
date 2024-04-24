@@ -16,10 +16,6 @@ second:                                           ; preds = %first
   %s = add nsw i32 %a, 0                          ; <i32> [#uses=0]
   %us = add nuw nsw i32 %a, 0                     ; <i32> [#uses=0]
   %z = add i32 %a, 0                              ; <i32> [#uses=0]
-  %hh = zext nneg i32 %a to i64
-  %ll = zext i32 %s to i64
-  %jj = or disjoint i32 %a, 0
-  %oo = or i32 %a, 0
   unreachable
 
 first:                                            ; preds = %entry
@@ -28,9 +24,5 @@ first:                                            ; preds = %entry
   %ss = add nsw i32 %a, 0                         ; <i32> [#uses=0]
   %uuss = add nuw nsw i32 %a, 0                   ; <i32> [#uses=0]
   %zz = add i32 %a, 0                             ; <i32> [#uses=0]
-  %kk = zext nneg i32 %a to i64
-  %rr = zext i32 %ss to i64
-  %mm = or disjoint i32 %a, 0
-  %nn = or i32 %a, 0
   br label %second
 }

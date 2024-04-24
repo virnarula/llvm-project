@@ -10,9 +10,11 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include <optional>
 
-namespace clang::tidy::utils::type_traits {
+namespace clang {
+namespace tidy {
+namespace utils {
+namespace type_traits {
 
 namespace {
 
@@ -36,10 +38,10 @@ bool hasDeletedCopyConstructor(QualType Type) {
 
 } // namespace
 
-std::optional<bool> isExpensiveToCopy(QualType Type,
-                                      const ASTContext &Context) {
+llvm::Optional<bool> isExpensiveToCopy(QualType Type,
+                                       const ASTContext &Context) {
   if (Type->isDependentType() || Type->isIncompleteType())
-    return std::nullopt;
+    return llvm::None;
   return !Type.isTriviallyCopyableType(Context) &&
          !classHasTrivialCopyAndDestroy(Type) &&
          !hasDeletedCopyConstructor(Type) &&
@@ -159,4 +161,7 @@ bool hasNonTrivialMoveAssignment(QualType Type) {
          Record->hasNonTrivialMoveAssignment();
 }
 
-} // namespace clang::tidy::utils::type_traits
+} // namespace type_traits
+} // namespace utils
+} // namespace tidy
+} // namespace clang

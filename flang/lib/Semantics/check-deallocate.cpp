@@ -7,8 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "check-deallocate.h"
-#include "definable.h"
-#include "flang/Evaluate/type.h"
 #include "flang/Parser/message.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/expression.h"
@@ -22,69 +20,28 @@ void DeallocateChecker::Leave(const parser::DeallocateStmt &deallocateStmt) {
     common::visit(
         common::visitors{
             [&](const parser::Name &name) {
-              const Symbol *symbol{
-                  name.symbol ? &name.symbol->GetUltimate() : nullptr};
-              ;
+              auto const *symbol{name.symbol};
               if (context_.HasError(symbol)) {
                 // already reported an error
               } else if (!IsVariableName(*symbol)) {
                 context_.Say(name.source,
-                    "Name in DEALLOCATE statement must be a variable name"_err_en_US);
-              } else if (!IsAllocatableOrObjectPointer(symbol)) { // C936
+                    "name in DEALLOCATE statement must be a variable name"_err_en_US);
+              } else if (!IsAllocatableOrPointer(
+                             symbol->GetUltimate())) { // C932
                 context_.Say(name.source,
-                    "Name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute"_err_en_US);
-              } else if (auto whyNot{WhyNotDefinable(name.source,
-                             context_.FindScope(name.source),
-                             {DefinabilityFlag::PointerDefinition,
-                                 DefinabilityFlag::AcceptAllocatable},
-                             *symbol)}) {
-                // Catch problems with non-definability of the
-                // pointer/allocatable
-                context_
-                    .Say(name.source,
-                        "Name in DEALLOCATE statement is not definable"_err_en_US)
-                    .Attach(std::move(*whyNot));
-              } else if (auto whyNot{WhyNotDefinable(name.source,
-                             context_.FindScope(name.source),
-                             DefinabilityFlags{}, *symbol)}) {
-                // Catch problems with non-definability of the dynamic object
-                context_
-                    .Say(name.source,
-                        "Object in DEALLOCATE statement is not deallocatable"_err_en_US)
-                    .Attach(std::move(*whyNot));
+                    "name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute"_err_en_US);
               } else {
                 context_.CheckIndexVarRedefine(name);
               }
             },
             [&](const parser::StructureComponent &structureComponent) {
-              // Only perform structureComponent checks if it was successfully
-              // analyzed by expression analysis.
-              auto source{structureComponent.component.source};
-              if (const auto *expr{GetExpr(context_, allocateObject)}) {
-                if (const Symbol *
-                        symbol{structureComponent.component.symbol
-                                ? &structureComponent.component.symbol
-                                       ->GetUltimate()
-                                : nullptr};
-                    !IsAllocatableOrObjectPointer(symbol)) { // F'2023 C936
-                  context_.Say(source,
-                      "Component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute"_err_en_US);
-                } else if (auto whyNot{WhyNotDefinable(source,
-                               context_.FindScope(source),
-                               {DefinabilityFlag::PointerDefinition,
-                                   DefinabilityFlag::AcceptAllocatable},
-                               *expr)}) {
-                  context_
-                      .Say(source,
-                          "Name in DEALLOCATE statement is not definable"_err_en_US)
-                      .Attach(std::move(*whyNot));
-                } else if (auto whyNot{WhyNotDefinable(source,
-                               context_.FindScope(source), DefinabilityFlags{},
-                               *expr)}) {
-                  context_
-                      .Say(source,
-                          "Object in DEALLOCATE statement is not deallocatable"_err_en_US)
-                      .Attach(std::move(*whyNot));
+              // Only perform structureComponent checks it was successfully
+              // analyzed in expression analysis.
+              if (GetExpr(context_, allocateObject)) {
+                if (!IsAllocatableOrPointer(
+                        *structureComponent.component.symbol)) { // C932
+                  context_.Say(structureComponent.component.source,
+                      "component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute"_err_en_US);
                 }
               }
             },
@@ -103,10 +60,7 @@ void DeallocateChecker::Leave(const parser::DeallocateStmt &deallocateStmt) {
               }
               gotStat = true;
             },
-            [&](const parser::MsgVariable &var) {
-              WarnOnDeferredLengthCharacterScalar(context_,
-                  GetExpr(context_, var), var.v.thing.thing.GetSource(),
-                  "ERRMSG=");
+            [&](const parser::MsgVariable &) {
               if (gotMsg) {
                 context_.Say(
                     "ERRMSG may not be duplicated in a DEALLOCATE statement"_err_en_US);
@@ -117,5 +71,4 @@ void DeallocateChecker::Leave(const parser::DeallocateStmt &deallocateStmt) {
         deallocOpt.u);
   }
 }
-
 } // namespace Fortran::semantics

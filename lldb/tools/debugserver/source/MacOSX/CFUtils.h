@@ -15,6 +15,8 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#ifdef __cplusplus
+
 // Templatized CF helper class that can own any CF pointer and will
 // call CFRelease() on any valid pointer it owns unless that pointer is
 // explicitly released using the release() member function.
@@ -69,4 +71,5 @@ private:
   element_type _ptr;
 };
 
+#endif // #ifdef __cplusplus
 #endif // LLDB_TOOLS_DEBUGSERVER_SOURCE_MACOSX_CFUTILS_H

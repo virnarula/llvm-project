@@ -140,3 +140,5 @@ struct Works {
   static constexpr unsigned char max() { return 1; }
 };
 static_assert(std::uniform_random_bit_generator<Works>);
+
+int main(int, char**) { return 0; }

@@ -65,68 +65,57 @@ enum {
     {
       "kind": "memberOf",
       "source": "c:@E@Vehicle@Bicycle",
-      "target": "c:@E@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@E@Vehicle"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Vehicle@Car",
-      "target": "c:@E@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@E@Vehicle"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Vehicle@Train",
-      "target": "c:@E@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@E@Vehicle"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Vehicle@Ship",
-      "target": "c:@E@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@E@Vehicle"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Vehicle@Airplane",
-      "target": "c:@E@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@E@Vehicle"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Direction@North",
-      "target": "c:@E@Direction",
-      "targetFallback": "Direction"
+      "target": "c:@E@Direction"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Direction@East",
-      "target": "c:@E@Direction",
-      "targetFallback": "Direction"
+      "target": "c:@E@Direction"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Direction@South",
-      "target": "c:@E@Direction",
-      "targetFallback": "Direction"
+      "target": "c:@E@Direction"
     },
     {
       "kind": "memberOf",
       "source": "c:@E@Direction@West",
-      "target": "c:@E@Direction",
-      "targetFallback": "Direction"
+      "target": "c:@E@Direction"
     },
     {
       "kind": "memberOf",
       "source": "c:@Ea@Constant@Constant",
-      "target": "c:@Ea@Constant",
-      "targetFallback": "enum (unnamed)"
+      "target": "c:@Ea@Constant"
     },
     {
       "kind": "memberOf",
       "source": "c:@Ea@OtherConstant@OtherConstant",
-      "target": "c:@Ea@OtherConstant",
-      "targetFallback": "enum (unnamed)"
+      "target": "c:@Ea@OtherConstant"
     }
   ],
   "symbols": [
@@ -153,10 +142,6 @@ enum {
           "kind": "typeIdentifier",
           "preciseIdentifier": "c:i",
           "spelling": "unsigned int"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "docComment": {
@@ -164,12 +149,12 @@ enum {
           {
             "range": {
               "end": {
-                "character": 21,
-                "line": 0
+                "character": 22,
+                "line": 1
               },
               "start": {
-                "character": 4,
-                "line": 0
+                "character": 5,
+                "line": 1
               }
             },
             "text": "Kinds of vehicles"
@@ -186,8 +171,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 1
+          "character": 6,
+          "line": 2
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -228,8 +213,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 2
+          "character": 3,
+          "line": 3
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -271,8 +256,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 3
+          "character": 3,
+          "line": 4
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -309,12 +294,12 @@ enum {
           {
             "range": {
               "end": {
-                "character": 44,
-                "line": 4
+                "character": 45,
+                "line": 5
               },
               "start": {
-                "character": 14,
-                "line": 4
+                "character": 15,
+                "line": 5
               }
             },
             "text": "Move this to the top! -Sheldon"
@@ -331,8 +316,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 4
+          "character": 3,
+          "line": 5
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -374,8 +359,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 5
+          "character": 3,
+          "line": 6
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -417,8 +402,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 6
+          "character": 3,
+          "line": 7
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -465,10 +450,6 @@ enum {
           "kind": "typeIdentifier",
           "preciseIdentifier": "c:c",
           "spelling": "unsigned char"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -481,8 +462,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 9
+          "character": 6,
+          "line": 10
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -523,8 +504,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 10
+          "character": 3,
+          "line": 11
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -566,8 +547,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 11
+          "character": 3,
+          "line": 12
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -609,8 +590,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 12
+          "character": 3,
+          "line": 13
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -652,8 +633,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 13
+          "character": 3,
+          "line": 14
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -692,10 +673,6 @@ enum {
           "kind": "typeIdentifier",
           "preciseIdentifier": "c:i",
           "spelling": "unsigned int"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -708,8 +685,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 16
+          "character": 1,
+          "line": 17
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -744,8 +721,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 17
+          "character": 3,
+          "line": 18
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -784,10 +761,6 @@ enum {
           "kind": "typeIdentifier",
           "preciseIdentifier": "c:i",
           "spelling": "unsigned int"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -800,8 +773,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 20
+          "character": 1,
+          "line": 21
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -836,8 +809,8 @@ enum {
       },
       "location": {
         "position": {
-          "character": 2,
-          "line": 21
+          "character": 3,
+          "line": 22
         },
         "uri": "file://INPUT_DIR/input.h"
       },

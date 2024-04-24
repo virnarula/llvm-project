@@ -19,7 +19,6 @@
 #include "clang/Basic/ABI.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Casting.h"
-#include <optional>
 
 namespace llvm {
   class raw_ostream;
@@ -140,8 +139,7 @@ public:
                                         unsigned ManglingNumber,
                                         raw_ostream &) = 0;
   virtual void mangleCXXRTTI(QualType T, raw_ostream &) = 0;
-  virtual void mangleCXXRTTIName(QualType T, raw_ostream &,
-                                 bool NormalizeIntegers = false) = 0;
+  virtual void mangleCXXRTTIName(QualType T, raw_ostream &) = 0;
   virtual void mangleStringLiteral(const StringLiteral *SL, raw_ostream &) = 0;
   virtual void mangleMSGuidDecl(const MSGuidDecl *GD, raw_ostream&);
 
@@ -168,18 +166,17 @@ public:
   virtual void mangleDynamicAtExitDestructor(const VarDecl *D,
                                              raw_ostream &) = 0;
 
-  virtual void mangleSEHFilterExpression(GlobalDecl EnclosingDecl,
+  virtual void mangleSEHFilterExpression(const NamedDecl *EnclosingDecl,
                                          raw_ostream &Out) = 0;
 
-  virtual void mangleSEHFinallyBlock(GlobalDecl EnclosingDecl,
+  virtual void mangleSEHFinallyBlock(const NamedDecl *EnclosingDecl,
                                      raw_ostream &Out) = 0;
 
   /// Generates a unique string for an externally visible type for use with TBAA
   /// or type uniquing.
   /// TODO: Extend this to internal types by generating names that are unique
   /// across translation units so it can be used with LTO.
-  virtual void mangleCanonicalTypeName(QualType T, raw_ostream &,
-                                       bool NormalizeIntegers = false) = 0;
+  virtual void mangleTypeName(QualType T, raw_ostream &) = 0;
 
   /// @}
 };
@@ -187,7 +184,7 @@ public:
 class ItaniumMangleContext : public MangleContext {
 public:
   using DiscriminatorOverrideTy =
-      std::optional<unsigned> (*)(ASTContext &, const NamedDecl *);
+      llvm::Optional<unsigned> (*)(ASTContext &, const NamedDecl *);
   explicit ItaniumMangleContext(ASTContext &C, DiagnosticsEngine &D,
                                 bool IsAux = false)
       : MangleContext(C, D, MK_Itanium, IsAux) {}

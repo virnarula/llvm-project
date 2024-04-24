@@ -55,8 +55,6 @@ public:
 
   /// Prints this attribute.
   void print(AsmPrinter &os) const;
-
-  static constexpr StringLiteral name = "builtin.data_layout_entry";
 };
 
 //===----------------------------------------------------------------------===//
@@ -100,25 +98,11 @@ public:
   /// Returns the list of entries.
   DataLayoutEntryListRef getEntries() const;
 
-  /// Returns the alloca memory space identifier.
-  StringAttr getAllocaMemorySpaceIdentifier(MLIRContext *context) const;
-
-  /// Returns the program memory space identifier.
-  StringAttr getProgramMemorySpaceIdentifier(MLIRContext *context) const;
-
-  /// Returns the global memory space identifier.
-  StringAttr getGlobalMemorySpaceIdentifier(MLIRContext *context) const;
-
-  /// Returns the stack alignment identifier.
-  StringAttr getStackAlignmentIdentifier(MLIRContext *context) const;
-
   /// Parses an instance of this attribute.
   static DataLayoutSpecAttr parse(AsmParser &parser);
 
   /// Prints this attribute.
   void print(AsmPrinter &os) const;
-
-  static constexpr StringLiteral name = "builtin.data_layout_spec";
 };
 
 } // namespace mlir

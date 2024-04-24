@@ -9,10 +9,12 @@
 #ifndef LLD_WASM_WRITER_H
 #define LLD_WASM_WRITER_H
 
-namespace lld::wasm {
+namespace lld {
+namespace wasm {
 
 void writeResult();
 
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld
 
 #endif

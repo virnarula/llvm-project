@@ -23,7 +23,6 @@
 #define PASS_NAME "test-affine-data-copy"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 namespace {
 
@@ -61,8 +60,7 @@ void TestAffineDataCopy::runOnOperation() {
   // Gather all AffineForOps by loop depth.
   std::vector<SmallVector<AffineForOp, 2>> depthToLoops;
   gatherLoops(getOperation(), depthToLoops);
-  if (depthToLoops.empty())
-    return;
+  assert(!depthToLoops.empty() && "Loop nest not found");
 
   // Only support tests with a single loop nest and a single innermost loop
   // for now.
@@ -134,9 +132,7 @@ void TestAffineDataCopy::runOnOperation() {
       AffineStoreOp::getCanonicalizationPatterns(patterns, &getContext());
     }
   }
-  GreedyRewriteConfig config;
-  config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-  (void)applyOpPatternsAndFold(copyOps, std::move(patterns), config);
+  (void)applyOpPatternsAndFold(copyOps, std::move(patterns), /*strict=*/true);
 }
 
 namespace mlir {

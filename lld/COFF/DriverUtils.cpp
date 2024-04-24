@@ -12,13 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "COFFLinkerContext.h"
+#include "Config.h"
 #include "Driver.h"
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/Object/COFF.h"
@@ -31,15 +31,12 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
-#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/WindowsManifest/WindowsManifestMerger.h"
 #include <limits>
 #include <memory>
-#include <optional>
 
 using namespace llvm::COFF;
-using namespace llvm::opt;
 using namespace llvm;
 using llvm::sys::Process;
 
@@ -78,7 +75,7 @@ private:
 } // anonymous namespace
 
 // Parses a string in the form of "<integer>[,<integer>]".
-void LinkerDriver::parseNumbers(StringRef arg, uint64_t *addr, uint64_t *size) {
+void parseNumbers(StringRef arg, uint64_t *addr, uint64_t *size) {
   auto [s1, s2] = arg.split(',');
   if (s1.getAsInteger(0, *addr))
     fatal("invalid number: " + s1);
@@ -88,8 +85,7 @@ void LinkerDriver::parseNumbers(StringRef arg, uint64_t *addr, uint64_t *size) {
 
 // Parses a string in the form of "<integer>[.<integer>]".
 // If second number is not present, Minor is set to 0.
-void LinkerDriver::parseVersion(StringRef arg, uint32_t *major,
-                                uint32_t *minor) {
+void parseVersion(StringRef arg, uint32_t *major, uint32_t *minor) {
   auto [s1, s2] = arg.split('.');
   if (s1.getAsInteger(10, *major))
     fatal("invalid number: " + s1);
@@ -98,29 +94,28 @@ void LinkerDriver::parseVersion(StringRef arg, uint32_t *major,
     fatal("invalid number: " + s2);
 }
 
-void LinkerDriver::parseGuard(StringRef fullArg) {
+void parseGuard(StringRef fullArg) {
   SmallVector<StringRef, 1> splitArgs;
   fullArg.split(splitArgs, ",");
   for (StringRef arg : splitArgs) {
     if (arg.equals_insensitive("no"))
-      ctx.config.guardCF = GuardCFLevel::Off;
+      config->guardCF = GuardCFLevel::Off;
     else if (arg.equals_insensitive("nolongjmp"))
-      ctx.config.guardCF &= ~GuardCFLevel::LongJmp;
+      config->guardCF &= ~GuardCFLevel::LongJmp;
     else if (arg.equals_insensitive("noehcont"))
-      ctx.config.guardCF &= ~GuardCFLevel::EHCont;
+      config->guardCF &= ~GuardCFLevel::EHCont;
     else if (arg.equals_insensitive("cf") || arg.equals_insensitive("longjmp"))
-      ctx.config.guardCF |= GuardCFLevel::CF | GuardCFLevel::LongJmp;
+      config->guardCF |= GuardCFLevel::CF | GuardCFLevel::LongJmp;
     else if (arg.equals_insensitive("ehcont"))
-      ctx.config.guardCF |= GuardCFLevel::CF | GuardCFLevel::EHCont;
+      config->guardCF |= GuardCFLevel::CF | GuardCFLevel::EHCont;
     else
       fatal("invalid argument to /guard: " + arg);
   }
 }
 
 // Parses a string in the form of "<subsystem>[,<integer>[.<integer>]]".
-void LinkerDriver::parseSubsystem(StringRef arg, WindowsSubsystem *sys,
-                                  uint32_t *major, uint32_t *minor,
-                                  bool *gotVersion) {
+void parseSubsystem(StringRef arg, WindowsSubsystem *sys, uint32_t *major,
+                    uint32_t *minor, bool *gotVersion) {
   auto [sysStr, ver] = arg.split(',');
   std::string sysStrLower = sysStr.lower();
   *sys = StringSwitch<WindowsSubsystem>(sysStrLower)
@@ -145,19 +140,19 @@ void LinkerDriver::parseSubsystem(StringRef arg, WindowsSubsystem *sys,
 
 // Parse a string of the form of "<from>=<to>".
 // Results are directly written to Config.
-void LinkerDriver::parseAlternateName(StringRef s) {
+void parseAlternateName(StringRef s) {
   auto [from, to] = s.split('=');
   if (from.empty() || to.empty())
     fatal("/alternatename: invalid argument: " + s);
-  auto it = ctx.config.alternateNames.find(from);
-  if (it != ctx.config.alternateNames.end() && it->second != to)
+  auto it = config->alternateNames.find(from);
+  if (it != config->alternateNames.end() && it->second != to)
     fatal("/alternatename: conflicts: " + s);
-  ctx.config.alternateNames.insert(it, std::make_pair(from, to));
+  config->alternateNames.insert(it, std::make_pair(from, to));
 }
 
 // Parse a string of the form of "<from>=<to>".
 // Results are directly written to Config.
-void LinkerDriver::parseMerge(StringRef s) {
+void parseMerge(StringRef s) {
   auto [from, to] = s.split('=');
   if (from.empty() || to.empty())
     fatal("/merge: invalid argument: " + s);
@@ -165,7 +160,7 @@ void LinkerDriver::parseMerge(StringRef s) {
     fatal("/merge: cannot merge '.rsrc' with any section");
   if (from == ".reloc" || to == ".reloc")
     fatal("/merge: cannot merge '.reloc' with any section");
-  auto pair = ctx.config.merge.insert(std::make_pair(from, to));
+  auto pair = config->merge.insert(std::make_pair(from, to));
   bool inserted = pair.second;
   if (!inserted) {
     StringRef existing = pair.first->second;
@@ -174,7 +169,7 @@ void LinkerDriver::parseMerge(StringRef s) {
   }
 }
 
-void LinkerDriver::parsePDBPageSize(StringRef s) {
+void parsePDBPageSize(StringRef s) {
   int v;
   if (s.getAsInteger(0, v)) {
     error("/pdbpagesize: invalid argument: " + s);
@@ -185,7 +180,7 @@ void LinkerDriver::parsePDBPageSize(StringRef s) {
     return;
   }
 
-  ctx.config.pdbPageSize = v;
+  config->pdbPageSize = v;
 }
 
 static uint32_t parseSectionAttributes(StringRef s) {
@@ -221,15 +216,15 @@ static uint32_t parseSectionAttributes(StringRef s) {
 }
 
 // Parses /section option argument.
-void LinkerDriver::parseSection(StringRef s) {
+void parseSection(StringRef s) {
   auto [name, attrs] = s.split(',');
   if (name.empty() || attrs.empty())
     fatal("/section: invalid argument: " + s);
-  ctx.config.section[name] = parseSectionAttributes(attrs);
+  config->section[name] = parseSectionAttributes(attrs);
 }
 
 // Parses /aligncomm option argument.
-void LinkerDriver::parseAligncomm(StringRef s) {
+void parseAligncomm(StringRef s) {
   auto [name, align] = s.split(',');
   if (name.empty() || align.empty()) {
     error("/aligncomm: invalid argument: " + s);
@@ -240,82 +235,70 @@ void LinkerDriver::parseAligncomm(StringRef s) {
     error("/aligncomm: invalid argument: " + s);
     return;
   }
-  ctx.config.alignComm[std::string(name)] =
-      std::max(ctx.config.alignComm[std::string(name)], 1 << v);
+  config->alignComm[std::string(name)] =
+      std::max(config->alignComm[std::string(name)], 1 << v);
 }
 
 // Parses /functionpadmin option argument.
-void LinkerDriver::parseFunctionPadMin(llvm::opt::Arg *a) {
+void parseFunctionPadMin(llvm::opt::Arg *a, llvm::COFF::MachineTypes machine) {
   StringRef arg = a->getNumValues() ? a->getValue() : "";
   if (!arg.empty()) {
     // Optional padding in bytes is given.
-    if (arg.getAsInteger(0, ctx.config.functionPadMin))
+    if (arg.getAsInteger(0, config->functionPadMin))
       error("/functionpadmin: invalid argument: " + arg);
     return;
   }
   // No optional argument given.
   // Set default padding based on machine, similar to link.exe.
   // There is no default padding for ARM platforms.
-  if (ctx.config.machine == I386) {
-    ctx.config.functionPadMin = 5;
-  } else if (ctx.config.machine == AMD64) {
-    ctx.config.functionPadMin = 6;
+  if (machine == I386) {
+    config->functionPadMin = 5;
+  } else if (machine == AMD64) {
+    config->functionPadMin = 6;
   } else {
     error("/functionpadmin: invalid argument for this machine: " + arg);
   }
 }
 
-// Parses /dependentloadflag option argument.
-void LinkerDriver::parseDependentLoadFlags(llvm::opt::Arg *a) {
-  StringRef arg = a->getNumValues() ? a->getValue() : "";
-  if (!arg.empty()) {
-    if (arg.getAsInteger(0, ctx.config.dependentLoadFlags))
-      error("/dependentloadflag: invalid argument: " + arg);
-    return;
-  }
-  // MSVC linker reports error "no argument specified", although MSDN describes
-  // argument as optional.
-  error("/dependentloadflag: no argument specified");
-}
-
 // Parses a string in the form of "EMBED[,=<integer>]|NO".
-// Results are directly written to
-// Config.
-void LinkerDriver::parseManifest(StringRef arg) {
+// Results are directly written to Config.
+void parseManifest(StringRef arg) {
   if (arg.equals_insensitive("no")) {
-    ctx.config.manifest = Configuration::No;
+    config->manifest = Configuration::No;
     return;
   }
-  if (!arg.starts_with_insensitive("embed"))
+  if (!arg.startswith_insensitive("embed"))
     fatal("invalid option " + arg);
-  ctx.config.manifest = Configuration::Embed;
+  config->manifest = Configuration::Embed;
   arg = arg.substr(strlen("embed"));
   if (arg.empty())
     return;
-  if (!arg.starts_with_insensitive(",id="))
+  if (!arg.startswith_insensitive(",id="))
     fatal("invalid option " + arg);
   arg = arg.substr(strlen(",id="));
-  if (arg.getAsInteger(0, ctx.config.manifestID))
+  if (arg.getAsInteger(0, config->manifestID))
     fatal("invalid option " + arg);
 }
 
 // Parses a string in the form of "level=<string>|uiAccess=<string>|NO".
 // Results are directly written to Config.
-void LinkerDriver::parseManifestUAC(StringRef arg) {
+void parseManifestUAC(StringRef arg) {
   if (arg.equals_insensitive("no")) {
-    ctx.config.manifestUAC = false;
+    config->manifestUAC = false;
     return;
   }
   for (;;) {
     arg = arg.ltrim();
     if (arg.empty())
       return;
-    if (arg.consume_front_insensitive("level=")) {
-      std::tie(ctx.config.manifestLevel, arg) = arg.split(" ");
+    if (arg.startswith_insensitive("level=")) {
+      arg = arg.substr(strlen("level="));
+      std::tie(config->manifestLevel, arg) = arg.split(" ");
       continue;
     }
-    if (arg.consume_front_insensitive("uiaccess=")) {
-      std::tie(ctx.config.manifestUIAccess, arg) = arg.split(" ");
+    if (arg.startswith_insensitive("uiaccess=")) {
+      arg = arg.substr(strlen("uiaccess="));
+      std::tie(config->manifestUIAccess, arg) = arg.split(" ");
       continue;
     }
     fatal("invalid option " + arg);
@@ -324,19 +307,19 @@ void LinkerDriver::parseManifestUAC(StringRef arg) {
 
 // Parses a string in the form of "cd|net[,(cd|net)]*"
 // Results are directly written to Config.
-void LinkerDriver::parseSwaprun(StringRef arg) {
+void parseSwaprun(StringRef arg) {
   do {
     auto [swaprun, newArg] = arg.split(',');
     if (swaprun.equals_insensitive("cd"))
-      ctx.config.swaprunCD = true;
+      config->swaprunCD = true;
     else if (swaprun.equals_insensitive("net"))
-      ctx.config.swaprunNet = true;
+      config->swaprunNet = true;
     else if (swaprun.empty())
       error("/swaprun: missing argument");
     else
       error("/swaprun: invalid argument: " + swaprun);
     // To catch trailing commas, e.g. `/spawrun:cd,`
-    if (newArg.empty() && arg.ends_with(","))
+    if (newArg.empty() && arg.endswith(","))
       error("/swaprun: missing argument");
     arg = newArg;
   } while (!arg.empty());
@@ -350,7 +333,7 @@ public:
     SmallString<128> s;
     if (auto ec = sys::fs::createTemporaryFile("lld-" + prefix, extn, s))
       fatal("cannot create a temporary file: " + ec.message());
-    path = std::string(s);
+    path = std::string(s.str());
 
     if (!contents.empty()) {
       std::error_code ec;
@@ -361,7 +344,9 @@ public:
     }
   }
 
-  TemporaryFile(TemporaryFile &&obj) noexcept { std::swap(path, obj.path); }
+  TemporaryFile(TemporaryFile &&obj) {
+    std::swap(path, obj.path);
+  }
 
   ~TemporaryFile() {
     if (path.empty())
@@ -386,7 +371,7 @@ public:
 };
 }
 
-std::string LinkerDriver::createDefaultXml() {
+static std::string createDefaultXml() {
   std::string ret;
   raw_string_ostream os(ret);
 
@@ -395,17 +380,17 @@ std::string LinkerDriver::createDefaultXml() {
   os << "<?xml version=\"1.0\" standalone=\"yes\"?>\n"
      << "<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\"\n"
      << "          manifestVersion=\"1.0\">\n";
-  if (ctx.config.manifestUAC) {
+  if (config->manifestUAC) {
     os << "  <trustInfo>\n"
        << "    <security>\n"
        << "      <requestedPrivileges>\n"
-       << "         <requestedExecutionLevel level=" << ctx.config.manifestLevel
-       << " uiAccess=" << ctx.config.manifestUIAccess << "/>\n"
+       << "         <requestedExecutionLevel level=" << config->manifestLevel
+       << " uiAccess=" << config->manifestUIAccess << "/>\n"
        << "      </requestedPrivileges>\n"
        << "    </security>\n"
        << "  </trustInfo>\n";
   }
-  for (auto manifestDependency : ctx.config.manifestDependencies) {
+  for (auto manifestDependency : config->manifestDependencies) {
     os << "  <dependency>\n"
        << "    <dependentAssembly>\n"
        << "      <assemblyIdentity " << manifestDependency << " />\n"
@@ -416,8 +401,7 @@ std::string LinkerDriver::createDefaultXml() {
   return os.str();
 }
 
-std::string
-LinkerDriver::createManifestXmlWithInternalMt(StringRef defaultXml) {
+static std::string createManifestXmlWithInternalMt(StringRef defaultXml) {
   std::unique_ptr<MemoryBuffer> defaultXmlCopy =
       MemoryBuffer::getMemBufferCopy(defaultXml);
 
@@ -426,11 +410,11 @@ LinkerDriver::createManifestXmlWithInternalMt(StringRef defaultXml) {
     fatal("internal manifest tool failed on default xml: " +
           toString(std::move(e)));
 
-  for (StringRef filename : ctx.config.manifestInput) {
+  for (StringRef filename : config->manifestInput) {
     std::unique_ptr<MemoryBuffer> manifest =
         check(MemoryBuffer::getFile(filename));
     // Call takeBuffer to include in /reproduce: output if applicable.
-    if (auto e = merger.merge(takeBuffer(std::move(manifest))))
+    if (auto e = merger.merge(driver->takeBuffer(std::move(manifest))))
       fatal("internal manifest tool failed on file " + filename + ": " +
             toString(std::move(e)));
   }
@@ -438,8 +422,7 @@ LinkerDriver::createManifestXmlWithInternalMt(StringRef defaultXml) {
   return std::string(merger.getMergedManifest().get()->getBuffer());
 }
 
-std::string
-LinkerDriver::createManifestXmlWithExternalMt(StringRef defaultXml) {
+static std::string createManifestXmlWithExternalMt(StringRef defaultXml) {
   // Create the default manifest file as a temporary file.
   TemporaryFile Default("defaultxml", "manifest");
   std::error_code ec;
@@ -456,14 +439,14 @@ LinkerDriver::createManifestXmlWithExternalMt(StringRef defaultXml) {
   Executor e("mt.exe");
   e.add("/manifest");
   e.add(Default.path);
-  for (StringRef filename : ctx.config.manifestInput) {
+  for (StringRef filename : config->manifestInput) {
     e.add("/manifest");
     e.add(filename);
 
     // Manually add the file to the /reproduce: tar if needed.
-    if (tar)
+    if (driver->tar)
       if (auto mbOrErr = MemoryBuffer::getFile(filename))
-        takeBuffer(std::move(*mbOrErr));
+        driver->takeBuffer(std::move(*mbOrErr));
   }
   e.add("/nologo");
   e.add("/out:" + StringRef(user.path));
@@ -475,9 +458,9 @@ LinkerDriver::createManifestXmlWithExternalMt(StringRef defaultXml) {
           ->getBuffer());
 }
 
-std::string LinkerDriver::createManifestXml() {
+static std::string createManifestXml() {
   std::string defaultXml = createDefaultXml();
-  if (ctx.config.manifestInput.empty())
+  if (config->manifestInput.empty())
     return defaultXml;
 
   if (windows_manifest::isAvailable())
@@ -486,14 +469,14 @@ std::string LinkerDriver::createManifestXml() {
   return createManifestXmlWithExternalMt(defaultXml);
 }
 
-std::unique_ptr<WritableMemoryBuffer>
-LinkerDriver::createMemoryBufferForManifestRes(size_t manifestSize) {
+static std::unique_ptr<WritableMemoryBuffer>
+createMemoryBufferForManifestRes(size_t manifestSize) {
   size_t resSize = alignTo(
       object::WIN_RES_MAGIC_SIZE + object::WIN_RES_NULL_ENTRY_SIZE +
           sizeof(object::WinResHeaderPrefix) + sizeof(object::WinResIDs) +
           sizeof(object::WinResHeaderSuffix) + manifestSize,
       object::WIN_RES_DATA_ALIGNMENT);
-  return WritableMemoryBuffer::getNewMemBuffer(resSize, ctx.config.outputFile +
+  return WritableMemoryBuffer::getNewMemBuffer(resSize, config->outputFile +
                                                             ".manifest.res");
 }
 
@@ -504,8 +487,7 @@ static void writeResFileHeader(char *&buf) {
   buf += object::WIN_RES_NULL_ENTRY_SIZE;
 }
 
-static void writeResEntryHeader(char *&buf, size_t manifestSize,
-                                int manifestID) {
+static void writeResEntryHeader(char *&buf, size_t manifestSize) {
   // Write the prefix.
   auto *prefix = reinterpret_cast<object::WinResHeaderPrefix *>(buf);
   prefix->DataSize = manifestSize;
@@ -517,7 +499,7 @@ static void writeResEntryHeader(char *&buf, size_t manifestSize,
   // Write the Type/Name IDs.
   auto *iDs = reinterpret_cast<object::WinResIDs *>(buf);
   iDs->setType(RT_MANIFEST);
-  iDs->setName(manifestID);
+  iDs->setName(config->manifestID);
   buf += sizeof(object::WinResIDs);
 
   // Write the suffix.
@@ -531,7 +513,7 @@ static void writeResEntryHeader(char *&buf, size_t manifestSize,
 }
 
 // Create a resource file containing a manifest XML.
-std::unique_ptr<MemoryBuffer> LinkerDriver::createManifestRes() {
+std::unique_ptr<MemoryBuffer> createManifestRes() {
   std::string manifest = createManifestXml();
 
   std::unique_ptr<WritableMemoryBuffer> res =
@@ -539,17 +521,17 @@ std::unique_ptr<MemoryBuffer> LinkerDriver::createManifestRes() {
 
   char *buf = res->getBufferStart();
   writeResFileHeader(buf);
-  writeResEntryHeader(buf, manifest.size(), ctx.config.manifestID);
+  writeResEntryHeader(buf, manifest.size());
 
   // Copy the manifest data into the .res file.
   std::copy(manifest.begin(), manifest.end(), buf);
   return std::move(res);
 }
 
-void LinkerDriver::createSideBySideManifest() {
-  std::string path = std::string(ctx.config.manifestFile);
+void createSideBySideManifest() {
+  std::string path = std::string(config->manifestFile);
   if (path == "")
-    path = ctx.config.outputFile + ".manifest";
+    path = config->outputFile + ".manifest";
   std::error_code ec;
   raw_fd_ostream out(path, ec, sys::fs::OF_TextWithCRLF);
   if (ec)
@@ -561,10 +543,8 @@ void LinkerDriver::createSideBySideManifest() {
 // "<name>[=<internalname>][,@ordinal[,NONAME]][,DATA][,PRIVATE]"
 // or "<name>=<dllname>.<name>".
 // Used for parsing /export arguments.
-Export LinkerDriver::parseExport(StringRef arg) {
+Export parseExport(StringRef arg) {
   Export e;
-  e.source = ExportSource::Export;
-
   StringRef rest;
   std::tie(e.name, rest) = arg.split(",");
   if (e.name.empty())
@@ -608,7 +588,7 @@ Export LinkerDriver::parseExport(StringRef arg) {
       e.isPrivate = true;
       continue;
     }
-    if (tok.starts_with("@")) {
+    if (tok.startswith("@")) {
       int32_t ord;
       if (tok.substr(1).getAsInteger(0, ord))
         goto err;
@@ -625,16 +605,16 @@ err:
   fatal("invalid /export: " + arg);
 }
 
-static StringRef undecorate(COFFLinkerContext &ctx, StringRef sym) {
-  if (ctx.config.machine != I386)
+static StringRef undecorate(StringRef sym) {
+  if (config->machine != I386)
     return sym;
   // In MSVC mode, a fully decorated stdcall function is exported
   // as-is with the leading underscore (with type IMPORT_NAME).
   // In MinGW mode, a decorated stdcall function gets the underscore
   // removed, just like normal cdecl functions.
-  if (sym.starts_with("_") && sym.contains('@') && !ctx.config.mingw)
+  if (sym.startswith("_") && sym.contains('@') && !config->mingw)
     return sym;
-  return sym.starts_with("_") ? sym.substr(1) : sym;
+  return sym.startswith("_") ? sym.substr(1) : sym;
 }
 
 // Convert stdcall/fastcall style symbols into unsuffixed symbols,
@@ -644,8 +624,8 @@ static StringRef killAt(StringRef sym, bool prefix) {
     return sym;
   // Strip any trailing stdcall suffix
   sym = sym.substr(0, sym.find('@', 1));
-  if (!sym.starts_with("@")) {
-    if (prefix && !sym.starts_with("_"))
+  if (!sym.startswith("@")) {
+    if (prefix && !sym.startswith("_"))
       return saver().save("_" + sym);
     return sym;
   }
@@ -657,42 +637,28 @@ static StringRef killAt(StringRef sym, bool prefix) {
   return sym;
 }
 
-static StringRef exportSourceName(ExportSource s) {
-  switch (s) {
-  case ExportSource::Directives:
-    return "source file (directives)";
-  case ExportSource::Export:
-    return "/export";
-  case ExportSource::ModuleDefinition:
-    return "/def";
-  default:
-    llvm_unreachable("unknown ExportSource");
-  }
-}
-
 // Performs error checking on all /export arguments.
 // It also sets ordinals.
-void LinkerDriver::fixupExports() {
-  llvm::TimeTraceScope timeScope("Fixup exports");
+void fixupExports() {
   // Symbol ordinals must be unique.
   std::set<uint16_t> ords;
-  for (Export &e : ctx.config.exports) {
+  for (Export &e : config->exports) {
     if (e.ordinal == 0)
       continue;
     if (!ords.insert(e.ordinal).second)
       fatal("duplicate export ordinal: " + e.name);
   }
 
-  for (Export &e : ctx.config.exports) {
+  for (Export &e : config->exports) {
     if (!e.forwardTo.empty()) {
-      e.exportName = undecorate(ctx, e.name);
+      e.exportName = undecorate(e.name);
     } else {
-      e.exportName = undecorate(ctx, e.extName.empty() ? e.name : e.extName);
+      e.exportName = undecorate(e.extName.empty() ? e.name : e.extName);
     }
   }
 
-  if (ctx.config.killAt && ctx.config.machine == I386) {
-    for (Export &e : ctx.config.exports) {
+  if (config->killAt && config->machine == I386) {
+    for (Export &e : config->exports) {
       e.name = killAt(e.name, true);
       e.exportName = killAt(e.exportName, false);
       e.extName = killAt(e.extName, true);
@@ -701,51 +667,34 @@ void LinkerDriver::fixupExports() {
   }
 
   // Uniquefy by name.
-  DenseMap<StringRef, std::pair<Export *, unsigned>> map(
-      ctx.config.exports.size());
+  DenseMap<StringRef, Export *> map(config->exports.size());
   std::vector<Export> v;
-  for (Export &e : ctx.config.exports) {
-    auto pair = map.insert(std::make_pair(e.exportName, std::make_pair(&e, 0)));
+  for (Export &e : config->exports) {
+    auto pair = map.insert(std::make_pair(e.exportName, &e));
     bool inserted = pair.second;
     if (inserted) {
-      pair.first->second.second = v.size();
       v.push_back(e);
       continue;
     }
-    Export *existing = pair.first->second.first;
+    Export *existing = pair.first->second;
     if (e == *existing || e.name != existing->name)
       continue;
-    // If the existing export comes from .OBJ directives, we are allowed to
-    // overwrite it with /DEF: or /EXPORT without any warning, as MSVC link.exe
-    // does.
-    if (existing->source == ExportSource::Directives) {
-      *existing = e;
-      v[pair.first->second.second] = e;
-      continue;
-    }
-    if (existing->source == e.source) {
-      warn(Twine("duplicate ") + exportSourceName(existing->source) +
-           " option: " + e.name);
-    } else {
-      warn("duplicate export: " + e.name +
-           Twine(" first seen in " + exportSourceName(existing->source) +
-                 Twine(", now in " + exportSourceName(e.source))));
-    }
+    warn("duplicate /export option: " + e.name);
   }
-  ctx.config.exports = std::move(v);
+  config->exports = std::move(v);
 
   // Sort by name.
-  llvm::sort(ctx.config.exports, [](const Export &a, const Export &b) {
+  llvm::sort(config->exports, [](const Export &a, const Export &b) {
     return a.exportName < b.exportName;
   });
 }
 
-void LinkerDriver::assignExportOrdinals() {
+void assignExportOrdinals() {
   // Assign unique ordinals if default (= 0).
   uint32_t max = 0;
-  for (Export &e : ctx.config.exports)
+  for (Export &e : config->exports)
     max = std::max(max, (uint32_t)e.ordinal);
-  for (Export &e : ctx.config.exports)
+  for (Export &e : config->exports)
     if (e.ordinal == 0)
       e.ordinal = ++max;
   if (max > std::numeric_limits<uint16_t>::max())
@@ -755,11 +704,11 @@ void LinkerDriver::assignExportOrdinals() {
 
 // Parses a string in the form of "key=value" and check
 // if value matches previous values for the same key.
-void LinkerDriver::checkFailIfMismatch(StringRef arg, InputFile *source) {
+void checkFailIfMismatch(StringRef arg, InputFile *source) {
   auto [k, v] = arg.split('=');
   if (k.empty() || v.empty())
     fatal("/failifmismatch: invalid argument: " + arg);
-  std::pair<StringRef, InputFile *> existing = ctx.config.mustMatch[k];
+  std::pair<StringRef, InputFile *> existing = config->mustMatch[k];
   if (!existing.first.empty() && v != existing.first) {
     std::string sourceStr = source ? toString(source) : "cmd-line";
     std::string existingStr =
@@ -768,14 +717,14 @@ void LinkerDriver::checkFailIfMismatch(StringRef arg, InputFile *source) {
           existingStr + " has value " + existing.first + "\n>>> " + sourceStr +
           " has value " + v);
   }
-  ctx.config.mustMatch[k] = {v, source};
+  config->mustMatch[k] = {v, source};
 }
 
 // Convert Windows resource files (.res files) to a .obj file.
 // Does what cvtres.exe does, but in-process and cross-platform.
-MemoryBufferRef LinkerDriver::convertResToCOFF(ArrayRef<MemoryBufferRef> mbs,
-                                               ArrayRef<ObjFile *> objs) {
-  object::WindowsResourceParser parser(/* MinGW */ ctx.config.mingw);
+MemoryBufferRef convertResToCOFF(ArrayRef<MemoryBufferRef> mbs,
+                                 ArrayRef<ObjFile *> objs) {
+  object::WindowsResourceParser parser(/* MinGW */ config->mingw);
 
   std::vector<std::string> duplicates;
   for (MemoryBufferRef mb : mbs) {
@@ -800,18 +749,18 @@ MemoryBufferRef LinkerDriver::convertResToCOFF(ArrayRef<MemoryBufferRef> mbs,
       fatal(toString(std::move(ec)));
   }
 
-  if (ctx.config.mingw)
+  if (config->mingw)
     parser.cleanUpManifests(duplicates);
 
   for (const auto &dupeDiag : duplicates)
-    if (ctx.config.forceMultipleRes)
+    if (config->forceMultipleRes)
       warn(dupeDiag);
     else
       error(dupeDiag);
 
   Expected<std::unique_ptr<MemoryBuffer>> e =
-      llvm::object::writeWindowsResourceCOFF(ctx.config.machine, parser,
-                                             ctx.config.timestamp);
+      llvm::object::writeWindowsResourceCOFF(config->machine, parser,
+                                             config->timestamp);
   if (!e)
     fatal("failed to write .res to COFF: " + toString(e.takeError()));
 
@@ -823,21 +772,22 @@ MemoryBufferRef LinkerDriver::convertResToCOFF(ArrayRef<MemoryBufferRef> mbs,
 // Create OptTable
 
 // Create prefix string literals used in Options.td
-#define PREFIX(NAME, VALUE)                                                    \
-  static constexpr llvm::StringLiteral NAME##_init[] = VALUE;                  \
-  static constexpr llvm::ArrayRef<llvm::StringLiteral> NAME(                   \
-      NAME##_init, std::size(NAME##_init) - 1);
+#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
 #include "Options.inc"
 #undef PREFIX
 
 // Create table mapping all options defined in Options.td
-static constexpr llvm::opt::OptTable::Info infoTable[] = {
-#define OPTION(...) LLVM_CONSTRUCT_OPT_INFO(__VA_ARGS__),
+static const llvm::opt::OptTable::Info infoTable[] = {
+#define OPTION(X1, X2, ID, KIND, GROUP, ALIAS, X7, X8, X9, X10, X11, X12)      \
+  {X1, X2, X10,         X11,         OPT_##ID, llvm::opt::Option::KIND##Class, \
+   X9, X8, OPT_##GROUP, OPT_##ALIAS, X7,       X12},
 #include "Options.inc"
 #undef OPTION
 };
 
-COFFOptTable::COFFOptTable() : GenericOptTable(infoTable, true) {}
+COFFOptTable::COFFOptTable() : OptTable(infoTable, true) {}
+
+COFFOptTable optTable;
 
 // Set color diagnostics according to --color-diagnostics={auto,always,never}
 // or --no-color-diagnostics flags.
@@ -874,8 +824,6 @@ static cl::TokenizerCallback getQuotingStyle(opt::InputArgList &args) {
   return cl::TokenizeWindowsCommandLine;
 }
 
-ArgParser::ArgParser(COFFLinkerContext &c) : ctx(c) {}
-
 // Parses a given list of options.
 opt::InputArgList ArgParser::parse(ArrayRef<const char *> argv) {
   // Make InputArgList from string vectors.
@@ -886,8 +834,7 @@ opt::InputArgList ArgParser::parse(ArrayRef<const char *> argv) {
   // options so we parse here before and ignore all the options but
   // --rsp-quoting and /lldignoreenv.
   // (This means --rsp-quoting can't be added through %LINK%.)
-  opt::InputArgList args =
-      ctx.optTable.ParseArgs(argv, missingIndex, missingCount);
+  opt::InputArgList args = optTable.ParseArgs(argv, missingIndex, missingCount);
 
   // Expand response files (arguments in the form of @<filename>) and insert
   // flags from %LINK% and %_LINK_%, and then parse the argument again.
@@ -896,8 +843,8 @@ opt::InputArgList ArgParser::parse(ArrayRef<const char *> argv) {
   if (!args.hasArg(OPT_lldignoreenv))
     addLINK(expandedArgv);
   cl::ExpandResponseFiles(saver(), getQuotingStyle(args), expandedArgv);
-  args = ctx.optTable.ParseArgs(ArrayRef(expandedArgv).drop_front(),
-                                missingIndex, missingCount);
+  args = optTable.ParseArgs(makeArrayRef(expandedArgv).drop_front(),
+                            missingIndex, missingCount);
 
   // Print the real command line if response files are expanded.
   if (args.hasArg(OPT_verbose) && argv.size() != expandedArgv.size()) {
@@ -908,13 +855,8 @@ opt::InputArgList ArgParser::parse(ArrayRef<const char *> argv) {
   }
 
   // Save the command line after response file expansion so we can write it to
-  // the PDB if necessary. Mimic MSVC, which skips input files.
-  ctx.config.argv = {argv[0]};
-  for (opt::Arg *arg : args) {
-    if (arg->getOption().getKind() != opt::Option::InputClass) {
-      ctx.config.argv.emplace_back(args.getArgString(arg->getIndex()));
-    }
-  }
+  // the PDB if necessary.
+  config->argv = {expandedArgv.begin(), expandedArgv.end()};
 
   // Handle /WX early since it converts missing argument warnings to errors.
   errorHandler().fatalWarnings = args.hasFlag(OPT_WX, OPT_WX_no, false);
@@ -926,7 +868,7 @@ opt::InputArgList ArgParser::parse(ArrayRef<const char *> argv) {
 
   for (opt::Arg *arg : args.filtered(OPT_UNKNOWN)) {
     std::string nearest;
-    if (ctx.optTable.findNearest(arg->getAsString(args), nearest) > 1)
+    if (optTable.findNearest(arg->getAsString(args), nearest) > 1)
       warn("ignoring unknown argument '" + arg->getAsString(args) + "'");
     else
       warn("ignoring unknown argument '" + arg->getAsString(args) +
@@ -949,14 +891,14 @@ ParsedDirectives ArgParser::parseDirectives(StringRef s) {
   SmallVector<StringRef, 16> tokens;
   cl::TokenizeWindowsCommandLineNoCopy(s, saver(), tokens);
   for (StringRef tok : tokens) {
-    if (tok.starts_with_insensitive("/export:") ||
-        tok.starts_with_insensitive("-export:"))
+    if (tok.startswith_insensitive("/export:") ||
+        tok.startswith_insensitive("-export:"))
       result.exports.push_back(tok.substr(strlen("/export:")));
-    else if (tok.starts_with_insensitive("/include:") ||
-             tok.starts_with_insensitive("-include:"))
+    else if (tok.startswith_insensitive("/include:") ||
+             tok.startswith_insensitive("-include:"))
       result.includes.push_back(tok.substr(strlen("/include:")));
-    else if (tok.starts_with_insensitive("/exclude-symbols:") ||
-             tok.starts_with_insensitive("-exclude-symbols:"))
+    else if (tok.startswith_insensitive("/exclude-symbols:") ||
+             tok.startswith_insensitive("-exclude-symbols:"))
       result.excludes.push_back(tok.substr(strlen("/exclude-symbols:")));
     else {
       // Copy substrings that are not valid C strings. The tokenizer may have
@@ -971,7 +913,7 @@ ParsedDirectives ArgParser::parseDirectives(StringRef s) {
   unsigned missingIndex;
   unsigned missingCount;
 
-  result.args = ctx.optTable.ParseArgs(rest, missingIndex, missingCount);
+  result.args = optTable.ParseArgs(rest, missingIndex, missingCount);
 
   if (missingCount)
     fatal(Twine(result.args.getArgString(missingIndex)) + ": missing argument");
@@ -985,11 +927,11 @@ ParsedDirectives ArgParser::parseDirectives(StringRef s) {
 // So you can pass extra arguments using them.
 void ArgParser::addLINK(SmallVector<const char *, 256> &argv) {
   // Concatenate LINK env and command line arguments, and then parse them.
-  if (std::optional<std::string> s = Process::GetEnv("LINK")) {
+  if (Optional<std::string> s = Process::GetEnv("LINK")) {
     std::vector<const char *> v = tokenize(*s);
     argv.insert(std::next(argv.begin()), v.begin(), v.end());
   }
-  if (std::optional<std::string> s = Process::GetEnv("_LINK_")) {
+  if (Optional<std::string> s = Process::GetEnv("_LINK_")) {
     std::vector<const char *> v = tokenize(*s);
     argv.insert(std::next(argv.begin()), v.begin(), v.end());
   }
@@ -1001,10 +943,10 @@ std::vector<const char *> ArgParser::tokenize(StringRef s) {
   return std::vector<const char *>(tokens.begin(), tokens.end());
 }
 
-void LinkerDriver::printHelp(const char *argv0) {
-  ctx.optTable.printHelp(lld::outs(),
-                         (std::string(argv0) + " [options] file...").c_str(),
-                         "LLVM Linker", false);
+void printHelp(const char *argv0) {
+  optTable.printHelp(lld::outs(),
+                     (std::string(argv0) + " [options] file...").c_str(),
+                     "LLVM Linker", false);
 }
 
 } // namespace coff

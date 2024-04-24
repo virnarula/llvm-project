@@ -13,12 +13,11 @@
 #include "support/Logger.h"
 #include "support/Path.h"
 #include "clang/AST/Decl.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
 
-std::optional<Path> getCorrespondingHeaderOrSource(
+llvm::Optional<Path> getCorrespondingHeaderOrSource(
     PathRef OriginalFile, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) {
   llvm::StringRef SourceExtensions[] = {".cpp", ".c", ".cc", ".cxx",
                                         ".c++", ".m", ".mm"};
@@ -37,7 +36,7 @@ std::optional<Path> getCorrespondingHeaderOrSource(
 
   // We can only switch between the known extensions.
   if (!IsSource && !IsHeader)
-    return std::nullopt;
+    return None;
 
   // Array to lookup extensions for the switch. An opposite of where original
   // extension was found.
@@ -61,15 +60,15 @@ std::optional<Path> getCorrespondingHeaderOrSource(
     if (VFS->exists(NewPath))
       return Path(NewPath);
   }
-  return std::nullopt;
+  return None;
 }
 
-std::optional<Path> getCorrespondingHeaderOrSource(PathRef OriginalFile,
-                                                   ParsedAST &AST,
-                                                   const SymbolIndex *Index) {
+llvm::Optional<Path> getCorrespondingHeaderOrSource(PathRef OriginalFile,
+                                                    ParsedAST &AST,
+                                                    const SymbolIndex *Index) {
   if (!Index) {
     // FIXME: use the AST to do the inference.
-    return std::nullopt;
+    return None;
   }
   LookupRequest Request;
   // Find all symbols present in the original file.
@@ -103,7 +102,7 @@ std::optional<Path> getCorrespondingHeaderOrSource(PathRef OriginalFile,
   // that the background-index is not finished), we should use the decl/def
   // locations from the AST to do the inference (from .cc to .h).
   if (Candidates.empty())
-    return std::nullopt;
+    return None;
 
   // Pickup the winner, who contains most of symbols.
   // FIXME: should we use other signals (file proximity) to help score?

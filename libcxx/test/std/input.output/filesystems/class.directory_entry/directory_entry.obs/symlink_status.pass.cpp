@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -15,15 +15,18 @@
 // file_status symlink_status() const;
 // file_status symlink_status(error_code&) const noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "filesystem_test_helper.h"
-#include "test_macros.h"
-namespace fs = std::filesystem;
+#include "rapid-cxx-test.h"
 
-static void test_signature() {
+#include "test_macros.h"
+
+TEST_SUITE(directory_entry_obs_suite)
+
+TEST_CASE(test_signature) {
   using namespace fs;
   static_test_env static_env;
   {
@@ -41,20 +44,17 @@ static void test_signature() {
     std::error_code pec = GetTestEC(), eec = GetTestEC(1);
     file_status ps = fs::symlink_status(p, pec);
     file_status es = e.symlink_status(eec);
-    assert(ps.type() == es.type());
-    assert(ps.permissions() == es.permissions());
-    assert(pec == eec);
+    TEST_CHECK(ps.type() == es.type());
+    TEST_CHECK(ps.permissions() == es.permissions());
+    TEST_CHECK(pec == eec);
   }
   for (const auto& p : TestCases) {
     const directory_entry e(p);
     file_status ps = fs::symlink_status(p);
     file_status es = e.symlink_status();
-    assert(ps.type() == es.type());
-    assert(ps.permissions() == es.permissions());
+    TEST_CHECK(ps.type() == es.type());
+    TEST_CHECK(ps.permissions() == es.permissions());
   }
 }
 
-int main(int, char**) {
-  test_signature();
-  return 0;
-}
+TEST_SUITE_END()

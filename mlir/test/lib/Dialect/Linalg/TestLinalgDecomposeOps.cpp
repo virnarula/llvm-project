@@ -23,26 +23,19 @@ struct TestLinalgDecomposeOps
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestLinalgDecomposeOps)
 
   TestLinalgDecomposeOps() = default;
-  TestLinalgDecomposeOps(const TestLinalgDecomposeOps &pass)
-      : PassWrapper(pass){};
+  TestLinalgDecomposeOps(const TestLinalgDecomposeOps &pass) = default;
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<affine::AffineDialect, linalg::LinalgDialect>();
+    registry.insert<AffineDialect, linalg::LinalgDialect>();
   }
   StringRef getArgument() const final { return "test-linalg-decompose-ops"; }
   StringRef getDescription() const final {
     return "Test Linalg decomposition patterns";
   }
 
-  Option<bool> removeDeadArgsAndResults{
-      *this, "remove-dead-args-and-results",
-      llvm::cl::desc("Test patterns to erase unused operands and results"),
-      llvm::cl::init(false)};
-
   void runOnOperation() override {
     MLIRContext *context = &this->getContext();
     RewritePatternSet decompositionPatterns(context);
-    linalg::populateDecomposeLinalgOpsPattern(decompositionPatterns,
-                                              removeDeadArgsAndResults);
+    linalg::populateDecomposeLinalgOpsPattern(decompositionPatterns);
     if (failed(applyPatternsAndFoldGreedily(
             getOperation(), std::move(decompositionPatterns)))) {
       return signalPassFailure();

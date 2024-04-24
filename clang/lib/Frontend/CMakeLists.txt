@@ -6,7 +6,6 @@ set(LLVM_LINK_COMPONENTS
   Option
   ProfileData
   Support
-  TargetParser
   )
 
 add_clang_library(clangFrontend
@@ -48,7 +47,6 @@ add_clang_library(clangFrontend
   intrinsics_gen
 
   LINK_LIBS
-  clangAPINotes
   clangAST
   clangBasic
   clangDriver

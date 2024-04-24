@@ -19,7 +19,9 @@
 
 using IncludeMarker =
     clang::tidy::modernize::DeprecatedHeadersCheck::IncludeMarker;
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 namespace {
 
 class IncludeModernizePPCallbacks : public PPCallbacks {
@@ -31,7 +33,7 @@ public:
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override;
 
@@ -57,7 +59,7 @@ public:
   bool shouldVisitLambdaBody() const { return false; }
 
   bool VisitLinkageSpecDecl(LinkageSpecDecl *LinkSpecDecl) const {
-    if (LinkSpecDecl->getLanguage() != LinkageSpecLanguageIDs::C ||
+    if (LinkSpecDecl->getLanguage() != LinkageSpecDecl::lang_c ||
         !LinkSpecDecl->hasBraces())
       return true;
 
@@ -177,7 +179,7 @@ IncludeModernizePPCallbacks::IncludeModernizePPCallbacks(
 
 void IncludeModernizePPCallbacks::InclusionDirective(
     SourceLocation HashLoc, const Token &IncludeTok, StringRef FileName,
-    bool IsAngled, CharSourceRange FilenameRange, OptionalFileEntryRef File,
+    bool IsAngled, CharSourceRange FilenameRange, Optional<FileEntryRef> File,
     StringRef SearchPath, StringRef RelativePath, const Module *Imported,
     SrcMgr::CharacteristicKind FileType) {
 
@@ -199,15 +201,16 @@ void IncludeModernizePPCallbacks::InclusionDirective(
   // 3. Do nothing and let the user deal with the migration himself.
   SourceLocation DiagLoc = FilenameRange.getBegin();
   if (CStyledHeaderToCxx.count(FileName) != 0) {
-    IncludesToBeProcessed.emplace_back(
+    IncludesToBeProcessed.push_back(
         IncludeMarker{CStyledHeaderToCxx[FileName], FileName,
                       FilenameRange.getAsRange(), DiagLoc});
   } else if (DeleteHeaders.count(FileName) != 0) {
-    IncludesToBeProcessed.emplace_back(
-        // NOLINTNEXTLINE(modernize-use-emplace) - false-positive
+    IncludesToBeProcessed.push_back(
         IncludeMarker{std::string{}, FileName,
                       SourceRange{HashLoc, FilenameRange.getEnd()}, DiagLoc});
   }
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

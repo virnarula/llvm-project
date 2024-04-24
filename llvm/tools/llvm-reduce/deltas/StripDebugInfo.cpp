@@ -15,10 +15,9 @@ using namespace llvm;
 
 /// Removes all aliases aren't inside any of the
 /// desired Chunks.
-static void stripDebugInfoImpl(Oracle &O, ReducerWorkItem &WorkItem) {
-  Module &Program = WorkItem.getModule();
+static void stripDebugInfoImpl(Oracle &O, Module &Program) {
   bool HasDebugInfo = any_of(Program.named_metadata(), [](NamedMDNode &NMD) {
-    return NMD.getName().starts_with("llvm.dbg.");
+    return NMD.getName().startswith("llvm.dbg.");
   });
   if (HasDebugInfo && !O.shouldKeep())
     StripDebugInfo(Program);

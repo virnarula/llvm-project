@@ -11,13 +11,12 @@
 
 #include "clang/Basic/LLVM.h"
 #include "clang/Lex/DependencyDirectivesScanner.h"
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include <mutex>
-#include <optional>
 
 namespace clang {
 namespace tooling {
@@ -40,7 +39,7 @@ struct CachedFileContents {
   SmallVector<dependency_directives_scan::Token, 10> DepDirectiveTokens;
   /// Accessor to the directive tokens that's atomic to avoid data races.
   /// \p CachedFileContents has ownership of the pointer.
-  std::atomic<const std::optional<DependencyDirectivesTy> *> DepDirectives;
+  std::atomic<const Optional<DependencyDirectivesTy> *> DepDirectives;
 
   ~CachedFileContents() { delete DepDirectives.load(); }
 };
@@ -89,16 +88,17 @@ public:
 
   /// \returns The scanned preprocessor directive tokens of the file that are
   /// used to speed up preprocessing, if available.
-  std::optional<ArrayRef<dependency_directives_scan::Directive>>
+  Optional<ArrayRef<dependency_directives_scan::Directive>>
   getDirectiveTokens() const {
     assert(!isError() && "error");
     assert(!isDirectory() && "not a file");
     assert(Contents && "contents not initialized");
     if (auto *Directives = Contents->DepDirectives.load()) {
       if (Directives->has_value())
-        return ArrayRef<dependency_directives_scan::Directive>(**Directives);
+        return ArrayRef<dependency_directives_scan::Directive>(
+            Directives->value());
     }
-    return std::nullopt;
+    return None;
   }
 
   /// \returns The error.
@@ -215,7 +215,6 @@ class DependencyScanningFilesystemLocalCache {
 public:
   /// Returns entry associated with the filename or nullptr if none is found.
   const CachedFileSystemEntry *findEntryByFilename(StringRef Filename) const {
-    assert(llvm::sys::path::is_absolute_gnu(Filename));
     auto It = Cache.find(Filename);
     return It == Cache.end() ? nullptr : It->getValue();
   }
@@ -225,7 +224,6 @@ public:
   const CachedFileSystemEntry &
   insertEntryForFilename(StringRef Filename,
                          const CachedFileSystemEntry &Entry) {
-    assert(llvm::sys::path::is_absolute_gnu(Filename));
     const auto *InsertedEntry = Cache.insert({Filename, &Entry}).first->second;
     assert(InsertedEntry == &Entry && "entry already present");
     return *InsertedEntry;
@@ -265,7 +263,7 @@ public:
 
   StringRef getContents() const { return Entry.getOriginalContents(); }
 
-  std::optional<ArrayRef<dependency_directives_scan::Directive>>
+  Optional<ArrayRef<dependency_directives_scan::Directive>>
   getDirectiveTokens() const {
     return Entry.getDirectiveTokens();
   }
@@ -273,7 +271,7 @@ public:
 
 /// A virtual file system optimized for the dependency discovery.
 ///
-/// It is primarily designed to work with source files whose contents was
+/// It is primarily designed to work with source files whose contents was was
 /// preprocessed to remove any tokens that are unlikely to affect the dependency
 /// computation.
 ///
@@ -284,13 +282,12 @@ class DependencyScanningWorkerFilesystem : public llvm::vfs::ProxyFileSystem {
 public:
   DependencyScanningWorkerFilesystem(
       DependencyScanningFilesystemSharedCache &SharedCache,
-      IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS);
+      IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS)
+      : ProxyFileSystem(std::move(FS)), SharedCache(SharedCache) {}
 
   llvm::ErrorOr<llvm::vfs::Status> status(const Twine &Path) override;
   llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
   openFileForRead(const Twine &Path) override;
-
-  std::error_code setCurrentWorkingDirectory(const Twine &Path) override;
 
   /// Returns entry for the given filename.
   ///
@@ -307,11 +304,8 @@ private:
   /// For a filename that's not yet associated with any entry in the caches,
   /// uses the underlying filesystem to either look up the entry based in the
   /// shared cache indexed by unique ID, or creates new entry from scratch.
-  /// \p FilenameForLookup will always be an absolute path, and different than
-  /// \p OriginalFilename if \p OriginalFilename is relative.
   llvm::ErrorOr<const CachedFileSystemEntry &>
-  computeAndStoreResult(StringRef OriginalFilename,
-                        StringRef FilenameForLookup);
+  computeAndStoreResult(StringRef Filename);
 
   /// Scan for preprocessor directives for the given entry if necessary and
   /// returns a wrapper object with reference semantics.
@@ -382,24 +376,11 @@ private:
         .getOrInsertEntryForFilename(Filename, Entry);
   }
 
-  void printImpl(raw_ostream &OS, PrintType Type,
-                 unsigned IndentLevel) const override {
-    printIndent(OS, IndentLevel);
-    OS << "DependencyScanningFilesystem\n";
-    getUnderlyingFS().print(OS, Type, IndentLevel + 1);
-  }
-
   /// The global cache shared between worker threads.
   DependencyScanningFilesystemSharedCache &SharedCache;
   /// The local cache is used by the worker thread to cache file system queries
   /// locally instead of querying the global cache every time.
   DependencyScanningFilesystemLocalCache LocalCache;
-
-  /// The working directory to use for making relative paths absolute before
-  /// using them for cache lookups.
-  llvm::ErrorOr<std::string> WorkingDirForCacheLookup;
-
-  void updateWorkingDirForCacheLookup();
 };
 
 } // end namespace dependencies

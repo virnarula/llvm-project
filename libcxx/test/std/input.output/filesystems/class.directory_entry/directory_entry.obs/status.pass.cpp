@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -15,15 +15,18 @@
 // file_status status() const;
 // file_status status(error_code const&) const noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "filesystem_test_helper.h"
-#include "test_macros.h"
-namespace fs = std::filesystem;
+#include "rapid-cxx-test.h"
 
-static void test_basic() {
+#include "test_macros.h"
+
+TEST_SUITE(directory_entry_status_testsuite)
+
+TEST_CASE(test_basic) {
   using namespace fs;
   static_test_env static_env;
   {
@@ -41,21 +44,17 @@ static void test_basic() {
     std::error_code pec = GetTestEC(), eec = GetTestEC(1);
     file_status ps = fs::status(p, pec);
     file_status es = e.status(eec);
-    assert(ps.type() == es.type());
-    assert(ps.permissions() == es.permissions());
-    assert(pec == eec);
+    TEST_CHECK(ps.type() == es.type());
+    TEST_CHECK(ps.permissions() == es.permissions());
+    TEST_CHECK(pec == eec);
   }
   for (const auto& p : TestCases) {
     const directory_entry e(p);
     file_status ps = fs::status(p);
     file_status es = e.status();
-    assert(ps.type() == es.type());
-    assert(ps.permissions() == es.permissions());
+    TEST_CHECK(ps.type() == es.type());
+    TEST_CHECK(ps.permissions() == es.permissions());
   }
 }
 
-int main(int, char**) {
-  test_basic();
-
-  return 0;
-}
+TEST_SUITE_END()

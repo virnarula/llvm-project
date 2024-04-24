@@ -32,7 +32,8 @@ class LTO;
 }
 } // namespace llvm
 
-namespace lld::wasm {
+namespace lld {
+namespace wasm {
 
 class BitcodeFile;
 class InputFile;
@@ -50,6 +51,7 @@ private:
   std::vector<SmallString<0>> buf;
   std::vector<std::unique_ptr<MemoryBuffer>> files;
 };
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld
 
 #endif

@@ -7,15 +7,15 @@
 %struct.D = type { %struct.B }
 %struct.E = type { %struct.B, %struct.B }
 
-declare ptr @A_ctor_base(ptr returned)
-declare ptr @B_ctor_base(ptr returned, i32)
-declare ptr @B_ctor_complete(ptr returned, i32)
+declare %struct.A* @A_ctor_base(%struct.A* returned)
+declare %struct.B* @B_ctor_base(%struct.B* returned, i32)
+declare %struct.B* @B_ctor_complete(%struct.B* returned, i32)
 
-declare ptr @A_ctor_base_nothisret(ptr)
-declare ptr @B_ctor_base_nothisret(ptr, i32)
-declare ptr @B_ctor_complete_nothisret(ptr, i32)
+declare %struct.A* @A_ctor_base_nothisret(%struct.A*)
+declare %struct.B* @B_ctor_base_nothisret(%struct.B*, i32)
+declare %struct.B* @B_ctor_complete_nothisret(%struct.B*, i32)
 
-define ptr @C_ctor_base(ptr returned %this, i32 %x) {
+define %struct.C* @C_ctor_base(%struct.C* returned %this, i32 %x) {
 entry:
 ; CHECKELF-LABEL: C_ctor_base:
 ; CHECKELF-NOT: mov {{r[0-9]+}}, r0
@@ -27,12 +27,14 @@ entry:
 ; CHECKT2D: bl _A_ctor_base
 ; CHECKT2D-NOT: mov r0, {{r[0-9]+}}
 ; CHECKT2D: b.w _B_ctor_base
-  %call = tail call ptr @A_ctor_base(ptr returned %this)
-  %call2 = tail call ptr @B_ctor_base(ptr returned %this, i32 %x)
-  ret ptr %this
+  %0 = bitcast %struct.C* %this to %struct.A*
+  %call = tail call %struct.A* @A_ctor_base(%struct.A* returned %0)
+  %1 = getelementptr inbounds %struct.C, %struct.C* %this, i32 0, i32 0
+  %call2 = tail call %struct.B* @B_ctor_base(%struct.B* returned %1, i32 %x)
+  ret %struct.C* %this
 }
 
-define ptr @C_ctor_base_nothisret(ptr %this, i32 %x) {
+define %struct.C* @C_ctor_base_nothisret(%struct.C* %this, i32 %x) {
 entry:
 ; CHECKELF-LABEL: C_ctor_base_nothisret:
 ; CHECKELF: mov [[SAVETHIS:r[0-9]+]], r0
@@ -44,32 +46,34 @@ entry:
 ; CHECKT2D: bl _A_ctor_base_nothisret
 ; CHECKT2D: mov r0, [[SAVETHIS]]
 ; CHECKT2D-NOT: b.w _B_ctor_base_nothisret
-  %call = tail call ptr @A_ctor_base_nothisret(ptr %this)
-  %call2 = tail call ptr @B_ctor_base_nothisret(ptr %this, i32 %x)
-  ret ptr %this
+  %0 = bitcast %struct.C* %this to %struct.A*
+  %call = tail call %struct.A* @A_ctor_base_nothisret(%struct.A* %0)
+  %1 = getelementptr inbounds %struct.C, %struct.C* %this, i32 0, i32 0
+  %call2 = tail call %struct.B* @B_ctor_base_nothisret(%struct.B* %1, i32 %x)
+  ret %struct.C* %this
 }
 
-define ptr @C_ctor_complete(ptr %this, i32 %x) {
+define %struct.C* @C_ctor_complete(%struct.C* %this, i32 %x) {
 entry:
 ; CHECKELF-LABEL: C_ctor_complete:
 ; CHECKELF: b C_ctor_base
 ; CHECKT2D-LABEL: C_ctor_complete:
 ; CHECKT2D: b.w _C_ctor_base
-  %call = tail call ptr @C_ctor_base(ptr returned %this, i32 %x)
-  ret ptr %this
+  %call = tail call %struct.C* @C_ctor_base(%struct.C* returned %this, i32 %x)
+  ret %struct.C* %this
 }
 
-define ptr @C_ctor_complete_nothisret(ptr %this, i32 %x) {
+define %struct.C* @C_ctor_complete_nothisret(%struct.C* %this, i32 %x) {
 entry:
 ; CHECKELF-LABEL: C_ctor_complete_nothisret:
 ; CHECKELF-NOT: b C_ctor_base_nothisret
 ; CHECKT2D-LABEL: C_ctor_complete_nothisret:
 ; CHECKT2D-NOT: b.w _C_ctor_base_nothisret
-  %call = tail call ptr @C_ctor_base_nothisret(ptr %this, i32 %x)
-  ret ptr %this
+  %call = tail call %struct.C* @C_ctor_base_nothisret(%struct.C* %this, i32 %x)
+  ret %struct.C* %this
 }
 
-define ptr @D_ctor_base(ptr %this, i32 %x) {
+define %struct.D* @D_ctor_base(%struct.D* %this, i32 %x) {
 entry:
 ; CHECKELF-LABEL: D_ctor_base:
 ; CHECKELF-NOT: mov {{r[0-9]+}}, r0
@@ -81,19 +85,21 @@ entry:
 ; CHECKT2D: bl _B_ctor_complete
 ; CHECKT2D-NOT: mov r0, {{r[0-9]+}}
 ; CHECKT2D: b.w _B_ctor_complete
-  %call = tail call ptr @B_ctor_complete(ptr returned %this, i32 %x)
-  %call2 = tail call ptr @B_ctor_complete(ptr returned %this, i32 %x)
-  ret ptr %this
+  %b = getelementptr inbounds %struct.D, %struct.D* %this, i32 0, i32 0
+  %call = tail call %struct.B* @B_ctor_complete(%struct.B* returned %b, i32 %x)
+  %call2 = tail call %struct.B* @B_ctor_complete(%struct.B* returned %b, i32 %x)
+  ret %struct.D* %this
 }
 
-define ptr @E_ctor_base(ptr %this, i32 %x) {
+define %struct.E* @E_ctor_base(%struct.E* %this, i32 %x) {
 entry:
 ; CHECKELF-LABEL: E_ctor_base:
 ; CHECKELF-NOT: b B_ctor_complete
 ; CHECKT2D-LABEL: E_ctor_base:
 ; CHECKT2D-NOT: b.w _B_ctor_complete
-  %call = tail call ptr @B_ctor_complete(ptr returned %this, i32 %x)
-  %b2 = getelementptr inbounds %struct.E, ptr %this, i32 0, i32 1
-  %call2 = tail call ptr @B_ctor_complete(ptr returned %b2, i32 %x)
-  ret ptr %this
+  %b = getelementptr inbounds %struct.E, %struct.E* %this, i32 0, i32 0
+  %call = tail call %struct.B* @B_ctor_complete(%struct.B* returned %b, i32 %x)
+  %b2 = getelementptr inbounds %struct.E, %struct.E* %this, i32 0, i32 1
+  %call2 = tail call %struct.B* @B_ctor_complete(%struct.B* returned %b2, i32 %x)
+  ret %struct.E* %this
 }

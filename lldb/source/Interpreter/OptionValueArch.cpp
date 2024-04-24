@@ -66,6 +66,7 @@ Status OptionValueArch::SetValueFromString(llvm::StringRef value,
 
 void OptionValueArch::AutoComplete(CommandInterpreter &interpreter,
                                    CompletionRequest &request) {
-  lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-      interpreter, lldb::eArchitectureCompletion, request, nullptr);
+  CommandCompletions::InvokeCommonCompletionCallbacks(
+      interpreter, CommandCompletions::eArchitectureCompletion, request,
+      nullptr);
 }

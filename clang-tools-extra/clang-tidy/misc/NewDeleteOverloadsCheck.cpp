@@ -12,12 +12,14 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 namespace {
 
 AST_MATCHER(FunctionDecl, isPlacementOverload) {
-  bool New = false;
+  bool New;
   switch (Node.getOverloadedOperator()) {
   default:
     return false;
@@ -202,4 +204,6 @@ void NewDeleteOverloadsCheck::onEndOfTranslationUnit() {
         << FD << getOperatorName(getCorrespondingOverload(FD));
 }
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

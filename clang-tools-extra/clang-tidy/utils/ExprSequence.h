@@ -17,7 +17,9 @@
 
 #include "../ClangTidy.h"
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 /// Provides information about the evaluation order of (sub-)expressions within
 /// a `CFGBlock`.
@@ -115,6 +117,8 @@ private:
   llvm::DenseMap<const Stmt *, const CFGBlock *> Map;
 };
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_EXPRSEQUENCE_H

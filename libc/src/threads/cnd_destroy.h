@@ -9,12 +9,12 @@
 #ifndef LLVM_LIBC_SRC_THREADS_CND_DESTROY_H
 #define LLVM_LIBC_SRC_THREADS_CND_DESTROY_H
 
-#include <threads.h>
+#include "include/threads.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void cnd_destroy(cnd_t *cond);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_CND_DESTROY_H

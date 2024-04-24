@@ -36,13 +36,20 @@ struct DstBufferizableOpInterfaceExternalModel
     return dstOp.isDpsInit(&opOperand);
   }
 
-  AliasingValueList getAliasingValues(Operation *op, OpOperand &opOperand,
-                                      const AnalysisState &state) const {
+  SmallVector<OpResult> getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                                            const AnalysisState &state) const {
     // Output operands alias with their respective tied OpResults.
     auto dstOp = cast<DestinationStyleOpInterface>(op);
     if (dstOp.isDpsInit(&opOperand))
-      return {{dstOp.getTiedOpResult(&opOperand), BufferRelation::Equivalent}};
+      return {dstOp.getTiedOpResult(&opOperand)};
     return {};
+  }
+
+  BufferRelation bufferRelation(Operation *op, OpResult opResult,
+                                const AnalysisState &state) const {
+    assert(isa<DestinationStyleOpInterface>(op) &&
+           "expected that op implements DestinationStyleOpInterface");
+    return BufferRelation::Equivalent;
   }
 };
 

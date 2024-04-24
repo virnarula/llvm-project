@@ -45,7 +45,6 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h"
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -99,23 +98,18 @@ class ObjCDeallocChecker
                      check::PointerEscape,
                      check::PreStmt<ReturnStmt>> {
 
-  mutable const IdentifierInfo *NSObjectII = nullptr;
-  mutable const IdentifierInfo *SenTestCaseII = nullptr;
-  mutable const IdentifierInfo *XCTestCaseII = nullptr;
-  mutable const IdentifierInfo *Block_releaseII = nullptr;
-  mutable const IdentifierInfo *CIFilterII = nullptr;
+  mutable IdentifierInfo *NSObjectII, *SenTestCaseII, *XCTestCaseII,
+      *Block_releaseII, *CIFilterII;
 
-  mutable Selector DeallocSel;
-  mutable Selector ReleaseSel;
+  mutable Selector DeallocSel, ReleaseSel;
 
-  const BugType MissingReleaseBugType{this, "Missing ivar release (leak)",
-                                      categories::MemoryRefCount};
-  const BugType ExtraReleaseBugType{this, "Extra ivar release",
-                                    categories::MemoryRefCount};
-  const BugType MistakenDeallocBugType{this, "Mistaken dealloc",
-                                       categories::MemoryRefCount};
+  std::unique_ptr<BugType> MissingReleaseBugType;
+  std::unique_ptr<BugType> ExtraReleaseBugType;
+  std::unique_ptr<BugType> MistakenDeallocBugType;
 
 public:
+  ObjCDeallocChecker();
+
   void checkASTDecl(const ObjCImplementationDecl *D, AnalysisManager& Mgr,
                     BugReporter &BR) const;
   void checkBeginFunction(CheckerContext &Ctx) const;
@@ -288,7 +282,7 @@ void ObjCDeallocChecker::checkBeginFunction(
       continue;
 
     SVal LVal = State->getLValue(PropImpl->getPropertyIvarDecl(), SelfVal);
-    std::optional<Loc> LValLoc = LVal.getAs<Loc>();
+    Optional<Loc> LValLoc = LVal.getAs<Loc>();
     if (!LValLoc)
       continue;
 
@@ -326,9 +320,7 @@ ObjCDeallocChecker::getInstanceSymbolFromIvarSymbol(SymbolRef IvarSym) const {
   if (!IvarRegion)
     return nullptr;
 
-  const SymbolicRegion *SR = IvarRegion->getSymbolicBase();
-  assert(SR && "Symbolic base should not be nullptr");
-  return SR->getSymbol();
+  return IvarRegion->getSymbolicBase()->getSymbol();
 }
 
 /// If we are in -dealloc or -dealloc is on the stack, handle the call if it is
@@ -584,7 +576,7 @@ void ObjCDeallocChecker::diagnoseMissingReleases(CheckerContext &C) const {
     OS << " by a synthesized property but not released"
           " before '[super dealloc]'";
 
-    auto BR = std::make_unique<PathSensitiveBugReport>(MissingReleaseBugType,
+    auto BR = std::make_unique<PathSensitiveBugReport>(*MissingReleaseBugType,
                                                        OS.str(), ErrNode);
     C.emitReport(std::move(BR));
   }
@@ -706,7 +698,7 @@ bool ObjCDeallocChecker::diagnoseExtraRelease(SymbolRef ReleasedValue,
     OS <<  " property but was released in 'dealloc'";
   }
 
-  auto BR = std::make_unique<PathSensitiveBugReport>(ExtraReleaseBugType,
+  auto BR = std::make_unique<PathSensitiveBugReport>(*ExtraReleaseBugType,
                                                      OS.str(), ErrNode);
   BR->addRange(M.getOriginExpr()->getSourceRange());
 
@@ -748,13 +740,30 @@ bool ObjCDeallocChecker::diagnoseMistakenDealloc(SymbolRef DeallocedValue,
   OS << "'" << *PropImpl->getPropertyIvarDecl()
      << "' should be released rather than deallocated";
 
-  auto BR = std::make_unique<PathSensitiveBugReport>(MistakenDeallocBugType,
+  auto BR = std::make_unique<PathSensitiveBugReport>(*MistakenDeallocBugType,
                                                      OS.str(), ErrNode);
   BR->addRange(M.getOriginExpr()->getSourceRange());
 
   C.emitReport(std::move(BR));
 
   return true;
+}
+
+ObjCDeallocChecker::ObjCDeallocChecker()
+    : NSObjectII(nullptr), SenTestCaseII(nullptr), XCTestCaseII(nullptr),
+      CIFilterII(nullptr) {
+
+  MissingReleaseBugType.reset(
+      new BugType(this, "Missing ivar release (leak)",
+                  categories::MemoryRefCount));
+
+  ExtraReleaseBugType.reset(
+      new BugType(this, "Extra ivar release",
+                  categories::MemoryRefCount));
+
+  MistakenDeallocBugType.reset(
+      new BugType(this, "Mistaken dealloc",
+                  categories::MemoryRefCount));
 }
 
 void ObjCDeallocChecker::initIdentifierInfoAndSelectors(
@@ -808,8 +817,8 @@ const ObjCPropertyDecl *ObjCDeallocChecker::findShadowedPropertyDecl(
 
   IdentifierInfo *ID = PropDecl->getIdentifier();
   DeclContext::lookup_result R = CatDecl->getClassInterface()->lookup(ID);
-  for (const NamedDecl *D : R) {
-    auto *ShadowedPropDecl = dyn_cast<ObjCPropertyDecl>(D);
+  for (DeclContext::lookup_iterator I = R.begin(), E = R.end(); I != E; ++I) {
+    auto *ShadowedPropDecl = dyn_cast<ObjCPropertyDecl>(*I);
     if (!ShadowedPropDecl)
       continue;
 
@@ -944,7 +953,7 @@ ObjCDeallocChecker::getValueReleasedByNillingOut(const ObjCMethodCall &M,
   ProgramStateRef State = C.getState();
 
   SVal LVal = State->getLValue(PropIvarDecl, ReceiverVal);
-  std::optional<Loc> LValLoc = LVal.getAs<Loc>();
+  Optional<Loc> LValLoc = LVal.getAs<Loc>();
   if (!LValLoc)
     return nullptr;
 
@@ -995,7 +1004,7 @@ bool ObjCDeallocChecker::instanceDeallocIsOnStack(const CheckerContext &C,
   return false;
 }
 
-/// Returns true if the ID is a class in which is known to have
+/// Returns true if the ID is a class in which which is known to have
 /// a separate teardown lifecycle. In this case, -dealloc warnings
 /// about missing releases should be suppressed.
 bool ObjCDeallocChecker::classHasSeparateTeardown(
@@ -1033,8 +1042,8 @@ bool ObjCDeallocChecker::isReleasedByCIFilterDealloc(
   StringRef IvarName = PropImpl->getPropertyIvarDecl()->getName();
 
   const char *ReleasePrefix = "input";
-  if (!(PropName.starts_with(ReleasePrefix) ||
-        IvarName.starts_with(ReleasePrefix))) {
+  if (!(PropName.startswith(ReleasePrefix) ||
+        IvarName.startswith(ReleasePrefix))) {
     return false;
   }
 

@@ -6,11 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // This is initialized to the correct value by the statup code.
-extern "C" {
-char **environ = nullptr;
-}
+extern "C" char **environ = nullptr;
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

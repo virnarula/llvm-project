@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_NEXTAFTERL_H
 #define LLVM_LIBC_SRC_MATH_NEXTAFTERL_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 long double nextafterl(long double x, long double y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_NEXTAFTERL_H

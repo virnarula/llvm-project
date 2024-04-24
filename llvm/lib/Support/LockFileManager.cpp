@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/LockFileManager.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Errc.h"
@@ -51,7 +52,7 @@ using namespace llvm;
 /// \param LockFileName The name of the lock file to read.
 ///
 /// \returns The process ID of the process that owns this lock file
-std::optional<std::pair<std::string, int>>
+Optional<std::pair<std::string, int> >
 LockFileManager::readLockFile(StringRef LockFileName) {
   // Read the owning host and PID out of the lock file. If it appears that the
   // owning process is dead, the lock file is invalid.
@@ -59,7 +60,7 @@ LockFileManager::readLockFile(StringRef LockFileName) {
       MemoryBuffer::getFile(LockFileName);
   if (!MBOrErr) {
     sys::fs::remove(LockFileName);
-    return std::nullopt;
+    return None;
   }
   MemoryBuffer &MB = *MBOrErr.get();
 
@@ -76,7 +77,7 @@ LockFileManager::readLockFile(StringRef LockFileName) {
 
   // Delete the lock file. It's invalid anyway.
   sys::fs::remove(LockFileName);
-  return std::nullopt;
+  return None;
 }
 
 static std::error_code getHostID(SmallVectorImpl<char> &HostID) {
@@ -162,7 +163,7 @@ LockFileManager::LockFileManager(StringRef FileName)
   this->FileName = FileName;
   if (std::error_code EC = sys::fs::make_absolute(this->FileName)) {
     std::string S("failed to obtain absolute path for ");
-    S.append(std::string(this->FileName));
+    S.append(std::string(this->FileName.str()));
     setError(EC, S);
     return;
   }
@@ -181,7 +182,7 @@ LockFileManager::LockFileManager(StringRef FileName)
   if (std::error_code EC = sys::fs::createUniqueFile(
           UniqueLockFileName, UniqueLockFileID, UniqueLockFileName)) {
     std::string S("failed to create unique file ");
-    S.append(std::string(UniqueLockFileName));
+    S.append(std::string(UniqueLockFileName.str()));
     setError(EC, S);
     return;
   }
@@ -202,7 +203,7 @@ LockFileManager::LockFileManager(StringRef FileName)
       // We failed to write out PID, so report the error, remove the
       // unique lock file, and fail.
       std::string S("failed to write to ");
-      S.append(std::string(UniqueLockFileName));
+      S.append(std::string(UniqueLockFileName.str()));
       setError(Out.error(), S);
       sys::fs::remove(UniqueLockFileName);
       return;
@@ -248,7 +249,7 @@ LockFileManager::LockFileManager(StringRef FileName)
     // ownership.
     if ((EC = sys::fs::remove(LockFileName))) {
       std::string S("failed to remove lockfile ");
-      S.append(std::string(UniqueLockFileName));
+      S.append(std::string(UniqueLockFileName.str()));
       setError(EC, S);
       return;
     }

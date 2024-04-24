@@ -45,15 +45,15 @@ bb2:
 }
 
 declare void @g(i1)
-define void @f4(ptr %x)  {
+define void @f4(i8 * %x)  {
 ; CHECK-LABEL: define void @f4(
 bb0:
-  %y = icmp eq ptr null, %x
+  %y = icmp eq i8* null, %x
   br i1 %y, label %bb2, label %bb1
 bb1:
   br label %bb2
 bb2:
-  %zed = icmp eq ptr null, %x
+  %zed = icmp eq i8* null, %x
   call void @g(i1 %zed)
 ; CHECK: call void @g(i1 %y)
   ret void

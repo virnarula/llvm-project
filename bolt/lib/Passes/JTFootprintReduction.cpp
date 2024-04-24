@@ -232,7 +232,7 @@ void JTFootprintReduction::optimizeFunction(BinaryFunction &Function,
       continue;
     }
 
-    llvm_unreachable("Should either optimize PIC or NonPIC successfully");
+    llvm_unreachable("Should either optimize PIC or NonPIC successfuly");
   }
 
   if (!Modified.count(&Function))

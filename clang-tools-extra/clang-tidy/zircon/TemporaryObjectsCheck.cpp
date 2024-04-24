@@ -16,7 +16,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::zircon {
+namespace clang {
+namespace tidy {
+namespace zircon {
 
 AST_MATCHER_P(CXXRecordDecl, matchesAnyName, ArrayRef<StringRef>, Names) {
   std::string QualifiedName = Node.getQualifiedNameAsString();
@@ -52,4 +54,6 @@ void TemporaryObjectsCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "Names", utils::options::serializeStringList(Names));
 }
 
-} // namespace clang::tidy::zircon
+} // namespace zircon
+} // namespace tidy
+} // namespace clang

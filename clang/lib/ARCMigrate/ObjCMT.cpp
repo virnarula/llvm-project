@@ -123,7 +123,9 @@ public:
         NSIntegerTypedefed(nullptr), NSUIntegerTypedefed(nullptr),
         Remapper(remapper), FileMgr(fileMgr), PPRec(PPRec), PP(PP),
         IsOutputFile(isOutputFile), FoundationIncluded(false) {
-    AllowListFilenames.insert(AllowList.begin(), AllowList.end());
+    // FIXME: StringSet should have insert(iter, iter) to use here.
+    for (const std::string &Val : AllowList)
+      AllowListFilenames.insert(Val);
   }
 
 protected:
@@ -151,9 +153,10 @@ protected:
   bool canModifyFile(StringRef Path) {
     if (AllowListFilenames.empty())
       return true;
-    return AllowListFilenames.contains(llvm::sys::path::filename(Path));
+    return AllowListFilenames.find(llvm::sys::path::filename(Path)) !=
+           AllowListFilenames.end();
   }
-  bool canModifyFile(OptionalFileEntryRef FE) {
+  bool canModifyFile(Optional<FileEntryRef> FE) {
     if (!FE)
       return false;
     return canModifyFile(FE->getName());
@@ -199,7 +202,7 @@ ObjCMigrateAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   Consumers.push_back(WrapperFrontendAction::CreateASTConsumer(CI, InFile));
   Consumers.push_back(std::make_unique<ObjCMigrateASTConsumer>(
       MigrateDir, ObjCMigAction, Remapper, CompInst->getFileManager(), PPRec,
-      CompInst->getPreprocessor(), false, std::nullopt));
+      CompInst->getPreprocessor(), false, None));
   return std::make_unique<MultiplexConsumer>(std::move(Consumers));
 }
 
@@ -562,7 +565,7 @@ static void rewriteToObjCProperty(const ObjCMethodDecl *Getter,
 static bool IsCategoryNameWithDeprecatedSuffix(ObjCContainerDecl *D) {
   if (ObjCCategoryDecl *CatDecl = dyn_cast<ObjCCategoryDecl>(D)) {
     StringRef Name = CatDecl->getName();
-    return Name.ends_with("Deprecated");
+    return Name.endswith("Deprecated");
   }
   return false;
 }
@@ -636,7 +639,7 @@ ClassImplementsAllMethodsAndProperties(ASTContext &Ctx,
     for (const auto *MD : PDecl->methods()) {
       if (MD->isImplicit())
         continue;
-      if (MD->getImplementationControl() == ObjCImplementationControl::Optional)
+      if (MD->getImplementationControl() == ObjCMethodDecl::Optional)
         continue;
       DeclContext::lookup_result R = ImpDecl->lookup(MD->getDeclName());
       if (R.empty())
@@ -1176,12 +1179,12 @@ bool ObjCMigrateASTConsumer::migrateProperty(ASTContext &Ctx,
   if (!SetterMethod) {
     // try a different naming convention for getter: isXxxxx
     StringRef getterNameString = getterName->getName();
-    bool IsPrefix = getterNameString.starts_with("is");
+    bool IsPrefix = getterNameString.startswith("is");
     // Note that we don't want to change an isXXX method of retainable object
     // type to property (readonly or otherwise).
     if (IsPrefix && GRT->isObjCRetainableType())
       return false;
-    if (IsPrefix || getterNameString.starts_with("get")) {
+    if (IsPrefix || getterNameString.startswith("get")) {
       LengthOfPrefix = (IsPrefix ? 2 : 3);
       const char *CGetterName = getterNameString.data() + LengthOfPrefix;
       // Make sure that first character after "is" or "get" prefix can
@@ -1320,11 +1323,11 @@ void ObjCMigrateASTConsumer::migrateFactoryMethod(ASTContext &Ctx,
   if (OIT_Family == OIT_Singleton || OIT_Family == OIT_ReturnsSelf) {
     StringRef STRefMethodName(MethodName);
     size_t len = 0;
-    if (STRefMethodName.starts_with("standard"))
+    if (STRefMethodName.startswith("standard"))
       len = strlen("standard");
-    else if (STRefMethodName.starts_with("shared"))
+    else if (STRefMethodName.startswith("shared"))
       len = strlen("shared");
-    else if (STRefMethodName.starts_with("default"))
+    else if (STRefMethodName.startswith("default"))
       len = strlen("default");
     else
       return;
@@ -1341,7 +1344,7 @@ void ObjCMigrateASTConsumer::migrateFactoryMethod(ASTContext &Ctx,
   StringRef LoweredMethodName(MethodName);
   std::string StringLoweredMethodName = LoweredMethodName.lower();
   LoweredMethodName = StringLoweredMethodName;
-  if (!LoweredMethodName.starts_with(ClassNamePostfix))
+  if (!LoweredMethodName.startswith(ClassNamePostfix))
     return;
   if (OIT_Family == OIT_ReturnsSelf)
     ReplaceWithClasstype(*this, OM);
@@ -1783,7 +1786,7 @@ private:
       std::tie(FID, Offset) = SourceMgr.getDecomposedLoc(Loc);
       assert(FID.isValid());
       SmallString<200> Path =
-          StringRef(SourceMgr.getFileEntryRefForID(FID)->getName());
+          StringRef(SourceMgr.getFileEntryForID(FID)->getName());
       llvm::sys::fs::make_absolute(Path);
       OS << "  \"file\": \"";
       OS.write_escaped(Path.str()) << "\",\n";
@@ -1955,8 +1958,7 @@ void ObjCMigrateASTConsumer::HandleTranslationUnit(ASTContext &Ctx) {
         I = rewriter.buffer_begin(), E = rewriter.buffer_end(); I != E; ++I) {
     FileID FID = I->first;
     RewriteBuffer &buf = I->second;
-    OptionalFileEntryRef file =
-        Ctx.getSourceManager().getFileEntryRefForID(FID);
+    Optional<FileEntryRef> file = Ctx.getSourceManager().getFileEntryRefForID(FID);
     assert(file);
     SmallString<512> newText;
     llvm::raw_svector_ostream vecOS(newText);
@@ -2026,7 +2028,7 @@ MigrateSourceAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 
 namespace {
 struct EditEntry {
-  OptionalFileEntryRef File;
+  Optional<FileEntryRef> File;
   unsigned Offset = 0;
   unsigned RemoveLen = 0;
   std::string Text;
@@ -2201,7 +2203,7 @@ static std::string applyEditsToTemp(FileEntryRef FE,
   TmpOut.write(NewText.data(), NewText.size());
   TmpOut.close();
 
-  return std::string(TempPath);
+  return std::string(TempPath.str());
 }
 
 bool arcmt::getFileRemappingsFromFileList(

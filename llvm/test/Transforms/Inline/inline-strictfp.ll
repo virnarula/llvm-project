@@ -1,4 +1,4 @@
-; RUN: opt -passes=inline %s -S | FileCheck %s
+; RUN: opt -inline %s -S | FileCheck %s
 
 
 ; Ordinary function is inlined into strictfp function.

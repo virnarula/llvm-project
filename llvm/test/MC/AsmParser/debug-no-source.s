@@ -1,4 +1,4 @@
-// UNSUPPORTED: target={{.*}}-zos{{.*}}
+// UNSUPPORTED: -zos
 // REQUIRES: object-emission
 // RUN: llvm-mc %s | FileCheck %s
 

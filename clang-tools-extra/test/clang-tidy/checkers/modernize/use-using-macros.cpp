@@ -1,5 +1,5 @@
 // RUN: %check_clang_tidy %s modernize-use-using %t -- \
-// RUN:   -config="{CheckOptions: {modernize-use-using.IgnoreMacros: false}}"
+// RUN:   -config="{CheckOptions: [{key: modernize-use-using.IgnoreMacros, value: false}]}"
 
 #define CODE typedef int INT
 

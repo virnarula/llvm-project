@@ -30,7 +30,6 @@ static_library("MacOSX") {
     "//lldb/source/Target",
     "//lldb/source/Utility",
     "//llvm/lib/Support",
-    "//llvm/lib/TargetParser",
   ]
 
   # Reaches into Plugins/Platform/POSIX.
@@ -43,7 +42,6 @@ static_library("MacOSX") {
     "PlatformRemoteAppleBridge.cpp",
     "PlatformRemoteAppleTV.cpp",
     "PlatformRemoteAppleWatch.cpp",
-    "PlatformRemoteAppleXR.cpp",
     "PlatformRemoteDarwinDevice.cpp",
     "PlatformRemoteMacOSX.cpp",
     "PlatformRemoteiOS.cpp",

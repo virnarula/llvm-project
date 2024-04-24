@@ -23,5 +23,4 @@ add_lldb_library(lldbPluginSymbolFileNativePDB
     DebugInfoCodeView
     DebugInfoPDB
     Support
-    TargetParser
   )

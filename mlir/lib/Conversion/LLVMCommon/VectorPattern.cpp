@@ -17,7 +17,7 @@ using namespace mlir;
 // asserted to be an llvm vector type).
 LLVM::detail::NDVectorTypeInfo
 LLVM::detail::extractNDVectorTypeInfo(VectorType vectorType,
-                                      const LLVMTypeConverter &converter) {
+                                      LLVMTypeConverter &converter) {
   assert(vectorType.getRank() > 1 && "expected >1D vector type");
   NDVectorTypeInfo info;
   info.llvmNDVectorTy = converter.convertType(vectorType);
@@ -27,10 +27,10 @@ LLVM::detail::extractNDVectorTypeInfo(VectorType vectorType,
   }
   info.arraySizes.reserve(vectorType.getRank() - 1);
   auto llvmTy = info.llvmNDVectorTy;
-  while (isa<LLVM::LLVMArrayType>(llvmTy)) {
+  while (llvmTy.isa<LLVM::LLVMArrayType>()) {
     info.arraySizes.push_back(
-        cast<LLVM::LLVMArrayType>(llvmTy).getNumElements());
-    llvmTy = cast<LLVM::LLVMArrayType>(llvmTy).getElementType();
+        llvmTy.cast<LLVM::LLVMArrayType>().getNumElements());
+    llvmTy = llvmTy.cast<LLVM::LLVMArrayType>().getElementType();
   }
   if (!LLVM::isCompatibleVectorType(llvmTy))
     return info;
@@ -78,10 +78,10 @@ void LLVM::detail::nDVectorIterate(const LLVM::detail::NDVectorTypeInfo &info,
 }
 
 LogicalResult LLVM::detail::handleMultidimensionalVectors(
-    Operation *op, ValueRange operands, const LLVMTypeConverter &typeConverter,
+    Operation *op, ValueRange operands, LLVMTypeConverter &typeConverter,
     std::function<Value(Type, ValueRange)> createOperand,
     ConversionPatternRewriter &rewriter) {
-  auto resultNDVectorType = cast<VectorType>(op->getResult(0).getType());
+  auto resultNDVectorType = op->getResult(0).getType().cast<VectorType>();
   auto resultTypeInfo =
       extractNDVectorTypeInfo(resultNDVectorType, typeConverter);
   auto result1DVectorTy = resultTypeInfo.llvm1DVectorTy;
@@ -103,12 +103,10 @@ LogicalResult LLVM::detail::handleMultidimensionalVectors(
   return success();
 }
 
-LogicalResult
-LLVM::detail::vectorOneToOneRewrite(Operation *op, StringRef targetOp,
-                                    ValueRange operands,
-                                    ArrayRef<NamedAttribute> targetAttrs,
-                                    const LLVMTypeConverter &typeConverter,
-                                    ConversionPatternRewriter &rewriter) {
+LogicalResult LLVM::detail::vectorOneToOneRewrite(
+    Operation *op, StringRef targetOp, ValueRange operands,
+    ArrayRef<NamedAttribute> targetAttrs, LLVMTypeConverter &typeConverter,
+    ConversionPatternRewriter &rewriter) {
   assert(!operands.empty());
 
   // Cannot convert ops if their operands are not of LLVM type.
@@ -116,7 +114,7 @@ LLVM::detail::vectorOneToOneRewrite(Operation *op, StringRef targetOp,
     return failure();
 
   auto llvmNDVectorTy = operands[0].getType();
-  if (!isa<LLVM::LLVMArrayType>(llvmNDVectorTy))
+  if (!llvmNDVectorTy.isa<LLVM::LLVMArrayType>())
     return oneToOneRewrite(op, targetOp, operands, targetAttrs, typeConverter,
                            rewriter);
 

@@ -8,14 +8,14 @@
 
 // <iostream>
 
-// wostream wcout;
+// istream wcout;
 
-// UNSUPPORTED: no-wide-characters
+// XFAIL: no-wide-characters
 
+// UNSUPPORTED: executor-has-no-bash
+// FILE_DEPENDENCIES: ../check-stdout.sh
 // RUN: %{build}
-// RUN: %{exec} %t.exe > %t.actual
-// RUN: echo -n 1234 > %t.expected
-// RUN: diff %t.expected %t.actual
+// RUN: %{exec} bash check-stdout.sh "%t.exe" "1234"
 
 #include <iostream>
 

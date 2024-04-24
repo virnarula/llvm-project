@@ -138,8 +138,8 @@ static void RegisterMsanFlags(FlagParser *parser, Flags *f) {
 #include "msan_flags.inc"
 #undef MSAN_FLAG
 
-  FlagHandlerKeepGoing *fh_keep_going = new (GetGlobalLowLevelAllocator())
-      FlagHandlerKeepGoing(&f->halt_on_error);
+  FlagHandlerKeepGoing *fh_keep_going =
+      new (FlagParser::Alloc) FlagHandlerKeepGoing(&f->halt_on_error);
   parser->RegisterHandler("keep_going", fh_keep_going,
                           "deprecated, use halt_on_error");
 }
@@ -345,7 +345,8 @@ using namespace __msan;
 
 #define MSAN_MAYBE_WARNING(type, size)              \
   void __msan_maybe_warning_##size(type s, u32 o) { \
-    GET_CALLER_PC_BP;                               \
+    GET_CALLER_PC_BP_SP;                            \
+    (void) sp;                                      \
     if (UNLIKELY(s)) {                              \
       PrintWarningWithOrigin(pc, bp, o);            \
       if (__msan::flags()->halt_on_error) {         \
@@ -364,7 +365,8 @@ MSAN_MAYBE_WARNING(u64, 8)
   void __msan_maybe_store_origin_##size(type s, void *p, u32 o) { \
     if (UNLIKELY(s)) {                                            \
       if (__msan_get_track_origins() > 1) {                       \
-        GET_CALLER_PC_BP;                                         \
+        GET_CALLER_PC_BP_SP;                                      \
+        (void) sp;                                                \
         GET_STORE_STACK_TRACE_PC_BP(pc, bp);                      \
         o = ChainOrigin(o, &stack);                               \
       }                                                           \
@@ -378,7 +380,8 @@ MSAN_MAYBE_STORE_ORIGIN(u32, 4)
 MSAN_MAYBE_STORE_ORIGIN(u64, 8)
 
 void __msan_warning() {
-  GET_CALLER_PC_BP;
+  GET_CALLER_PC_BP_SP;
+  (void)sp;
   PrintWarningWithOrigin(pc, bp, 0);
   if (__msan::flags()->halt_on_error) {
     if (__msan::flags()->print_stats)
@@ -389,7 +392,8 @@ void __msan_warning() {
 }
 
 void __msan_warning_noreturn() {
-  GET_CALLER_PC_BP;
+  GET_CALLER_PC_BP_SP;
+  (void)sp;
   PrintWarningWithOrigin(pc, bp, 0);
   if (__msan::flags()->print_stats)
     ReportStats();
@@ -398,7 +402,8 @@ void __msan_warning_noreturn() {
 }
 
 void __msan_warning_with_origin(u32 origin) {
-  GET_CALLER_PC_BP;
+  GET_CALLER_PC_BP_SP;
+  (void)sp;
   PrintWarningWithOrigin(pc, bp, origin);
   if (__msan::flags()->halt_on_error) {
     if (__msan::flags()->print_stats)
@@ -409,7 +414,8 @@ void __msan_warning_with_origin(u32 origin) {
 }
 
 void __msan_warning_with_origin_noreturn(u32 origin) {
-  GET_CALLER_PC_BP;
+  GET_CALLER_PC_BP_SP;
+  (void)sp;
   PrintWarningWithOrigin(pc, bp, origin);
   if (__msan::flags()->print_stats)
     ReportStats();
@@ -449,7 +455,6 @@ void __msan_init() {
   __sanitizer_set_report_path(common_flags()->log_path);
 
   InitializeInterceptors();
-  InstallAtForkHandler();
   CheckASLR();
   InitTlsSize();
   InstallDeadlySignalHandlers(MsanOnDeadlySignal);
@@ -467,7 +472,7 @@ void __msan_init() {
   __msan_clear_on_return();
   if (__msan_get_track_origins())
     VPrintf(1, "msan_track_origins\n");
-  if (!InitShadowWithReExec(__msan_get_track_origins())) {
+  if (!InitShadow(__msan_get_track_origins())) {
     Printf("FATAL: MemorySanitizer can not mmap the shadow memory.\n");
     Printf("FATAL: Make sure to compile with -fPIE and to link with -pie.\n");
     Printf("FATAL: Disabling ASLR is known to cause this error.\n");
@@ -508,7 +513,8 @@ void __msan_set_expect_umr(int expect_umr) {
   if (expect_umr) {
     msan_expected_umr_found = 0;
   } else if (!msan_expected_umr_found) {
-    GET_CALLER_PC_BP;
+    GET_CALLER_PC_BP_SP;
+    (void)sp;
     GET_FATAL_STACK_TRACE_PC_BP(pc, bp);
     ReportExpectedUMRNotFound(&stack);
     Die();
@@ -556,7 +562,8 @@ void __msan_check_mem_is_initialized(const void *x, uptr size) {
   if (offset < 0)
     return;
 
-  GET_CALLER_PC_BP;
+  GET_CALLER_PC_BP_SP;
+  (void)sp;
   ReportUMRInsideAddressRange(__func__, x, size, offset);
   __msan::PrintWarningWithOrigin(pc, bp,
                                  __msan_get_origin(((const char *)x) + offset));
@@ -615,7 +622,8 @@ void __msan_set_alloca_origin_no_descr(void *a, uptr size, u32 *id_ptr) {
 }
 
 u32 __msan_chain_origin(u32 id) {
-  GET_CALLER_PC_BP;
+  GET_CALLER_PC_BP_SP;
+  (void)sp;
   GET_STORE_STACK_TRACE_PC_BP(pc, bp);
   return ChainOrigin(id, &stack);
 }

@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/CodeGen/ExpandMemCmp.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
@@ -24,22 +23,19 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SizeOpts.h"
-#include <optional>
 
 using namespace llvm;
-using namespace llvm::PatternMatch;
 
 namespace llvm {
 class TargetLowering;
 }
 
-#define DEBUG_TYPE "expand-memcmp"
+#define DEBUG_TYPE "expandmemcmp"
 
 STATISTIC(NumMemCmpCalls, "Number of memcmp calls");
 STATISTIC(NumMemCmpNotConstant, "Number of memcmp calls without constant size");
@@ -74,18 +70,18 @@ class MemCmpExpansion {
     ResultBlock() = default;
   };
 
-  CallInst *const CI = nullptr;
+  CallInst *const CI;
   ResultBlock ResBlock;
   const uint64_t Size;
   unsigned MaxLoadSize = 0;
   uint64_t NumLoadsNonOneByte = 0;
   const uint64_t NumLoadsPerBlockForZeroCmp;
   std::vector<BasicBlock *> LoadCmpBlocks;
-  BasicBlock *EndBlock = nullptr;
-  PHINode *PhiRes = nullptr;
+  BasicBlock *EndBlock;
+  PHINode *PhiRes;
   const bool IsUsedForZeroCmp;
   const DataLayout &DL;
-  DomTreeUpdater *DTU = nullptr;
+  DomTreeUpdater *DTU;
   IRBuilder<> Builder;
   // Represents the decomposition in blocks of the expansion. For example,
   // comparing 33 bytes on X86+sse can be done with 2x16-byte loads and
@@ -120,8 +116,8 @@ class MemCmpExpansion {
     Value *Lhs = nullptr;
     Value *Rhs = nullptr;
   };
-  LoadPair getLoadPair(Type *LoadSizeType, Type *BSwapSizeType,
-                       Type *CmpSizeType, unsigned OffsetBytes);
+  LoadPair getLoadPair(Type *LoadSizeType, bool NeedsBSwap, Type *CmpSizeType,
+                       unsigned OffsetBytes);
 
   static LoadEntryVector
   computeGreedyLoadSequence(uint64_t Size, llvm::ArrayRef<unsigned> LoadSizes,
@@ -130,11 +126,6 @@ class MemCmpExpansion {
   computeOverlappingLoadSequence(uint64_t Size, unsigned MaxLoadSize,
                                  unsigned MaxNumLoads,
                                  unsigned &NumLoadsNonOneByte);
-
-  static void optimiseLoadSequence(
-      LoadEntryVector &LoadSequence,
-      const TargetTransformInfo::MemCmpExpansionOptions &Options,
-      bool IsUsedForZeroCmp);
 
 public:
   MemCmpExpansion(CallInst *CI, uint64_t Size,
@@ -218,37 +209,6 @@ MemCmpExpansion::computeOverlappingLoadSequence(uint64_t Size,
   return LoadSequence;
 }
 
-void MemCmpExpansion::optimiseLoadSequence(
-    LoadEntryVector &LoadSequence,
-    const TargetTransformInfo::MemCmpExpansionOptions &Options,
-    bool IsUsedForZeroCmp) {
-  // This part of code attempts to optimize the LoadSequence by merging allowed
-  // subsequences into single loads of allowed sizes from
-  // `MemCmpExpansionOptions::AllowedTailExpansions`. If it is for zero
-  // comparison or if no allowed tail expansions are specified, we exit early.
-  if (IsUsedForZeroCmp || Options.AllowedTailExpansions.empty())
-    return;
-
-  while (LoadSequence.size() >= 2) {
-    auto Last = LoadSequence[LoadSequence.size() - 1];
-    auto PreLast = LoadSequence[LoadSequence.size() - 2];
-
-    // Exit the loop if the two sequences are not contiguous
-    if (PreLast.Offset + PreLast.LoadSize != Last.Offset)
-      break;
-
-    auto LoadSize = Last.LoadSize + PreLast.LoadSize;
-    if (find(Options.AllowedTailExpansions, LoadSize) ==
-        Options.AllowedTailExpansions.end())
-      break;
-
-    // Remove the last two sequences and replace with the combined sequence
-    LoadSequence.pop_back();
-    LoadSequence.pop_back();
-    LoadSequence.emplace_back(PreLast.Offset, LoadSize);
-  }
-}
-
 // Initialize the basic block structure required for expansion of memcmp call
 // with given maximum load size and memcmp size parameter.
 // This structure includes:
@@ -294,7 +254,6 @@ MemCmpExpansion::MemCmpExpansion(
     }
   }
   assert(LoadSequence.size() <= Options.MaxNumLoads && "broken invariant");
-  optimiseLoadSequence(LoadSequence, Options, IsUsedForZeroCmp);
 }
 
 unsigned MemCmpExpansion::getNumBlocks() {
@@ -318,7 +277,7 @@ void MemCmpExpansion::createResultBlock() {
 }
 
 MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
-                                                       Type *BSwapSizeType,
+                                                       bool NeedsBSwap,
                                                        Type *CmpSizeType,
                                                        unsigned OffsetBytes) {
   // Get the memory source at offset `OffsetBytes`.
@@ -328,11 +287,17 @@ MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
   Align RhsAlign = RhsSource->getPointerAlignment(DL);
   if (OffsetBytes > 0) {
     auto *ByteType = Type::getInt8Ty(CI->getContext());
-    LhsSource = Builder.CreateConstGEP1_64(ByteType, LhsSource, OffsetBytes);
-    RhsSource = Builder.CreateConstGEP1_64(ByteType, RhsSource, OffsetBytes);
+    LhsSource = Builder.CreateConstGEP1_64(
+        ByteType, Builder.CreateBitCast(LhsSource, ByteType->getPointerTo()),
+        OffsetBytes);
+    RhsSource = Builder.CreateConstGEP1_64(
+        ByteType, Builder.CreateBitCast(RhsSource, ByteType->getPointerTo()),
+        OffsetBytes);
     LhsAlign = commonAlignment(LhsAlign, OffsetBytes);
     RhsAlign = commonAlignment(RhsAlign, OffsetBytes);
   }
+  LhsSource = Builder.CreateBitCast(LhsSource, LoadSizeType->getPointerTo());
+  RhsSource = Builder.CreateBitCast(RhsSource, LoadSizeType->getPointerTo());
 
   // Create a constant or a load from the source.
   Value *Lhs = nullptr;
@@ -347,22 +312,16 @@ MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
   if (!Rhs)
     Rhs = Builder.CreateAlignedLoad(LoadSizeType, RhsSource, RhsAlign);
 
-  // Zero extend if Byte Swap intrinsic has different type
-  if (BSwapSizeType && LoadSizeType != BSwapSizeType) {
-    Lhs = Builder.CreateZExt(Lhs, BSwapSizeType);
-    Rhs = Builder.CreateZExt(Rhs, BSwapSizeType);
-  }
-
   // Swap bytes if required.
-  if (BSwapSizeType) {
-    Function *Bswap = Intrinsic::getDeclaration(
-        CI->getModule(), Intrinsic::bswap, BSwapSizeType);
+  if (NeedsBSwap) {
+    Function *Bswap = Intrinsic::getDeclaration(CI->getModule(),
+                                                Intrinsic::bswap, LoadSizeType);
     Lhs = Builder.CreateCall(Bswap, Lhs);
     Rhs = Builder.CreateCall(Bswap, Rhs);
   }
 
   // Zero extend if required.
-  if (CmpSizeType != nullptr && CmpSizeType != Lhs->getType()) {
+  if (CmpSizeType != nullptr && CmpSizeType != LoadSizeType) {
     Lhs = Builder.CreateZExt(Lhs, CmpSizeType);
     Rhs = Builder.CreateZExt(Rhs, CmpSizeType);
   }
@@ -378,7 +337,7 @@ void MemCmpExpansion::emitLoadCompareByteBlock(unsigned BlockIndex,
   BasicBlock *BB = LoadCmpBlocks[BlockIndex];
   Builder.SetInsertPoint(BB);
   const LoadPair Loads =
-      getLoadPair(Type::getInt8Ty(CI->getContext()), nullptr,
+      getLoadPair(Type::getInt8Ty(CI->getContext()), /*NeedsBSwap=*/false,
                   Type::getInt32Ty(CI->getContext()), OffsetBytes);
   Value *Diff = Builder.CreateSub(Loads.Lhs, Loads.Rhs);
 
@@ -431,12 +390,11 @@ Value *MemCmpExpansion::getCompareLoadPairs(unsigned BlockIndex,
   IntegerType *const MaxLoadType =
       NumLoads == 1 ? nullptr
                     : IntegerType::get(CI->getContext(), MaxLoadSize * 8);
-
   for (unsigned i = 0; i < NumLoads; ++i, ++LoadIndex) {
     const LoadEntry &CurLoadEntry = LoadSequence[LoadIndex];
     const LoadPair Loads = getLoadPair(
-        IntegerType::get(CI->getContext(), CurLoadEntry.LoadSize * 8), nullptr,
-        MaxLoadType, CurLoadEntry.Offset);
+        IntegerType::get(CI->getContext(), CurLoadEntry.LoadSize * 8),
+        /*NeedsBSwap=*/false, MaxLoadType, CurLoadEntry.Offset);
 
     if (NumLoads != 1) {
       // If we have multiple loads per block, we need to generate a composite
@@ -522,20 +480,14 @@ void MemCmpExpansion::emitLoadCompareBlock(unsigned BlockIndex) {
 
   Type *LoadSizeType =
       IntegerType::get(CI->getContext(), CurLoadEntry.LoadSize * 8);
-  Type *BSwapSizeType =
-      DL.isLittleEndian()
-          ? IntegerType::get(CI->getContext(),
-                             PowerOf2Ceil(CurLoadEntry.LoadSize * 8))
-          : nullptr;
-  Type *MaxLoadType = IntegerType::get(
-      CI->getContext(),
-      std::max(MaxLoadSize, (unsigned)PowerOf2Ceil(CurLoadEntry.LoadSize)) * 8);
+  Type *MaxLoadType = IntegerType::get(CI->getContext(), MaxLoadSize * 8);
   assert(CurLoadEntry.LoadSize <= MaxLoadSize && "Unexpected load type");
 
   Builder.SetInsertPoint(LoadCmpBlocks[BlockIndex]);
 
-  const LoadPair Loads = getLoadPair(LoadSizeType, BSwapSizeType, MaxLoadType,
-                                     CurLoadEntry.Offset);
+  const LoadPair Loads =
+      getLoadPair(LoadSizeType, /*NeedsBSwap=*/DL.isLittleEndian(), MaxLoadType,
+                  CurLoadEntry.Offset);
 
   // Add the loaded values to the phi nodes for calculating memcmp result only
   // if result is not used in a zero equality.
@@ -611,7 +563,7 @@ void MemCmpExpansion::setupResultBlockPHINodes() {
 }
 
 void MemCmpExpansion::setupEndBlockPHINodes() {
-  Builder.SetInsertPoint(EndBlock, EndBlock->begin());
+  Builder.SetInsertPoint(&EndBlock->front());
   PhiRes = Builder.CreatePHI(Type::getInt32Ty(CI->getContext()), 2, "phi.res");
 }
 
@@ -639,63 +591,21 @@ Value *MemCmpExpansion::getMemCmpEqZeroOneBlock() {
 
 /// A memcmp expansion that only has one block of load and compare can bypass
 /// the compare, branch, and phi IR that is required in the general case.
-/// This function also analyses users of memcmp, and if there is only one user
-/// from which we can conclude that only 2 out of 3 memcmp outcomes really
-/// matter, then it generates more efficient code with only one comparison.
 Value *MemCmpExpansion::getMemCmpOneBlock() {
-  bool NeedsBSwap = DL.isLittleEndian() && Size != 1;
   Type *LoadSizeType = IntegerType::get(CI->getContext(), Size * 8);
-  Type *BSwapSizeType =
-      NeedsBSwap ? IntegerType::get(CI->getContext(), PowerOf2Ceil(Size * 8))
-                 : nullptr;
-  Type *MaxLoadType =
-      IntegerType::get(CI->getContext(),
-                       std::max(MaxLoadSize, (unsigned)PowerOf2Ceil(Size)) * 8);
+  bool NeedsBSwap = DL.isLittleEndian() && Size != 1;
 
   // The i8 and i16 cases don't need compares. We zext the loaded values and
   // subtract them to get the suitable negative, zero, or positive i32 result.
-  if (Size == 1 || Size == 2) {
-    const LoadPair Loads = getLoadPair(LoadSizeType, BSwapSizeType,
-                                       Builder.getInt32Ty(), /*Offset*/ 0);
+  if (Size < 4) {
+    const LoadPair Loads =
+        getLoadPair(LoadSizeType, NeedsBSwap, Builder.getInt32Ty(),
+                    /*Offset*/ 0);
     return Builder.CreateSub(Loads.Lhs, Loads.Rhs);
   }
 
-  const LoadPair Loads = getLoadPair(LoadSizeType, BSwapSizeType, MaxLoadType,
+  const LoadPair Loads = getLoadPair(LoadSizeType, NeedsBSwap, LoadSizeType,
                                      /*Offset*/ 0);
-
-  // If a user of memcmp cares only about two outcomes, for example:
-  //    bool result = memcmp(a, b, NBYTES) > 0;
-  // We can generate more optimal code with a smaller number of operations
-  if (CI->hasOneUser()) {
-    auto *UI = cast<Instruction>(*CI->user_begin());
-    ICmpInst::Predicate Pred = ICmpInst::Predicate::BAD_ICMP_PREDICATE;
-    uint64_t Shift;
-    bool NeedsZExt = false;
-    // This is a special case because instead of checking if the result is less
-    // than zero:
-    //    bool result = memcmp(a, b, NBYTES) < 0;
-    // Compiler is clever enough to generate the following code:
-    //    bool result = memcmp(a, b, NBYTES) >> 31;
-    if (match(UI, m_LShr(m_Value(), m_ConstantInt(Shift))) &&
-        Shift == (CI->getType()->getIntegerBitWidth() - 1)) {
-      Pred = ICmpInst::ICMP_SLT;
-      NeedsZExt = true;
-    } else {
-      // In case of a successful match this call will set `Pred` variable
-      match(UI, m_ICmp(Pred, m_Specific(CI), m_Zero()));
-    }
-    // Generate new code and remove the original memcmp call and the user
-    if (ICmpInst::isSigned(Pred)) {
-      Value *Cmp = Builder.CreateICmp(CmpInst::getUnsignedPredicate(Pred),
-                                      Loads.Lhs, Loads.Rhs);
-      auto *Result = NeedsZExt ? Builder.CreateZExt(Cmp, UI->getType()) : Cmp;
-      UI->replaceAllUsesWith(Result);
-      UI->eraseFromParent();
-      CI->eraseFromParent();
-      return nullptr;
-    }
-  }
-
   // The result of memcmp is negative, zero, or positive, so produce that by
   // subtracting 2 extended compare bits: sub (ugt, ult).
   // If a target prefers to use selects to get -1/0/1, they should be able
@@ -710,7 +620,7 @@ Value *MemCmpExpansion::getMemCmpOneBlock() {
 }
 
 // This function expands the memcmp call into an inline expansion and returns
-// the memcmp result. Returns nullptr if the memcmp is already replaced.
+// the memcmp result.
 Value *MemCmpExpansion::getMemCmpExpansion() {
   // Create the basic block framework for a multi-block expansion.
   if (getNumBlocks() != 1) {
@@ -878,33 +788,21 @@ static bool expandMemCmp(CallInst *CI, const TargetTransformInfo *TTI,
 
   NumMemCmpInlined++;
 
-  if (Value *Res = Expansion.getMemCmpExpansion()) {
-    // Replace call with result of expansion and erase call.
-    CI->replaceAllUsesWith(Res);
-    CI->eraseFromParent();
-  }
+  Value *Res = Expansion.getMemCmpExpansion();
+
+  // Replace call with result of expansion and erase call.
+  CI->replaceAllUsesWith(Res);
+  CI->eraseFromParent();
 
   return true;
 }
 
-// Returns true if a change was made.
-static bool runOnBlock(BasicBlock &BB, const TargetLibraryInfo *TLI,
-                       const TargetTransformInfo *TTI, const TargetLowering *TL,
-                       const DataLayout &DL, ProfileSummaryInfo *PSI,
-                       BlockFrequencyInfo *BFI, DomTreeUpdater *DTU);
-
-static PreservedAnalyses runImpl(Function &F, const TargetLibraryInfo *TLI,
-                                 const TargetTransformInfo *TTI,
-                                 const TargetLowering *TL,
-                                 ProfileSummaryInfo *PSI,
-                                 BlockFrequencyInfo *BFI, DominatorTree *DT);
-
-class ExpandMemCmpLegacyPass : public FunctionPass {
+class ExpandMemCmpPass : public FunctionPass {
 public:
   static char ID;
 
-  ExpandMemCmpLegacyPass() : FunctionPass(ID) {
-    initializeExpandMemCmpLegacyPassPass(*PassRegistry::getPassRegistry());
+  ExpandMemCmpPass() : FunctionPass(ID) {
+    initializeExpandMemCmpPassPass(*PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override {
@@ -941,13 +839,25 @@ private:
     LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AU);
     FunctionPass::getAnalysisUsage(AU);
   }
+
+  PreservedAnalyses runImpl(Function &F, const TargetLibraryInfo *TLI,
+                            const TargetTransformInfo *TTI,
+                            const TargetLowering *TL, ProfileSummaryInfo *PSI,
+                            BlockFrequencyInfo *BFI, DominatorTree *DT);
+  // Returns true if a change was made.
+  bool runOnBlock(BasicBlock &BB, const TargetLibraryInfo *TLI,
+                  const TargetTransformInfo *TTI, const TargetLowering *TL,
+                  const DataLayout &DL, ProfileSummaryInfo *PSI,
+                  BlockFrequencyInfo *BFI, DomTreeUpdater *DTU);
 };
 
-bool runOnBlock(BasicBlock &BB, const TargetLibraryInfo *TLI,
-                const TargetTransformInfo *TTI, const TargetLowering *TL,
-                const DataLayout &DL, ProfileSummaryInfo *PSI,
-                BlockFrequencyInfo *BFI, DomTreeUpdater *DTU) {
-  for (Instruction &I : BB) {
+bool ExpandMemCmpPass::runOnBlock(BasicBlock &BB, const TargetLibraryInfo *TLI,
+                                  const TargetTransformInfo *TTI,
+                                  const TargetLowering *TL,
+                                  const DataLayout &DL, ProfileSummaryInfo *PSI,
+                                  BlockFrequencyInfo *BFI,
+                                  DomTreeUpdater *DTU) {
+  for (Instruction& I : BB) {
     CallInst *CI = dyn_cast<CallInst>(&I);
     if (!CI) {
       continue;
@@ -962,18 +872,20 @@ bool runOnBlock(BasicBlock &BB, const TargetLibraryInfo *TLI,
   return false;
 }
 
-PreservedAnalyses runImpl(Function &F, const TargetLibraryInfo *TLI,
+PreservedAnalyses
+ExpandMemCmpPass::runImpl(Function &F, const TargetLibraryInfo *TLI,
                           const TargetTransformInfo *TTI,
                           const TargetLowering *TL, ProfileSummaryInfo *PSI,
                           BlockFrequencyInfo *BFI, DominatorTree *DT) {
-  std::optional<DomTreeUpdater> DTU;
+  Optional<DomTreeUpdater> DTU;
   if (DT)
     DTU.emplace(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   const DataLayout& DL = F.getParent()->getDataLayout();
   bool MadeChanges = false;
   for (auto BBIt = F.begin(); BBIt != F.end();) {
-    if (runOnBlock(*BBIt, TLI, TTI, TL, DL, PSI, BFI, DTU ? &*DTU : nullptr)) {
+    if (runOnBlock(*BBIt, TLI, TTI, TL, DL, PSI, BFI,
+                   DTU ? DTU.getPointer() : nullptr)) {
       MadeChanges = true;
       // If changes were made, restart the function from the beginning, since
       // the structure of the function was changed.
@@ -994,32 +906,17 @@ PreservedAnalyses runImpl(Function &F, const TargetLibraryInfo *TLI,
 
 } // namespace
 
-PreservedAnalyses ExpandMemCmpPass::run(Function &F,
-                                        FunctionAnalysisManager &FAM) {
-  const auto *TL = TM->getSubtargetImpl(F)->getTargetLowering();
-  const auto &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
-  const auto &TTI = FAM.getResult<TargetIRAnalysis>(F);
-  auto *PSI = FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
-                  .getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
-  BlockFrequencyInfo *BFI = (PSI && PSI->hasProfileSummary())
-                                ? &FAM.getResult<BlockFrequencyAnalysis>(F)
-                                : nullptr;
-  auto *DT = FAM.getCachedResult<DominatorTreeAnalysis>(F);
-
-  return runImpl(F, &TLI, &TTI, TL, PSI, BFI, DT);
-}
-
-char ExpandMemCmpLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(ExpandMemCmpLegacyPass, DEBUG_TYPE,
+char ExpandMemCmpPass::ID = 0;
+INITIALIZE_PASS_BEGIN(ExpandMemCmpPass, "expandmemcmp",
                       "Expand memcmp() to load/stores", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LazyBlockFrequencyInfoPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(ExpandMemCmpLegacyPass, DEBUG_TYPE,
+INITIALIZE_PASS_END(ExpandMemCmpPass, "expandmemcmp",
                     "Expand memcmp() to load/stores", false, false)
 
-FunctionPass *llvm::createExpandMemCmpLegacyPass() {
-  return new ExpandMemCmpLegacyPass();
+FunctionPass *llvm::createExpandMemCmpPass() {
+  return new ExpandMemCmpPass();
 }

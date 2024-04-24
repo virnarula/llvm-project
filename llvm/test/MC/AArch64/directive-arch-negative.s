@@ -1,4 +1,4 @@
-// RUN: not llvm-mc -triple aarch64 -filetype asm -o - %s 2>&1 | FileCheck %s
+// RUN: not llvm-mc -triple aarch64-unknown-none-eabi -filetype asm -o - %s 2>&1 | FileCheck %s
 
 	.arch axp64
 # CHECK: error: unknown arch name
@@ -36,7 +36,9 @@
 # CHECK: error: instruction requires: ras
 # CHECK-NEXT:   esb
 
-	.arch armv8
+// PR32873: without extra features, '.arch' is currently ignored.
+// Add an unrelated feature to accept the directive.
+	.arch armv8+crc
         casa  w5, w7, [x19]
 
 # CHECK: error: instruction requires: lse

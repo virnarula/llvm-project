@@ -21,14 +21,20 @@ Expected<Target> Target::create(StringRef TargetValue) {
   auto PlatformStr = Result.second;
   PlatformType Platform;
   Platform = StringSwitch<PlatformType>(PlatformStr)
-#define PLATFORM(platform, id, name, build_name, target, tapi_target,          \
-                 marketing)                                                    \
-  .Case(#tapi_target, PLATFORM_##platform)
-#include "llvm/BinaryFormat/MachO.def"
+                 .Case("macos", PLATFORM_MACOS)
+                 .Case("ios", PLATFORM_IOS)
+                 .Case("tvos", PLATFORM_TVOS)
+                 .Case("watchos", PLATFORM_WATCHOS)
+                 .Case("bridgeos", PLATFORM_BRIDGEOS)
+                 .Case("maccatalyst", PLATFORM_MACCATALYST)
+                 .Case("ios-simulator", PLATFORM_IOSSIMULATOR)
+                 .Case("tvos-simulator", PLATFORM_TVOSSIMULATOR)
+                 .Case("watchos-simulator", PLATFORM_WATCHOSSIMULATOR)
+                 .Case("driverkit", PLATFORM_DRIVERKIT)
                  .Default(PLATFORM_UNKNOWN);
 
   if (Platform == PLATFORM_UNKNOWN) {
-    if (PlatformStr.starts_with("<") && PlatformStr.ends_with(">")) {
+    if (PlatformStr.startswith("<") && PlatformStr.endswith(">")) {
       PlatformStr = PlatformStr.drop_front().drop_back();
       unsigned long long RawValue;
       if (!PlatformStr.getAsInteger(10, RawValue))
@@ -40,23 +46,13 @@ Expected<Target> Target::create(StringRef TargetValue) {
 }
 
 Target::operator std::string() const {
-  auto Version = MinDeployment.empty() ? "" : MinDeployment.getAsString();
-
-  return (getArchitectureName(Arch) + " (" + getPlatformName(Platform) +
-          Version + ")")
+  return (getArchitectureName(Arch) + " (" + getPlatformName(Platform) + ")")
       .str();
 }
 
 raw_ostream &operator<<(raw_ostream &OS, const Target &Target) {
   OS << std::string(Target);
   return OS;
-}
-
-PlatformVersionSet mapToPlatformVersionSet(ArrayRef<Target> Targets) {
-  PlatformVersionSet Result;
-  for (const auto &Target : Targets)
-    Result.insert({Target.Platform, Target.MinDeployment});
-  return Result;
 }
 
 PlatformSet mapToPlatformSet(ArrayRef<Target> Targets) {
@@ -74,11 +70,8 @@ ArchitectureSet mapToArchitectureSet(ArrayRef<Target> Targets) {
 }
 
 std::string getTargetTripleName(const Target &Targ) {
-  auto Version =
-      Targ.MinDeployment.empty() ? "" : Targ.MinDeployment.getAsString();
-
   return (getArchitectureName(Targ.Arch) + "-apple-" +
-          getOSAndEnvironmentName(Targ.Platform, Version))
+          getOSAndEnvironmentName(Targ.Platform))
       .str();
 }
 

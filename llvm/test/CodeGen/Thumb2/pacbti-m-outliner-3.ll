@@ -33,8 +33,7 @@ entry:
 
 if.end:                                           ; preds = %entry
   %mul = mul nsw i32 %a, 11
-  %xor = xor i32 %mul, 100
-  %sub = sub nsw i32 %xor, %b
+  %sub = sub nsw i32 %mul, %b
   %call = tail call i32 @h(i32 %sub, i32 %b)
   %add = add nsw i32 %call, %b
   %mul1 = mul nsw i32 %add, %call
@@ -82,8 +81,7 @@ entry:
 
 if.end:                                           ; preds = %entry
   %mul = mul nsw i32 %a, 11
-  %xor = xor i32 %mul, 100
-  %sub = sub nsw i32 %xor, %b
+  %sub = sub nsw i32 %mul, %b
   %call = tail call i32 @h(i32 %sub, i32 %b)
   %add = add nsw i32 %call, %b
   %mul1 = mul nsw i32 %add, %call

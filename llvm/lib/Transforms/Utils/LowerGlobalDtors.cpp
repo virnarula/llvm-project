@@ -128,7 +128,7 @@ static bool runImpl(Module &M) {
 
   // extern "C" int __cxa_atexit(void (*f)(void *), void *p, void *d);
   LLVMContext &C = M.getContext();
-  PointerType *VoidStar = PointerType::getUnqual(C);
+  PointerType *VoidStar = Type::getInt8PtrTy(C);
   Type *AtExitFuncArgs[] = {VoidStar};
   FunctionType *AtExitFuncTy =
       FunctionType::get(Type::getVoidTy(C), AtExitFuncArgs,
@@ -139,17 +139,6 @@ static bool runImpl(Module &M) {
       FunctionType::get(Type::getInt32Ty(C),
                         {PointerType::get(AtExitFuncTy, 0), VoidStar, VoidStar},
                         /*isVarArg=*/false));
-
-  // If __cxa_atexit is defined (e.g. in the case of LTO) and arg0 is not
-  // actually used (i.e. it's dummy/stub function as used in emscripten when
-  // the program never exits) we can simply return early and clear out
-  // @llvm.global_dtors.
-  if (auto F = dyn_cast<Function>(AtExit.getCallee())) {
-    if (F && F->hasExactDefinition() && F->getArg(0)->getNumUses() == 0) {
-      GV->eraseFromParent();
-      return true;
-    }
-  }
 
   // Declare __dso_local.
   Type *DsoHandleTy = Type::getInt8Ty(C);

@@ -26,7 +26,6 @@ using namespace lld::elf;
 constexpr uint64_t ppc64TocOffset = 0x8000;
 constexpr uint64_t dynamicThreadPointerOffset = 0x8000;
 
-namespace {
 // The instruction encoding of bits 21-30 from the ISA for the Xform and Dform
 // instructions that can be used as part of the initial exec TLS sequence.
 enum XFormOpcd {
@@ -38,12 +37,6 @@ enum XFormOpcd {
   STHX = 407,
   STWX = 151,
   STDX = 149,
-  LHAX = 343,
-  LWAX = 341,
-  LFSX = 535,
-  LFDX = 599,
-  STFSX = 663,
-  STFDX = 727,
   ADD = 266,
 };
 
@@ -56,6 +49,7 @@ enum DFormOpcd {
   LWZ = 32,
   LWZU = 33,
   LFSU = 49,
+  LD = 58,
   LFDU = 51,
   STB = 38,
   STBU = 39,
@@ -65,18 +59,8 @@ enum DFormOpcd {
   STWU = 37,
   STFSU = 53,
   STFDU = 55,
-  LHA = 42,
-  LFS = 48,
-  LFD = 50,
-  STFS = 52,
-  STFD = 54,
+  STD = 62,
   ADDI = 14
-};
-
-enum DSFormOpcd {
-  LD = 58,
-  LWA = 58,
-  STD = 62
 };
 
 constexpr uint32_t NOP = 0x60000000;
@@ -140,7 +124,6 @@ enum class PPCPrefixedInsn : uint64_t {
   PSTXV = PREFIX_8LS | 0xd8000000,
   PSTXVP = PREFIX_8LS | 0xf8000000
 };
-
 static bool checkPPCLegacyInsn(uint32_t encoding) {
   PPCLegacyInsn insn = static_cast<PPCLegacyInsn>(encoding);
   if (insn == PPCLegacyInsn::NOINSN)
@@ -166,6 +149,7 @@ enum class LegacyToPrefixMask : uint64_t {
       0x8000000003e00000, // S/T (6-10) - The [S/T]X bit moves from 28 to 5.
 };
 
+namespace {
 class PPC64 final : public TargetInfo {
 public:
   PPC64();
@@ -254,7 +238,7 @@ static bool addOptional(StringRef name, uint64_t value,
   Symbol *sym = symtab.find(name);
   if (!sym || sym->isDefined())
     return false;
-  sym->resolve(Defined{ctx.internalFile, StringRef(), STB_GLOBAL, STV_HIDDEN,
+  sym->resolve(Defined{/*file=*/nullptr, StringRef(), STB_GLOBAL, STV_HIDDEN,
                        STT_FUNC, value,
                        /*size=*/0, /*section=*/nullptr});
   defined.push_back(cast<Defined>(sym));
@@ -287,8 +271,8 @@ static void writeSequence(MutableArrayRef<uint32_t> buf, const char *prefix,
   // instructions and write [first,end).
   auto *sec = make<InputSection>(
       nullptr, SHF_ALLOC, SHT_PROGBITS, 4,
-      ArrayRef(reinterpret_cast<uint8_t *>(buf.data() + first),
-               4 * (buf.size() - first)),
+      makeArrayRef(reinterpret_cast<uint8_t *>(buf.data() + first),
+                   4 * (buf.size() - first)),
       ".text");
   ctx.inputSections.push_back(sec);
   for (Defined *sym : defined) {
@@ -841,48 +825,26 @@ void PPC64::relaxTlsLdToLe(uint8_t *loc, const Relocation &rel,
   }
 }
 
-// Map X-Form instructions to their DS-Form counterparts, if applicable.
-// The full encoding is returned here to distinguish between the different
-// DS-Form instructions.
-unsigned elf::getPPCDSFormOp(unsigned secondaryOp) {
-  switch (secondaryOp) {
-  case LWAX:
-    return (LWA << 26) | 0x2;
-  case LDX:
-    return LD << 26;
-  case STDX:
-    return STD << 26;
-  default:
-    return 0;
-  }
-}
-
 unsigned elf::getPPCDFormOp(unsigned secondaryOp) {
   switch (secondaryOp) {
   case LBZX:
-    return LBZ << 26;
+    return LBZ;
   case LHZX:
-    return LHZ << 26;
+    return LHZ;
   case LWZX:
-    return LWZ << 26;
+    return LWZ;
+  case LDX:
+    return LD;
   case STBX:
-    return STB << 26;
+    return STB;
   case STHX:
-    return STH << 26;
+    return STH;
   case STWX:
-    return STW << 26;
-  case LHAX:
-    return LHA << 26;
-  case LFSX:
-    return LFS << 26;
-  case LFDX:
-    return LFD << 26;
-  case STFSX:
-    return STFS << 26;
-  case STFDX:
-    return STFD << 26;
+    return STW;
+  case STDX:
+    return STD;
   case ADD:
-    return ADDI << 26;
+    return ADDI;
   default:
     return 0;
   }
@@ -936,16 +898,10 @@ void PPC64::relaxTlsIeToLe(uint8_t *loc, const Relocation &rel,
         error("unrecognized instruction for IE to LE R_PPC64_TLS");
       uint32_t secondaryOp = (read32(loc) & 0x000007FE) >> 1; // bits 21-30
       uint32_t dFormOp = getPPCDFormOp(secondaryOp);
-      uint32_t finalReloc;
-      if (dFormOp == 0) { // Expecting a DS-Form instruction.
-        dFormOp = getPPCDSFormOp(secondaryOp);
-        if (dFormOp == 0)
-          error("unrecognized instruction for IE to LE R_PPC64_TLS");
-        finalReloc = R_PPC64_TPREL16_LO_DS;
-      } else
-        finalReloc = R_PPC64_TPREL16_LO;
-      write32(loc, dFormOp | (read32(loc) & 0x03ff0000));
-      relocateNoSym(loc + offset, finalReloc, val);
+      if (dFormOp == 0)
+        error("unrecognized instruction for IE to LE R_PPC64_TLS");
+      write32(loc, ((dFormOp << 26) | (read32(loc) & 0x03FFFFFF)));
+      relocateNoSym(loc + offset, R_PPC64_TPREL16_LO, val);
     } else if (locAsInt % 4 == 1) {
       // If the offset is not 4 byte aligned then we have a PCRel type reloc.
       // This version of the relocation is offset by one byte from the
@@ -970,12 +926,9 @@ void PPC64::relaxTlsIeToLe(uint8_t *loc, const Relocation &rel,
         }
       } else {
         uint32_t dFormOp = getPPCDFormOp(secondaryOp);
-        if (dFormOp == 0) { // Expecting a DS-Form instruction.
-          dFormOp = getPPCDSFormOp(secondaryOp);
-          if (dFormOp == 0)
-            errorOrWarn("unrecognized instruction for IE to LE R_PPC64_TLS");
-        }
-        write32(loc - 1, (dFormOp | (tlsInstr & 0x03ff0000)));
+        if (dFormOp == 0)
+          errorOrWarn("unrecognized instruction for IE to LE R_PPC64_TLS");
+        write32(loc - 1, ((dFormOp << 26) | (tlsInstr & 0x03FF0000)));
       }
     } else {
       errorOrWarn("R_PPC64_TLS must be either 4 byte aligned or one byte "
@@ -1564,10 +1517,8 @@ void PPC64::relocateAlloc(InputSectionBase &sec, uint8_t *buf) const {
   uint64_t secAddr = sec.getOutputSection()->addr;
   if (auto *s = dyn_cast<InputSection>(&sec))
     secAddr += s->outSecOff;
-  else if (auto *ehIn = dyn_cast<EhInputSection>(&sec))
-    secAddr += ehIn->getParent()->outSecOff;
   uint64_t lastPPCRelaxedRelocOff = -1;
-  for (const Relocation &rel : sec.relocs()) {
+  for (const Relocation &rel : sec.relocations) {
     uint8_t *loc = buf + rel.offset;
     const uint64_t val =
         sec.getRelocTargetVA(sec.file, rel.type, rel.addend,
@@ -1605,12 +1556,12 @@ void PPC64::relocateAlloc(InputSectionBase &sec, uint8_t *buf) const {
         break;
 
       // Patch a nop (0x60000000) to a ld.
-      if (rel.sym->needsTocRestore()) {
+      if (rel.sym->needsTocRestore) {
         // gcc/gfortran 5.4, 6.3 and earlier versions do not add nop for
         // recursive calls even if the function is preemptible. This is not
         // wrong in the common case where the function is not preempted at
         // runtime. Just ignore.
-        if ((rel.offset + 8 > sec.content().size() ||
+        if ((rel.offset + 8 > sec.rawData.size() ||
              read32(loc + 4) != 0x60000000) &&
             rel.sym->file != sec.file) {
           // Use substr(6) to remove the "__plt_" prefix.

@@ -6,9 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// FILE_DEPENDENCIES: underflow.dat
+
 // <locale>
 
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS -D_LIBCPP_ENABLE_CXX26_REMOVED_CODECVT
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
 // wbuffer_convert<Codecvt, Elem, Tr>
 
@@ -19,9 +21,11 @@
 // XFAIL: no-wide-characters
 
 #include <locale>
-#include <cassert>
 #include <codecvt>
-#include <sstream>
+#include <fstream>
+#include <cassert>
+
+#include "test_macros.h"
 
 struct test_buf
     : public std::wbuffer_convert<std::codecvt_utf8<wchar_t> >
@@ -43,17 +47,16 @@ struct test_buf
 
 int main(int, char**)
 {
-    std::string const s = "123456789";
     {
-        std::istringstream in(s);
-        test_buf f(in.rdbuf());
+        std::ifstream bs("underflow.dat");
+        test_buf f(bs.rdbuf());
         assert(f.sbumpc() == L'1');
         assert(f.sgetc() == L'2');
         assert(f.pbackfail(L'a') == test_buf::traits_type::eof());
     }
     {
-        std::istringstream in(s);
-        test_buf f(in.rdbuf());
+        std::fstream bs("underflow.dat");
+        test_buf f(bs.rdbuf());
         assert(f.sbumpc() == L'1');
         assert(f.sgetc() == L'2');
         assert(f.pbackfail(L'a') == test_buf::traits_type::eof());

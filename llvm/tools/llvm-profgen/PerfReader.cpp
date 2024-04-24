@@ -319,7 +319,7 @@ bool VirtualUnwinder::unwind(const PerfSample *Sample, uint64_t Repeat) {
 
 std::unique_ptr<PerfReaderBase>
 PerfReaderBase::create(ProfiledBinary *Binary, PerfInputFile &PerfInput,
-                       std::optional<uint32_t> PIDFilter) {
+                       Optional<uint32_t> PIDFilter) {
   std::unique_ptr<PerfReaderBase> PerfReader;
 
   if (PerfInput.Format == PerfFormat::UnsymbolizedProfile) {
@@ -350,10 +350,8 @@ PerfReaderBase::create(ProfiledBinary *Binary, PerfInputFile &PerfInput,
   return PerfReader;
 }
 
-PerfInputFile
-PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
-                                         PerfInputFile &File,
-                                         std::optional<uint32_t> PIDFilter) {
+PerfInputFile PerfScriptReader::convertPerfDataToTrace(
+    ProfiledBinary *Binary, PerfInputFile &File, Optional<uint32_t> PIDFilter) {
   StringRef PerfData = File.InputFile;
   // Run perf script to retrieve PIDs matching binary we're interested in.
   auto PerfExecutable = sys::Process::FindInEnvPath("PATH", "perf");
@@ -366,10 +364,10 @@ PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
   StringRef ScriptMMapArgs[] = {PerfPath, "script",   "--show-mmap-events",
                                 "-F",     "comm,pid", "-i",
                                 PerfData};
-  std::optional<StringRef> Redirects[] = {std::nullopt,             // Stdin
-                                          StringRef(PerfTraceFile), // Stdout
-                                          StringRef(ErrorFile)};    // Stderr
-  sys::ExecuteAndWait(PerfPath, ScriptMMapArgs, std::nullopt, Redirects);
+  Optional<StringRef> Redirects[] = {llvm::None,               // Stdin
+                                     StringRef(PerfTraceFile), // Stdout
+                                     StringRef(ErrorFile)};    // Stderr
+  sys::ExecuteAndWait(PerfPath, ScriptMMapArgs, llvm::None, Redirects);
 
   // Collect the PIDs
   TraceStream TraceIt(PerfTraceFile);
@@ -398,7 +396,7 @@ PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
   StringRef ScriptSampleArgs[] = {PerfPath, "script",     "--show-mmap-events",
                                   "-F",     "ip,brstack", "--pid",
                                   PIDs,     "-i",         PerfData};
-  sys::ExecuteAndWait(PerfPath, ScriptSampleArgs, std::nullopt, Redirects);
+  sys::ExecuteAndWait(PerfPath, ScriptSampleArgs, llvm::None, Redirects);
 
   return {PerfTraceFile, PerfFormat::PerfScript, PerfContent::UnknownContent};
 }
@@ -480,6 +478,8 @@ static std::string getContextKeyStr(ContextKey *K,
 }
 
 void HybridPerfReader::unwindSamples() {
+  if (Binary->useFSDiscriminator())
+    exitWithError("FS discriminator is not supported in CS profile.");
   VirtualUnwinder Unwinder(&SampleCounters, Binary);
   for (const auto &Item : AggregatedSamples) {
     const PerfSample *Sample = Item.first.getPtr();
@@ -597,7 +597,7 @@ bool PerfScriptReader::extractCallstack(TraceStream &TraceIt,
   // It's in bottom-up order with each frame in one line.
 
   // Extract stack frames from sample
-  while (!TraceIt.isAtEoF() && !TraceIt.getCurrentLine().starts_with(" 0x")) {
+  while (!TraceIt.isAtEoF() && !TraceIt.getCurrentLine().startswith(" 0x")) {
     StringRef FrameStr = TraceIt.getCurrentLine().ltrim();
     uint64_t FrameAddr = 0;
     if (FrameStr.getAsInteger(16, FrameAddr)) {
@@ -645,7 +645,7 @@ bool PerfScriptReader::extractCallstack(TraceStream &TraceIt,
   // Skip other unrelated line, find the next valid LBR line
   // Note that even for empty call stack, we should skip the address at the
   // bottom, otherwise the following pass may generate a truncated callstack
-  while (!TraceIt.isAtEoF() && !TraceIt.getCurrentLine().starts_with(" 0x")) {
+  while (!TraceIt.isAtEoF() && !TraceIt.getCurrentLine().startswith(" 0x")) {
     TraceIt.advance();
   }
   // Filter out broken stack sample. We may not have complete frame info
@@ -690,14 +690,14 @@ void HybridPerfReader::parseSample(TraceStream &TraceIt, uint64_t Count) {
   // Parsing call stack and populate into PerfSample.CallStack
   if (!extractCallstack(TraceIt, Sample->CallStack)) {
     // Skip the next LBR line matched current call stack
-    if (!TraceIt.isAtEoF() && TraceIt.getCurrentLine().starts_with(" 0x"))
+    if (!TraceIt.isAtEoF() && TraceIt.getCurrentLine().startswith(" 0x"))
       TraceIt.advance();
     return;
   }
 
   warnIfMissingMMap();
 
-  if (!TraceIt.isAtEoF() && TraceIt.getCurrentLine().starts_with(" 0x")) {
+  if (!TraceIt.isAtEoF() && TraceIt.getCurrentLine().startswith(" 0x")) {
     // Parsing LBR stack and populate into PerfSample.LBRStack
     if (extractLBRStack(TraceIt, Sample->LBRStack)) {
       if (IgnoreStackSamples) {
@@ -846,7 +846,7 @@ void UnsymbolizedProfileReader::readUnsymbolizedProfile(StringRef FileName) {
         std::make_shared<StringBasedCtxKey>();
     StringRef Line = TraceIt.getCurrentLine();
     // Read context stack for CS profile.
-    if (Line.starts_with("[")) {
+    if (Line.startswith("[")) {
       ProfileIsCS = true;
       auto I = ContextStrSet.insert(Line.str());
       SampleContext::createCtxVectorFromStr(*I.first, Key->Context);
@@ -1005,7 +1005,7 @@ bool PerfScriptReader::isLBRSample(StringRef Line) {
   Line.trim().split(Records, " ", 2, false);
   if (Records.size() < 2)
     return false;
-  if (Records[1].starts_with("0x") && Records[1].contains('/'))
+  if (Records[1].startswith("0x") && Records[1].contains('/'))
     return true;
   return false;
 }

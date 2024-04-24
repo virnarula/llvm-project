@@ -182,8 +182,8 @@ public:
   ~LVTypeEnumerator() = default;
 
   // Process the values for a DW_TAG_enumerator.
-  StringRef getValue() const override {
-    return getStringPool().getString(ValueIndex);
+  std::string getValue() const override {
+    return std::string(getStringPool().getString(ValueIndex));
   }
   void setValue(StringRef Value) override {
     ValueIndex = getStringPool().getIndex(Value);
@@ -222,8 +222,8 @@ public:
   ~LVTypeParam() = default;
 
   // Template parameter value.
-  StringRef getValue() const override {
-    return getStringPool().getString(ValueIndex);
+  std::string getValue() const override {
+    return std::string(getStringPool().getString(ValueIndex));
   }
   void setValue(StringRef Value) override {
     ValueIndex = getStringPool().getIndex(Value);

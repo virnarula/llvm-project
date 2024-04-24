@@ -1,159 +1,159 @@
-add_custom_target(libc-ctype-tests)
+add_libc_testsuite(libc_ctype_unittests)
 
-add_libc_test(
-  isalnum_test
+add_libc_unittest(
+  isalnum
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isalnum_test.cpp
   DEPENDS
     libc.src.ctype.isalnum
 )
 
-add_libc_test(
-  isalpha_test
+add_libc_unittest(
+  isalpha
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isalpha_test.cpp
   DEPENDS
     libc.src.ctype.isalpha
 )
 
-add_libc_test(
-  isascii_test
+add_libc_unittest(
+  isascii
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isascii_test.cpp
   DEPENDS
     libc.src.ctype.isascii
 )
 
-add_libc_test(
-  isblank_test
+add_libc_unittest(
+  isblank
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isblank_test.cpp
   DEPENDS
     libc.src.ctype.isblank
 )
 
-add_libc_test(
-  iscntrl_test
+add_libc_unittest(
+  iscntrl
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     iscntrl_test.cpp
   DEPENDS
     libc.src.ctype.iscntrl
 )
 
-add_libc_test(
-  isdigit_test
+add_libc_unittest(
+  isdigit
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isdigit_test.cpp
   DEPENDS
     libc.src.ctype.isdigit
 )
 
-add_libc_test(
-  isgraph_test
+add_libc_unittest(
+  isgraph
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isgraph_test.cpp
   DEPENDS
     libc.src.ctype.isgraph
 )
 
-add_libc_test(
-  islower_test
+add_libc_unittest(
+  islower
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     islower_test.cpp
   DEPENDS
     libc.src.ctype.islower
 )
 
-add_libc_test(
-  isprint_test
+add_libc_unittest(
+  isprint
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isprint_test.cpp
   DEPENDS
     libc.src.ctype.isprint
 )
 
-add_libc_test(
-  ispunct_test
+add_libc_unittest(
+  ispunct
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     ispunct_test.cpp
   DEPENDS
     libc.src.ctype.ispunct
 )
 
-add_libc_test(
-  isspace_test
+add_libc_unittest(
+  isspace
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isspace_test.cpp
   DEPENDS
     libc.src.ctype.isspace
 )
 
-add_libc_test(
-  isupper_test
+add_libc_unittest(
+  isupper
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isupper_test.cpp
   DEPENDS
     libc.src.ctype.isupper
 )
 
-add_libc_test(
-  isxdigit_test
+add_libc_unittest(
+  isxdigit
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     isxdigit_test.cpp
   DEPENDS
     libc.src.ctype.isxdigit
 )
 
-add_libc_test(
-  toascii_test
+add_libc_unittest(
+  toascii
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     toascii_test.cpp
   DEPENDS
     libc.src.ctype.toascii
 )
 
-add_libc_test(
-  tolower_test
+add_libc_unittest(
+  tolower
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     tolower_test.cpp
   DEPENDS
     libc.src.ctype.tolower
 )
 
-add_libc_test(
-  toupper_test
+add_libc_unittest(
+  toupper
   SUITE
-    libc-ctype-tests
+    libc_ctype_unittests
   SRCS
     toupper_test.cpp
   DEPENDS

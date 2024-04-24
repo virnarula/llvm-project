@@ -11,10 +11,10 @@
 
 #include <string.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 char *strcat(char *__restrict dest, const char *__restrict src);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_STRCAT_H

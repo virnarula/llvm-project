@@ -23,10 +23,10 @@ convert either to or from those arguments. These functions are the current focus
 (owner: michaelrj).
 
 =============  =========
-Function Name  Available
+Function_Name  Available
 =============  =========
-\*printf       Mostly
-\*scanf        |check|
+\*printf       WIP
+\*scanf
 =============  =========
 
 ``FILE`` Access
@@ -37,15 +37,15 @@ I/O stream, often used to represent a file on the host's hard drive. Currently
 the ``FILE`` object is only available on linux.
 
 =============  =========
-Function Name  Available
+Function_Name  Available
 =============  =========
 fopen          |check|
 freopen
 fclose         |check|
 fflush         |check|
-setbuf         |check|
-setvbuf        |check|
-ftell          |check|
+setbuf
+setvbuf
+ftell
 fgetpos
 fseek          |check|
 fsetpos
@@ -79,15 +79,15 @@ The ``gets`` function was removed in C11 for having no bounds checking and
 therefor being impossible to use safely.
 
 =============  =========
-Function Name  Available
+Function_Name  Available
 =============  =========
-(f)getc        |check|
-fgets          |check|
-getchar        |check|
+(f)getc
+fgets
+getchar
 fread          |check|
-(f)putc        |check|
+(f)putc
 (f)puts        |check|
-putchar        |check|
+putchar
 fwrite         |check|
-ungetc         |check|
+ungetc
 =============  =========

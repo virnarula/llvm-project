@@ -23,7 +23,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include <algorithm>
-#include <optional>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -268,7 +267,7 @@ bool Dex::fuzzyFind(const FuzzyFindRequest &Req,
   for (const auto &IDAndScore : IDAndScores) {
     const DocID SymbolDocID = IDAndScore.first;
     const auto *Sym = Symbols[SymbolDocID];
-    const std::optional<float> Score = Filter.match(Sym->Name);
+    const llvm::Optional<float> Score = Filter.match(Sym->Name);
     if (!Score)
       continue;
     // Combine Fuzzy Matching score, precomputed symbol quality and boosting
@@ -395,7 +394,7 @@ generateProximityURIs(llvm::StringRef URI) {
       return Result;
   }
   // The root foo://bar/ is a proximity URI.
-  if (Path.starts_with("/"))
+  if (Path.startswith("/"))
     Result.push_back(URI.substr(0, Path.begin() + 1 - URI.data()));
   return Result;
 }

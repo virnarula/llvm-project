@@ -145,7 +145,6 @@ void MemoryMappingLayout::DumpListOfModules(
   }
 }
 
-#if SANITIZER_LINUX || SANITIZER_ANDROID || SANITIZER_SOLARIS || SANITIZER_NETBSD
 void GetMemoryProfile(fill_profile_f cb, uptr *stats) {
   char *smaps = nullptr;
   uptr smaps_cap = 0;
@@ -185,7 +184,6 @@ void ParseUnixMemoryProfile(fill_profile_f cb, uptr *stats, char *smaps,
     while (*pos++ != '\n') {}
   }
 }
-#endif
 
 } // namespace __sanitizer
 

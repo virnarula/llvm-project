@@ -87,8 +87,7 @@ static llvm::Error parseDataBuffer(const char *DataBuf, size_t DataSize,
       continue;
     }
     DataPtr += sizeof(Header);
-    uint64_t Count =
-        llvm::support::endian::read64(DataPtr, llvm::endianness::native);
+    uint64_t Count = llvm::support::endian::read64(DataPtr, support::native);
     DataPtr += sizeof(Count);
 
     struct perf_branch_entry Entry;
@@ -141,9 +140,9 @@ X86LbrPerfEvent::X86LbrPerfEvent(unsigned SamplingPeriod) {
 }
 
 X86LbrCounter::X86LbrCounter(pfm::PerfEvent &&NewEvent)
-    : CounterGroup(std::move(NewEvent), {}) {
+    : Counter(std::move(NewEvent)) {
   MMappedBuffer = mmap(nullptr, kMappedBufferSize, PROT_READ | PROT_WRITE,
-                       MAP_SHARED, getFileDescriptor(), 0);
+                       MAP_SHARED, FileDescriptor, 0);
   if (MMappedBuffer == MAP_FAILED)
     llvm::errs() << "Failed to mmap buffer.";
 }
@@ -154,7 +153,7 @@ X86LbrCounter::~X86LbrCounter() {
 }
 
 void X86LbrCounter::start() {
-  ioctl(getFileDescriptor(), PERF_EVENT_IOC_REFRESH, 1024 /* kMaxPollsPerFd */);
+  ioctl(FileDescriptor, PERF_EVENT_IOC_REFRESH, 1024 /* kMaxPollsPerFd */);
 }
 
 llvm::Error X86LbrCounter::checkLbrSupport() {
@@ -197,7 +196,7 @@ llvm::Error X86LbrCounter::checkLbrSupport() {
 llvm::Expected<llvm::SmallVector<int64_t, 4>>
 X86LbrCounter::readOrError(StringRef FunctionBytes) const {
   // Disable the event before reading
-  ioctl(getFileDescriptor(), PERF_EVENT_IOC_DISABLE, 0);
+  ioctl(FileDescriptor, PERF_EVENT_IOC_DISABLE, 0);
 
   // Find the boundary of the function so that we could filter the LBRs
   // to keep only the relevant records.
@@ -223,7 +222,7 @@ X86LbrCounter::doReadCounter(const void *From, const void *To) const {
   int PollResult = 0;
 
   while (PollResult <= 0) {
-    PollResult = pollLbrPerfEvent(getFileDescriptor());
+    PollResult = pollLbrPerfEvent(FileDescriptor);
     if (PollResult > 0)
       break;
     if (PollResult == -1)

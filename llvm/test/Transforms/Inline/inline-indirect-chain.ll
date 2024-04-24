@@ -1,18 +1,21 @@
-; RUN: opt  -passes=inline,early-cse -earlycse-debug-hash < %s
+; RUN: opt -inline -early-cse -earlycse-debug-hash < %s
 ; This test used to crash (PR35469).
 
 define void @func1() {
-  tail call void @func2()
+  %t = bitcast void ()* @func2 to void ()*
+  tail call void %t()
   ret void
 }
 
 define void @func2() {
-  tail call void @func3()
+  %t = bitcast void ()* @func3 to void ()*
+  tail call void %t()
   ret void
 }
 
 define void @func3() {
-  tail call void @func4()
+  %t = bitcast void ()* @func4 to void ()*
+  tail call void %t()
   ret void
 }
 
@@ -20,7 +23,8 @@ define void @func4() {
   br i1 undef, label %left, label %right
 
 left:
-  tail call void @func5()
+  %t = bitcast void ()* @func5 to void ()*
+  tail call void %t()
   ret void
 
 right:
@@ -28,21 +32,24 @@ right:
 }
 
 define void @func5() {
-  tail call void @func6()
+  %t = bitcast void ()* @func6 to void ()*
+  tail call void %t()
   ret void
 }
 
 define void @func6() {
-  tail call void @func2()
+  %t = bitcast void ()* @func2 to void ()*
+  tail call void %t()
   ret void
 }
 
 define void @func7() {
-  tail call void @func8(ptr @func3)
+  %t = bitcast void ()* @func3 to void ()*
+  tail call void @func8(void()* %t)
   ret void
 }
 
-define void @func8(ptr %f) {
+define void @func8(void()* %f) {
   tail call void %f()
   ret void
 }

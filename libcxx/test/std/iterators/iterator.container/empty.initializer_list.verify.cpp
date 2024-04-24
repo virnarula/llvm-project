@@ -16,7 +16,12 @@
 #include <initializer_list>
 #include <iterator>
 
-void f() {
+#include "test_macros.h"
+
+int main(int, char**)
+{
     std::initializer_list<int> c = { 4 };
     std::empty(c); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+
+    return 0;
 }

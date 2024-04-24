@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -14,16 +14,18 @@
 
 // directory_entry(directory_entry&&) noexcept = default;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
 #include "test_convertible.h"
-namespace fs = std::filesystem;
 
-static void move_ctor() {
+TEST_SUITE(directory_entry_path_ctor_suite)
+
+TEST_CASE(move_ctor) {
   using namespace fs;
   // Move
   {
@@ -38,7 +40,7 @@ static void move_ctor() {
   }
 }
 
-static void move_ctor_copies_cache() {
+TEST_CASE(move_ctor_copies_cache) {
   using namespace fs;
   scoped_test_env env;
   const path dir = env.create_dir("dir");
@@ -51,8 +53,8 @@ static void move_ctor_copies_cache() {
     fs::remove(sym);
 
     directory_entry ent_cp(std::move(ent));
-    assert(ent_cp.path() == sym);
-    assert(ent_cp.is_symlink());
+    TEST_CHECK(ent_cp.path() == sym);
+    TEST_CHECK(ent_cp.is_symlink());
   }
 
   {
@@ -61,14 +63,9 @@ static void move_ctor_copies_cache() {
     fs::remove(file);
 
     directory_entry ent_cp(std::move(ent));
-    assert(ent_cp.path() == file);
-    assert(ent_cp.is_regular_file());
+    TEST_CHECK(ent_cp.path() == file);
+    TEST_CHECK(ent_cp.is_regular_file());
   }
 }
 
-int main(int, char**) {
-  move_ctor();
-  move_ctor_copies_cache();
-
-  return 0;
-}
+TEST_SUITE_END()

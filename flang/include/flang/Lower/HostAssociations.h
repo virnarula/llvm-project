@@ -17,8 +17,7 @@
 namespace Fortran {
 namespace semantics {
 class Symbol;
-class Scope;
-} // namespace semantics
+}
 
 namespace lower {
 class AbstractConverter;
@@ -30,17 +29,15 @@ class SymMap;
 class HostAssociations {
 public:
   /// Returns true iff there are no host associations.
-  bool empty() const { return tupleSymbols.empty() && globalSymbols.empty(); }
-
-  /// Returns true iff there are host associations that are conveyed through
-  /// an extra tuple argument.
-  bool hasTupleAssociations() const { return !tupleSymbols.empty(); }
+  bool empty() const { return symbols.empty(); }
 
   /// Adds a set of Symbols that will be the host associated bindings for this
   /// host procedure.
   void addSymbolsToBind(
-      const llvm::SetVector<const Fortran::semantics::Symbol *> &symbols,
-      const Fortran::semantics::Scope &hostScope);
+      const llvm::SetVector<const Fortran::semantics::Symbol *> &s) {
+    assert(empty() && "symbol set must be initially empty");
+    symbols = s;
+  }
 
   /// Code gen the FIR for the local bindings for the host associated symbols
   /// for the host (parent) procedure using `builder`.
@@ -55,21 +52,15 @@ public:
 
   /// Is \p symbol host associated ?
   bool isAssociated(const Fortran::semantics::Symbol &symbol) const {
-    return tupleSymbols.contains(&symbol) || globalSymbols.contains(&symbol);
+    return symbols.contains(&symbol);
   }
 
 private:
-  /// Canonical vector of host associated local symbols.
-  llvm::SetVector<const Fortran::semantics::Symbol *> tupleSymbols;
-
-  /// Canonical vector of host associated global symbols.
-  llvm::SetVector<const Fortran::semantics::Symbol *> globalSymbols;
+  /// Canonical vector of host associated symbols.
+  llvm::SetVector<const Fortran::semantics::Symbol *> symbols;
 
   /// The type of the extra argument to be added to each internal procedure.
   mlir::Type argType;
-
-  /// Scope of the parent procedure if addSymbolsToBind was called.
-  const Fortran::semantics::Scope *hostScope;
 };
 } // namespace lower
 } // namespace Fortran

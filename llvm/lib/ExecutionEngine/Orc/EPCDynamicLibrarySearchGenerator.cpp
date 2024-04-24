@@ -12,15 +12,15 @@ namespace llvm {
 namespace orc {
 
 Expected<std::unique_ptr<EPCDynamicLibrarySearchGenerator>>
-EPCDynamicLibrarySearchGenerator::Load(
-    ExecutionSession &ES, const char *LibraryPath, SymbolPredicate Allow,
-    AddAbsoluteSymbolsFn AddAbsoluteSymbols) {
+EPCDynamicLibrarySearchGenerator::Load(ExecutionSession &ES,
+                                       const char *LibraryPath,
+                                       SymbolPredicate Allow) {
   auto Handle = ES.getExecutorProcessControl().loadDylib(LibraryPath);
   if (!Handle)
     return Handle.takeError();
 
-  return std::make_unique<EPCDynamicLibrarySearchGenerator>(
-      ES, *Handle, std::move(Allow), std::move(AddAbsoluteSymbols));
+  return std::make_unique<EPCDynamicLibrarySearchGenerator>(ES, *Handle,
+                                                            std::move(Allow));
 }
 
 Error EPCDynamicLibrarySearchGenerator::tryToGenerate(
@@ -52,8 +52,9 @@ Error EPCDynamicLibrarySearchGenerator::tryToGenerate(
 
   auto ResultI = Result->front().begin();
   for (auto &KV : LookupSymbols) {
-    if (ResultI->getAddress())
-      NewSymbols[KV.first] = *ResultI;
+    if (*ResultI)
+      NewSymbols[KV.first] =
+          JITEvaluatedSymbol(ResultI->getValue(), JITSymbolFlags::Exported);
     ++ResultI;
   }
 
@@ -62,8 +63,6 @@ Error EPCDynamicLibrarySearchGenerator::tryToGenerate(
     return Error::success();
 
   // Define resolved symbols.
-  if (AddAbsoluteSymbols)
-    return AddAbsoluteSymbols(JD, std::move(NewSymbols));
   return JD.define(absoluteSymbols(std::move(NewSymbols)));
 }
 

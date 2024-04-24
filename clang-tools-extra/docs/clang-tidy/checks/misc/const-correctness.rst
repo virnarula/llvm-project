@@ -6,9 +6,8 @@ misc-const-correctness
 This check implements detection of local variables which could be declared as
 ``const`` but are not. Declaring variables as ``const`` is required or recommended by many
 coding guidelines, such as:
-`ES.25 <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#es25-declare-an-object-const-or-constexpr-unless-you-want-to-modify-its-value-later-on>`_
-from the C++ Core Guidelines and `AUTOSAR C++14 Rule A7-1-1 (6.7.1 Specifiers)
-<https://www.autosar.org/fileadmin/standards/R22-11/AP/AUTOSAR_RS_CPP14Guidelines.pdf>`_.
+`CppCoreGuidelines ES.25 <https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#es25-declare-an-object-const-or-constexpr-unless-you-want-to-modify-its-value-later-on>`_
+and `AUTOSAR C++14 Rule A7-1-1 (6.7.1 Specifiers) <https://www.autosar.org/fileadmin/user_upload/standards/adaptive/17-03/AUTOSAR_RS_CPP14Guidelines.pdf>`_.
 
 Please note that this check's analysis is type-based only. Variables that are not modified
 but used to create a non-const handle that might escape the scope are not diagnosed
@@ -46,10 +45,10 @@ The check can analyze values, pointers and references but not (yet) pointees:
 
 The automatic code transformation is only applied to variables that are declared in single
 declarations. You may want to prepare your code base with
-:doc:`readability-isolate-declaration <../readability/isolate-declaration>` first.
+`readability-isolate-declaration <../readability/isolate-declaration.html>`_ first.
 
 Note that there is the check
-:doc:`cppcoreguidelines-avoid-non-const-global-variables <../cppcoreguidelines/avoid-non-const-global-variables>`
+`cppcoreguidelines-avoid-non-const-global-variables <../cppcoreguidelines/avoid-non-const-global-variables.html>`_
 to enforce ``const`` correctness on all globals.
 
 Known Limitations

@@ -321,7 +321,8 @@ static void insertDelayFiller(Iter Filler, const BB2BrMap &BrMap) {
 
 /// This function adds registers Filler defines to MBB's live-in register list.
 static void addLiveInRegs(Iter Filler, MachineBasicBlock &MBB) {
-  for (const MachineOperand &MO : Filler->operands()) {
+  for (unsigned I = 0, E = Filler->getNumOperands(); I != E; ++I) {
+    const MachineOperand &MO = Filler->getOperand(I);
     unsigned R;
 
     if (!MO.isReg() || !MO.isDef() || !(R = MO.getReg()))
@@ -610,8 +611,7 @@ bool MipsDelaySlotFiller::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
       continue;
 
     // Delay slot filling is disabled at -O0, or in microMIPS32R6.
-    if (!DisableDelaySlotFiller &&
-        (TM->getOptLevel() != CodeGenOptLevel::None) &&
+    if (!DisableDelaySlotFiller && (TM->getOptLevel() != CodeGenOpt::None) &&
         !(InMicroMipsMode && STI.hasMips32r6())) {
 
       bool Filled = false;

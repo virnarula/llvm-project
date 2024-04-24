@@ -1,7 +1,7 @@
 // RUN: %check_clang_tidy %s bugprone-suspicious-string-compare %t -- \
 // RUN: -config='{CheckOptions: \
-// RUN:  {bugprone-suspicious-string-compare.WarnOnImplicitComparison: true, \
-// RUN:   bugprone-suspicious-string-compare.WarnOnLogicalNotComparison: true}}' \
+// RUN:  [{key: bugprone-suspicious-string-compare.WarnOnImplicitComparison, value: true}, \
+// RUN:   {key: bugprone-suspicious-string-compare.WarnOnLogicalNotComparison, value: true}]}' \
 // RUN: --
 
 typedef __SIZE_TYPE__ size;

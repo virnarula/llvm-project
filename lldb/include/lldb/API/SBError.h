@@ -13,9 +13,6 @@
 
 namespace lldb_private {
 class ScriptInterpreter;
-namespace python {
-class SWIGBridge;
-}
 } // namespace lldb_private
 
 namespace lldb {
@@ -25,8 +22,6 @@ public:
   SBError();
 
   SBError(const lldb::SBError &rhs);
-
-  SBError(const char *message);
 
   ~SBError();
 
@@ -56,14 +51,8 @@ public:
 
   void SetErrorString(const char *err_str);
 
-#ifndef SWIG
-  __attribute__((format(printf, 2, 3)))
-#else
-  // clang-format off
-  %varargs(3, char *str = NULL) SetErrorStringWithFormat;
-  // clang-format on
-#endif
-  int SetErrorStringWithFormat(const char *format, ...);
+  int SetErrorStringWithFormat(const char *format, ...)
+      __attribute__((format(printf, 2, 3)));
 
   explicit operator bool() const;
 
@@ -80,7 +69,6 @@ protected:
   friend class SBData;
   friend class SBDebugger;
   friend class SBFile;
-  friend class SBFormat;
   friend class SBHostOS;
   friend class SBPlatform;
   friend class SBProcess;
@@ -94,9 +82,6 @@ protected:
   friend class SBWatchpoint;
 
   friend class lldb_private::ScriptInterpreter;
-  friend class lldb_private::python::SWIGBridge;
-
-  SBError(const lldb_private::Status &error);
 
   lldb_private::Status *get();
 

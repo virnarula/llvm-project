@@ -18,7 +18,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/ValueHandle.h"
 #include "isl/isl-noexceptions.h"
-#include <optional>
 
 namespace llvm {
 class LoopInfo;
@@ -522,17 +521,17 @@ bool hasDebugCall(ScopStmt *Stmt);
 ///   !{ !"Name" }
 ///
 /// Then `nullptr` is set to mark the property is existing, but does not carry
-/// any value. If the property does not exist, `std::nullopt` is returned.
-std::optional<llvm::Metadata *> findMetadataOperand(llvm::MDNode *LoopMD,
-                                                    llvm::StringRef Name);
+/// any value. If the property does not exist, `None` is returned.
+llvm::Optional<llvm::Metadata *> findMetadataOperand(llvm::MDNode *LoopMD,
+                                                     llvm::StringRef Name);
 
 /// Find a boolean property value in a LoopID. The value not being defined is
 /// interpreted as a false value.
 bool getBooleanLoopAttribute(llvm::MDNode *LoopID, llvm::StringRef Name);
 
 /// Find an integers property value in a LoopID.
-std::optional<int> getOptionalIntLoopAttribute(llvm::MDNode *LoopID,
-                                               llvm::StringRef Name);
+llvm::Optional<int> getOptionalIntLoopAttribute(llvm::MDNode *LoopID,
+                                                llvm::StringRef Name);
 
 /// Does the loop's LoopID contain a 'llvm.loop.disable_heuristics' property?
 ///

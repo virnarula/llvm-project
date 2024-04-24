@@ -13,6 +13,7 @@
 
 #include <random>
 
-void f() {
+int main(int, char**) {
   std::random_device d; // expected-error {{no type named 'random_device' in namespace 'std'}}
+  return 0;
 }

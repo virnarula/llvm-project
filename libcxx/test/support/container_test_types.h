@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef SUPPORT_CONTAINER_TEST_TYPES_H
 #define SUPPORT_CONTAINER_TEST_TYPES_H
 
@@ -86,7 +85,6 @@
  */
 
 #include <cassert>
-#include <cstddef>
 #include <functional>
 #include <new>
 #include <utility>
@@ -429,9 +427,9 @@ namespace std {
   template <int ID>
   struct hash< ::CopyInsertable<ID> > {
     typedef ::CopyInsertable<ID> argument_type;
-    typedef std::size_t result_type;
+    typedef size_t result_type;
 
-    std::size_t operator()(argument_type const& arg) const {
+    size_t operator()(argument_type const& arg) const {
       return arg.data;
     }
   };

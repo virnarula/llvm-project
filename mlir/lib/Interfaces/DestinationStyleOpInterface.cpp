@@ -14,39 +14,54 @@ namespace mlir {
 #include "mlir/Interfaces/DestinationStyleOpInterface.cpp.inc"
 } // namespace mlir
 
-namespace {
-size_t getNumTensorResults(Operation *op) {
-  size_t numTensorResults = 0;
-  for (auto t : op->getResultTypes()) {
-    if (isa<TensorType>(t)) {
-      ++numTensorResults;
-    }
-  }
-  return numTensorResults;
+OpOperandVector::operator SmallVector<Value>() {
+  SmallVector<Value> result;
+  result.reserve(this->size());
+  llvm::transform(*this, std::back_inserter(result),
+                  [](OpOperand *opOperand) { return opOperand->get(); });
+  return result;
 }
-} // namespace
 
 LogicalResult detail::verifyDestinationStyleOpInterface(Operation *op) {
   DestinationStyleOpInterface dstStyleOp =
       cast<DestinationStyleOpInterface>(op);
 
-  SmallVector<OpOperand *> outputTensorOperands;
-  for (OpOperand &operand : dstStyleOp.getDpsInitsMutable()) {
-    Type type = operand.get().getType();
-    if (isa<TensorType>(type)) {
-      outputTensorOperands.push_back(&operand);
-    } else if (!isa<BaseMemRefType>(type)) {
+  SmallVector<OpOperand *> outputBufferOperands, outputTensorOperands;
+  for (OpOperand *operand : dstStyleOp.getDpsInitOperands()) {
+    Type type = operand->get().getType();
+    if (type.isa<MemRefType>()) {
+      outputBufferOperands.push_back(operand);
+    } else if (type.isa<RankedTensorType>()) {
+      outputTensorOperands.push_back(operand);
+    } else {
       return op->emitOpError("expected that operand #")
-             << operand.getOperandNumber() << " is a tensor or a memref";
+             << operand->getOperandNumber()
+             << " is a ranked tensor or a ranked memref";
     }
   }
 
-  // Verify the number of tensor results matches the number of output tensors.
-  if (getNumTensorResults(op) != outputTensorOperands.size())
-    return op->emitOpError("expected the number of tensor results (")
-           << getNumTensorResults(op)
+  // Expect at least one output operand.
+  int64_t numInputs = dstStyleOp.getNumDpsInputs();
+  int64_t numInits = dstStyleOp.getNumDpsInits();
+  if (numInits == 0)
+    return op->emitOpError("expected at least one output operand");
+  if (failed(OpTrait::impl::verifyNOperands(op, numInputs + numInits)))
+    return failure();
+  // Verify the number of results matches the number of output tensors.
+  if (op->getNumResults() != outputTensorOperands.size())
+    return op->emitOpError("expected the number of results (")
+           << op->getNumResults()
            << ") to be equal to the number of output tensors ("
            << outputTensorOperands.size() << ")";
+
+  // Simplifying assumption: either full tensor or full buffer mode.
+  // This allows simpler verification of output operands vs result types
+  // without premature tracking of which operand is what in mixed-mode.
+  // TODO: relax when mixed-mode needs to pass verification.
+  if (!outputBufferOperands.empty() && !outputTensorOperands.empty())
+    return op->emitOpError(
+        "expected output operands to all have tensor type or "
+        "all have buffer type");
 
   for (OpOperand *opOperand : outputTensorOperands) {
     OpResult result = dstStyleOp.getTiedOpResult(opOperand);
@@ -57,6 +72,5 @@ LogicalResult detail::verifyDestinationStyleOpInterface(Operation *op) {
              << " to match type of corresponding result (" << result.getType()
              << ")";
   }
-
   return success();
 }

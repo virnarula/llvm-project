@@ -10,7 +10,6 @@
 #include "DecodedThread.h"
 #include "TraceIntelPT.h"
 #include <cstdlib>
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -19,8 +18,8 @@ using namespace llvm;
 
 TraceCursorIntelPT::TraceCursorIntelPT(
     ThreadSP thread_sp, DecodedThreadSP decoded_thread_sp,
-    const std::optional<LinuxPerfZeroTscConversion> &tsc_conversion,
-    std::optional<uint64_t> beginning_of_time_nanos)
+    const Optional<LinuxPerfZeroTscConversion> &tsc_conversion,
+    Optional<uint64_t> beginning_of_time_nanos)
     : TraceCursor(thread_sp), m_decoded_thread_sp(decoded_thread_sp),
       m_tsc_conversion(tsc_conversion),
       m_beginning_of_time_nanos(beginning_of_time_nanos) {
@@ -35,7 +34,7 @@ void TraceCursorIntelPT::Next() {
 void TraceCursorIntelPT::ClearTimingRangesIfInvalid() {
   if (m_tsc_range_calculated) {
     if (!m_tsc_range || m_pos < 0 || !m_tsc_range->InRange(m_pos)) {
-      m_tsc_range = std::nullopt;
+      m_tsc_range = None;
       m_tsc_range_calculated = false;
     }
   }
@@ -43,13 +42,13 @@ void TraceCursorIntelPT::ClearTimingRangesIfInvalid() {
   if (m_nanoseconds_range_calculated) {
     if (!m_nanoseconds_range || m_pos < 0 ||
         !m_nanoseconds_range->InRange(m_pos)) {
-      m_nanoseconds_range = std::nullopt;
+      m_nanoseconds_range = None;
       m_nanoseconds_range_calculated = false;
     }
   }
 }
 
-const std::optional<DecodedThread::TSCRange> &
+const Optional<DecodedThread::TSCRange> &
 TraceCursorIntelPT::GetTSCRange() const {
   if (!m_tsc_range_calculated) {
     m_tsc_range_calculated = true;
@@ -58,7 +57,7 @@ TraceCursorIntelPT::GetTSCRange() const {
   return m_tsc_range;
 }
 
-const std::optional<DecodedThread::NanosecondsRange> &
+const Optional<DecodedThread::NanosecondsRange> &
 TraceCursorIntelPT::GetNanosecondsRange() const {
   if (!m_nanoseconds_range_calculated) {
     m_nanoseconds_range_calculated = true;
@@ -95,7 +94,7 @@ lldb::TraceItemKind TraceCursorIntelPT::GetItemKind() const {
   return m_decoded_thread_sp->GetItemKindByIndex(m_pos);
 }
 
-llvm::StringRef TraceCursorIntelPT::GetError() const {
+const char *TraceCursorIntelPT::GetError() const {
   return m_decoded_thread_sp->GetErrorByIndex(m_pos);
 }
 
@@ -103,18 +102,18 @@ lldb::addr_t TraceCursorIntelPT::GetLoadAddress() const {
   return m_decoded_thread_sp->GetInstructionLoadAddress(m_pos);
 }
 
-std::optional<uint64_t> TraceCursorIntelPT::GetHWClock() const {
-  if (const std::optional<DecodedThread::TSCRange> &range = GetTSCRange())
+Optional<uint64_t> TraceCursorIntelPT::GetHWClock() const {
+  if (const Optional<DecodedThread::TSCRange> &range = GetTSCRange())
     return range->tsc;
-  return std::nullopt;
+  return None;
 }
 
-std::optional<double> TraceCursorIntelPT::GetWallClockTime() const {
-  if (const std::optional<DecodedThread::NanosecondsRange> &range =
+Optional<double> TraceCursorIntelPT::GetWallClockTime() const {
+  if (const Optional<DecodedThread::NanosecondsRange> &range =
           GetNanosecondsRange())
     return range->GetInterpolatedTime(m_pos, *m_beginning_of_time_nanos,
                                       *m_tsc_conversion);
-  return std::nullopt;
+  return None;
 }
 
 lldb::cpu_id_t TraceCursorIntelPT::GetCPU() const {
@@ -139,7 +138,7 @@ bool TraceCursorIntelPT::HasId(lldb::user_id_t id) const {
 
 user_id_t TraceCursorIntelPT::GetId() const { return m_pos; }
 
-std::optional<std::string> TraceCursorIntelPT::GetSyncPointMetadata() const {
+Optional<std::string> TraceCursorIntelPT::GetSyncPointMetadata() const {
   return formatv("offset = 0x{0:x}",
                  m_decoded_thread_sp->GetSyncPointOffsetByIndex(m_pos))
       .str();

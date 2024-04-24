@@ -20,7 +20,8 @@ using namespace llvm;
 MCSectionXCOFF::~MCSectionXCOFF() = default;
 
 void MCSectionXCOFF::printCsectDirective(raw_ostream &OS) const {
-  OS << "\t.csect " << QualName->getName() << "," << Log2(getAlign()) << '\n';
+  OS << "\t.csect " << QualName->getName() << "," << Log2_32(getAlignment())
+     << '\n';
 }
 
 void MCSectionXCOFF::printSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
@@ -38,16 +39,6 @@ void MCSectionXCOFF::printSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
     if (getMappingClass() != XCOFF::XMC_RO &&
         getMappingClass() != XCOFF::XMC_TD)
       report_fatal_error("Unhandled storage-mapping class for .rodata csect.");
-    printCsectDirective(OS);
-    return;
-  }
-
-  if (getKind().isReadOnlyWithRel()) {
-    if (getMappingClass() != XCOFF::XMC_RW &&
-        getMappingClass() != XCOFF::XMC_RO &&
-        getMappingClass() != XCOFF::XMC_TD)
-      report_fatal_error(
-          "Unexepected storage-mapping class for ReadOnlyWithRel kind");
     printCsectDirective(OS);
     return;
   }
@@ -82,7 +73,8 @@ void MCSectionXCOFF::printSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
   }
 
   if (isCsect() && getMappingClass() == XCOFF::XMC_TD) {
-    assert((getKind().isBSSExtern() || getKind().isBSSLocal()) &&
+    assert((getKind().isBSSExtern() || getKind().isBSSLocal() ||
+            getKind().isReadOnlyWithRel()) &&
            "Unexepected section kind for toc-data");
     printCsectDirective(OS);
     return;
@@ -118,7 +110,7 @@ void MCSectionXCOFF::printSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
 
   // XCOFF debug sections.
   if (getKind().isMetadata() && isDwarfSect()) {
-    OS << "\n\t.dwsect " << format("0x%" PRIx32, *getDwarfSubtypeFlags())
+    OS << "\n\t.dwsect " << format("0x%" PRIx32, getDwarfSubtypeFlags().value())
        << '\n';
     OS << MAI.getPrivateLabelPrefix() << getName() << ':' << '\n';
     return;

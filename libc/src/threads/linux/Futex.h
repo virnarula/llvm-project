@@ -9,12 +9,11 @@
 #ifndef LLVM_LIBC_SRC_THREADS_LINUX_FUTEX_H
 #define LLVM_LIBC_SRC_THREADS_LINUX_FUTEX_H
 
-#include "src/__support/macros/properties/architectures.h" // Architecture macros
+#include "src/__support/architectures.h" // Architecture macros
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-#if (defined(LIBC_TARGET_ARCH_IS_AARCH64) ||                                   \
-     defined(LIBC_TARGET_ARCH_IS_X86_64))
+#if (defined(LLVM_LIBC_ARCH_AARCH64) || defined(LLVM_LIBC_ARCH_X86_64))
 // The futex data has to be exactly 4 bytes long. However, we use a uint type
 // here as we do not want to use `uint32_t` type to match the public definitions
 // of types which include a field for a futex word. With public definitions, we
@@ -27,6 +26,6 @@ static_assert(sizeof(FutexWordType) == 4,
 #error "Futex word base type not defined for the target architecture."
 #endif
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_LINUX_FUTEX_H

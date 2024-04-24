@@ -18,8 +18,7 @@ int main() {
 REQUIRES: system-linux,bolt-runtime
 
 RUN: %clang %cflags %s -o %t.exe -fno-inline -Wl,-q
-RUN: llvm-bolt %t.exe --instrument -o %t.instrumented \
-RUN:   --instrumentation-file=%t.fdata
+RUN: llvm-bolt %t.exe --instrument -o %t.instrumented
 RUN: %t.instrumented | FileCheck %s
 
 CHECK: a = 42.000000

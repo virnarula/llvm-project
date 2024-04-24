@@ -19,6 +19,8 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
@@ -28,7 +30,6 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -228,27 +229,24 @@ class Token;
 
     /// Whether the file name was in quotation marks; otherwise, it was
     /// in angle brackets.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned InQuotes : 1;
 
     /// The kind of inclusion directive we have.
     ///
     /// This is a value of type InclusionKind.
-    LLVM_PREFERRED_TYPE(InclusionKind)
     unsigned Kind : 2;
 
     /// Whether the inclusion directive was automatically turned into
     /// a module import.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ImportedModule : 1;
 
     /// The file that was included.
-    OptionalFileEntryRef File;
+    Optional<FileEntryRef> File;
 
   public:
     InclusionDirective(PreprocessingRecord &PPRec, InclusionKind Kind,
                        StringRef FileName, bool InQuotes, bool ImportedModule,
-                       OptionalFileEntryRef File, SourceRange Range);
+                       Optional<FileEntryRef> File, SourceRange Range);
 
     /// Determine what kind of inclusion directive this is.
     InclusionKind getKind() const { return static_cast<InclusionKind>(Kind); }
@@ -266,7 +264,7 @@ class Token;
 
     /// Retrieve the file entry for the actual file that was included
     /// by this directive.
-    OptionalFileEntryRef getFile() const { return File; }
+    Optional<FileEntryRef> getFile() const { return File; }
 
     // Implement isa/cast/dyncast/etc.
     static bool classof(const PreprocessedEntity *PE) {
@@ -293,9 +291,9 @@ class Token;
 
     /// Optionally returns true or false if the preallocated preprocessed
     /// entity with index \p Index came from file \p FID.
-    virtual std::optional<bool> isPreprocessedEntityInFileID(unsigned Index,
-                                                             FileID FID) {
-      return std::nullopt;
+    virtual Optional<bool> isPreprocessedEntityInFileID(unsigned Index,
+                                                        FileID FID) {
+      return None;
     }
 
     /// Read a preallocated skipped range from the external source.
@@ -531,7 +529,7 @@ class Token;
     void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                             StringRef FileName, bool IsAngled,
                             CharSourceRange FilenameRange,
-                            OptionalFileEntryRef File, StringRef SearchPath,
+                            Optional<FileEntryRef> File, StringRef SearchPath,
                             StringRef RelativePath, const Module *Imported,
                             SrcMgr::CharacteristicKind FileType) override;
     void Ifdef(SourceLocation Loc, const Token &MacroNameTok,

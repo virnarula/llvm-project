@@ -70,7 +70,7 @@ SarifResult SARIFDiagnostic::addLocationToResult(
     // At least add the file name if available:
     FileID FID = Loc.getFileID();
     if (FID.isValid()) {
-      if (OptionalFileEntryRef FE = Loc.getFileEntryRef()) {
+      if (const FileEntry *FE = Loc.getFileEntry()) {
         emitFilename(FE->getName(), Loc.getManager());
         // FIXME(llvm-project/issues/57366): File-only locations
       }
@@ -164,7 +164,8 @@ SARIFDiagnostic::addDiagnosticLevelToRule(SarifRule Rule,
 llvm::StringRef SARIFDiagnostic::emitFilename(StringRef Filename,
                                               const SourceManager &SM) {
   if (DiagOpts->AbsolutePath) {
-    auto File = SM.getFileManager().getOptionalFileRef(Filename);
+    llvm::ErrorOr<const FileEntry *> File =
+        SM.getFileManager().getFile(Filename);
     if (File) {
       // We want to print a simplified absolute path, i. e. without "dots".
       //
@@ -181,7 +182,7 @@ llvm::StringRef SARIFDiagnostic::emitFilename(StringRef Filename,
       // on Windows we can just use llvm::sys::path::remove_dots(), because,
       // on that system, both aforementioned paths point to the same place.
 #ifdef _WIN32
-      SmallString<256> TmpFilename = File->getName();
+      SmallString<256> TmpFilename = (*File)->getName();
       llvm::sys::fs::make_absolute(TmpFilename);
       llvm::sys::path::native(TmpFilename);
       llvm::sys::path::remove_dots(TmpFilename, /* remove_dot_dot */ true);

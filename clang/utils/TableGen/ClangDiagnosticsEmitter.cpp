@@ -12,6 +12,7 @@
 
 #include "TableGenBackends.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -29,7 +30,6 @@
 #include <cctype>
 #include <functional>
 #include <map>
-#include <optional>
 #include <set>
 using namespace llvm;
 
@@ -132,11 +132,11 @@ namespace {
     llvm::StringRef GroupName;
     std::vector<const Record*> DiagsInGroup;
     std::vector<std::string> SubGroups;
-    unsigned IDNo = 0;
+    unsigned IDNo;
 
     llvm::SmallVector<const Record *, 1> Defs;
 
-    GroupInfo() = default;
+    GroupInfo() : IDNo(0) {}
   };
 } // end anonymous namespace.
 
@@ -250,9 +250,8 @@ typedef llvm::PointerUnion<RecordVec*, RecordSet*> VecOrSet;
 
 namespace {
 class InferPedantic {
-  typedef llvm::DenseMap<const Record *,
-                         std::pair<unsigned, std::optional<unsigned>>>
-      GMap;
+  typedef llvm::DenseMap<const Record*,
+                         std::pair<unsigned, Optional<unsigned> > > GMap;
 
   DiagGroupParentMap &DiagGroupParents;
   const std::vector<Record*> &Diags;
@@ -653,14 +652,6 @@ private:
           Root(O.Root) {
       O.Root = nullptr;
     }
-    // The move assignment operator is defined as deleted pending further
-    // motivation.
-    DiagText &operator=(DiagText &&) = delete;
-
-    // The copy constrcutor and copy assignment operator is defined as deleted
-    // pending further motivation.
-    DiagText(const DiagText &) = delete;
-    DiagText &operator=(const DiagText &) = delete;
 
     ~DiagText() {
       for (Piece *P : AllocatedPieces)
@@ -684,7 +675,7 @@ private:
 };
 
 template <class Derived> struct DiagTextVisitor {
-  using ModifierMappingsType = std::optional<std::vector<int>>;
+  using ModifierMappingsType = Optional<std::vector<int>>;
 
 private:
   Derived &getDerived() { return static_cast<Derived &>(*this); }
@@ -715,7 +706,7 @@ public:
 
   private:
     DiagTextVisitor &Visitor;
-    std::optional<std::vector<int>> OldMappings;
+    Optional<std::vector<int>> OldMappings;
 
   public:
     Piece *Substitution;
@@ -1174,7 +1165,7 @@ std::vector<std::string>
 DiagnosticTextBuilder::buildForDocumentation(StringRef Severity,
                                              const Record *R) {
   EvaluatingRecordGuard Guard(&EvaluatingRecord, R);
-  StringRef Text = R->getValueAsString("Summary");
+  StringRef Text = R->getValueAsString("Text");
 
   DiagText D(*this, Text);
   TextPiece *Prefix = D.New<TextPiece>(Severity, Severity);
@@ -1193,7 +1184,7 @@ DiagnosticTextBuilder::buildForDocumentation(StringRef Severity,
 
 std::string DiagnosticTextBuilder::buildForDefinition(const Record *R) {
   EvaluatingRecordGuard Guard(&EvaluatingRecord, R);
-  StringRef Text = R->getValueAsString("Summary");
+  StringRef Text = R->getValueAsString("Text");
   DiagText D(*this, Text);
   std::string Result;
   DiagTextPrinter{*this, Result}.Visit(D.Root);
@@ -1343,7 +1334,7 @@ static std::string getDiagCategoryEnum(llvm::StringRef name) {
   SmallString<256> enumName = llvm::StringRef("DiagCat_");
   for (llvm::StringRef::iterator I = name.begin(), E = name.end(); I != E; ++I)
     enumName += isalnum(*I) ? *I : '_';
-  return std::string(enumName);
+  return std::string(enumName.str());
 }
 
 /// Emit the array of diagnostic subgroups.
@@ -1711,7 +1702,7 @@ void writeHeader(StringRef Str, raw_ostream &OS, char Kind = '-') {
 
 void writeDiagnosticText(DiagnosticTextBuilder &Builder, const Record *R,
                          StringRef Role, raw_ostream &OS) {
-  StringRef Text = R->getValueAsString("Summary");
+  StringRef Text = R->getValueAsString("Text");
   if (Text == "%0")
     OS << "The text of this diagnostic is not controlled by Clang.\n\n";
   else {

@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 namespace {
 
@@ -89,4 +91,6 @@ void RedundantControlFlowCheck::issueDiagnostic(
   diag(StmtRange.getBegin(), Diag) << FixItHint::CreateRemoval(RemovedRange);
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

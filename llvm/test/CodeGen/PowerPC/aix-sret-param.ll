@@ -17,7 +17,7 @@
 
 define void @test1() {
 entry:
-  %s = alloca %struct.S, align 8
+  %s = alloca %struct.S, align 4
   call void @foo(ptr sret(%struct.S) %s)
   ret void
 }
@@ -53,14 +53,12 @@ declare void @bar(ptr sret(%struct.T))
 
 ; ASM32:       stwu 1, -64(1)
 ; ASM32-NEXT:  addi 3, 1, 56
-; ASM32-NEXT:  stw 0, 72(1)
 ; ASM32-NEXT:  bl .foo[PR]
 ; ASM32-NEXT:  nop
 ; ASM32-NEXT:  addi 1, 1, 64
 
 ; ASM64:       stdu 1, -128(1)
 ; ASM64-NEXT:  addi 3, 1, 120
-; ASM64-NEXT:  std 0, 144(1)
 ; ASM64-NEXT:  bl .foo[PR]
 ; ASM64-NEXT:  nop
 ; ASM64-NEXT:  addi 1, 1, 128
@@ -88,7 +86,6 @@ declare void @bar(ptr sret(%struct.T))
 
 ; ASM32:        stwu 1, -80(1)
 ; ASM32-NEXT:   addi 3, 1, 56
-; ASM32-NEXT:   stw 0, 88(1)
 ; ASM32-NEXT:   bl .bar[PR]
 ; ASM32-NEXT:   nop
 ; ASM32-NEXT:   addi 1, 1, 80
@@ -96,7 +93,6 @@ declare void @bar(ptr sret(%struct.T))
 
 ; ASM64:        stdu 1, -144(1)
 ; ASM64-NEXT:   addi 3, 1, 120
-; ASM64-NEXT:   std 0, 160(1)
 ; ASM64-NEXT:   bl .bar[PR]
 ; ASM64-NEXT:   nop
 ; ASM64-NEXT:   addi 1, 1, 144

@@ -19,7 +19,10 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::google::objc {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace objc {
 
 static bool isMessageExpressionInsideMacro(const ObjCMessageExpr *Expr) {
   SourceLocation ReceiverLocation = Expr->getReceiverRange().getBegin();
@@ -120,4 +123,7 @@ void AvoidNSObjectNewCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::google::objc
+} // namespace objc
+} // namespace google
+} // namespace tidy
+} // namespace clang

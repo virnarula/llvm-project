@@ -260,8 +260,6 @@ class TestImportBase
                          FromAST->getFileManager(), false);
 
     auto FoundNodes = match(SearchMatcher, FromCtx);
-    if (FoundNodes.empty())
-      return testing::AssertionFailure() << "No node was found!";
     if (FoundNodes.size() != 1)
       return testing::AssertionFailure()
              << "Multiple potential nodes were found!";

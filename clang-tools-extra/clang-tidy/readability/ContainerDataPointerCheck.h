@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 /// Checks whether a call to `operator[]` and `&` can be replaced with a call to
 /// `data()`.
 ///
@@ -28,18 +30,16 @@ public:
     return LO.CPlusPlus11;
   }
 
-  void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
 
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
-  std::optional<TraversalKind> getCheckTraversalKind() const override {
+  llvm::Optional<TraversalKind> getCheckTraversalKind() const override {
     return TK_IgnoreUnlessSpelledInSource;
   }
-
-private:
-  const std::vector<StringRef> IgnoredContainers;
 };
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_CONTAINERDATAPOINTERCHECK_H

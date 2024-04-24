@@ -33,9 +33,10 @@ template <typename T> struct BinaryItemTraits {
 template <typename T, typename Traits = BinaryItemTraits<T>>
 class BinaryItemStream : public BinaryStream {
 public:
-  explicit BinaryItemStream(llvm::endianness Endian) : Endian(Endian) {}
+  explicit BinaryItemStream(llvm::support::endianness Endian)
+      : Endian(Endian) {}
 
-  llvm::endianness getEndian() const override { return Endian; }
+  llvm::support::endianness getEndian() const override { return Endian; }
 
   Error readBytes(uint64_t Offset, uint64_t Size,
                   ArrayRef<uint8_t> &Buffer) override {
@@ -93,7 +94,7 @@ private:
     return Idx;
   }
 
-  llvm::endianness Endian;
+  llvm::support::endianness Endian;
   ArrayRef<T> Items;
 
   // Sorted vector of offsets to accelerate lookup.

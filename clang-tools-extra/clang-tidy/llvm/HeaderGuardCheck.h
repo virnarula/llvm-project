@@ -11,7 +11,9 @@
 
 #include "../utils/HeaderGuard.h"
 
-namespace clang::tidy::llvm_check {
+namespace clang {
+namespace tidy {
+namespace llvm_check {
 
 /// Finds and fixes header guards that do not adhere to LLVM style.
 /// For the user-facing documentation see:
@@ -31,6 +33,8 @@ public:
   std::string getHeaderGuard(StringRef Filename, StringRef OldGuard) override;
 };
 
-} // namespace clang::tidy::llvm_check
+} // namespace llvm_check
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LLVM_HEADERGUARDCHECK_H

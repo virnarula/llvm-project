@@ -6,9 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 // ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
-// UNSUPPORTED: availability-filesystem-missing
 
 // <filesystem>
 
@@ -17,15 +16,15 @@
 // template <class InputIter>
 //   path u8path(InputIter, InputIter);
 
-#include <filesystem>
-#include <cassert>
-#include <string>
+#include "filesystem_include.h"
 #include <type_traits>
+#include <cassert>
 
 #include "test_macros.h"
 #include "test_iterators.h"
 #include "count_new.h"
-namespace fs = std::filesystem;
+#include "filesystem_test_helper.h"
+
 
 int main(int, char**)
 {

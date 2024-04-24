@@ -1,10 +1,13 @@
 // RUN: %check_clang_tidy -check-suffix=DEFAULT %s \
-// RUN: cppcoreguidelines-narrowing-conversions %t -- 
+// RUN: cppcoreguidelines-narrowing-conversions %t -- \
+// RUN: -config='{CheckOptions: [ \
+// RUN: ]}'
 
 // RUN: %check_clang_tidy -check-suffix=DISABLED %s \
 // RUN: cppcoreguidelines-narrowing-conversions %t -- \
-// RUN: -config='{CheckOptions: { \
-// RUN:   cppcoreguidelines-narrowing-conversions.WarnOnEquivalentBitWidth: 0}}'
+// RUN: -config='{CheckOptions: [ \
+// RUN:   {key: cppcoreguidelines-narrowing-conversions.WarnOnEquivalentBitWidth, value: 0} \
+// RUN: ]}'
 
 void narrowing_equivalent_bitwidth() {
   int i;

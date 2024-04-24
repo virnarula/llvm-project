@@ -29,9 +29,6 @@ struct ZeroOnDestroy : std::ranges::view_base {
   constexpr ForwardIter end() { return ForwardIter(buff + 8); }
   constexpr ForwardIter end() const { return ForwardIter(); }
 
-  ZeroOnDestroy() = default;
-  ZeroOnDestroy(const ZeroOnDestroy&) = default;
-  ZeroOnDestroy& operator=(const ZeroOnDestroy&) = default;
   ~ZeroOnDestroy() {
     std::memset(buff, 0, sizeof(buff));
   }
@@ -48,10 +45,10 @@ struct ZeroOnDestroy : std::ranges::view_base {
 };
 
 int main(int, char**) {
-  auto noDanglingCache = ZeroOnDestroy::dropFirstFour();
+  auto noDanlingCache = ZeroOnDestroy::dropFirstFour();
   // If we use the cached version, it will reference the copied-from view.
   // Worst case this is a segfault, best case it's an assertion fired.
-  assert(*noDanglingCache.begin() == 5);
+  assert(*noDanlingCache.begin() == 5);
 
   return 0;
 }

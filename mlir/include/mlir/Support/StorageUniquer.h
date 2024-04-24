@@ -16,7 +16,6 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Allocator.h"
-#include <utility>
 
 namespace mlir {
 namespace detail {
@@ -98,7 +97,7 @@ public:
     template <typename T>
     ArrayRef<T> copyInto(ArrayRef<T> elements) {
       if (elements.empty())
-        return std::nullopt;
+        return llvm::None;
       auto result = allocator.Allocate<T>(elements.size());
       std::uninitialized_copy(elements.begin(), elements.end(), result);
       return ArrayRef<T>(result, elements.size());
@@ -150,7 +149,7 @@ public:
   void registerParametricStorageType(TypeID id) {
     // If the storage is trivially destructible, we don't need a destructor
     // function.
-    if constexpr (std::is_trivially_destructible_v<Storage>)
+    if (std::is_trivially_destructible<Storage>::value)
       return registerParametricStorageTypeImpl(id, nullptr);
     registerParametricStorageTypeImpl(id, [](BaseStorage *storage) {
       static_cast<Storage *>(storage)->~Storage();
@@ -179,7 +178,7 @@ public:
   }
   template <typename Storage>
   void registerSingletonStorageType(TypeID id) {
-    registerSingletonStorageType<Storage>(id, std::nullopt);
+    registerSingletonStorageType<Storage>(id, llvm::None);
   }
   /// Utility override when the storage type represents the type id.
   template <typename Storage>
@@ -208,7 +207,7 @@ public:
 
     // Generate a constructor function for the derived storage.
     auto ctorFn = [&](StorageAllocator &allocator) {
-      auto *storage = Storage::construct(allocator, std::move(derivedKey));
+      auto *storage = Storage::construct(allocator, derivedKey);
       if (initFn)
         initFn(storage);
       return storage;
@@ -295,32 +294,45 @@ private:
   //===--------------------------------------------------------------------===//
 
   /// Used to construct an instance of 'ImplTy::KeyTy' if there is an
-  /// 'ImplTy::getKey' function for the provided arguments.  Otherwise, then we
-  /// try to directly construct the 'ImplTy::KeyTy' with the provided arguments.
+  /// 'ImplTy::getKey' function for the provided arguments.
   template <typename ImplTy, typename... Args>
-  static typename ImplTy::KeyTy getKey(Args &&...args) {
-    if constexpr (llvm::is_detected<detail::has_impltype_getkey_t, ImplTy,
-                                    Args...>::value)
-      return ImplTy::getKey(std::forward<Args>(args)...);
-    else
-      return typename ImplTy::KeyTy(std::forward<Args>(args)...);
+  static std::enable_if_t<
+      llvm::is_detected<detail::has_impltype_getkey_t, ImplTy, Args...>::value,
+      typename ImplTy::KeyTy>
+  getKey(Args &&...args) {
+    return ImplTy::getKey(args...);
+  }
+  /// If there is no 'ImplTy::getKey' method, then we try to directly construct
+  /// the 'ImplTy::KeyTy' with the provided arguments.
+  template <typename ImplTy, typename... Args>
+  static std::enable_if_t<
+      !llvm::is_detected<detail::has_impltype_getkey_t, ImplTy, Args...>::value,
+      typename ImplTy::KeyTy>
+  getKey(Args &&...args) {
+    return typename ImplTy::KeyTy(args...);
   }
 
   //===--------------------------------------------------------------------===//
   // Key Hashing
   //===--------------------------------------------------------------------===//
 
-  /// Used to generate a hash for the `ImplTy` of a storage instance if
-  /// there is a `ImplTy::hashKey.  Otherwise, if there is no `ImplTy::hashKey`
-  /// then default to using the 'llvm::DenseMapInfo' definition for
-  /// 'DerivedKey' for generating a hash.
+  /// Used to generate a hash for the 'ImplTy::KeyTy' of a storage instance if
+  /// there is an 'ImplTy::hashKey' overload for 'DerivedKey'.
   template <typename ImplTy, typename DerivedKey>
-  static ::llvm::hash_code getHash(const DerivedKey &derivedKey) {
-    if constexpr (llvm::is_detected<detail::has_impltype_hash_t, ImplTy,
-                                    DerivedKey>::value)
-      return ImplTy::hashKey(derivedKey);
-    else
-      return DenseMapInfo<DerivedKey>::getHashValue(derivedKey);
+  static std::enable_if_t<
+      llvm::is_detected<detail::has_impltype_hash_t, ImplTy, DerivedKey>::value,
+      ::llvm::hash_code>
+  getHash(const DerivedKey &derivedKey) {
+    return ImplTy::hashKey(derivedKey);
+  }
+  /// If there is no 'ImplTy::hashKey' default to using the 'llvm::DenseMapInfo'
+  /// definition for 'DerivedKey' for generating a hash.
+  template <typename ImplTy, typename DerivedKey>
+  static std::enable_if_t<!llvm::is_detected<detail::has_impltype_hash_t,
+                                             ImplTy, DerivedKey>::value,
+                          ::llvm::hash_code>
+  getHash(const DerivedKey &derivedKey) {
+    return DenseMapInfo<DerivedKey>::getHashValue(derivedKey);
   }
 };
 } // namespace mlir

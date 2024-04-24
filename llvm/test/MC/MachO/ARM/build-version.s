@@ -17,6 +17,3 @@
 
 .build_version watchos,10,11
 // CHECK: .build_version watchos, 10, 11
-
-.build_version xros,1, 0 
-// CHECK: .build_version xros, 1, 0 

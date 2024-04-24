@@ -7,13 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "DynamicStaticInitializersCheck.h"
-#include "../utils/FileExtensionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 AST_MATCHER(clang::VarDecl, hasConstantDeclaration) {
   const Expr *Init = Node.getInit();
@@ -25,22 +26,17 @@ AST_MATCHER(clang::VarDecl, hasConstantDeclaration) {
   return false;
 }
 
-DynamicStaticInitializersCheck::DynamicStaticInitializersCheck(
-    StringRef Name, ClangTidyContext *Context)
-    : ClangTidyCheck(Name, Context) {
-  std::optional<StringRef> HeaderFileExtensionsOption =
-      Options.get("HeaderFileExtensions");
-  RawStringHeaderFileExtensions =
-      HeaderFileExtensionsOption.value_or(utils::defaultHeaderFileExtensions());
-  if (HeaderFileExtensionsOption) {
-    if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
-                                    HeaderFileExtensions,
-                                    utils::defaultFileExtensionDelimiters())) {
-      this->configurationDiag("Invalid header file extension: '%0'")
-          << RawStringHeaderFileExtensions;
-    }
-  } else
-    HeaderFileExtensions = Context->getHeaderFileExtensions();
+DynamicStaticInitializersCheck::DynamicStaticInitializersCheck(StringRef Name,
+                                                               ClangTidyContext *Context)
+    : ClangTidyCheck(Name, Context),
+      RawStringHeaderFileExtensions(Options.getLocalOrGlobal(
+        "HeaderFileExtensions", utils::defaultHeaderFileExtensions())) {
+  if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
+                                  HeaderFileExtensions,
+                                  utils::defaultFileExtensionDelimiters())) {
+    this->configurationDiag("Invalid header file extension: '%0'")
+        << RawStringHeaderFileExtensions;
+  }
 }
 
 void DynamicStaticInitializersCheck::storeOptions(
@@ -66,4 +62,6 @@ void DynamicStaticInitializersCheck::check(const MatchFinder::MatchResult &Resul
     << Var;
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

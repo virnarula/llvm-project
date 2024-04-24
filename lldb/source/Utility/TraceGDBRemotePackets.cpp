@@ -144,7 +144,7 @@ json::Value toJSON(const TraceGetBinaryDataRequest &packet) {
 bool fromJSON(const json::Value &value, TraceGetBinaryDataRequest &packet,
               Path path) {
   ObjectMapper o(value, path);
-  std::optional<uint64_t> cpu_id;
+  Optional<uint64_t> cpu_id;
   if (!(o && o.map("type", packet.type) && o.map("kind", packet.kind) &&
         o.map("tid", packet.tid) && o.map("cpuId", cpu_id)))
     return false;

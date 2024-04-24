@@ -59,8 +59,7 @@ static func::ReturnOp getAssumedUniqueReturnOp(func::FuncOp funcOp) {
 
 /// Return the func::FuncOp called by `callOp`.
 static func::FuncOp getCalledFunction(CallOpInterface callOp) {
-  SymbolRefAttr sym =
-      llvm::dyn_cast_if_present<SymbolRefAttr>(callOp.getCallableForCallee());
+  SymbolRefAttr sym = callOp.getCallableForCallee().dyn_cast<SymbolRefAttr>();
   if (!sym)
     return nullptr;
   return dyn_cast_or_null<func::FuncOp>(
@@ -83,7 +82,7 @@ mlir::bufferization::dropEquivalentBufferResults(ModuleOp module) {
     SmallVector<Value> newReturnValues;
     BitVector erasedResultIndices(funcOp.getFunctionType().getNumResults());
     DenseMap<int64_t, int64_t> resultToArgs;
-    for (const auto &it : llvm::enumerate(returnOp.getOperands())) {
+    for (const auto &it : llvm::enumerate(returnOp.operands())) {
       bool erased = false;
       for (BlockArgument bbArg : funcOp.getArguments()) {
         Value val = it.value();
@@ -106,7 +105,7 @@ mlir::bufferization::dropEquivalentBufferResults(ModuleOp module) {
 
     // Update function.
     funcOp.eraseResults(erasedResultIndices);
-    returnOp.getOperandsMutable().assign(newReturnValues);
+    returnOp.operandsMutable().assign(newReturnValues);
 
     // Update function calls.
     module.walk([&](func::CallOp callOp) {
@@ -115,7 +114,7 @@ mlir::bufferization::dropEquivalentBufferResults(ModuleOp module) {
 
       rewriter.setInsertionPoint(callOp);
       auto newCallOp = rewriter.create<func::CallOp>(callOp.getLoc(), funcOp,
-                                                     callOp.getOperands());
+                                                     callOp.operands());
       SmallVector<Value> newResults;
       int64_t nextResult = 0;
       for (int64_t i = 0; i < callOp.getNumResults(); ++i) {

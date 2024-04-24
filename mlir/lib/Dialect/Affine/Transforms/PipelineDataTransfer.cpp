@@ -27,21 +27,17 @@
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
-namespace affine {
 #define GEN_PASS_DEF_AFFINEPIPELINEDATATRANSFER
 #include "mlir/Dialect/Affine/Passes.h.inc"
-} // namespace affine
 } // namespace mlir
 
 #define DEBUG_TYPE "affine-pipeline-data-transfer"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 namespace {
 struct PipelineDataTransfer
-    : public affine::impl::AffinePipelineDataTransferBase<
-          PipelineDataTransfer> {
+    : public impl::AffinePipelineDataTransferBase<PipelineDataTransfer> {
   void runOnOperation() override;
   void runOnAffineForOp(AffineForOp forOp);
 
@@ -53,13 +49,13 @@ struct PipelineDataTransfer
 /// Creates a pass to pipeline explicit movement of data across levels of the
 /// memory hierarchy.
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::affine::createPipelineDataTransferPass() {
+mlir::createPipelineDataTransferPass() {
   return std::make_unique<PipelineDataTransfer>();
 }
 
 // Returns the position of the tag memref operand given a DMA operation.
 // Temporary utility: will be replaced when DmaStart/DmaFinish abstract op's are
-// added.
+// added.  TODO
 static unsigned getTagMemRefPos(Operation &dmaOp) {
   assert((isa<AffineDmaStartOp, AffineDmaWaitOp>(dmaOp)));
   if (auto dmaStartOp = dyn_cast<AffineDmaStartOp>(dmaOp)) {
@@ -88,7 +84,7 @@ static bool doubleBuffer(Value oldMemRef, AffineForOp forOp) {
     return MemRefType::Builder(oldMemRefType).setShape(newShape).setLayout({});
   };
 
-  auto oldMemRefType = cast<MemRefType>(oldMemRef.getType());
+  auto oldMemRefType = oldMemRef.getType().cast<MemRefType>();
   auto newMemRefType = doubleShape(oldMemRefType);
 
   // The double buffer is allocated right before 'forOp'.
@@ -96,7 +92,7 @@ static bool doubleBuffer(Value oldMemRef, AffineForOp forOp) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   SmallVector<Value, 4> allocOperands;
   for (const auto &dim : llvm::enumerate(oldMemRefType.getShape())) {
-    if (dim.value() == ShapedType::kDynamic)
+    if (dim.value() == ShapedType::kDynamicSize)
       allocOperands.push_back(bOuter.createOrFold<memref::DimOp>(
           forOp.getLoc(), oldMemRef, dim.index()));
   }
@@ -107,7 +103,7 @@ static bool doubleBuffer(Value oldMemRef, AffineForOp forOp) {
 
   // Create 'iv mod 2' value to index the leading dimension.
   auto d0 = bInner.getAffineDimExpr(0);
-  int64_t step = forOp.getStepAsInt();
+  int64_t step = forOp.getStep();
   auto modTwoMap =
       AffineMap::get(/*dimCount=*/1, /*symbolCount=*/0, d0.floorDiv(step) % 2);
   auto ivModTwoOp = bInner.create<AffineApplyOp>(forOp.getLoc(), modTwoMap,
@@ -332,7 +328,7 @@ void PipelineDataTransfer::runOnAffineForOp(AffineForOp forOp) {
     instShiftMap[dmaStartOp] = 0;
     // Set shifts for DMA start op's affine operand computation slices to 0.
     SmallVector<AffineApplyOp, 4> sliceOps;
-    affine::createAffineComputationSlice(dmaStartOp, &sliceOps);
+    mlir::createAffineComputationSlice(dmaStartOp, &sliceOps);
     if (!sliceOps.empty()) {
       for (auto sliceOp : sliceOps) {
         instShiftMap[sliceOp.getOperation()] = 0;
@@ -350,14 +346,14 @@ void PipelineDataTransfer::runOnAffineForOp(AffineForOp forOp) {
   }
   // Everything else (including compute ops and dma finish) are shifted by one.
   for (auto &op : forOp.getBody()->without_terminator())
-    if (!instShiftMap.contains(&op))
+    if (instShiftMap.find(&op) == instShiftMap.end())
       instShiftMap[&op] = 1;
 
   // Get shifts stored in map.
   SmallVector<uint64_t, 8> shifts(forOp.getBody()->getOperations().size());
   unsigned s = 0;
   for (auto &op : forOp.getBody()->without_terminator()) {
-    assert(instShiftMap.contains(&op));
+    assert(instShiftMap.find(&op) != instShiftMap.end());
     shifts[s++] = instShiftMap[&op];
 
     // Tagging operations with shifts for debugging purposes.

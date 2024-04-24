@@ -12,6 +12,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @blah = external global i8, align 1
 
-define ptr @_start() {
- ret ptr @blah
+define i8* @_start() {
+ ret i8* @blah
 }

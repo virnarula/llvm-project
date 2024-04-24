@@ -5,30 +5,25 @@
 # RUN:   FileCheck --check-prefixes=EXE %s
 
 # RUN: ld.lld -shared %t.o --icf=all --print-icf-sections -o /dev/null | \
-# RUN:   FileCheck --check-prefix=DSO %s
+# RUN:   FileCheck --check-prefix=DSO %s --implicit-check-not=removing
 
 ## Definitions are non-preemptible in an executable.
-# EXE-NOT:  {{.}}
-# EXE:      selected section {{.*}}:(.text.g1)
-# EXE-NEXT:   removing identical section {{.*}}:(.text.g2)
-# EXE-NEXT:   removing identical section {{.*}}:(.text.g3)
-# EXE-NEXT: selected section {{.*}}:(.text.f1)
-# EXE-NEXT:   removing identical section {{.*}}:(.text.f2)
-# EXE-NEXT: selected section {{.*}}:(.text.h1)
+# EXE:      selected section {{.*}}:(.text.h1)
 # EXE-NEXT:   removing identical section {{.*}}:(.text.h2)
 # EXE-NEXT:   removing identical section {{.*}}:(.text.h3)
-# EXE-NOT:  {{.}}
+# EXE:      selected section {{.*}}:(.text.f1)
+# EXE-NEXT:   removing identical section {{.*}}:(.text.f2)
+# EXE-NEXT: selected section {{.*}}:(.text.g1)
+# EXE:        removing identical section {{.*}}:(.text.g2)
+# EXE-NEXT:   removing identical section {{.*}}:(.text.g3)
 
 ## Definitions are preemptible in a DSO. Only leaf functions can be folded.
-# DSO-NOT:  {{.}}
-# DSO:      selected section {{.*}}:(.text.g1)
-# DSO-NEXT:   removing identical section {{.*}}:(.text.g3)
-# DSO-NEXT: selected section {{.*}}:(.text.f1)
+# DSO:      selected section {{.*}}:(.text.f1)
 # DSO-NEXT:   removing identical section {{.*}}:(.text.f2)
-# DSO-NOT:  {{.}}
+# DSO-NEXT: selected section {{.*}}:(.text.g1)
+# DSO-NEXT:   removing identical section {{.*}}:(.text.g3)
 
-.globl _start, f1, f2, g1, g2, g3
-_start:
+.globl f1, f2, g1, g2, g3
 
 .section .text.f1
 f1: ret

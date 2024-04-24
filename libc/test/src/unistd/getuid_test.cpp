@@ -7,9 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/unistd/getuid.h"
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
 TEST(LlvmLibcGetUidTest, SmokeTest) {
   // getuid always succeeds. So, we just call it as a smoke test.
-  LIBC_NAMESPACE::getuid();
+  __llvm_libc::getuid();
 }

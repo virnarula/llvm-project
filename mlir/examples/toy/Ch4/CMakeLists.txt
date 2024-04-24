@@ -31,7 +31,6 @@ target_link_libraries(toyc-ch4
     MLIRAnalysis
     MLIRCastInterfaces
     MLIRCallInterfaces
-    MLIRFunctionInterfaces
     MLIRIR
     MLIRParser
     MLIRPass

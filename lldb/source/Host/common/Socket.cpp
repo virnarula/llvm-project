@@ -17,7 +17,6 @@
 #include "lldb/Utility/Log.h"
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Errno.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Regex.h"
@@ -266,6 +265,11 @@ Status Socket::Write(const void *buf, size_t &num_bytes) {
               static_cast<int64_t>(bytes_sent), error.AsCString());
   }
 
+  return error;
+}
+
+Status Socket::PreDisconnect() {
+  Status error;
   return error;
 }
 

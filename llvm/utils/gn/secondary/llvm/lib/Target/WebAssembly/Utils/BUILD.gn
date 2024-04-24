@@ -14,5 +14,6 @@ static_library("Utils") {
   include_dirs = [ ".." ]
   sources = [
     "WebAssemblyTypeUtilities.cpp",
+    "WebAssemblyUtilities.cpp",
   ]
 }

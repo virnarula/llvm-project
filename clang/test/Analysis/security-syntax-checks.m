@@ -17,6 +17,25 @@
 // RUN:   -analyzer-checker=security.insecureAPI \
 // RUN:   -analyzer-checker=security.FloatLoopCounter
 
+// RUN: %clang_analyze_cc1 -triple x86_64-unknown-cloudabi %s -verify -Wno-fortify-source \
+// RUN:   -analyzer-checker=security.insecureAPI \
+// RUN:   -analyzer-checker=security.FloatLoopCounter
+
+// RUN: %clang_analyze_cc1 -triple x86_64-unknown-cloudabi %s -verify -Wno-fortify-source \
+// RUN:   -DUSE_BUILTINS \
+// RUN:   -analyzer-checker=security.insecureAPI \
+// RUN:   -analyzer-checker=security.FloatLoopCounter
+
+// RUN: %clang_analyze_cc1 -triple x86_64-unknown-cloudabi %s -verify -Wno-fortify-source \
+// RUN:   -DVARIANT \
+// RUN:   -analyzer-checker=security.insecureAPI \
+// RUN:   -analyzer-checker=security.FloatLoopCounter
+
+// RUN: %clang_analyze_cc1 -triple x86_64-unknown-cloudabi %s -verify -Wno-fortify-source \
+// RUN:   -DUSE_BUILTINS -DVARIANT \
+// RUN:   -analyzer-checker=security.insecureAPI \
+// RUN:   -analyzer-checker=security.FloatLoopCounter
+
 #ifdef USE_BUILTINS
 # define BUILTIN(f) __builtin_ ## f
 #else /* USE_BUILTINS */
@@ -29,7 +48,8 @@
 typedef typeof(sizeof(int)) size_t;
 
 
-// rule request: floating point used as loop condition (FLP30-C, FLP-30-CPP)
+// <rdar://problem/6336718> rule request: floating point used as loop 
+//  condition (FLP30-C, FLP-30-CPP)
 //
 // For reference: https://www.securecoding.cert.org/confluence/display/seccode/FLP30-C.+Do+not+use+floating+point+variables+as+loop+counters
 //
@@ -57,9 +77,9 @@ int test_bcmp(void *a, void *b, size_t n) {
 }
 
 // Obsolete function bcopy
-void bcopy(const void *, void *, size_t);
+void bcopy(void *, void *, size_t);
 
-void test_bcopy(const void *a, void *b, size_t n) {
+void test_bcopy(void *a, void *b, size_t n) {
   bcopy(a, b, n); // expected-warning{{The bcopy() function is obsoleted by memcpy() or memmove(}}
 }
 
@@ -70,7 +90,7 @@ void test_bzero(void *a, size_t n) {
   bzero(a, n); // expected-warning{{The bzero() function is obsoleted by memset()}}
 }
 
-// rule request: gets() buffer overflow
+// <rdar://problem/6335715> rule request: gets() buffer overflow
 // Part of recommendation: 300-BSI (buildsecurityin.us-cert.gov)
 char* gets(char *buf);
 
@@ -86,7 +106,8 @@ void test_getpw(void) {
   getpw(2, buff); // expected-warning{{The getpw() function is dangerous as it may overflow the provided buffer. It is obsoleted by getpwuid()}}
 }
 
-// CWE-273: Failure to Check Whether Privileges Were Dropped Successfully
+// <rdar://problem/6337132> CWE-273: Failure to Check Whether Privileges Were
+//  Dropped Successfully
 typedef unsigned int __uint32_t;
 typedef __uint32_t __darwin_uid_t;
 typedef __uint32_t __darwin_gid_t;
@@ -117,7 +138,7 @@ void test_setuid(void)
   setregid(2,2); // expected-warning{{The return value from the call to 'setregid' is not checked.  If an error occurs in 'setregid', the following code may execute with unexpected privileges}}
 }
 
-// CWE-338: Use of cryptographically weak prng
+// <rdar://problem/6337100> CWE-338: Use of cryptographically weak prng
 typedef  unsigned short *ushort_ptr_t;  // Test that sugar doesn't confuse the warning.
 int      rand(void);
 double   drand48(void);

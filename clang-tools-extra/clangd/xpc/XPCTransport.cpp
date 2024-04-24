@@ -11,7 +11,6 @@
 #include "support/Logger.h"
 #include "llvm/Support/Errno.h"
 
-#include <optional>
 #include <xpc/xpc.h>
 
 using namespace llvm;
@@ -107,13 +106,12 @@ private:
 bool XPCTransport::handleMessage(json::Value Message, MessageHandler &Handler) {
   // Message must be an object with "jsonrpc":"2.0".
   auto *Object = Message.getAsObject();
-  if (!Object ||
-      Object->getString("jsonrpc") != std::optional<StringRef>("2.0")) {
+  if (!Object || Object->getString("jsonrpc") != Optional<StringRef>("2.0")) {
     elog("Not a JSON-RPC 2.0 message: {0:2}", Message);
     return false;
   }
   // ID may be any JSON value. If absent, this is a notification.
-  std::optional<json::Value> ID;
+  Optional<json::Value> ID;
   if (auto *I = Object->get("id"))
     ID = std::move(*I);
   auto Method = Object->getString("method");

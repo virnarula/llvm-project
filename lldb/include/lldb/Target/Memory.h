@@ -61,8 +61,6 @@ protected:
 private:
   MemoryCache(const MemoryCache &) = delete;
   const MemoryCache &operator=(const MemoryCache &) = delete;
-
-  lldb::DataBufferSP GetL2CacheLine(lldb::addr_t addr, Status &error);
 };
 
     
@@ -118,7 +116,7 @@ public:
 
   ~AllocatedMemoryCache();
 
-  void Clear(bool deallocate_memory);
+  void Clear();
 
   lldb::addr_t AllocateMemory(size_t byte_size, uint32_t permissions,
                               Status &error);

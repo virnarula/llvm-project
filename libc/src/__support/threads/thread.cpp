@@ -12,11 +12,10 @@
 #include "src/__support/CPP/array.h"
 #include "src/__support/CPP/optional.h"
 #include "src/__support/fixedvector.h"
-#include "src/__support/macros/attributes.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-LIBC_THREAD_LOCAL Thread self;
+thread_local Thread self;
 
 namespace {
 
@@ -57,7 +56,7 @@ public:
 
   cpp::optional<unsigned int> new_key(TSSDtor *dtor) {
     MutexLock lock(&mtx);
-    for (unsigned int i = 0; i < TSS_KEY_COUNT; ++i) {
+    for (size_t i = 0; i < TSS_KEY_COUNT; ++i) {
       TSSKeyUnit &u = units[i];
       if (!u.active) {
         u = {dtor};
@@ -100,7 +99,7 @@ struct TSSValueUnit {
       : active(true), payload(p), dtor(d) {}
 };
 
-static LIBC_THREAD_LOCAL cpp::array<TSSValueUnit, TSS_KEY_COUNT> tss_values;
+static thread_local cpp::array<TSSValueUnit, TSS_KEY_COUNT> tss_values;
 
 } // anonymous namespace
 
@@ -129,7 +128,7 @@ public:
   }
 };
 
-static LIBC_THREAD_LOCAL ThreadAtExitCallbackMgr atexit_callback_mgr;
+static thread_local ThreadAtExitCallbackMgr atexit_callback_mgr;
 
 // The function __cxa_thread_atexit is provided by C++ runtimes like libcxxabi.
 // It is used by thread local object runtime to register destructor calls. To
@@ -152,8 +151,7 @@ void call_atexit_callbacks(ThreadAttributes *attrib) {
   attrib->atexit_callback_mgr->call();
   for (size_t i = 0; i < TSS_KEY_COUNT; ++i) {
     TSSValueUnit &unit = tss_values[i];
-    // Both dtor and value need to nonnull to call dtor
-    if (unit.dtor != nullptr && unit.payload != nullptr)
+    if (unit.dtor != nullptr)
       unit.dtor(unit.payload);
   }
 }
@@ -183,4 +181,4 @@ void *get_tss_value(unsigned int key) {
   return u.payload;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

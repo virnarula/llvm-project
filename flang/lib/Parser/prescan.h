@@ -69,9 +69,6 @@ public:
   TokenSequence TokenizePreprocessorDirective();
   Provenance GetCurrentProvenance() const { return GetProvenance(at_); }
 
-  const char *IsCompilerDirectiveSentinel(const char *, std::size_t) const;
-  const char *IsCompilerDirectiveSentinel(CharBlock) const;
-
   template <typename... A> Message &Say(A &&...a) {
     return messages_.Say(std::forward<A>(a)...);
   }
@@ -111,9 +108,7 @@ private:
     BeginSourceLineAndAdvance();
     slashInCurrentStatement_ = false;
     preventHollerith_ = false;
-    parenthesisNesting_ = 0;
-    continuationLines_ = 0;
-    isPossibleMacroCall_ = false;
+    delimiterNesting_ = 0;
   }
 
   Provenance GetProvenance(const char *sourceChar) const {
@@ -186,10 +181,9 @@ private:
       const char *) const;
   std::optional<LineClassification> IsFreeFormCompilerDirectiveLine(
       const char *) const;
+  const char *IsCompilerDirectiveSentinel(const char *) const;
   LineClassification ClassifyLine(const char *) const;
   void SourceFormChange(std::string &&);
-  bool CompilerDirectiveContinuation(TokenSequence &, const char *sentinel);
-  bool SourceLineContinuation(TokenSequence &);
 
   Messages &messages_;
   CookedSource &cooked_;
@@ -199,10 +193,8 @@ private:
   bool inFixedForm_{false};
   int fixedFormColumnLimit_{72};
   Encoding encoding_{Encoding::UTF_8};
-  int parenthesisNesting_{0};
+  int delimiterNesting_{0};
   int prescannerNesting_{0};
-  int continuationLines_{0};
-  bool isPossibleMacroCall_{false};
 
   Provenance startProvenance_;
   const char *start_{nullptr}; // beginning of current source file content
@@ -210,7 +202,7 @@ private:
   const char *nextLine_{nullptr}; // next line to process; <= limit_
   const char *directiveSentinel_{nullptr}; // current compiler directive
 
-  // These data members are state for processing the source line containing
+  // This data members are state for processing the source line containing
   // "at_", which goes to up to the newline character before "nextLine_".
   const char *at_{nullptr}; // next character to process; < nextLine_
   int column_{1}; // card image column position of next character
@@ -218,7 +210,6 @@ private:
   bool slashInCurrentStatement_{false};
   bool preventHollerith_{false}; // CHARACTER*4HIMOM not Hollerith
   bool inCharLiteral_{false};
-  bool continuationInCharLiteral_{false};
   bool inPreprocessorDirective_{false};
 
   // In some edge cases of compiler directive continuation lines, it

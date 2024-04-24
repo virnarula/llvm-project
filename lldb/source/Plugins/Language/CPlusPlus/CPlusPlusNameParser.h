@@ -10,12 +10,12 @@
 #define LLDB_SOURCE_PLUGINS_LANGUAGE_CPLUSPLUS_CPLUSPLUSNAMEPARSER_H
 
 #include "clang/Lex/Lexer.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #include "lldb/Utility/ConstString.h"
 #include "lldb/lldb-private.h"
-#include <optional>
 
 namespace lldb_private {
 
@@ -33,7 +33,6 @@ public:
     ParsedName name;
     llvm::StringRef arguments;
     llvm::StringRef qualifiers;
-    llvm::StringRef return_type;
   };
 
   // Treats given text as a function definition and parses it.
@@ -45,7 +44,7 @@ public:
   //    std::vector<int>::push_back(int)
   //    int& map<int, pair<short, int>>::operator[](short) const
   //    int (*get_function(const chat *))()
-  std::optional<ParsedFunction> ParseAsFunctionDefinition();
+  llvm::Optional<ParsedFunction> ParseAsFunctionDefinition();
 
   // Treats given text as a potentially nested name of C++ entity (function,
   // class, field) and parses it.
@@ -55,7 +54,7 @@ public:
   //    std::vector<int>::push_back
   //    map<int, pair<short, int>>::operator[]
   //    func<C>(int, C&)::nested_class::method
-  std::optional<ParsedName> ParseAsFullName();
+  llvm::Optional<ParsedName> ParseAsFullName();
 
 private:
   // A C++ definition to parse.
@@ -125,10 +124,10 @@ private:
   clang::Token &Peek();
   bool ConsumeBrackets(clang::tok::TokenKind left, clang::tok::TokenKind right);
 
-  std::optional<ParsedFunction> ParseFunctionImpl(bool expect_return_type);
+  llvm::Optional<ParsedFunction> ParseFunctionImpl(bool expect_return_type);
 
   // Parses functions returning function pointers 'string (*f(int x))(float y)'
-  std::optional<ParsedFunction> ParseFuncPtr(bool expect_return_type);
+  llvm::Optional<ParsedFunction> ParseFuncPtr(bool expect_return_type);
 
   // Consumes function arguments enclosed within '(' ... ')'
   bool ConsumeArguments();
@@ -176,7 +175,7 @@ private:
   ///   [A-Za-z,.\s\d]+
   bool ConsumeAbiTag();
 
-  std::optional<ParsedNameRanges> ParseFullNameImpl();
+  llvm::Optional<ParsedNameRanges> ParseFullNameImpl();
   llvm::StringRef GetTextForRange(const Range &range);
 
   // Populate m_tokens by calling clang lexer on m_text.

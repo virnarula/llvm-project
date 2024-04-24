@@ -11,7 +11,6 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
-#include <optional>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -318,13 +317,13 @@ Status Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
   return Status("unimplemented");
 }
 
-std::optional<lldb::pid_t> lldb_private::getPIDForTID(lldb::pid_t tid) {
+llvm::Optional<lldb::pid_t> lldb_private::getPIDForTID(lldb::pid_t tid) {
   ::pid_t tracerpid, tgid = LLDB_INVALID_PROCESS_ID;
   ProcessInstanceInfo process_info;
   ProcessState state;
 
   if (!GetStatusInfo(tid, process_info, state, tracerpid, tgid) ||
       tgid == LLDB_INVALID_PROCESS_ID)
-    return std::nullopt;
+    return llvm::None;
   return tgid;
 }

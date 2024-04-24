@@ -12,11 +12,13 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 namespace {
 
-AST_MATCHER_P(NamedDecl, usesHeaderFileExtension, FileExtensionsSet,
+AST_MATCHER_P(NamedDecl, usesHeaderFileExtension, utils::FileExtensionsSet,
               HeaderFileExtensions) {
   return utils::isExpansionLocInHeaderFile(
       Node.getBeginLoc(), Finder->getASTContext().getSourceManager(),
@@ -28,20 +30,15 @@ AST_MATCHER_P(NamedDecl, usesHeaderFileExtension, FileExtensionsSet,
 DefinitionsInHeadersCheck::DefinitionsInHeadersCheck(StringRef Name,
                                                      ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      UseHeaderFileExtension(Options.get("UseHeaderFileExtension", true)) {
-  std::optional<StringRef> HeaderFileExtensionsOption =
-      Options.get("HeaderFileExtensions");
-  RawStringHeaderFileExtensions =
-      HeaderFileExtensionsOption.value_or(utils::defaultHeaderFileExtensions());
-  if (HeaderFileExtensionsOption) {
-    if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
-                                    HeaderFileExtensions,
-                                    utils::defaultFileExtensionDelimiters())) {
-      this->configurationDiag("Invalid header file extension: '%0'")
-          << RawStringHeaderFileExtensions;
-    }
-  } else
-    HeaderFileExtensions = Context->getHeaderFileExtensions();
+      UseHeaderFileExtension(Options.get("UseHeaderFileExtension", true)),
+      RawStringHeaderFileExtensions(Options.getLocalOrGlobal(
+          "HeaderFileExtensions", utils::defaultHeaderFileExtensions())) {
+  if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
+                                  HeaderFileExtensions,
+                                  utils::defaultFileExtensionDelimiters())) {
+    this->configurationDiag("Invalid header file extension: '%0'")
+        << RawStringHeaderFileExtensions;
+  }
 }
 
 void DefinitionsInHeadersCheck::storeOptions(
@@ -90,11 +87,13 @@ void DefinitionsInHeadersCheck::check(const MatchFinder::MatchResult &Result) {
   // Internal linkage variable definitions are ignored for now:
   //   const int a = 1;
   //   static int b = 1;
-  //   namespace { int c = 1; }
   //
   // Although these might also cause ODR violations, we can be less certain and
   // should try to keep the false-positive rate down.
-  if (!ND->hasExternalFormalLinkage() || ND->isInAnonymousNamespace())
+  //
+  // FIXME: Should declarations in anonymous namespaces get the same treatment
+  // as static / const declarations?
+  if (!ND->hasExternalFormalLinkage() && !ND->isInAnonymousNamespace())
     return;
 
   if (const auto *FD = dyn_cast<FunctionDecl>(ND)) {
@@ -161,4 +160,6 @@ void DefinitionsInHeadersCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

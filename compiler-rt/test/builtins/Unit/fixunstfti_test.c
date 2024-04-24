@@ -1,6 +1,6 @@
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_fixunstfti
-// UNSUPPORTED: target=mips{{.*}}
+// UNSUPPORTED: mips
 
 #include <stdio.h>
 

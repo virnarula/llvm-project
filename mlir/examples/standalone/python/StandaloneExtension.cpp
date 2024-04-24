@@ -9,15 +9,16 @@
 #include "Standalone-c/Dialects.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
+namespace py = pybind11;
 using namespace mlir::python::adaptors;
 
 PYBIND11_MODULE(_standaloneDialects, m) {
   //===--------------------------------------------------------------------===//
   // standalone dialect
   //===--------------------------------------------------------------------===//
-  auto standaloneM = m.def_submodule("standalone");
+  auto standalone_m = m.def_submodule("standalone");
 
-  standaloneM.def(
+  standalone_m.def(
       "register_dialect",
       [](MlirContext context, bool load) {
         MlirDialectHandle handle = mlirGetDialectHandle__standalone__();

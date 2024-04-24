@@ -2,9 +2,7 @@
 ; RUN: opt < %s -passes=correlated-propagation -S | FileCheck %s
 
 declare void @llvm.assume(i1)
-declare i32 @llvm.abs.i32(i32, i1)
-declare i8 @llvm.abs.i8(i8, i1)
-declare i1 @llvm.abs.i1(i1, i1)
+declare i8 @llvm.abs(i8, i1)
 
 ; If we don't know anything about the argument, we can't do anything.
 
@@ -13,7 +11,7 @@ define i8 @test0(i8 %x) {
 ; CHECK-NEXT:    [[R:%.*]] = call i8 @llvm.abs.i8(i8 [[X:%.*]], i1 false)
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test1(i8 %x) {
@@ -21,7 +19,7 @@ define i8 @test1(i8 %x) {
 ; CHECK-NEXT:    [[R:%.*]] = call i8 @llvm.abs.i8(i8 [[X:%.*]], i1 true)
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -37,7 +35,7 @@ define i8 @test2(i8 %x) {
 
   %lim = icmp sge i8 %x, -1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test3(i8 %x) {
@@ -50,7 +48,7 @@ define i8 @test3(i8 %x) {
 
   %lim = icmp sge i8 %x, -1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -63,7 +61,7 @@ define i8 @test4(i8 %x) {
 
   %lim = icmp sge i8 %x, 0
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test5(i8 %x) {
@@ -75,7 +73,7 @@ define i8 @test5(i8 %x) {
 
   %lim = icmp sge i8 %x, 0
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -88,7 +86,7 @@ define i8 @test6(i8 %x) {
 
   %lim = icmp sge i8 %x, 1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test7(i8 %x) {
@@ -100,7 +98,7 @@ define i8 @test7(i8 %x) {
 
   %lim = icmp sge i8 %x, 1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -115,7 +113,7 @@ define i8 @test8(i8 %x) {
 
   %lim = icmp ule i8 %x, 127
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test9(i8 %x) {
@@ -127,7 +125,7 @@ define i8 @test9(i8 %x) {
 
   %lim = icmp ule i8 %x, 127
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -140,7 +138,7 @@ define i8 @test10(i8 %x) {
 
   %lim = icmp ule i8 %x, 128
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test11(i8 %x) {
@@ -152,7 +150,7 @@ define i8 @test11(i8 %x) {
 
   %lim = icmp ule i8 %x, 128
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -166,7 +164,7 @@ define i8 @test12(i8 %x) {
 
   %lim = icmp ule i8 %x, 129
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test13(i8 %x) {
@@ -179,7 +177,7 @@ define i8 @test13(i8 %x) {
 
   %lim = icmp ule i8 %x, 129
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -197,7 +195,7 @@ define i8 @test14(i8 %x) {
 
   %lim = icmp sle i8 %x, -1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test15(i8 %x) {
@@ -210,7 +208,7 @@ define i8 @test15(i8 %x) {
 
   %lim = icmp sle i8 %x, -1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -224,7 +222,7 @@ define i8 @test16(i8 %x) {
 
   %lim = icmp sle i8 %x, 0
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test17(i8 %x) {
@@ -237,7 +235,7 @@ define i8 @test17(i8 %x) {
 
   %lim = icmp sle i8 %x, 0
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -251,7 +249,7 @@ define i8 @test18(i8 %x) {
 
   %lim = icmp sle i8 %x, 1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test19(i8 %x) {
@@ -264,7 +262,7 @@ define i8 @test19(i8 %x) {
 
   %lim = icmp sle i8 %x, 1
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -280,7 +278,7 @@ define i8 @test20(i8 %x) {
 
   %lim = icmp uge i8 %x, 127
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test21(i8 %x) {
@@ -293,7 +291,7 @@ define i8 @test21(i8 %x) {
 
   %lim = icmp uge i8 %x, 127
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -307,7 +305,7 @@ define i8 @test22(i8 %x) {
 
   %lim = icmp uge i8 %x, 128
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test23(i8 %x) {
@@ -320,7 +318,7 @@ define i8 @test23(i8 %x) {
 
   %lim = icmp uge i8 %x, 128
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -334,7 +332,7 @@ define i8 @test24(i8 %x) {
 
   %lim = icmp uge i8 %x, 129
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test25(i8 %x) {
@@ -347,7 +345,7 @@ define i8 @test25(i8 %x) {
 
   %lim = icmp uge i8 %x, 129
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
 }
 
@@ -362,7 +360,7 @@ define i8 @test26(i8 %x) {
 ;
   %lim = icmp ne i8 %x, 128
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 0)
+  %r = call i8 @llvm.abs(i8 %x, i1 0)
   ret i8 %r
 }
 define i8 @test27(i8 %x) {
@@ -374,145 +372,6 @@ define i8 @test27(i8 %x) {
 ;
   %lim = icmp ne i8 %x, 128
   call void @llvm.assume(i1 %lim)
-  %r = call i8 @llvm.abs.i8(i8 %x, i1 1)
+  %r = call i8 @llvm.abs(i8 %x, i1 1)
   ret i8 %r
-}
-
-define i1 @pr59887(i1 %x, i1 %c) {
-; CHECK-LABEL: @pr59887(
-; CHECK-NEXT:    [[RES:%.*]] = select i1 [[C:%.*]], i1 [[X:%.*]], i1 false
-; CHECK-NEXT:    ret i1 [[RES]]
-;
-  %abs = call i1 @llvm.abs.i1(i1 %x, i1 false)
-  %res = select i1 %c, i1 %abs, i1 false
-  ret i1 %res
-}
-
-; Because of `undef`, We can't delete `abs`.
-; We can't replace the `abs` argument with true either.
-define i32 @pr68381_undef_abs_false(i1 %c0, i1 %c1, i8 %v1) {
-; CHECK-LABEL: @pr68381_undef_abs_false(
-; CHECK-NEXT:  start:
-; CHECK-NEXT:    br i1 [[C0:%.*]], label [[BB0:%.*]], label [[BB1:%.*]]
-; CHECK:       bb0:
-; CHECK-NEXT:    [[V1_I32:%.*]] = zext i8 [[V1:%.*]] to i32
-; CHECK-NEXT:    br label [[BB1]]
-; CHECK:       bb1:
-; CHECK-NEXT:    [[X:%.*]] = phi i32 [ [[V1_I32]], [[BB0]] ], [ undef, [[START:%.*]] ]
-; CHECK-NEXT:    br i1 [[C1:%.*]], label [[BB0]], label [[BB2:%.*]]
-; CHECK:       bb2:
-; CHECK-NEXT:    [[Z:%.*]] = call i32 @llvm.abs.i32(i32 [[X]], i1 false)
-; CHECK-NEXT:    ret i32 [[Z]]
-;
-start:
-  br i1 %c0, label %bb0, label %bb1
-
-bb0:
-  %v1_i32 = zext i8 %v1 to i32
-  br label %bb1
-
-bb1:
-  %x = phi i32 [ %v1_i32, %bb0 ], [ undef, %start ]
-  br i1 %c1, label %bb0, label %bb2
-
-bb2:
-  %z = call i32 @llvm.abs.i32(i32 %x, i1 false)
-  ret i32 %z
-}
-
-; Because of `and`, we can delete `abs`.
-define i32 @pr68381_undef_abs_false_and(i1 %c0, i1 %c1, i8 %v1) {
-; CHECK-LABEL: @pr68381_undef_abs_false_and(
-; CHECK-NEXT:  start:
-; CHECK-NEXT:    br i1 [[C0:%.*]], label [[BB0:%.*]], label [[BB1:%.*]]
-; CHECK:       bb0:
-; CHECK-NEXT:    [[V1_I32:%.*]] = zext i8 [[V1:%.*]] to i32
-; CHECK-NEXT:    br label [[BB1]]
-; CHECK:       bb1:
-; CHECK-NEXT:    [[X:%.*]] = phi i32 [ [[V1_I32]], [[BB0]] ], [ undef, [[START:%.*]] ]
-; CHECK-NEXT:    br i1 [[C1:%.*]], label [[BB0]], label [[BB2:%.*]]
-; CHECK:       bb2:
-; CHECK-NEXT:    [[Y:%.*]] = and i32 [[X]], 255
-; CHECK-NEXT:    ret i32 [[Y]]
-;
-start:
-  br i1 %c0, label %bb0, label %bb1
-
-bb0:
-  %v1_i32 = zext i8 %v1 to i32
-  br label %bb1
-
-bb1:
-  %x = phi i32 [ %v1_i32, %bb0 ], [ undef, %start ]
-  br i1 %c1, label %bb0, label %bb2
-
-bb2:
-  %y = and i32 %x, 255
-  %z = call i32 @llvm.abs.i32(i32 %y, i1 false)
-  ret i32 %z
-}
-
-; Because of `undef`, we can't replace `abs` with `sub`.
-define i32 @pr68381_undef_abs_false_sub(i1 %c0, i1 %c1, i32 %v1, i32 %v2) {
-; CHECK-LABEL: @pr68381_undef_abs_false_sub(
-; CHECK-NEXT:  start:
-; CHECK-NEXT:    br i1 [[C0:%.*]], label [[BB0:%.*]], label [[BB1:%.*]]
-; CHECK:       bb0:
-; CHECK-NEXT:    [[V3:%.*]] = add i32 [[V1:%.*]], [[V2:%.*]]
-; CHECK-NEXT:    [[LIM:%.*]] = icmp sle i32 [[V3]], -1
-; CHECK-NEXT:    call void @llvm.assume(i1 [[LIM]])
-; CHECK-NEXT:    br label [[BB1]]
-; CHECK:       bb1:
-; CHECK-NEXT:    [[X:%.*]] = phi i32 [ [[V3]], [[BB0]] ], [ undef, [[START:%.*]] ]
-; CHECK-NEXT:    br i1 [[C1:%.*]], label [[BB0]], label [[BB2:%.*]]
-; CHECK:       bb2:
-; CHECK-NEXT:    [[Z:%.*]] = call i32 @llvm.abs.i32(i32 [[X]], i1 false)
-; CHECK-NEXT:    ret i32 [[Z]]
-;
-start:
-  br i1 %c0, label %bb0, label %bb1
-
-bb0:
-  %v3 = add i32 %v1, %v2
-  %lim = icmp sle i32 %v3, -1
-  call void @llvm.assume(i1 %lim)
-  br label %bb1
-
-bb1:
-  %x = phi i32 [ %v3, %bb0 ], [ undef, %start ]
-  br i1 %c1, label %bb0, label %bb2
-
-bb2:
-  %z = call i32 @llvm.abs.i32(i32 %x, i1 false)
-  ret i32 %z
-}
-
-; We can delete `abs`.
-define i32 @pr68381_undef_abs_true(i1 %c0, i1 %c1, i8 %v1) {
-; CHECK-LABEL: @pr68381_undef_abs_true(
-; CHECK-NEXT:  start:
-; CHECK-NEXT:    br i1 [[C0:%.*]], label [[BB0:%.*]], label [[BB1:%.*]]
-; CHECK:       bb0:
-; CHECK-NEXT:    [[V1_I32:%.*]] = zext i8 [[V1:%.*]] to i32
-; CHECK-NEXT:    br label [[BB1]]
-; CHECK:       bb1:
-; CHECK-NEXT:    [[X:%.*]] = phi i32 [ [[V1_I32]], [[BB0]] ], [ undef, [[START:%.*]] ]
-; CHECK-NEXT:    br i1 [[C1:%.*]], label [[BB0]], label [[BB2:%.*]]
-; CHECK:       bb2:
-; CHECK-NEXT:    ret i32 [[X]]
-;
-start:
-  br i1 %c0, label %bb0, label %bb1
-
-bb0:
-  %v1_i32 = zext i8 %v1 to i32
-  br label %bb1
-
-bb1:
-  %x = phi i32 [ %v1_i32, %bb0 ], [ undef, %start ]
-  br i1 %c1, label %bb0, label %bb2
-
-bb2:
-  %z = call i32 @llvm.abs.i32(i32 %x, i1 true)
-  ret i32 %z
 }

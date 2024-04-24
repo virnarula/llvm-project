@@ -19,15 +19,14 @@
 
 namespace llvm {
 
-class ARCTargetMachine;
 class FunctionPass;
-class PassRegistry;
+class ARCTargetMachine;
 
-FunctionPass *createARCISelDag(ARCTargetMachine &TM, CodeGenOptLevel OptLevel);
+FunctionPass *createARCISelDag(ARCTargetMachine &TM,
+                               CodeGenOpt::Level OptLevel);
 FunctionPass *createARCExpandPseudosPass();
 FunctionPass *createARCOptAddrMode();
 FunctionPass *createARCBranchFinalizePass();
-void initializeARCDAGToDAGISelPass(PassRegistry &);
 
 } // end namespace llvm
 

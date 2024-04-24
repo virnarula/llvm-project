@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 namespace {
 
@@ -105,7 +107,7 @@ RawStringLiteralCheck::RawStringLiteralCheck(StringRef Name,
     DisallowedChars.set(C);
 
   // Non-ASCII are disallowed too.
-  for (unsigned int C = 0x80U; C <= 0xFFU; ++C)
+  for (unsigned int C = 0x80u; C <= 0xFFu; ++C)
     DisallowedChars.set(static_cast<unsigned char>(C));
 }
 
@@ -145,4 +147,6 @@ void RawStringLiteralCheck::replaceWithRawStringLiteral(
       << FixItHint::CreateReplacement(CharRange, Replacement);
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

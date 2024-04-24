@@ -5,8 +5,9 @@
 define i32 @test_out_of_bounds(i32 %a, i1 %x, i1 %y) {
 ; CHECK-LABEL: @test_out_of_bounds(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret i32 poison
+; CHECK-NEXT:    [[AND1:%.*]] = and i32 [[A:%.*]], 3
+; CHECK-NEXT:    tail call void @llvm.assume(i1 poison)
+; CHECK-NEXT:    ret i32 [[AND1]]
 ;
 entry:
   %and1 = and i32 %a, 3
@@ -18,8 +19,9 @@ entry:
 
 define i128 @test_non64bit(i128 %a) {
 ; CHECK-LABEL: @test_non64bit(
-; CHECK-NEXT:    store i1 true, ptr poison, align 1
-; CHECK-NEXT:    ret i128 poison
+; CHECK-NEXT:    [[AND1:%.*]] = and i128 [[A:%.*]], 3
+; CHECK-NEXT:    tail call void @llvm.assume(i1 poison)
+; CHECK-NEXT:    ret i128 [[AND1]]
 ;
   %and1 = and i128 %a, 3
   %B = lshr i128 %and1, -1

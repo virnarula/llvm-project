@@ -31,16 +31,15 @@ class NativeProcessWindows : public NativeProcessProtocol,
                              public ProcessDebugger {
 
 public:
-  class Manager : public NativeProcessProtocol::Manager {
+  class Factory : public NativeProcessProtocol::Factory {
   public:
-    using NativeProcessProtocol::Manager::Manager;
+    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+    Launch(ProcessLaunchInfo &launch_info, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
 
     llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-    Launch(ProcessLaunchInfo &launch_info,
-           NativeDelegate &native_delegate) override;
-
-    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-    Attach(lldb::pid_t pid, NativeDelegate &native_delegate) override;
+    Attach(lldb::pid_t pid, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
   };
 
   Status Resume(const ResumeActionList &resume_actions) override;

@@ -12,8 +12,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCStreamer.h"
-#include <map>
-#include <utility>
 
 namespace llvm {
 
@@ -50,7 +48,7 @@ public:
 
   void emitConstantPools() override;
 
-  virtual void emitMachine(StringRef CPU) {};
+  virtual void emitMachine(StringRef CPU) = 0;
 };
 
 } // end namespace llvm

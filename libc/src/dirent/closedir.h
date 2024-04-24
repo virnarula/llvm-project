@@ -11,10 +11,10 @@
 
 #include <dirent.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int closedir(::DIR *dir);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_DIRENT_CLOSEDIR_H

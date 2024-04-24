@@ -2,9 +2,10 @@
 Clang Code Owners
 =================
 
-This file is a list of the
-`code owners <https://llvm.org/docs/DeveloperPolicy.html#code-owners>`_ for
-Clang.
+This file is a list of the people responsible for ensuring that patches for a
+particular part of Clang are reviewed, either by themself or by someone else.
+They are also the gatekeepers for their part of Clang, with the final word on
+what goes in or not.
 
 .. contents::
    :depth: 2
@@ -19,7 +20,7 @@ assistance.
 All parts of Clang not covered by someone else
 ----------------------------------------------
 | Aaron Ballman
-| aaron\@aaronballman.com (email), aaron.ballman (Phabricator), AaronBallman (GitHub), AaronBallman (Discourse), aaronballman (Discord), AaronBallman (IRC)
+| aaron\@aaronballman.com (email), aaron.ballman (Phabricator), AaronBallman (GitHub)
 
 
 Contained Components
@@ -57,12 +58,6 @@ Analysis & CFG
 | sgatev\@google.com (email), sgatev (Phabricator), sgatev (GitHub)
 
 
-Experimental new constant interpreter
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-| Timm Bäder
-| tbaeder@redhat.com (email), tbaeder (Phabricator), tbaederr (GitHub)
-
-
 Modules & serialization
 ~~~~~~~~~~~~~~~~~~~~~~~
 | Chuanqi Xu
@@ -75,17 +70,11 @@ Modules & serialization
 Templates
 ~~~~~~~~~
 | Erich Keane
-| ekeane\@nvidia.com (email), ErichKeane (Phabricator), erichkeane (GitHub)
+| erich.keane\@intel.com (email), ErichKeane (Phabricator), erichkeane (GitHub)
 
 
 Debug information
 ~~~~~~~~~~~~~~~~~
-| Adrian Prantl
-| aprantl\@apple.com (email), aprantl (Phabricator), adrian-prantl (GitHub)
-
-| David Blaikie
-| dblaikie\@gmail.com (email), dblaikie (Phabricator), dwblaikie (GitHub)
-
 | Eric Christopher
 | echristo\@gmail.com (email), echristo (Phabricator), echristo (GitHub)
 
@@ -174,7 +163,7 @@ compiler.
 Attributes
 ~~~~~~~~~~
 | Erich Keane
-| ekeane\@nvidia.com (email), ErichKeane (Phabricator), erichkeane (GitHub)
+| erich.keane\@intel.com (email), ErichKeane (Phabricator), erichkeane (GitHub)
 
 
 Inline assembly
@@ -207,12 +196,6 @@ General Windows support
 | rnk\@google.com (email), rnk (Phabricator), rnk (GitHub)
 
 
-Incremental compilation, REPLs, clang-repl
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-| Vassil Vassilev
-| Vassil.Vassilev\@cern.ch (email), v.g.vassilev (Phabricator), vgvassilev (GitHub)
-
-
 Standards Conformance
 ---------------------
 The following people are responsible for validating that changes are conforming
@@ -222,7 +205,7 @@ standard, when fixing standards bugs, or when implementing a new standard featur
 C conformance
 ~~~~~~~~~~~~~
 | Aaron Ballman
-| aaron\@aaronballman.com (email), aaron.ballman (Phabricator), AaronBallman (GitHub), AaronBallman (Discourse), aaronballman (Discord), AaronBallman (IRC)
+| aaron\@aaronballman.com (email), aaron.ballman (Phabricator), AaronBallman (GitHub)
 
 
 C++ conformance
@@ -240,13 +223,13 @@ Objective-C/C++ conformance
 OpenMP conformance
 ~~~~~~~~~~~~~~~~~~
 | Alexey Bataev
-| a.bataev\@hotmail.com (email), ABataev (Phabricator), alexey-bataev (GitHub)
+| a.bataev\@hotmail.com (email), ABataev (Phabricator), cilkplus (GitHub)
 
 
 OpenCL conformance
 ~~~~~~~~~~~~~~~~~~
 | Anastasia Stulova
-| anastasia\@compiler-experts.com (email), Anastasia (Phabricator), AnastasiaStulova (GitHub)
+| anastasia.stulova\@arm.com (email), Anastasia (Phabricator), AnastasiaStulova (GitHub)
 
 
 SYCL conformance

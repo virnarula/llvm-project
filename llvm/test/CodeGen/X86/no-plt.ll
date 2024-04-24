@@ -5,8 +5,7 @@
 
 define i32 @fp_weakfunc() {
 ; X64: weakfunc@GOTPCREL(%rip)
-  %s = select i1 icmp ne (ptr @weakfunc, ptr null), i32 1, i32 0
-  ret i32 %s
+  ret i32 select (i1 icmp ne (ptr @weakfunc, ptr null), i32 1, i32 0)
 }
 declare extern_weak i32 @weakfunc() nonlazybind
 

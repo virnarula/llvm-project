@@ -1,9 +1,9 @@
 ; RUN: opt < %s -passes=tailcallelim -verify-dom-info -S | FileCheck %s
 
 declare void @noarg()
-declare void @use(ptr)
-declare void @use_nocapture(ptr nocapture)
-declare void @use2_nocapture(ptr nocapture, ptr nocapture)
+declare void @use(i32*)
+declare void @use_nocapture(i32* nocapture)
+declare void @use2_nocapture(i32* nocapture, i32* nocapture)
 
 ; Trivial case. Mark @noarg with tail call.
 define void @test0() {
@@ -17,9 +17,9 @@ define void @test0() {
 define i32 @test1() {
 ; CHECK: i32 @test1()
 ; CHECK-NEXT: alloca
-	%A = alloca i32		; <ptr> [#uses=2]
-	store i32 5, ptr %A
-	call void @use(ptr %A)
+	%A = alloca i32		; <i32*> [#uses=2]
+	store i32 5, i32* %A
+	call void @use(i32* %A)
 ; CHECK: call i32 @test1
 	%X = call i32 @test1()		; <i32> [#uses=1]
 	ret i32 %X
@@ -79,7 +79,7 @@ define void @test4() {
 ; CHECK: tail call void @noarg()
 ; CHECK: ret void
   %a = alloca i32
-  call void @use_nocapture(ptr %a)
+  call void @use_nocapture(i32* %a)
   call void @noarg()
   ret void
 }
@@ -88,44 +88,46 @@ define void @test4() {
 ; bad codegen caused by PR962.
 ;
 ; rdar://14324281.
-define ptr @test5(ptr nocapture %A, i1 %cond) {
-; CHECK: ptr @test5
+define i32* @test5(i32* nocapture %A, i1 %cond) {
+; CHECK: i32* @test5
 ; CHECK-NOT: tailrecurse:
-; CHECK: ret ptr null
+; CHECK: ret i32* null
   %B = alloca i32
   br i1 %cond, label %cond_true, label %cond_false
 cond_true:
-  call ptr @test5(ptr %B, i1 false)
-  ret ptr null
+  call i32* @test5(i32* %B, i1 false)
+  ret i32* null
 cond_false:
-  call void @use2_nocapture(ptr %A, ptr %B)
+  call void @use2_nocapture(i32* %A, i32* %B)
   call void @noarg()
-  ret ptr null
+  ret i32* null
 }
 
 ; PR14143: Make sure that we do not mark functions with nocapture allocas with tail.
 ;
 ; rdar://14324281.
-define void @test6(ptr %a, ptr %b) {
+define void @test6(i32* %a, i32* %b) {
 ; CHECK-LABEL: @test6(
 ; CHECK-NOT: tail call
 ; CHECK: ret void
   %c = alloca [100 x i8], align 16
-  call void @use2_nocapture(ptr %b, ptr %c)
+  %tmp = bitcast [100 x i8]* %c to i32*
+  call void @use2_nocapture(i32* %b, i32* %tmp)
   ret void
 }
 
 ; PR14143: Make sure that we do not mark functions with nocapture allocas with tail.
 ;
 ; rdar://14324281
-define void @test7(ptr %a, ptr %b) nounwind uwtable {
+define void @test7(i32* %a, i32* %b) nounwind uwtable {
 entry:
 ; CHECK-LABEL: @test7(
 ; CHECK-NOT: tail call
 ; CHECK: ret void
   %c = alloca [100 x i8], align 16
-  call void @use2_nocapture(ptr %c, ptr %a)
-  call void @use2_nocapture(ptr %b, ptr %c)
+  %0 = bitcast [100 x i8]* %c to i32*
+  call void @use2_nocapture(i32* %0, i32* %a)
+  call void @use2_nocapture(i32* %b, i32* %0)
   ret void
 }
 
@@ -133,48 +135,48 @@ entry:
 ; not do anything including marking callsites with the tail call marker.
 ;
 ; rdar://14324281.
-define ptr @test8(ptr nocapture %A, i1 %cond) {
-; CHECK: ptr @test8
+define i32* @test8(i32* nocapture %A, i1 %cond) {
+; CHECK: i32* @test8
 ; CHECK-NOT: tailrecurse:
 ; CHECK-NOT: tail call
-; CHECK: ret ptr null
+; CHECK: ret i32* null
   %B = alloca i32
   %B2 = alloca i32
   br i1 %cond, label %cond_true, label %cond_false
 cond_true:
-  call void @use(ptr %B2)
-  call ptr @test8(ptr %B, i1 false)
-  ret ptr null
+  call void @use(i32* %B2)
+  call i32* @test8(i32* %B, i1 false)
+  ret i32* null
 cond_false:
-  call void @use2_nocapture(ptr %A, ptr %B)
+  call void @use2_nocapture(i32* %A, i32* %B)
   call void @noarg()
-  ret ptr null
+  ret i32* null
 }
 
 ; Don't tail call if a byval arg is captured.
-define void @test9(ptr byval(i32) %a) {
+define void @test9(i32* byval(i32) %a) {
 ; CHECK-LABEL: define void @test9(
 ; CHECK: {{^ *}}call void @use(
-  call void @use(ptr %a)
+  call void @use(i32* %a)
   ret void
 }
 
-%struct.X = type { ptr }
+%struct.X = type { i8* }
 
-declare void @ctor(ptr)
-define void @test10(ptr noalias sret(%struct.X) %agg.result, i1 zeroext %b) {
+declare void @ctor(%struct.X*)
+define void @test10(%struct.X* noalias sret(%struct.X) %agg.result, i1 zeroext %b) {
 ; CHECK-LABEL: @test10
 entry:
   %x = alloca %struct.X, align 8
   br i1 %b, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  call void @ctor(ptr %agg.result)
+  call void @ctor(%struct.X* %agg.result)
 ; CHECK: tail call void @ctor
   br label %return
 
 if.end:
-  call void @ctor(ptr %x)
+  call void @ctor(%struct.X* %x)
 ; CHECK: call void @ctor
   br label %return
 
@@ -182,16 +184,16 @@ return:
   ret void
 }
 
-declare void @test11_helper1(ptr nocapture, ptr)
-declare void @test11_helper2(ptr)
+declare void @test11_helper1(i8** nocapture, i8*)
+declare void @test11_helper2(i8*)
 define void @test11() {
 ; CHECK-LABEL: @test11
 ; CHECK-NOT: tail
-  %a = alloca ptr
+  %a = alloca i8*
   %b = alloca i8
-  call void @test11_helper1(ptr %a, ptr %b)  ; a = &b
-  %c = load ptr, ptr %a
-  call void @test11_helper2(ptr %c)
+  call void @test11_helper1(i8** %a, i8* %b)  ; a = &b
+  %c = load i8*, i8** %a
+  call void @test11_helper2(i8* %c)
 ; CHECK: call void @test11_helper2
   ret void
 }
@@ -200,9 +202,9 @@ define void @test11() {
 define void @test12() {
 entry:
 ; CHECK-LABEL: @test12
-; CHECK: {{^ *}} call void undef(ptr undef) [ "foo"(ptr %e) ]
+; CHECK: {{^ *}} call void undef(i8* undef) [ "foo"(i8* %e) ]
   %e = alloca i8
-  call void undef(ptr undef) [ "foo"(ptr %e) ]
+  call void undef(i8* undef) [ "foo"(i8* %e) ]
   unreachable
 }
 
@@ -212,35 +214,37 @@ entry:
 ; point, and both calls below can be marked tail.
 define void @test13() {
 ; CHECK-LABEL: @test13
-; CHECK: tail call void @bar(ptr byval(%struct.foo) %f)
-; CHECK: tail call void @bar(ptr byval(%struct.foo) null)
+; CHECK: tail call void @bar(%struct.foo* byval(%struct.foo) %f)
+; CHECK: tail call void @bar(%struct.foo* byval(%struct.foo) null)
 entry:
   %f = alloca %struct.foo
-  call void @bar(ptr byval(%struct.foo) %f)
-  call void @bar(ptr byval(%struct.foo) null)
+  call void @bar(%struct.foo* byval(%struct.foo) %f)
+  call void @bar(%struct.foo* byval(%struct.foo) null)
   ret void
 }
 
 ; A call which passes a byval parameter using byval can be marked tail.
-define void @test14(ptr byval(%struct.foo) %f) {
+define void @test14(%struct.foo* byval(%struct.foo) %f) {
 ; CHECK-LABEL: @test14
 ; CHECK: tail call void @bar
 entry:
-  call void @bar(ptr byval(%struct.foo) %f)
+  call void @bar(%struct.foo* byval(%struct.foo) %f)
   ret void
 }
 
 ; If a byval parameter is copied into an alloca and passed byval the call can
 ; be marked tail.
-define void @test15(ptr byval(%struct.foo) %f) {
+define void @test15(%struct.foo* byval(%struct.foo) %f) {
 ; CHECK-LABEL: @test15
 ; CHECK: tail call void @bar
 entry:
   %agg.tmp = alloca %struct.foo
-  call void @llvm.memcpy.p0.p0.i64(ptr %agg.tmp, ptr %f, i64 40, i1 false)
-  call void @bar(ptr byval(%struct.foo) %agg.tmp)
+  %0 = bitcast %struct.foo* %agg.tmp to i8*
+  %1 = bitcast %struct.foo* %f to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %0, i8* %1, i64 40, i1 false)
+  call void @bar(%struct.foo* byval(%struct.foo) %agg.tmp)
   ret void
 }
 
-declare void @bar(ptr byval(%struct.foo))
-declare void @llvm.memcpy.p0.p0.i64(ptr nocapture writeonly, ptr nocapture readonly, i64, i1)
+declare void @bar(%struct.foo* byval(%struct.foo))
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i1)

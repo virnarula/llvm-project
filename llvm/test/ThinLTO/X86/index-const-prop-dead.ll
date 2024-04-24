@@ -21,6 +21,6 @@ define i32 @main() {
 }
 
 define i32 @foo() {
-  %v = load i32, ptr @g
+  %v = load i32, i32* @g
   ret i32 %v
 }

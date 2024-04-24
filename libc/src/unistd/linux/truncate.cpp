@@ -10,30 +10,20 @@
 
 #include "src/__support/OSUtil/syscall.h" // For internal syscall function.
 #include "src/__support/common.h"
-#include "src/errno/libc_errno.h"
 
-#include <stdint.h>      // For uint64_t.
+#include <errno.h>
 #include <sys/syscall.h> // For syscall numbers.
 #include <unistd.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, truncate, (const char *path, off_t len)) {
-#ifdef SYS_truncate
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(SYS_truncate, path, len);
-#elif defined(SYS_truncate64)
-  // Same as truncate but can handle large offsets
-  static_assert(sizeof(off_t) == 8);
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(SYS_truncate64, path, (long)len,
-                                              (long)(((uint64_t)(len)) >> 32));
-#else
-#error "truncate and truncate64 syscalls not available."
-#endif
+  int ret = __llvm_libc::syscall_impl(SYS_truncate, path, len);
   if (ret < 0) {
-    libc_errno = -ret;
+    errno = -ret;
     return -1;
   }
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

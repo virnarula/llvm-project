@@ -14,53 +14,23 @@
 
 namespace mlir {
 
-/// Lowering for gpu.dynamic.shared.memory to LLVM dialect. The pattern first
-/// create a 0-sized global array symbol similar as LLVM expects. It constructs
-/// a memref descriptor with these values and return it.
-struct GPUDynamicSharedMemoryOpLowering
-    : public ConvertOpToLLVMPattern<gpu::DynamicSharedMemoryOp> {
-  using ConvertOpToLLVMPattern<
-      gpu::DynamicSharedMemoryOp>::ConvertOpToLLVMPattern;
-  GPUDynamicSharedMemoryOpLowering(const LLVMTypeConverter &converter,
-                                   unsigned alignmentBit = 0)
-      : ConvertOpToLLVMPattern<gpu::DynamicSharedMemoryOp>(converter),
-        alignmentBit(alignmentBit) {}
-
-  LogicalResult
-  matchAndRewrite(gpu::DynamicSharedMemoryOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override;
-
-private:
-  // Alignment bit
-  unsigned alignmentBit;
-};
-
 struct GPUFuncOpLowering : ConvertOpToLLVMPattern<gpu::GPUFuncOp> {
-  GPUFuncOpLowering(
-      const LLVMTypeConverter &converter, unsigned allocaAddrSpace,
-      unsigned workgroupAddrSpace, StringAttr kernelAttributeName,
-      std::optional<StringAttr> kernelBlockSizeAttributeName = std::nullopt)
+  GPUFuncOpLowering(LLVMTypeConverter &converter, unsigned allocaAddrSpace,
+                    StringAttr kernelAttributeName)
       : ConvertOpToLLVMPattern<gpu::GPUFuncOp>(converter),
         allocaAddrSpace(allocaAddrSpace),
-        workgroupAddrSpace(workgroupAddrSpace),
-        kernelAttributeName(kernelAttributeName),
-        kernelBlockSizeAttributeName(kernelBlockSizeAttributeName) {}
+        kernelAttributeName(kernelAttributeName) {}
 
   LogicalResult
   matchAndRewrite(gpu::GPUFuncOp gpuFuncOp, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override;
 
 private:
-  /// The address space to use for `alloca`s in private memory.
+  /// The address spcae to use for `alloca`s in private memory.
   unsigned allocaAddrSpace;
-  /// The address space to use declaring workgroup memory.
-  unsigned workgroupAddrSpace;
 
   /// The attribute name to use instead of `gpu.kernel`.
   StringAttr kernelAttributeName;
-
-  /// The attribute name to to set block size
-  std::optional<StringAttr> kernelBlockSizeAttributeName;
 };
 
 /// The lowering of gpu.printf to a call to HIP hostcalls
@@ -84,7 +54,7 @@ struct GPUPrintfOpToHIPLowering : public ConvertOpToLLVMPattern<gpu::PrintfOp> {
 /// will lower printf calls to appropriate device-side code
 struct GPUPrintfOpToLLVMCallLowering
     : public ConvertOpToLLVMPattern<gpu::PrintfOp> {
-  GPUPrintfOpToLLVMCallLowering(const LLVMTypeConverter &converter,
+  GPUPrintfOpToLLVMCallLowering(LLVMTypeConverter &converter,
                                 int addressSpace = 0)
       : ConvertOpToLLVMPattern<gpu::PrintfOp>(converter),
         addressSpace(addressSpace) {}
@@ -95,16 +65,6 @@ struct GPUPrintfOpToLLVMCallLowering
 
 private:
   int addressSpace;
-};
-
-/// Lowering of gpu.printf to a vprintf standard library.
-struct GPUPrintfOpToVPrintfLowering
-    : public ConvertOpToLLVMPattern<gpu::PrintfOp> {
-  using ConvertOpToLLVMPattern<gpu::PrintfOp>::ConvertOpToLLVMPattern;
-
-  LogicalResult
-  matchAndRewrite(gpu::PrintfOp gpuPrintfOp, gpu::PrintfOpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override;
 };
 
 struct GPUReturnOpLowering : public ConvertOpToLLVMPattern<gpu::ReturnOp> {
@@ -122,7 +82,7 @@ namespace impl {
 /// Unrolls op if it's operating on vectors.
 LogicalResult scalarizeVectorOp(Operation *op, ValueRange operands,
                                 ConversionPatternRewriter &rewriter,
-                                const LLVMTypeConverter &converter);
+                                LLVMTypeConverter &converter);
 } // namespace impl
 
 /// Rewriting that unrolls SourceOp to scalars if it's operating on vectors.
@@ -138,6 +98,7 @@ public:
                                    *this->getTypeConverter());
   }
 };
+
 } // namespace mlir
 
 #endif // MLIR_CONVERSION_GPUCOMMON_GPUOPSLOWERING_H_

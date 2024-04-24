@@ -51,9 +51,6 @@ public:
   void DidPush() override;
 
   bool IsPlanStale() override;
-  
-  bool DoWillResume(lldb::StateType resume_state, bool current_plan) override;
-
 
 protected:
   bool DoPlanExplainsStop(Event *event_ptr) override;
@@ -67,7 +64,6 @@ private:
   StructuredDataImpl m_args_data;
   std::string m_error_str;
   StructuredData::ObjectSP m_implementation_sp;
-  StreamString m_stop_description; // Cache the stop description here
   bool m_did_push;
   bool m_stop_others;
 

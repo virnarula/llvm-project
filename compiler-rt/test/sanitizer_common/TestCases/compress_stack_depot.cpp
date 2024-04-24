@@ -9,10 +9,10 @@
 // UNSUPPORTED: ubsan
 
 // FIXME: Fails for unknown reason.
-// UNSUPPORTED: target=s390x{{.*}}
+// UNSUPPORTED: s390x
 
 // Similar to D114934, something is broken with background thread on THUMB and Asan.
-// XFAIL: target=thumb{{.*}} && asan
+// XFAIL: thumb && asan
 
 #include <sanitizer/common_interface_defs.h>
 

@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
-// TODO: Change to XFAIL once https://github.com/llvm/llvm-project/issues/40340 is fixed
-// UNSUPPORTED: availability-pmr-missing
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx10.{{9|10|11|12|13|14|15}}
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx{{11.0|12.0}}
 
 // <memory_resource>
 
@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <utility>
 #include <cassert>
+#include <cstdlib>
 
 #include "test_macros.h"
 
@@ -104,12 +105,13 @@ void test_evil() {
   PMA pma(std::pmr::new_delete_resource());
   {
     using Pair  = std::pair<W1, W2>;
-    alignas(Pair) char buffer[sizeof(Pair)];
-    Pair* p = reinterpret_cast<Pair*>(buffer);
+    void* where = std::malloc(sizeof(Pair));
+    Pair* p     = (Pair*)where;
     pma.construct(p, std::piecewise_construct, std::make_tuple(42), std::make_tuple(42));
     assert(p->first.holds(42, pma));
     assert(p->second.holds(42, pma));
     pma.destroy(p);
+    std::free(where);
   }
 }
 

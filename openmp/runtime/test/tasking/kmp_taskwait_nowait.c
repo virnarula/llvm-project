@@ -11,7 +11,7 @@
 typedef struct DEP {
   size_t addr;
   size_t len;
-  unsigned char flags;
+  int flags;
 } _dep;
 typedef struct ID {
   int reserved_1;

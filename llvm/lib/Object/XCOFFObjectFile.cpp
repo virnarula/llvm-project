@@ -12,8 +12,8 @@
 
 #include "llvm/Object/XCOFFObjectFile.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/DataExtractor.h"
-#include "llvm/TargetParser/SubtargetFeature.h"
 #include <cstddef>
 #include <cstring>
 
@@ -88,34 +88,6 @@ uint8_t XCOFFRelocation<AddressType>::getRelocatedLength() const {
 
 template struct ExceptionSectionEntry<support::ubig32_t>;
 template struct ExceptionSectionEntry<support::ubig64_t>;
-
-template <typename T>
-Expected<StringRef> getLoaderSecSymNameInStrTbl(const T *LoaderSecHeader,
-                                                uint64_t Offset) {
-  if (LoaderSecHeader->LengthOfStrTbl > Offset)
-    return (reinterpret_cast<const char *>(LoaderSecHeader) +
-            LoaderSecHeader->OffsetToStrTbl + Offset);
-
-  return createError("entry with offset 0x" + Twine::utohexstr(Offset) +
-                     " in the loader section's string table with size 0x" +
-                     Twine::utohexstr(LoaderSecHeader->LengthOfStrTbl) +
-                     " is invalid");
-}
-
-Expected<StringRef> LoaderSectionSymbolEntry32::getSymbolName(
-    const LoaderSectionHeader32 *LoaderSecHeader32) const {
-  const NameOffsetInStrTbl *NameInStrTbl =
-      reinterpret_cast<const NameOffsetInStrTbl *>(SymbolName);
-  if (NameInStrTbl->IsNameInStrTbl != XCOFFSymbolRef::NAME_IN_STR_TBL_MAGIC)
-    return generateXCOFFFixedNameStringRef(SymbolName);
-
-  return getLoaderSecSymNameInStrTbl(LoaderSecHeader32, NameInStrTbl->Offset);
-}
-
-Expected<StringRef> LoaderSectionSymbolEntry64::getSymbolName(
-    const LoaderSectionHeader64 *LoaderSecHeader64) const {
-  return getLoaderSecSymNameInStrTbl(LoaderSecHeader64, Offset);
-}
 
 uintptr_t
 XCOFFObjectFile::getAdvancedSymbolEntryAddress(uintptr_t CurrentAddress,
@@ -299,11 +271,7 @@ Expected<SymbolRef::Type>
 XCOFFObjectFile::getSymbolType(DataRefImpl Symb) const {
   XCOFFSymbolRef XCOFFSym = toSymbolRef(Symb);
 
-  Expected<bool> IsFunction = XCOFFSym.isFunction();
-  if (!IsFunction)
-    return IsFunction.takeError();
-
-  if (*IsFunction)
+  if (XCOFFSym.isFunction())
     return SymbolRef::ST_Function;
 
   if (XCOFF::C_FILE == XCOFFSym.getStorageClass())
@@ -418,7 +386,7 @@ XCOFFObjectFile::getSectionContents(DataRefImpl Sec) const {
         Twine::utohexstr(OffsetToRaw) + " and size 0x" +
         Twine::utohexstr(SectionSize) + " goes past the end of the file");
 
-  return ArrayRef(ContentStart, SectionSize);
+  return makeArrayRef(ContentStart,SectionSize);
 }
 
 uint64_t XCOFFObjectFile::getSectionAlignment(DataRefImpl Sec) const {
@@ -693,10 +661,6 @@ basic_symbol_iterator XCOFFObjectFile::symbol_end() const {
   return basic_symbol_iterator(SymbolRef(SymDRI, this));
 }
 
-XCOFFObjectFile::xcoff_symbol_iterator_range XCOFFObjectFile::symbols() const {
-  return xcoff_symbol_iterator_range(symbol_begin(), symbol_end());
-}
-
 section_iterator XCOFFObjectFile::section_begin() const {
   DataRefImpl DRI;
   DRI.p = getSectionHeaderTableAddress();
@@ -720,7 +684,7 @@ Triple::ArchType XCOFFObjectFile::getArch() const {
   return is64Bit() ? Triple::ppc64 : Triple::ppc;
 }
 
-Expected<SubtargetFeatures> XCOFFObjectFile::getFeatures() const {
+SubtargetFeatures XCOFFObjectFile::getFeatures() const {
   return SubtargetFeatures();
 }
 
@@ -1225,11 +1189,7 @@ ObjectFile::createXCOFFObjectFile(MemoryBufferRef MemBufRef,
   return XCOFFObjectFile::create(FileType, MemBufRef);
 }
 
-std::optional<StringRef> XCOFFObjectFile::tryGetCPUName() const {
-  return StringRef("future");
-}
-
-Expected<bool> XCOFFSymbolRef::isFunction() const {
+bool XCOFFSymbolRef::isFunction() const {
   if (!isCsectSymbol())
     return false;
 
@@ -1237,62 +1197,34 @@ Expected<bool> XCOFFSymbolRef::isFunction() const {
     return true;
 
   Expected<XCOFFCsectAuxRef> ExpCsectAuxEnt = getXCOFFCsectAuxRef();
-  if (!ExpCsectAuxEnt)
-    return ExpCsectAuxEnt.takeError();
+  if (!ExpCsectAuxEnt) {
+    // If we could not get the CSECT auxiliary entry, then treat this symbol as
+    // if it isn't a function. Consume the error and return `false` to move on.
+    consumeError(ExpCsectAuxEnt.takeError());
+    return false;
+  }
 
   const XCOFFCsectAuxRef CsectAuxRef = ExpCsectAuxEnt.get();
 
-  if (CsectAuxRef.getStorageMappingClass() != XCOFF::XMC_PR &&
-      CsectAuxRef.getStorageMappingClass() != XCOFF::XMC_GL)
+  // A function definition should be a label definition.
+  // FIXME: This is not necessarily the case when -ffunction-sections is
+  // enabled.
+  if (!CsectAuxRef.isLabel())
     return false;
 
-  // A function definition should not be a common type symbol or an external
-  // symbol.
-  if (CsectAuxRef.getSymbolType() == XCOFF::XTY_CM ||
-      CsectAuxRef.getSymbolType() == XCOFF::XTY_ER)
+  if (CsectAuxRef.getStorageMappingClass() != XCOFF::XMC_PR)
     return false;
 
-  // If the next symbol is an XTY_LD type symbol with the same address, this
-  // XTY_SD symbol is not a function. Otherwise this is a function symbol for
-  // -ffunction-sections.
-  if (CsectAuxRef.getSymbolType() == XCOFF::XTY_SD) {
-    // If this is a csect with size 0, it won't be a function definition.
-    // This is used to work around the fact that LLVM always generates below
-    // symbol for -ffunction-sections:
-    // m   0x00000000     .text     1  unamex                    **No Symbol**
-    // a4  0x00000000       0    0     SD       PR    0    0
-    // FIXME: remove or replace this meaningless symbol.
-    if (getSize() == 0)
-      return false;
-
-    xcoff_symbol_iterator NextIt(this);
-    // If this is the last main symbol table entry, there won't be an XTY_LD
-    // type symbol below.
-    if (++NextIt == getObject()->symbol_end())
-      return true;
-
-    if (cantFail(getAddress()) != cantFail(NextIt->getAddress()))
-      return true;
-
-    // Check next symbol is XTY_LD. If so, this symbol is not a function.
-    Expected<XCOFFCsectAuxRef> NextCsectAuxEnt = NextIt->getXCOFFCsectAuxRef();
-    if (!NextCsectAuxEnt)
-      return NextCsectAuxEnt.takeError();
-
-    if (NextCsectAuxEnt.get().getSymbolType() == XCOFF::XTY_LD)
-      return false;
-
-    return true;
+  const int16_t SectNum = getSectionNumber();
+  Expected<DataRefImpl> SI = OwningObjectPtr->getSectionByNum(SectNum);
+  if (!SI) {
+    // If we could not get the section, then this symbol should not be
+    // a function. So consume the error and return `false` to move on.
+    consumeError(SI.takeError());
+    return false;
   }
 
-  if (CsectAuxRef.getSymbolType() == XCOFF::XTY_LD)
-    return true;
-
-  return createError(
-      "symbol csect aux entry with index " +
-      Twine(getObject()->getSymbolIndex(CsectAuxRef.getEntryAddress())) +
-      " has invalid symbol type " +
-      Twine::utohexstr(CsectAuxRef.getSymbolType()));
+  return (OwningObjectPtr->getSectionFlags(SI.get()) & XCOFF::STYP_TEXT);
 }
 
 bool XCOFFSymbolRef::isCsectSymbol() const {
@@ -1311,13 +1243,13 @@ Expected<XCOFFCsectAuxRef> XCOFFSymbolRef::getXCOFFCsectAuxRef() const {
   if (auto Err = NameOrErr.takeError())
     return std::move(Err);
 
-  uint32_t SymbolIdx = getObject()->getSymbolIndex(getEntryAddress());
+  uint32_t SymbolIdx = OwningObjectPtr->getSymbolIndex(getEntryAddress());
   if (!NumberOfAuxEntries) {
     return createError("csect symbol \"" + *NameOrErr + "\" with index " +
                        Twine(SymbolIdx) + " contains no auxiliary entry");
   }
 
-  if (!getObject()->is64Bit()) {
+  if (!OwningObjectPtr->is64Bit()) {
     // In XCOFF32, the csect auxilliary entry is always the last auxiliary
     // entry for the symbol.
     uintptr_t AuxAddr = XCOFFObjectFile::getAdvancedSymbolEntryAddress(
@@ -1330,10 +1262,10 @@ Expected<XCOFFCsectAuxRef> XCOFFSymbolRef::getXCOFFCsectAuxRef() const {
   for (uint8_t Index = NumberOfAuxEntries; Index > 0; --Index) {
     uintptr_t AuxAddr = XCOFFObjectFile::getAdvancedSymbolEntryAddress(
         getEntryAddress(), Index);
-    if (*getObject()->getSymbolAuxType(AuxAddr) ==
+    if (*OwningObjectPtr->getSymbolAuxType(AuxAddr) ==
         XCOFF::SymbolAuxType::AUX_CSECT) {
 #ifndef NDEBUG
-      getObject()->checkSymbolEntryPointer(AuxAddr);
+      OwningObjectPtr->checkSymbolEntryPointer(AuxAddr);
 #endif
       return XCOFFCsectAuxRef(viewAs<XCOFFCsectAuxEnt64>(AuxAddr));
     }
@@ -1350,15 +1282,14 @@ Expected<StringRef> XCOFFSymbolRef::getName() const {
   if (getStorageClass() & 0x80)
     return StringRef("Unimplemented Debug Name");
 
-  if (!getObject()->is64Bit()) {
-    if (getSymbol32()->NameInStrTbl.Magic !=
-        XCOFFSymbolRef::NAME_IN_STR_TBL_MAGIC)
-      return generateXCOFFFixedNameStringRef(getSymbol32()->SymbolName);
+  if (Entry32) {
+    if (Entry32->NameInStrTbl.Magic != XCOFFSymbolRef::NAME_IN_STR_TBL_MAGIC)
+      return generateXCOFFFixedNameStringRef(Entry32->SymbolName);
 
-    return getObject()->getStringTableEntry(getSymbol32()->NameInStrTbl.Offset);
+    return OwningObjectPtr->getStringTableEntry(Entry32->NameInStrTbl.Offset);
   }
 
-  return getObject()->getStringTableEntry(getSymbol64()->Offset);
+  return OwningObjectPtr->getStringTableEntry(Entry64->Offset);
 }
 
 // Explictly instantiate template classes.
@@ -1435,18 +1366,18 @@ bool TBVectorExt::hasVMXInstruction() const {
 #undef GETVALUEWITHMASK
 #undef GETVALUEWITHMASKSHIFT
 
-Expected<XCOFFTracebackTable>
-XCOFFTracebackTable::create(const uint8_t *Ptr, uint64_t &Size, bool Is64Bit) {
+Expected<XCOFFTracebackTable> XCOFFTracebackTable::create(const uint8_t *Ptr,
+                                                          uint64_t &Size) {
   Error Err = Error::success();
-  XCOFFTracebackTable TBT(Ptr, Size, Err, Is64Bit);
+  XCOFFTracebackTable TBT(Ptr, Size, Err);
   if (Err)
     return std::move(Err);
   return TBT;
 }
 
 XCOFFTracebackTable::XCOFFTracebackTable(const uint8_t *Ptr, uint64_t &Size,
-                                         Error &Err, bool Is64Bit)
-    : TBPtr(Ptr), Is64BitObj(Is64Bit) {
+                                         Error &Err)
+    : TBPtr(Ptr) {
   ErrorAsOutParameter EAO(&Err);
   DataExtractor DE(ArrayRef<uint8_t>(Ptr, Size), /*IsLittleEndian=*/false,
                    /*AddressSize=*/0);
@@ -1501,8 +1432,6 @@ XCOFFTracebackTable::XCOFFTracebackTable(const uint8_t *Ptr, uint64_t &Size,
       }
       VecExt = TBVecExtOrErr.get();
       VectorParmsNum = VecExt->getNumberOfVectorParms();
-      // Skip two bytes of padding after vector info.
-      DE.skip(Cur, 2);
     }
   }
 
@@ -1523,15 +1452,9 @@ XCOFFTracebackTable::XCOFFTracebackTable(const uint8_t *Ptr, uint64_t &Size,
     ParmsType = ParmsTypeOrError.get();
   }
 
-  if (Cur && hasExtensionTable()) {
+  if (Cur && hasExtensionTable())
     ExtensionTable = DE.getU8(Cur);
 
-    if (*ExtensionTable & ExtendedTBTableFlag::TB_EH_INFO) {
-      // eh_info displacement must be 4-byte aligned.
-      Cur.seek(alignTo(Cur.tell(), 4));
-      EhInfoDisp = Is64BitObj ? DE.getU64(Cur) : DE.getU32(Cur);
-    }
-  }
   if (!Cur)
     Err = Cur.takeError();
 

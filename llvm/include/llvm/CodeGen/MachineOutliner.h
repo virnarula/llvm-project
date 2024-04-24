@@ -87,7 +87,7 @@ private:
     // Compute liveness from the end of the block up to the beginning of the
     // outlining candidate.
     for (auto &MI : make_range(MBB->rbegin(),
-                               (MachineBasicBlock::reverse_iterator)begin()))
+                               (MachineBasicBlock::reverse_iterator)front()))
       FromEndOfBlockToStartOfSeq.stepBackward(MI);
   }
 
@@ -100,7 +100,7 @@ private:
       return;
     InSeqWasSet = true;
     InSeq.init(TRI);
-    for (auto &MI : *this)
+    for (auto &MI : make_range(front(), std::next(back())))
       InSeq.accumulate(MI);
   }
 
@@ -135,11 +135,8 @@ public:
   /// Returns the call overhead of this candidate if it is in the list.
   unsigned getCallOverhead() const { return CallOverhead; }
 
-  MachineBasicBlock::iterator begin() { return FirstInst; }
-  MachineBasicBlock::iterator end() { return std::next(LastInst); }
-
-  MachineInstr &front() { return *FirstInst; }
-  MachineInstr &back() { return *LastInst; }
+  MachineBasicBlock::iterator &front() { return FirstInst; }
+  MachineBasicBlock::iterator &back() { return LastInst; }
   MachineFunction *getMF() const { return MBB->getParent(); }
   MachineBasicBlock *getMBB() const { return MBB; }
 
@@ -202,7 +199,7 @@ public:
             unsigned FunctionIdx, unsigned Flags)
       : StartIdx(StartIdx), Len(Len), FirstInst(FirstInst), LastInst(LastInst),
         MBB(MBB), FunctionIdx(FunctionIdx), Flags(Flags) {}
-  Candidate() = delete;
+  Candidate() = default;
 
   /// Used to ensure that \p Candidates are outlined in an order that
   /// preserves the start and end indices of other \p Candidates.
@@ -271,7 +268,7 @@ public:
       C.Benefit = B;
   }
 
-  OutlinedFunction() = delete;
+  OutlinedFunction() = default;
 };
 } // namespace outliner
 } // namespace llvm

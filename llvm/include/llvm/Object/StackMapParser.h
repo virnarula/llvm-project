@@ -21,7 +21,8 @@
 namespace llvm {
 
 /// A parser for the latest stackmap format.  At the moment, latest=V3.
-template <llvm::endianness Endianness> class StackMapParser {
+template <support::endianness Endianness>
+class StackMapParser {
 public:
   template <typename AccessorT>
   class AccessorIterator {
@@ -436,7 +437,7 @@ public:
 private:
   template <typename T>
   static T read(const uint8_t *P) {
-    return support::endian::read<T, Endianness>(P);
+    return support::endian::read<T, Endianness, 1>(P);
   }
 
   static const unsigned HeaderOffset = 0;

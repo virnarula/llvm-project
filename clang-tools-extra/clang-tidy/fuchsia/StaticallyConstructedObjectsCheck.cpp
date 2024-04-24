@@ -10,7 +10,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::fuchsia {
+namespace clang {
+namespace tidy {
+namespace fuchsia {
 
 namespace {
 AST_MATCHER(Expr, isConstantInitializer) {
@@ -48,4 +50,6 @@ void StaticallyConstructedObjectsCheck::check(
                            "constexpr constructor instead");
 }
 
-} // namespace clang::tidy::fuchsia
+} // namespace fuchsia
+} // namespace tidy
+} // namespace clang

@@ -8,84 +8,82 @@
 
 #include "src/__support/CPP/array.h"
 #include "src/__support/FPUtil/FPBits.h"
-#include "src/errno/libc_errno.h"
 #include "src/math/sinhf.h"
-#include "test/UnitTest/FPMatcher.h"
-#include "test/UnitTest/Test.h"
 #include "utils/MPFRWrapper/MPFRUtils.h"
+#include "utils/UnitTest/FPMatcher.h"
+#include "utils/UnitTest/Test.h"
 #include <math.h>
 
 #include <errno.h>
 #include <stdint.h>
 
-using LlvmLibcSinhfTest = LIBC_NAMESPACE::testing::FPTest<float>;
+using FPBits = __llvm_libc::fputil::FPBits<float>;
 
-namespace mpfr = LIBC_NAMESPACE::testing::mpfr;
+namespace mpfr = __llvm_libc::testing::mpfr;
 
-TEST_F(LlvmLibcSinhfTest, SpecialNumbers) {
-  libc_errno = 0;
+DECLARE_SPECIAL_CONSTANTS(float)
 
-  EXPECT_FP_EQ(aNaN, LIBC_NAMESPACE::sinhf(aNaN));
+TEST(LlvmLibcSinhfTest, SpecialNumbers) {
+  errno = 0;
+
+  EXPECT_FP_EQ(aNaN, __llvm_libc::sinhf(aNaN));
   EXPECT_MATH_ERRNO(0);
 
-  EXPECT_FP_EQ(0.0f, LIBC_NAMESPACE::sinhf(0.0f));
+  EXPECT_FP_EQ(0.0f, __llvm_libc::sinhf(0.0f));
   EXPECT_MATH_ERRNO(0);
 
-  EXPECT_FP_EQ(-0.0f, LIBC_NAMESPACE::sinhf(-0.0f));
+  EXPECT_FP_EQ(-0.0f, __llvm_libc::sinhf(-0.0f));
   EXPECT_MATH_ERRNO(0);
 
-  EXPECT_FP_EQ(inf, LIBC_NAMESPACE::sinhf(inf));
+  EXPECT_FP_EQ(inf, __llvm_libc::sinhf(inf));
   EXPECT_MATH_ERRNO(0);
 
-  EXPECT_FP_EQ(neg_inf, LIBC_NAMESPACE::sinhf(neg_inf));
+  EXPECT_FP_EQ(neg_inf, __llvm_libc::sinhf(neg_inf));
   EXPECT_MATH_ERRNO(0);
 }
 
-TEST_F(LlvmLibcSinhfTest, InFloatRange) {
-  constexpr uint32_t COUNT = 100'000;
+TEST(LlvmLibcSinhfTest, InFloatRange) {
+  constexpr uint32_t COUNT = 1000000;
   constexpr uint32_t STEP = UINT32_MAX / COUNT;
   for (uint32_t i = 0, v = 0; i <= COUNT; ++i, v += STEP) {
-    float x = FPBits(v).get_val();
+    float x = float(FPBits(v));
     if (isnan(x) || isinf(x))
       continue;
-    ASSERT_MPFR_MATCH(mpfr::Operation::Sinh, x, LIBC_NAMESPACE::sinhf(x), 0.5);
+    ASSERT_MPFR_MATCH(mpfr::Operation::Sinh, x, __llvm_libc::sinhf(x), 0.5);
   }
 }
 
 // For small values, sinh(x) is x.
-TEST_F(LlvmLibcSinhfTest, SmallValues) {
-  float x = FPBits(uint32_t(0x17800000)).get_val();
-  float result = LIBC_NAMESPACE::sinhf(x);
+TEST(LlvmLibcSinhfTest, SmallValues) {
+  float x = float(FPBits(uint32_t(0x17800000)));
+  float result = __llvm_libc::sinhf(x);
   EXPECT_MPFR_MATCH(mpfr::Operation::Sinh, x, result, 0.5);
   EXPECT_FP_EQ(x, result);
 
-  x = FPBits(uint32_t(0x00400000)).get_val();
-  result = LIBC_NAMESPACE::sinhf(x);
+  x = float(FPBits(uint32_t(0x00400000)));
+  result = __llvm_libc::sinhf(x);
   EXPECT_MPFR_MATCH(mpfr::Operation::Sinh, x, result, 0.5);
   EXPECT_FP_EQ(x, result);
 }
 
-TEST_F(LlvmLibcSinhfTest, Overflow) {
-  libc_errno = 0;
-  EXPECT_FP_EQ_WITH_EXCEPTION(
-      inf, LIBC_NAMESPACE::sinhf(FPBits(0x7f7fffffU).get_val()), FE_OVERFLOW);
+TEST(LlvmLibcSinhfTest, Overflow) {
+  errno = 0;
+  EXPECT_FP_EQ(inf, __llvm_libc::sinhf(float(FPBits(0x7f7fffffU))));
   EXPECT_MATH_ERRNO(ERANGE);
 
-  EXPECT_FP_EQ_WITH_EXCEPTION(
-      inf, LIBC_NAMESPACE::sinhf(FPBits(0x42cffff8U).get_val()), FE_OVERFLOW);
+  EXPECT_FP_EQ(inf, __llvm_libc::sinhf(float(FPBits(0x42cffff8U))));
   EXPECT_MATH_ERRNO(ERANGE);
 
-  EXPECT_FP_EQ_WITH_EXCEPTION(
-      inf, LIBC_NAMESPACE::sinhf(FPBits(0x42d00008U).get_val()), FE_OVERFLOW);
+  EXPECT_FP_EQ(inf, __llvm_libc::sinhf(float(FPBits(0x42d00008U))));
   EXPECT_MATH_ERRNO(ERANGE);
 }
 
-TEST_F(LlvmLibcSinhfTest, ExceptionalValues) {
-  float x = FPBits(uint32_t(0x3a12'85ffU)).get_val();
+TEST(LlvmLibcSinhfTest, ExceptionalValues) {
+  float x = float(FPBits(uint32_t(0x3a12'85ffU)));
   EXPECT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Sinh, x,
-                                 LIBC_NAMESPACE::sinhf(x), 0.5);
+                                 __llvm_libc::sinhf(x), 0.5);
 
-  x = -FPBits(uint32_t(0x3a12'85ffU)).get_val();
+  x = -float(FPBits(uint32_t(0x3a12'85ffU)));
   EXPECT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Sinh, x,
-                                 LIBC_NAMESPACE::sinhf(x), 0.5);
+                                 __llvm_libc::sinhf(x), 0.5);
 }

@@ -2,6 +2,6 @@
 
 define void @test1() {
 entry:
-  resume { ptr, i32 } undef
+  resume { i8*, i32 } undef
 ; CHECK: ResumeInst needs to be in a function with a personality.
 }

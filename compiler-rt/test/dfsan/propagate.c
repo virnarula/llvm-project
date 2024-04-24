@@ -1,4 +1,6 @@
 // RUN: %clang_dfsan %s -o %t && %run %t
+//
+// REQUIRES: x86_64-target-arch
 
 // Tests that labels are propagated through computation and that union labels
 // are properly created.

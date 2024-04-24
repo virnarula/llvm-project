@@ -14,8 +14,6 @@
 ; RUN: llc < %s -march=nvptx -mcpu=sm_75 | FileCheck %s --check-prefix=SM75
 ; RUN: llc < %s -march=nvptx -mcpu=sm_80 | FileCheck %s --check-prefix=SM80
 ; RUN: llc < %s -march=nvptx -mcpu=sm_86 | FileCheck %s --check-prefix=SM86
-; RUN: llc < %s -march=nvptx -mcpu=sm_90 | FileCheck %s --check-prefix=SM90
-; RUN: llc < %s -march=nvptx -mcpu=sm_90a | FileCheck %s --check-prefix=SM90a
 
 ; RUN: llc < %s -march=nvptx64 -mcpu=sm_20 | FileCheck %s --check-prefix=SM20
 ; RUN: llc < %s -march=nvptx64 -mcpu=sm_21 | FileCheck %s --check-prefix=SM21
@@ -33,12 +31,8 @@
 ; RUN: llc < %s -march=nvptx64 -mcpu=sm_75 | FileCheck %s --check-prefix=SM75
 ; RUN: llc < %s -march=nvptx64 -mcpu=sm_80 | FileCheck %s --check-prefix=SM80
 ; RUN: llc < %s -march=nvptx64 -mcpu=sm_86 | FileCheck %s --check-prefix=SM86
-; RUN: llc < %s -march=nvptx64 -mcpu=sm_90 | FileCheck %s --check-prefix=SM90
-; RUN: llc < %s -march=nvptx64 -mcpu=sm_90a | FileCheck %s --check-prefix=SM90a
 
-; SM20: .version 3.2
-; SM21: .version 3.2
-; SM30: .version 6.0
+; SM30: .version 3.2
 ; SM32: .version 4.0
 ; SM35: .version 3.2
 ; SM37: .version 4.1
@@ -52,8 +46,6 @@
 ; SM75: .version 6.3
 ; SM80: .version 7.0
 ; SM86: .version 7.1
-; SM90: .version 7.8
-; SM90a: .version 8.0
 
 ; SM20: .target sm_20
 ; SM21: .target sm_21
@@ -71,5 +63,3 @@
 ; SM75: .target sm_75
 ; SM80: .target sm_80
 ; SM86: .target sm_86
-; SM90: .target sm_90
-; SM90a: .target sm_90a

@@ -21,7 +21,6 @@
 #include "lldb/Utility/Timer.h"
 
 #include <memory>
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -211,7 +210,7 @@ bool SymbolFileSymtab::ParseDebugMacros(CompileUnit &comp_unit) {
 }
 
 bool SymbolFileSymtab::ParseSupportFiles(CompileUnit &comp_unit,
-                                         SupportFileList &support_files) {
+                                         FileSpecList &support_files) {
   return false;
 }
 
@@ -230,10 +229,10 @@ Type *SymbolFileSymtab::ResolveTypeUID(lldb::user_id_t type_uid) {
   return nullptr;
 }
 
-std::optional<SymbolFile::ArrayInfo>
+llvm::Optional<SymbolFile::ArrayInfo>
 SymbolFileSymtab::GetDynamicArrayInfoForUID(
     lldb::user_id_t type_uid, const lldb_private::ExecutionContext *exe_ctx) {
-  return std::nullopt;
+  return llvm::None;
 }
 
 bool SymbolFileSymtab::CompleteType(lldb_private::CompilerType &compiler_type) {

@@ -7,24 +7,33 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/unistd/lseek.h"
-#include "src/errno/libc_errno.h"
 
-#include "src/__support/File/linux/lseekImpl.h"
 #include "src/__support/OSUtil/syscall.h" // For internal syscall function.
 #include "src/__support/common.h"
 
+#include <errno.h>
 #include <sys/syscall.h> // For syscall numbers.
-#include <unistd.h>      // For off_t.
+#include <unistd.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(off_t, lseek, (int fd, off_t offset, int whence)) {
-  auto result = internal::lseekimpl(fd, offset, whence);
-  if (!result.has_value()) {
-    libc_errno = result.error();
+  off_t result;
+#ifdef SYS_lseek
+  long ret = __llvm_libc::syscall_impl(SYS_lseek, fd, offset, whence);
+  result = ret;
+#elif defined(SYS__llseek)
+  long ret = __llvm_libc::syscall_impl(SYS__llseek, fd, offset >> 32, offset,
+                                       &result, whence);
+#else
+#error "lseek and _llseek syscalls not available."
+#endif
+
+  if (ret < 0) {
+    errno = -ret;
     return -1;
   }
-  return result.value();
+  return result;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

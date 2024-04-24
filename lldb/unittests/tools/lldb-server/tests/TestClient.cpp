@@ -59,13 +59,10 @@ Expected<std::unique_ptr<TestClient>> TestClient::launch(StringRef Log) {
 }
 
 Expected<std::unique_ptr<TestClient>> TestClient::launch(StringRef Log, ArrayRef<StringRef> InferiorArgs) {
-  return launchCustom(Log, false, {}, InferiorArgs);
+  return launchCustom(Log, {}, InferiorArgs);
 }
 
-Expected<std::unique_ptr<TestClient>>
-TestClient::launchCustom(StringRef Log, bool disable_stdio,
-                         ArrayRef<StringRef> ServerArgs,
-                         ArrayRef<StringRef> InferiorArgs) {
+Expected<std::unique_ptr<TestClient>> TestClient::launchCustom(StringRef Log, ArrayRef<StringRef> ServerArgs, ArrayRef<StringRef> InferiorArgs) {
   const ArchSpec &arch_spec = HostInfo::GetArchitecture();
   Args args;
   args.AppendArgument(LLDB_SERVER);
@@ -114,8 +111,6 @@ TestClient::launchCustom(StringRef Log, bool disable_stdio,
   // Accept().
   Info.SetMonitorProcessCallback(&ProcessLaunchInfo::NoOpMonitorCallback);
 
-  if (disable_stdio)
-    Info.GetFlags().Set(lldb::eLaunchFlagDisableSTDIO);
   status = Host::LaunchProcess(Info);
   if (status.Fail())
     return status.ToError();
@@ -221,7 +216,7 @@ unsigned int TestClient::GetPcRegisterId() {
 }
 
 Error TestClient::qProcessInfo() {
-  m_process_info = std::nullopt;
+  m_process_info = None;
   auto InfoOr = SendMessage<ProcessInfo>("qProcessInfo");
   if (!InfoOr)
     return InfoOr.takeError();

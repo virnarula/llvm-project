@@ -13,8 +13,6 @@
 #include "omptarget.h"
 #include "private.h"
 
-#include "Shared/Profile.h"
-
 EXTERN void __tgt_target_data_begin(int64_t DeviceId, int32_t ArgNum,
                                     void **ArgsBase, void **Args,
                                     int64_t *ArgSizes, int64_t *ArgTypes) {
@@ -74,12 +72,12 @@ EXTERN void __tgt_target_data_end_nowait(int64_t DeviceId, int32_t ArgNum,
 }
 
 EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
-                               uint32_t ArgNum, void **ArgsBase, void **Args,
+                               int32_t ArgNum, void **ArgsBase, void **Args,
                                int64_t *ArgSizes, int64_t *ArgTypes,
                                map_var_info_t *ArgNames, void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
-  KernelArgsTy KernelArgs{1,        ArgNum,   ArgsBase,   Args, ArgSizes,
-                          ArgTypes, ArgNames, ArgMappers, 0};
+  __tgt_kernel_arguments KernelArgs{
+      1, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames, ArgMappers, 0};
   return __tgt_target_kernel(Loc, DeviceId, -1, -1, HostPtr, &KernelArgs);
 }
 
@@ -113,7 +111,7 @@ EXTERN int __tgt_target_nowait_mapper(
 }
 
 EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
-                                     void *HostPtr, uint32_t ArgNum,
+                                     void *HostPtr, int32_t ArgNum,
                                      void **ArgsBase, void **Args,
                                      int64_t *ArgSizes, int64_t *ArgTypes,
                                      map_var_info_t *ArgNames,
@@ -121,8 +119,8 @@ EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
                                      int32_t ThreadLimit) {
   TIMESCOPE_WITH_IDENT(Loc);
 
-  KernelArgsTy KernelArgs{1,        ArgNum,   ArgsBase,   Args, ArgSizes,
-                          ArgTypes, ArgNames, ArgMappers, 0};
+  __tgt_kernel_arguments KernelArgs{
+      1, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames, ArgMappers, 0};
   return __tgt_target_kernel(Loc, DeviceId, NumTeams, ThreadLimit, HostPtr,
                              &KernelArgs);
 }
@@ -173,15 +171,4 @@ EXTERN void __kmpc_push_target_tripcount_mapper(ident_t *Loc, int64_t DeviceId,
 EXTERN void __kmpc_push_target_tripcount(int64_t DeviceId,
                                          uint64_t LoopTripcount) {
   __kmpc_push_target_tripcount_mapper(nullptr, DeviceId, LoopTripcount);
-}
-
-EXTERN int __tgt_target_kernel_nowait(ident_t *Loc, int64_t DeviceId,
-                                      int32_t NumTeams, int32_t ThreadLimit,
-                                      void *HostPtr, KernelArgsTy *KernelArgs,
-                                      int32_t DepNum, void *DepList,
-                                      int32_t NoAliasDepNum,
-                                      void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  return __tgt_target_kernel(Loc, DeviceId, NumTeams, ThreadLimit, HostPtr,
-                             KernelArgs);
 }

@@ -1,3 +1,4 @@
+; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=-1 -pass-remarks=hotcoldsplit -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=-1 -pass-remarks=hotcoldsplit -S < %s 2>&1 | FileCheck %s
 
 ; Make sure this compiles. This test used to fail with an invalid phi node: the
@@ -8,7 +9,7 @@
 ; CHECK: codeRepl:
 ; CHECK-NEXT: call void @fun.cold.1
 
-; CHECK: define internal {{.*}}@fun.cold.1{{.*}} [[cold_attr:#[0-9]+]]
+; CHECK: define {{.*}}@fun.cold.1{{.*}} [[cold_attr:#[0-9]+]]
 ; CHECK: attributes [[cold_attr]] = { {{.*}}noreturn
 
 define void @fun() {

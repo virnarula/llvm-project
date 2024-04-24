@@ -18,13 +18,16 @@
 #include <span>
 #include <iterator>
 
-template<class T, std::size_t Extent>
+
+template<class T, size_t Extent>
 std::span<T, Extent> createImplicitSpan(T* first, T* last) {
     return {first, last}; // expected-error {{chosen constructor is explicit in copy-initialization}}
 }
 
-void f() {
+int main(int, char**) {
   // explicit constructor necessary
   int arr[] = {1, 2, 3};
   createImplicitSpan<int, 1>(std::begin(arr), std::end(arr));
+
+  return 0;
 }

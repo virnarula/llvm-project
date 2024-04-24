@@ -19,9 +19,10 @@ using namespace lldb_private;
 // CommandObjectRegexCommand constructor
 CommandObjectRegexCommand::CommandObjectRegexCommand(
     CommandInterpreter &interpreter, llvm::StringRef name, llvm::StringRef help,
-    llvm::StringRef syntax, uint32_t completion_type_mask, bool is_removable)
+    llvm::StringRef syntax, uint32_t max_matches, uint32_t completion_type_mask,
+    bool is_removable)
     : CommandObjectRaw(interpreter, name, help, syntax),
-      m_completion_type_mask(completion_type_mask),
+      m_max_matches(max_matches), m_completion_type_mask(completion_type_mask),
       m_is_removable(is_removable) {}
 
 // Destructor
@@ -54,7 +55,7 @@ llvm::Expected<std::string> CommandObjectRegexCommand::SubstituteVariables(
   return output.str();
 }
 
-void CommandObjectRegexCommand::DoExecute(llvm::StringRef command,
+bool CommandObjectRegexCommand::DoExecute(llvm::StringRef command,
                                           CommandReturnObject &result) {
   EntryCollection::const_iterator pos, end = m_entries.end();
   for (pos = m_entries.begin(); pos != end; ++pos) {
@@ -64,7 +65,7 @@ void CommandObjectRegexCommand::DoExecute(llvm::StringRef command,
           SubstituteVariables(pos->command, matches);
       if (!new_command) {
         result.SetError(new_command.takeError());
-        return;
+        return false;
       }
 
       // Interpret the new command and return this as the result!
@@ -72,10 +73,8 @@ void CommandObjectRegexCommand::DoExecute(llvm::StringRef command,
         result.GetOutputStream().Printf("%s\n", new_command->c_str());
       // We don't have to pass an override_context here, as the command that 
       // called us should have set up the context appropriately.
-      bool force_repeat_command = true;
-      m_interpreter.HandleCommand(new_command->c_str(), eLazyBoolNo, result,
-                                  force_repeat_command);
-      return;
+      return m_interpreter.HandleCommand(new_command->c_str(),
+                                         eLazyBoolNo, result);
     }
   }
   result.SetStatus(eReturnStatusFailed);
@@ -86,6 +85,7 @@ void CommandObjectRegexCommand::DoExecute(llvm::StringRef command,
                             << "' failed to match any "
                                "regular expression in the '"
                             << m_cmd_name << "' regex ";
+  return false;
 }
 
 bool CommandObjectRegexCommand::AddRegexCommand(llvm::StringRef re_cstr,
@@ -104,7 +104,7 @@ bool CommandObjectRegexCommand::AddRegexCommand(llvm::StringRef re_cstr,
 
 void CommandObjectRegexCommand::HandleCompletion(CompletionRequest &request) {
   if (m_completion_type_mask) {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
+    CommandCompletions::InvokeCommonCompletionCallbacks(
         GetCommandInterpreter(), m_completion_type_mask, request, nullptr);
   }
 }

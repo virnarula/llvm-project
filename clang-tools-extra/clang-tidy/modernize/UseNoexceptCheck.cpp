@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 namespace {
 AST_MATCHER(NamedDecl, isValid) { return !Node.isInvalidDecl(); }
@@ -103,4 +105,6 @@ void UseNoexceptCheck::check(const MatchFinder::MatchResult &Result) {
       << ReplacementStr.empty() << ReplacementStr << FixIt;
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

@@ -68,6 +68,10 @@ struct QuarantineBatch {
 
 COMPILER_CHECK(sizeof(QuarantineBatch) <= (1 << 13));  // 8Kb.
 
+// The callback interface is:
+// void Callback::Recycle(Node *ptr);
+// void *cb.Allocate(uptr size);
+// void cb.Deallocate(void *ptr);
 template<typename Callback, typename Node>
 class Quarantine {
  public:
@@ -90,20 +94,21 @@ class Quarantine {
     recycle_mutex_.Init();
   }
 
-  uptr GetMaxSize() const { return atomic_load_relaxed(&max_size_); }
-  uptr GetMaxCacheSize() const { return atomic_load_relaxed(&max_cache_size_); }
+  uptr GetSize() const { return atomic_load_relaxed(&max_size_); }
+  uptr GetCacheSize() const {
+    return atomic_load_relaxed(&max_cache_size_);
+  }
 
   void Put(Cache *c, Callback cb, Node *ptr, uptr size) {
-    uptr max_cache_size = GetMaxCacheSize();
-    if (max_cache_size && size <= GetMaxSize()) {
-      cb.PreQuarantine(ptr);
+    uptr cache_size = GetCacheSize();
+    if (cache_size) {
       c->Enqueue(cb, ptr, size);
     } else {
-      // GetMaxCacheSize() == 0 only when GetMaxSize() == 0 (see Init).
-      cb.RecyclePassThrough(ptr);
+      // GetCacheSize() == 0 only when GetSize() == 0 (see Init).
+      cb.Recycle(ptr);
     }
     // Check cache size anyway to accommodate for runtime cache_size change.
-    if (c->Size() > max_cache_size)
+    if (c->Size() > cache_size)
       Drain(c, cb);
   }
 
@@ -112,7 +117,7 @@ class Quarantine {
       SpinMutexLock l(&cache_mutex_);
       cache_.Transfer(c);
     }
-    if (cache_.Size() > GetMaxSize() && recycle_mutex_.TryLock())
+    if (cache_.Size() > GetSize() && recycle_mutex_.TryLock())
       Recycle(atomic_load_relaxed(&min_size_), cb);
   }
 
@@ -128,7 +133,7 @@ class Quarantine {
   void PrintStats() const {
     // It assumes that the world is stopped, just as the allocator's PrintStats.
     Printf("Quarantine limits: global: %zdMb; thread local: %zdKb\n",
-           GetMaxSize() >> 20, GetMaxCacheSize() >> 10);
+           GetSize() >> 20, GetCacheSize() >> 10);
     cache_.PrintStats();
   }
 

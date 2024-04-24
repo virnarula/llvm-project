@@ -206,8 +206,7 @@ SPIR-V
 Miscellaneous Resources
 =======================
 
-* `Executable File Formats <https://wiki.osdev.org/Category:Executable_Formats>`_
-  has a list of various executable file formats.
+* `Executable File Format library <http://www.nondot.org/sabre/os/articles/ExecutableFileFormats/>`_
 
 * `GCC prefetch project <http://gcc.gnu.org/projects/prefetch.html>`_ page has a
   good survey of the prefetching capabilities of a variety of modern

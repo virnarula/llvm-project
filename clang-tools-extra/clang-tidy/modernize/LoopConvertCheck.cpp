@@ -17,19 +17,18 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstring>
-#include <optional>
-#include <tuple>
 #include <utility>
 
 using namespace clang::ast_matchers;
 using namespace llvm;
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 
 template <> struct OptionEnumMapping<modernize::Confidence::Level> {
   static llvm::ArrayRef<std::pair<modernize::Confidence::Level, StringRef>>
@@ -38,7 +37,7 @@ template <> struct OptionEnumMapping<modernize::Confidence::Level> {
         Mapping[] = {{modernize::Confidence::CL_Reasonable, "reasonable"},
                      {modernize::Confidence::CL_Safe, "safe"},
                      {modernize::Confidence::CL_Risky, "risky"}};
-    return {Mapping};
+    return makeArrayRef(Mapping);
   }
 };
 
@@ -51,7 +50,7 @@ template <> struct OptionEnumMapping<modernize::VariableNamer::NamingStyle> {
                      {modernize::VariableNamer::NS_CamelBack, "camelBack"},
                      {modernize::VariableNamer::NS_LowerCase, "lower_case"},
                      {modernize::VariableNamer::NS_UpperCase, "UPPER_CASE"}};
-    return {Mapping};
+    return makeArrayRef(Mapping);
   }
 };
 
@@ -68,28 +67,19 @@ static const char EndCallName[] = "endCall";
 static const char EndVarName[] = "endVar";
 static const char DerefByValueResultName[] = "derefByValueResult";
 static const char DerefByRefResultName[] = "derefByRefResult";
-static const llvm::StringSet<> MemberNames{"begin",   "cbegin", "rbegin",
-                                           "crbegin", "end",    "cend",
-                                           "rend",    "crend",  "size"};
-static const llvm::StringSet<> ADLNames{"begin",   "cbegin", "rbegin",
-                                        "crbegin", "end",    "cend",
-                                        "rend",    "crend",  "size"};
-static const llvm::StringSet<> StdNames{
-    "std::begin", "std::cbegin", "std::rbegin", "std::crbegin", "std::end",
-    "std::cend",  "std::rend",   "std::crend",  "std::size"};
 
-static StatementMatcher integerComparisonMatcher() {
+static const StatementMatcher integerComparisonMatcher() {
   return expr(ignoringParenImpCasts(
       declRefExpr(to(varDecl(equalsBoundNode(InitVarName))))));
 }
 
-static DeclarationMatcher initToZeroMatcher() {
+static const DeclarationMatcher initToZeroMatcher() {
   return varDecl(
              hasInitializer(ignoringParenImpCasts(integerLiteral(equals(0)))))
       .bind(InitVarName);
 }
 
-static StatementMatcher incrementVarMatcher() {
+static const StatementMatcher incrementVarMatcher() {
   return declRefExpr(to(varDecl(equalsBoundNode(InitVarName))));
 }
 
@@ -140,10 +130,6 @@ StatementMatcher makeArrayLoopMatcher() {
 ///        e = createIterator(); it != e; ++it) { ... }
 ///   for (containerType::iterator it = container.begin();
 ///        it != anotherContainer.end(); ++it) { ... }
-///   for (containerType::iterator it = begin(container),
-///        e = end(container); it != e; ++it) { ... }
-///   for (containerType::iterator it = std::begin(container),
-///        e = std::end(container); it != e; ++it) { ... }
 /// \endcode
 /// The following string identifiers are bound to the parts of the AST:
 ///   InitVarName: 'it' (as a VarDecl)
@@ -152,8 +138,6 @@ StatementMatcher makeArrayLoopMatcher() {
 ///     EndVarName: 'e' (as a VarDecl)
 ///   In the second example only:
 ///     EndCallName: 'container.end()' (as a CXXMemberCallExpr)
-///   In the third/fourth examples:
-///     'end(container)' or 'std::end(container)' (as a CallExpr)
 ///
 /// Client code will need to make sure that:
 ///   - The two containers on which 'begin' and 'end' are called are the same.
@@ -161,22 +145,13 @@ StatementMatcher makeIteratorLoopMatcher(bool IsReverse) {
 
   auto BeginNameMatcher = IsReverse ? hasAnyName("rbegin", "crbegin")
                                     : hasAnyName("begin", "cbegin");
-  auto BeginNameMatcherStd = IsReverse
-                                 ? hasAnyName("::std::rbegin", "::std::crbegin")
-                                 : hasAnyName("::std::begin", "::std::cbegin");
 
   auto EndNameMatcher =
       IsReverse ? hasAnyName("rend", "crend") : hasAnyName("end", "cend");
-  auto EndNameMatcherStd = IsReverse ? hasAnyName("::std::rend", "::std::crend")
-                                     : hasAnyName("::std::end", "::std::cend");
 
   StatementMatcher BeginCallMatcher =
-      expr(anyOf(cxxMemberCallExpr(argumentCountIs(0),
-                                   callee(cxxMethodDecl(BeginNameMatcher))),
-                 callExpr(argumentCountIs(1),
-                          callee(functionDecl(BeginNameMatcher)), usesADL()),
-                 callExpr(argumentCountIs(1),
-                          callee(functionDecl(BeginNameMatcherStd)))))
+      cxxMemberCallExpr(argumentCountIs(0),
+                        callee(cxxMethodDecl(BeginNameMatcher)))
           .bind(BeginCallName);
 
   DeclarationMatcher InitDeclMatcher =
@@ -189,12 +164,8 @@ StatementMatcher makeIteratorLoopMatcher(bool IsReverse) {
   DeclarationMatcher EndDeclMatcher =
       varDecl(hasInitializer(anything())).bind(EndVarName);
 
-  StatementMatcher EndCallMatcher = expr(anyOf(
-      cxxMemberCallExpr(argumentCountIs(0),
-                        callee(cxxMethodDecl(EndNameMatcher))),
-      callExpr(argumentCountIs(1), callee(functionDecl(EndNameMatcher)),
-               usesADL()),
-      callExpr(argumentCountIs(1), callee(functionDecl(EndNameMatcherStd)))));
+  StatementMatcher EndCallMatcher = cxxMemberCallExpr(
+      argumentCountIs(0), callee(cxxMethodDecl(EndNameMatcher)));
 
   StatementMatcher IteratorBoundMatcher =
       expr(anyOf(ignoringParenImpCasts(
@@ -253,7 +224,6 @@ StatementMatcher makeIteratorLoopMatcher(bool IsReverse) {
 /// \code
 ///   for (int i = 0, j = container.size(); i < j; ++i) { ... }
 ///   for (int i = 0; i < container.size(); ++i) { ... }
-///   for (int i = 0; i < size(container); ++i) { ... }
 /// \endcode
 /// The following string identifiers are bound to the parts of the AST:
 ///   InitVarName: 'i' (as a VarDecl)
@@ -261,8 +231,7 @@ StatementMatcher makeIteratorLoopMatcher(bool IsReverse) {
 ///   In the first example only:
 ///     EndVarName: 'j' (as a VarDecl)
 ///   In the second example only:
-///     EndCallName: 'container.size()' (as a CXXMemberCallExpr) or
-///     'size(contaner)' (as a CallExpr)
+///     EndCallName: 'container.size()' (as a CXXMemberCallExpr)
 ///
 /// Client code will need to make sure that:
 ///   - The containers on which 'size()' is called is the container indexed.
@@ -283,29 +252,23 @@ StatementMatcher makePseudoArrayLoopMatcher() {
   // functions called begin() and end() taking the container as an argument
   // are also allowed.
   TypeMatcher RecordWithBeginEnd = qualType(anyOf(
-      qualType(isConstQualified(),
-               hasUnqualifiedDesugaredType(recordType(hasDeclaration(
-                   cxxRecordDecl(isSameOrDerivedFrom(cxxRecordDecl(
-                       hasMethod(cxxMethodDecl(hasName("begin"), isConst())),
-                       hasMethod(cxxMethodDecl(hasName("end"),
-                                               isConst())))))) // hasDeclaration
-                                                      ))),     // qualType
+      qualType(
+          isConstQualified(),
+          hasUnqualifiedDesugaredType(recordType(hasDeclaration(cxxRecordDecl(
+              hasMethod(cxxMethodDecl(hasName("begin"), isConst())),
+              hasMethod(cxxMethodDecl(hasName("end"),
+                                      isConst()))))   // hasDeclaration
+                                                 ))), // qualType
       qualType(unless(isConstQualified()),
                hasUnqualifiedDesugaredType(recordType(hasDeclaration(
-                   cxxRecordDecl(isSameOrDerivedFrom(cxxRecordDecl(
-                       hasMethod(hasName("begin")),
-                       hasMethod(hasName("end"))))))))) // qualType
+                   cxxRecordDecl(hasMethod(hasName("begin")),
+                                 hasMethod(hasName("end"))))))) // qualType
       ));
 
-  StatementMatcher SizeCallMatcher = expr(anyOf(
-      cxxMemberCallExpr(argumentCountIs(0),
-                        callee(cxxMethodDecl(hasAnyName("size", "length"))),
-                        on(anyOf(hasType(pointsTo(RecordWithBeginEnd)),
-                                 hasType(RecordWithBeginEnd)))),
-      callExpr(argumentCountIs(1), callee(functionDecl(hasName("size"))),
-               usesADL()),
-      callExpr(argumentCountIs(1),
-               callee(functionDecl(hasName("::std::size"))))));
+  StatementMatcher SizeCallMatcher = cxxMemberCallExpr(
+      argumentCountIs(0), callee(cxxMethodDecl(hasAnyName("size", "length"))),
+      on(anyOf(hasType(pointsTo(RecordWithBeginEnd)),
+               hasType(RecordWithBeginEnd))));
 
   StatementMatcher EndInitMatcher =
       expr(anyOf(ignoringParenImpCasts(expr(SizeCallMatcher).bind(EndCallName)),
@@ -333,97 +296,36 @@ StatementMatcher makePseudoArrayLoopMatcher() {
       .bind(LoopNamePseudoArray);
 }
 
-enum class IteratorCallKind {
-  ICK_Member,
-  ICK_ADL,
-  ICK_Std,
-};
-
-struct ContainerCall {
-  const Expr *Container;
-  StringRef Name;
-  bool IsArrow;
-  IteratorCallKind CallKind;
-};
-
-// Find the Expr likely initializing an iterator.
-//
-// Call is either a CXXMemberCallExpr ('c.begin()') or CallExpr of a free
-// function with the first argument as a container ('begin(c)'), or nullptr.
-// Returns at a 3-tuple with the container expr, function name (begin/end/etc),
-// and whether the call is made through an arrow (->) for CXXMemberCallExprs.
-// The returned Expr* is nullptr if any of the assumptions are not met.
-// static std::tuple<const Expr *, StringRef, bool, IteratorCallKind>
-static std::optional<ContainerCall> getContainerExpr(const Expr *Call) {
-  const Expr *Dug = digThroughConstructorsConversions(Call);
-
-  IteratorCallKind CallKind = IteratorCallKind::ICK_Member;
-
-  if (const auto *TheCall = dyn_cast_or_null<CXXMemberCallExpr>(Dug)) {
-    CallKind = IteratorCallKind::ICK_Member;
-    if (const auto *Member = dyn_cast<MemberExpr>(TheCall->getCallee())) {
-      if (Member->getMemberDecl() == nullptr ||
-          !MemberNames.contains(Member->getMemberDecl()->getName()))
-        return std::nullopt;
-      return ContainerCall{TheCall->getImplicitObjectArgument(),
-                           Member->getMemberDecl()->getName(),
-                           Member->isArrow(), CallKind};
-    }
-    if (TheCall->getDirectCallee() == nullptr ||
-        !MemberNames.contains(TheCall->getDirectCallee()->getName()))
-      return std::nullopt;
-    return ContainerCall{TheCall->getArg(0),
-                         TheCall->getDirectCallee()->getName(), false,
-                         CallKind};
-  }
-  if (const auto *TheCall = dyn_cast_or_null<CallExpr>(Dug)) {
-    if (TheCall->getNumArgs() != 1)
-      return std::nullopt;
-
-    if (TheCall->usesADL()) {
-      if (TheCall->getDirectCallee() == nullptr ||
-          !ADLNames.contains(TheCall->getDirectCallee()->getName()))
-        return std::nullopt;
-      CallKind = IteratorCallKind::ICK_ADL;
-    } else {
-      if (!StdNames.contains(
-              TheCall->getDirectCallee()->getQualifiedNameAsString()))
-        return std::nullopt;
-      CallKind = IteratorCallKind::ICK_Std;
-    }
-
-    if (TheCall->getDirectCallee() == nullptr)
-      return std::nullopt;
-
-    return ContainerCall{TheCall->getArg(0),
-                         TheCall->getDirectCallee()->getName(), false,
-                         CallKind};
-  }
-  return std::nullopt;
-}
-
 /// Determine whether Init appears to be an initializing an iterator.
 ///
 /// If it is, returns the object whose begin() or end() method is called, and
 /// the output parameter isArrow is set to indicate whether the initialization
 /// is called via . or ->.
-static std::pair<const Expr *, IteratorCallKind>
-getContainerFromBeginEndCall(const Expr *Init, bool IsBegin, bool *IsArrow,
-                             bool IsReverse) {
+static const Expr *getContainerFromBeginEndCall(const Expr *Init, bool IsBegin,
+                                                bool *IsArrow, bool IsReverse) {
   // FIXME: Maybe allow declaration/initialization outside of the for loop.
+  const auto *TheCall = dyn_cast_or_null<CXXMemberCallExpr>(
+      digThroughConstructorsConversions(Init));
+  if (!TheCall || TheCall->getNumArgs() != 0)
+    return nullptr;
 
-  std::optional<ContainerCall> Call = getContainerExpr(Init);
-  if (!Call)
-    return {};
+  const auto *Member = dyn_cast<MemberExpr>(TheCall->getCallee());
+  if (!Member)
+    return nullptr;
+  StringRef Name = Member->getMemberDecl()->getName();
+  if (!Name.consume_back(IsBegin ? "begin" : "end"))
+    return nullptr;
+  if (IsReverse && !Name.consume_back("r"))
+    return nullptr;
+  if (!Name.empty() && !Name.equals("c"))
+    return nullptr;
 
-  *IsArrow = Call->IsArrow;
-  if (!Call->Name.consume_back(IsBegin ? "begin" : "end"))
-    return {};
-  if (IsReverse && !Call->Name.consume_back("r"))
-    return {};
-  if (!Call->Name.empty() && !Call->Name.equals("c"))
-    return {};
-  return std::make_pair(Call->Container, Call->CallKind);
+  const Expr *SourceExpr = Member->getBase();
+  if (!SourceExpr)
+    return nullptr;
+
+  *IsArrow = Member->isArrow();
+  return SourceExpr;
 }
 
 /// Determines the container whose begin() and end() functions are called
@@ -439,16 +341,13 @@ static const Expr *findContainer(ASTContext *Context, const Expr *BeginExpr,
   // valid.
   bool BeginIsArrow = false;
   bool EndIsArrow = false;
-  auto [BeginContainerExpr, BeginCallKind] = getContainerFromBeginEndCall(
+  const Expr *BeginContainerExpr = getContainerFromBeginEndCall(
       BeginExpr, /*IsBegin=*/true, &BeginIsArrow, IsReverse);
   if (!BeginContainerExpr)
     return nullptr;
 
-  auto [EndContainerExpr, EndCallKind] = getContainerFromBeginEndCall(
+  const Expr *EndContainerExpr = getContainerFromBeginEndCall(
       EndExpr, /*IsBegin=*/false, &EndIsArrow, IsReverse);
-  if (BeginCallKind != EndCallKind)
-    return nullptr;
-
   // Disallow loops that try evil things like this (note the dot and arrow):
   //  for (IteratorType It = Obj.begin(), E = Obj->end(); It != E; ++It) { }
   if (!EndContainerExpr || BeginIsArrow != EndIsArrow ||
@@ -465,7 +364,7 @@ static StringRef getStringFromRange(SourceManager &SourceMgr,
                                     SourceRange Range) {
   if (SourceMgr.getFileID(Range.getBegin()) !=
       SourceMgr.getFileID(Range.getEnd())) {
-    return {}; // Empty string.
+    return StringRef(); // Empty string.
   }
 
   return Lexer::getSourceText(CharSourceRange(Range, true), SourceMgr,
@@ -554,6 +453,10 @@ static bool containerIsConst(const Expr *ContainerExpr, bool Dereference) {
   return false;
 }
 
+LoopConvertCheck::RangeDescriptor::RangeDescriptor()
+    : ContainerNeedsDereference(false), DerefByConstRef(false),
+      DerefByValue(false), NeedsReverseCall(false) {}
+
 LoopConvertCheck::LoopConvertCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context), TUInfo(new TUTrackingInfo),
       MaxCopySize(Options.get("MaxCopySize", 16ULL)),
@@ -634,48 +537,32 @@ void LoopConvertCheck::doConversion(
     const ValueDecl *MaybeContainer, const UsageResult &Usages,
     const DeclStmt *AliasDecl, bool AliasUseRequired, bool AliasFromForInit,
     const ForStmt *Loop, RangeDescriptor Descriptor) {
-  std::string VarNameOrStructuredBinding;
+  std::string VarName;
   bool VarNameFromAlias = (Usages.size() == 1) && AliasDecl;
   bool AliasVarIsRef = false;
   bool CanCopy = true;
   std::vector<FixItHint> FixIts;
   if (VarNameFromAlias) {
     const auto *AliasVar = cast<VarDecl>(AliasDecl->getSingleDecl());
+    VarName = AliasVar->getName().str();
 
-    // Handle structured bindings
-    if (const auto *AliasDecompositionDecl =
-            dyn_cast<DecompositionDecl>(AliasDecl->getSingleDecl())) {
-      VarNameOrStructuredBinding = "[";
-
-      assert(!AliasDecompositionDecl->bindings().empty() && "No bindings");
-      for (const BindingDecl *Binding : AliasDecompositionDecl->bindings()) {
-        VarNameOrStructuredBinding += Binding->getName().str() + ", ";
-      }
-
-      VarNameOrStructuredBinding.erase(VarNameOrStructuredBinding.size() - 2,
-                                       2);
-      VarNameOrStructuredBinding += "]";
-    } else {
-      VarNameOrStructuredBinding = AliasVar->getName().str();
-
-      // Use the type of the alias if it's not the same
-      QualType AliasVarType = AliasVar->getType();
-      assert(!AliasVarType.isNull() && "Type in VarDecl is null");
-      if (AliasVarType->isReferenceType()) {
-        AliasVarType = AliasVarType.getNonReferenceType();
-        AliasVarIsRef = true;
-      }
-      if (Descriptor.ElemType.isNull() ||
-          !Context->hasSameUnqualifiedType(AliasVarType, Descriptor.ElemType))
-        Descriptor.ElemType = AliasVarType;
+    // Use the type of the alias if it's not the same
+    QualType AliasVarType = AliasVar->getType();
+    assert(!AliasVarType.isNull() && "Type in VarDecl is null");
+    if (AliasVarType->isReferenceType()) {
+      AliasVarType = AliasVarType.getNonReferenceType();
+      AliasVarIsRef = true;
     }
+    if (Descriptor.ElemType.isNull() ||
+        !Context->hasSameUnqualifiedType(AliasVarType, Descriptor.ElemType))
+      Descriptor.ElemType = AliasVarType;
 
     // We keep along the entire DeclStmt to keep the correct range here.
     SourceRange ReplaceRange = AliasDecl->getSourceRange();
 
     std::string ReplacementText;
     if (AliasUseRequired) {
-      ReplacementText = VarNameOrStructuredBinding;
+      ReplacementText = VarName;
     } else if (AliasFromForInit) {
       // FIXME: Clang includes the location of the ';' but only for DeclStmt's
       // in a for loop's init clause. Need to put this ';' back while removing
@@ -694,7 +581,7 @@ void LoopConvertCheck::doConversion(
     VariableNamer Namer(&TUInfo->getGeneratedDecls(),
                         &TUInfo->getParentFinder().getStmtToParentStmtMap(),
                         Loop, IndexVar, MaybeContainer, Context, NamingStyle);
-    VarNameOrStructuredBinding = Namer.createIndexName();
+    VarName = Namer.createIndexName();
     // First, replace all usages of the array subscript expression with our new
     // variable.
     for (const auto &Usage : Usages) {
@@ -703,9 +590,8 @@ void LoopConvertCheck::doConversion(
       if (Usage.Expression) {
         // If this is an access to a member through the arrow operator, after
         // the replacement it must be accessed through the '.' operator.
-        ReplaceText = Usage.Kind == Usage::UK_MemberThroughArrow
-                          ? VarNameOrStructuredBinding + "."
-                          : VarNameOrStructuredBinding;
+        ReplaceText = Usage.Kind == Usage::UK_MemberThroughArrow ? VarName + "."
+                                                                 : VarName;
         auto Parents = Context->getParents(*Usage.Expression);
         if (Parents.size() == 1) {
           if (const auto *Paren = Parents[0].get<ParenExpr>()) {
@@ -729,9 +615,8 @@ void LoopConvertCheck::doConversion(
         // The Usage expression is only null in case of lambda captures (which
         // are VarDecl). If the index is captured by value, add '&' to capture
         // by reference instead.
-        ReplaceText = Usage.Kind == Usage::UK_CaptureByCopy
-                          ? "&" + VarNameOrStructuredBinding
-                          : VarNameOrStructuredBinding;
+        ReplaceText =
+            Usage.Kind == Usage::UK_CaptureByCopy ? "&" + VarName : VarName;
       }
       TUInfo->getReplacedVars().insert(std::make_pair(Loop, IndexVar));
       FixIts.push_back(FixItHint::CreateReplacement(
@@ -753,7 +638,6 @@ void LoopConvertCheck::doConversion(
   bool IsCheapToCopy =
       !Descriptor.ElemType.isNull() &&
       Descriptor.ElemType.isTriviallyCopyableType(*Context) &&
-      !Descriptor.ElemType->isDependentSizedArrayType() &&
       // TypeInfo::Width is in bits.
       Context->getTypeInfo(Descriptor.ElemType).Width <= 8 * MaxCopySize;
   bool UseCopy = CanCopy && ((VarNameFromAlias && !AliasVarIsRef) ||
@@ -774,7 +658,7 @@ void LoopConvertCheck::doConversion(
   llvm::raw_svector_ostream Output(Range);
   Output << '(';
   Type.print(Output, getLangOpts());
-  Output << ' ' << VarNameOrStructuredBinding << " : ";
+  Output << ' ' << VarName << " : ";
   if (Descriptor.NeedsReverseCall)
     Output << getReverseFunction() << '(';
   if (Descriptor.ContainerNeedsDereference)
@@ -788,14 +672,13 @@ void LoopConvertCheck::doConversion(
       CharSourceRange::getTokenRange(ParenRange), Range));
 
   if (Descriptor.NeedsReverseCall && !getReverseHeader().empty()) {
-    if (std::optional<FixItHint> Insertion = Inserter.createIncludeInsertion(
+    if (Optional<FixItHint> Insertion = Inserter.createIncludeInsertion(
             Context->getSourceManager().getFileID(Loop->getBeginLoc()),
             getReverseHeader()))
       FixIts.push_back(*Insertion);
   }
   diag(Loop->getForLoc(), "use range-based for loop instead") << FixIts;
-  TUInfo->getGeneratedDecls().insert(
-      make_pair(Loop, VarNameOrStructuredBinding));
+  TUInfo->getGeneratedDecls().insert(make_pair(Loop, VarName));
 }
 
 /// Returns a string which refers to the container iterated over.
@@ -809,7 +692,7 @@ StringRef LoopConvertCheck::getContainerString(ASTContext *Context,
   } else {
     // For CXXOperatorCallExpr such as vector_ptr->size() we want the class
     // object vector_ptr, but for vector[2] we need the whole expression.
-    if (const auto *E = dyn_cast<CXXOperatorCallExpr>(ContainerExpr))
+    if (const auto* E = dyn_cast<CXXOperatorCallExpr>(ContainerExpr))
       if (E->getOperator() != OO_Subscript)
         ContainerExpr = E->getArg(0);
     ContainerString =
@@ -934,30 +817,24 @@ bool LoopConvertCheck::isConvertible(ASTContext *Context,
     QualType InitVarType = InitVar->getType();
     QualType CanonicalInitVarType = InitVarType.getCanonicalType();
 
-    const auto *BeginCall = Nodes.getNodeAs<CallExpr>(BeginCallName);
+    const auto *BeginCall = Nodes.getNodeAs<CXXMemberCallExpr>(BeginCallName);
     assert(BeginCall && "Bad Callback. No begin call expression");
     QualType CanonicalBeginType =
-        BeginCall->getDirectCallee()->getReturnType().getCanonicalType();
+        BeginCall->getMethodDecl()->getReturnType().getCanonicalType();
     if (CanonicalBeginType->isPointerType() &&
         CanonicalInitVarType->isPointerType()) {
       // If the initializer and the variable are both pointers check if the
       // un-qualified pointee types match, otherwise we don't use auto.
-      return Context->hasSameUnqualifiedType(
-          CanonicalBeginType->getPointeeType(),
-          CanonicalInitVarType->getPointeeType());
-    }
-
-    if (CanonicalBeginType->isBuiltinType() ||
-        CanonicalInitVarType->isBuiltinType())
-      return false;
-
-  } else if (FixerKind == LFK_PseudoArray) {
-    if (const auto *EndCall = Nodes.getNodeAs<CXXMemberCallExpr>(EndCallName)) {
-      // This call is required to obtain the container.
-      if (!isa<MemberExpr>(EndCall->getCallee()))
+      if (!Context->hasSameUnqualifiedType(
+              CanonicalBeginType->getPointeeType(),
+              CanonicalInitVarType->getPointeeType()))
         return false;
     }
-    return Nodes.getNodeAs<CallExpr>(EndCallName) != nullptr;
+  } else if (FixerKind == LFK_PseudoArray) {
+    // This call is required to obtain the container.
+    const auto *EndCall = Nodes.getNodeAs<CXXMemberCallExpr>(EndCallName);
+    if (!EndCall || !isa<MemberExpr>(EndCall->getCallee()))
+      return false;
   }
   return true;
 }
@@ -967,8 +844,8 @@ void LoopConvertCheck::check(const MatchFinder::MatchResult &Result) {
   Confidence ConfidenceLevel(Confidence::CL_Safe);
   ASTContext *Context = Result.Context;
 
-  const ForStmt *Loop = nullptr;
-  LoopFixerKind FixerKind{};
+  const ForStmt *Loop;
+  LoopFixerKind FixerKind;
   RangeDescriptor Descriptor;
 
   if ((Loop = Nodes.getNodeAs<ForStmt>(LoopNameArray))) {
@@ -996,7 +873,7 @@ void LoopConvertCheck::check(const MatchFinder::MatchResult &Result) {
 
   // If the end comparison isn't a variable, we can try to work with the
   // expression the loop variable is being tested against instead.
-  const auto *EndCall = Nodes.getNodeAs<Expr>(EndCallName);
+  const auto *EndCall = Nodes.getNodeAs<CXXMemberCallExpr>(EndCallName);
   const auto *BoundExpr = Nodes.getNodeAs<Expr>(ConditionBoundName);
 
   // Find container expression of iterators and pseudoarrays, and determine if
@@ -1010,11 +887,9 @@ void LoopConvertCheck::check(const MatchFinder::MatchResult &Result) {
         &Descriptor.ContainerNeedsDereference,
         /*IsReverse=*/FixerKind == LFK_ReverseIterator);
   } else if (FixerKind == LFK_PseudoArray) {
-    std::optional<ContainerCall> Call = getContainerExpr(EndCall);
-    if (Call) {
-      ContainerExpr = Call->Container;
-      Descriptor.ContainerNeedsDereference = Call->IsArrow;
-    }
+    ContainerExpr = EndCall->getImplicitObjectArgument();
+    Descriptor.ContainerNeedsDereference =
+        dyn_cast<MemberExpr>(EndCall->getCallee())->isArrow();
   }
 
   // We must know the container or an array length bound.
@@ -1094,4 +969,5 @@ llvm::StringRef LoopConvertCheck::getReverseHeader() const {
 }
 
 } // namespace modernize
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

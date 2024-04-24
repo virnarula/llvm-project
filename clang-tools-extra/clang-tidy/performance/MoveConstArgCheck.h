@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "llvm/ADT/DenseSet.h"
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 /// Find casts of calculation results to bigger type. Typically from int to
 ///
@@ -41,6 +43,8 @@ private:
   llvm::DenseSet<const CallExpr *> AlreadyCheckedMoves;
 };
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MISC_MOVECONSTANTARGUMENTCHECK_H

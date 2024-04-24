@@ -3,7 +3,7 @@
 ; Function Attrs: nounwind optsize
 define float @h()  {
 entry:
-  %call = tail call float @g() 
+  %call = tail call float bitcast (float (...)* @g to float ()*)() 
   ret float %call
 ; CHECK:	.ent	h
 ; CHECK: 	save	$16, $ra, $18, 32

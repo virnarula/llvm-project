@@ -21,7 +21,7 @@
 
 #pragma omp begin declare target device_type(nohost)
 
-using namespace ompx;
+using namespace _OMP;
 
 namespace impl {
 
@@ -29,13 +29,12 @@ namespace impl {
 ///
 ///{
 /// NOTE: This function needs to be implemented by every target.
-uint32_t atomicInc(uint32_t *Address, uint32_t Val, atomic::OrderingTy Ordering,
-                   atomic::MemScopeTy MemScope);
+uint32_t atomicInc(uint32_t *Address, uint32_t Val,
+                   atomic::OrderingTy Ordering);
 
 template <typename Ty>
 Ty atomicAdd(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  return __scoped_atomic_fetch_add(Address, Val, Ordering,
-                                   __MEMORY_SCOPE_DEVICE);
+  return __atomic_fetch_add(Address, Val, Ordering);
 }
 
 template <typename Ty>
@@ -57,28 +56,25 @@ template <typename Ty> Ty atomicLoad(Ty *Address, atomic::OrderingTy Ordering) {
 
 template <typename Ty>
 void atomicStore(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  __scoped_atomic_store_n(Address, Val, Ordering, __MEMORY_SCOPE_DEVICE);
+  __atomic_store_n(Address, Val, Ordering);
 }
 
 template <typename Ty>
 bool atomicCAS(Ty *Address, Ty ExpectedV, Ty DesiredV,
                atomic::OrderingTy OrderingSucc,
                atomic::OrderingTy OrderingFail) {
-  return __scoped_atomic_compare_exchange(Address, &ExpectedV, &DesiredV, false,
-                                          OrderingSucc, OrderingFail,
-                                          __MEMORY_SCOPE_DEVICE);
+  return __atomic_compare_exchange(Address, &ExpectedV, &DesiredV, false,
+                                   OrderingSucc, OrderingFail);
 }
 
 template <typename Ty>
 Ty atomicMin(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  return __scoped_atomic_fetch_min(Address, Val, Ordering,
-                                   __MEMORY_SCOPE_DEVICE);
+  return __atomic_fetch_min(Address, Val, Ordering);
 }
 
 template <typename Ty>
 Ty atomicMax(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  return __scoped_atomic_fetch_max(Address, Val, Ordering,
-                                   __MEMORY_SCOPE_DEVICE);
+  return __atomic_fetch_max(Address, Val, Ordering);
 }
 
 // TODO: Implement this with __atomic_fetch_max and remove the duplication.
@@ -98,83 +94,64 @@ Ty atomicMaxFP(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
 
 template <typename Ty>
 Ty atomicOr(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  return __scoped_atomic_fetch_or(Address, Val, Ordering,
-                                  __MEMORY_SCOPE_DEVICE);
+  return __atomic_fetch_or(Address, Val, Ordering);
 }
 
 template <typename Ty>
 Ty atomicAnd(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  return __scoped_atomic_fetch_and(Address, Val, Ordering,
-                                   __MEMORY_SCOPE_DEVICE);
+  return __atomic_fetch_and(Address, Val, Ordering);
 }
 
 template <typename Ty>
 Ty atomicXOr(Ty *Address, Ty Val, atomic::OrderingTy Ordering) {
-  return __scoped_atomic_fetch_xor(Address, Val, Ordering,
-                                   __MEMORY_SCOPE_DEVICE);
+  return __atomic_fetch_xor(Address, Val, Ordering);
 }
 
 uint32_t atomicExchange(uint32_t *Address, uint32_t Val,
                         atomic::OrderingTy Ordering) {
   uint32_t R;
-  __scoped_atomic_exchange(Address, &Val, &R, Ordering, __MEMORY_SCOPE_DEVICE);
+  __atomic_exchange(Address, &Val, &R, Ordering);
   return R;
 }
 ///}
 
 // Forward declarations defined to be defined for AMDGCN and NVPTX.
-uint32_t atomicInc(uint32_t *A, uint32_t V, atomic::OrderingTy Ordering,
-                   atomic::MemScopeTy MemScope);
+uint32_t atomicInc(uint32_t *A, uint32_t V, atomic::OrderingTy Ordering);
 void namedBarrierInit();
 void namedBarrier();
 void fenceTeam(atomic::OrderingTy Ordering);
 void fenceKernel(atomic::OrderingTy Ordering);
 void fenceSystem(atomic::OrderingTy Ordering);
 void syncWarp(__kmpc_impl_lanemask_t);
-void syncThreads(atomic::OrderingTy Ordering);
-void syncThreadsAligned(atomic::OrderingTy Ordering) { syncThreads(Ordering); }
+void syncThreads();
+void syncThreadsAligned() { syncThreads(); }
 void unsetLock(omp_lock_t *);
 int testLock(omp_lock_t *);
 void initLock(omp_lock_t *);
 void destroyLock(omp_lock_t *);
 void setLock(omp_lock_t *);
-void unsetCriticalLock(omp_lock_t *);
-void setCriticalLock(omp_lock_t *);
 
 /// AMDGCN Implementation
 ///
 ///{
 #pragma omp begin declare variant match(device = {arch(amdgcn)})
 
-uint32_t atomicInc(uint32_t *A, uint32_t V, atomic::OrderingTy Ordering,
-                   atomic::MemScopeTy MemScope) {
+uint32_t atomicInc(uint32_t *A, uint32_t V, atomic::OrderingTy Ordering) {
   // builtin_amdgcn_atomic_inc32 should expand to this switch when
   // passed a runtime value, but does not do so yet. Workaround here.
-
-#define ScopeSwitch(ORDER)                                                     \
-  switch (MemScope) {                                                          \
-  case atomic::MemScopeTy::all:                                                \
-    return __builtin_amdgcn_atomic_inc32(A, V, ORDER, "");                     \
-  case atomic::MemScopeTy::device:                                             \
-    return __builtin_amdgcn_atomic_inc32(A, V, ORDER, "agent");                \
-  case atomic::MemScopeTy::cgroup:                                             \
-    return __builtin_amdgcn_atomic_inc32(A, V, ORDER, "workgroup");            \
-  }
-
-#define Case(ORDER)                                                            \
-  case ORDER:                                                                  \
-    ScopeSwitch(ORDER)
-
   switch (Ordering) {
   default:
     __builtin_unreachable();
-    Case(atomic::relaxed);
-    Case(atomic::aquire);
-    Case(atomic::release);
-    Case(atomic::acq_rel);
-    Case(atomic::seq_cst);
-#undef Case
-#undef ScopeSwitch
+  case atomic::relaxed:
+    return __builtin_amdgcn_atomic_inc32(A, V, atomic::relaxed, "");
+  case atomic::aquire:
+    return __builtin_amdgcn_atomic_inc32(A, V, atomic::aquire, "");
+  case atomic::release:
+    return __builtin_amdgcn_atomic_inc32(A, V, atomic::release, "");
+  case atomic::acq_rel:
+    return __builtin_amdgcn_atomic_inc32(A, V, atomic::acq_rel, "");
+  case atomic::seq_cst:
+    return __builtin_amdgcn_atomic_inc32(A, V, atomic::seq_cst, "");
   }
 }
 
@@ -279,21 +256,11 @@ void fenceSystem(atomic::OrderingTy Ordering) {
 }
 
 void syncWarp(__kmpc_impl_lanemask_t) {
-  // This is a no-op on current AMDGPU hardware but it is used by the optimizer
-  // to enforce convergent behaviour between control flow graphs.
-  __builtin_amdgcn_wave_barrier();
+  // AMDGCN doesn't need to sync threads in a warp
 }
 
-void syncThreads(atomic::OrderingTy Ordering) {
-  if (Ordering != atomic::relaxed)
-    fenceTeam(Ordering == atomic::acq_rel ? atomic::release : atomic::seq_cst);
-
-  __builtin_amdgcn_s_barrier();
-
-  if (Ordering != atomic::relaxed)
-    fenceTeam(Ordering == atomic::acq_rel ? atomic::aquire : atomic::seq_cst);
-}
-void syncThreadsAligned(atomic::OrderingTy Ordering) { syncThreads(Ordering); }
+void syncThreads() { __builtin_amdgcn_s_barrier(); }
+void syncThreadsAligned() { syncThreads(); }
 
 // TODO: Don't have wavefront lane locks. Possibly can't have them.
 void unsetLock(omp_lock_t *) { __builtin_trap(); }
@@ -302,25 +269,6 @@ void initLock(omp_lock_t *) { __builtin_trap(); }
 void destroyLock(omp_lock_t *) { __builtin_trap(); }
 void setLock(omp_lock_t *) { __builtin_trap(); }
 
-constexpr uint32_t UNSET = 0;
-constexpr uint32_t SET = 1;
-
-void unsetCriticalLock(omp_lock_t *Lock) {
-  (void)atomicExchange((uint32_t *)Lock, UNSET, atomic::acq_rel);
-}
-
-void setCriticalLock(omp_lock_t *Lock) {
-  uint64_t LowestActiveThread = utils::ffs(mapping::activemask()) - 1;
-  if (mapping::getThreadIdInWarp() == LowestActiveThread) {
-    fenceKernel(atomic::release);
-    while (!atomicCAS((uint32_t *)Lock, UNSET, SET, atomic::relaxed,
-                      atomic::relaxed)) {
-      __builtin_amdgcn_s_sleep(32);
-    }
-    fenceKernel(atomic::aquire);
-  }
-}
-
 #pragma omp end declare variant
 ///}
 
@@ -328,11 +276,10 @@ void setCriticalLock(omp_lock_t *Lock) {
 ///
 ///{
 #pragma omp begin declare variant match(                                       \
-        device = {arch(nvptx, nvptx64)},                                       \
-            implementation = {extension(match_any)})
+    device = {arch(nvptx, nvptx64)}, implementation = {extension(match_any)})
 
-uint32_t atomicInc(uint32_t *Address, uint32_t Val, atomic::OrderingTy Ordering,
-                   atomic::MemScopeTy MemScope) {
+uint32_t atomicInc(uint32_t *Address, uint32_t Val,
+                   atomic::OrderingTy Ordering) {
   return __nvvm_atom_inc_gen_ui(Address, Val);
 }
 
@@ -340,7 +287,7 @@ void namedBarrierInit() {}
 
 void namedBarrier() {
   uint32_t NumThreads = omp_get_num_threads();
-  ASSERT(NumThreads % 32 == 0, nullptr);
+  ASSERT(NumThreads % 32 == 0);
 
   // The named barrier for active parallel threads of a team in an L1 parallel
   // region to synchronize with each other.
@@ -359,12 +306,12 @@ void fenceSystem(atomic::OrderingTy) { __nvvm_membar_sys(); }
 
 void syncWarp(__kmpc_impl_lanemask_t Mask) { __nvvm_bar_warp_sync(Mask); }
 
-void syncThreads(atomic::OrderingTy Ordering) {
+void syncThreads() {
   constexpr int BarrierNo = 8;
   asm volatile("barrier.sync %0;" : : "r"(BarrierNo) : "memory");
 }
 
-void syncThreadsAligned(atomic::OrderingTy Ordering) { __syncthreads(); }
+void syncThreadsAligned() { __syncthreads(); }
 
 constexpr uint32_t OMP_SPIN = 1000;
 constexpr uint32_t UNSET = 0;
@@ -394,7 +341,7 @@ void setLock(omp_lock_t *Lock) {
     for (;;) {
       now = __nvvm_read_ptx_sreg_clock();
       int32_t cycles = now > start ? now - start : now + (0xffffffff - start);
-      if (cycles >= OMP_SPIN * mapping::getBlockIdInKernel()) {
+      if (cycles >= OMP_SPIN * mapping::getBlockId()) {
         break;
       }
     }
@@ -413,13 +360,9 @@ void synchronize::init(bool IsSPMD) {
 
 void synchronize::warp(LaneMaskTy Mask) { impl::syncWarp(Mask); }
 
-void synchronize::threads(atomic::OrderingTy Ordering) {
-  impl::syncThreads(Ordering);
-}
+void synchronize::threads() { impl::syncThreads(); }
 
-void synchronize::threadsAligned(atomic::OrderingTy Ordering) {
-  impl::syncThreadsAligned(Ordering);
-}
+void synchronize::threadsAligned() { impl::syncThreadsAligned(); }
 
 void fence::team(atomic::OrderingTy Ordering) { impl::fenceTeam(Ordering); }
 
@@ -503,26 +446,23 @@ ATOMIC_FP_OP(double, int64_t, uint64_t)
 #undef ATOMIC_INT_OP
 #undef ATOMIC_FP_OP
 
-uint32_t atomic::inc(uint32_t *Addr, uint32_t V, atomic::OrderingTy Ordering,
-                     atomic::MemScopeTy MemScope) {
-  return impl::atomicInc(Addr, V, Ordering, MemScope);
+uint32_t atomic::inc(uint32_t *Addr, uint32_t V, atomic::OrderingTy Ordering) {
+  return impl::atomicInc(Addr, V, Ordering);
 }
 
-void unsetCriticalLock(omp_lock_t *Lock) { impl::unsetLock(Lock); }
-
-void setCriticalLock(omp_lock_t *Lock) { impl::setLock(Lock); }
-
 extern "C" {
-void __kmpc_ordered(IdentTy *Loc, int32_t TId) {}
+void __kmpc_ordered(IdentTy *Loc, int32_t TId) { FunctionTracingRAII(); }
 
-void __kmpc_end_ordered(IdentTy *Loc, int32_t TId) {}
+void __kmpc_end_ordered(IdentTy *Loc, int32_t TId) { FunctionTracingRAII(); }
 
 int32_t __kmpc_cancel_barrier(IdentTy *Loc, int32_t TId) {
+  FunctionTracingRAII();
   __kmpc_barrier(Loc, TId);
   return 0;
 }
 
 void __kmpc_barrier(IdentTy *Loc, int32_t TId) {
+  FunctionTracingRAII();
   if (mapping::isMainThreadInGenericMode())
     return __kmpc_flush(Loc);
 
@@ -532,47 +472,58 @@ void __kmpc_barrier(IdentTy *Loc, int32_t TId) {
   impl::namedBarrier();
 }
 
-[[clang::noinline]] void __kmpc_barrier_simple_spmd(IdentTy *Loc, int32_t TId) {
-  synchronize::threadsAligned(atomic::OrderingTy::seq_cst);
+__attribute__((noinline)) void __kmpc_barrier_simple_spmd(IdentTy *Loc,
+                                                          int32_t TId) {
+  FunctionTracingRAII();
+  synchronize::threadsAligned();
 }
 
-[[clang::noinline]] void __kmpc_barrier_simple_generic(IdentTy *Loc,
-                                                       int32_t TId) {
-  synchronize::threads(atomic::OrderingTy::seq_cst);
+__attribute__((noinline)) void __kmpc_barrier_simple_generic(IdentTy *Loc,
+                                                             int32_t TId) {
+  FunctionTracingRAII();
+  synchronize::threads();
 }
 
 int32_t __kmpc_master(IdentTy *Loc, int32_t TId) {
-  return omp_get_thread_num() == 0;
+  FunctionTracingRAII();
+  return omp_get_team_num() == 0;
 }
 
-void __kmpc_end_master(IdentTy *Loc, int32_t TId) {}
-
-int32_t __kmpc_masked(IdentTy *Loc, int32_t TId, int32_t Filter) {
-  return omp_get_thread_num() == Filter;
-}
-
-void __kmpc_end_masked(IdentTy *Loc, int32_t TId) {}
+void __kmpc_end_master(IdentTy *Loc, int32_t TId) { FunctionTracingRAII(); }
 
 int32_t __kmpc_single(IdentTy *Loc, int32_t TId) {
+  FunctionTracingRAII();
   return __kmpc_master(Loc, TId);
 }
 
 void __kmpc_end_single(IdentTy *Loc, int32_t TId) {
+  FunctionTracingRAII();
   // The barrier is explicitly called.
 }
 
-void __kmpc_flush(IdentTy *Loc) { fence::kernel(atomic::seq_cst); }
+void __kmpc_flush(IdentTy *Loc) {
+  FunctionTracingRAII();
+  fence::kernel(atomic::seq_cst);
+}
 
-uint64_t __kmpc_warp_active_thread_mask(void) { return mapping::activemask(); }
+uint64_t __kmpc_warp_active_thread_mask(void) {
+  FunctionTracingRAII();
+  return mapping::activemask();
+}
 
-void __kmpc_syncwarp(uint64_t Mask) { synchronize::warp(Mask); }
+void __kmpc_syncwarp(uint64_t Mask) {
+  FunctionTracingRAII();
+  synchronize::warp(Mask);
+}
 
 void __kmpc_critical(IdentTy *Loc, int32_t TId, CriticalNameTy *Name) {
-  impl::setCriticalLock(reinterpret_cast<omp_lock_t *>(Name));
+  FunctionTracingRAII();
+  omp_set_lock(reinterpret_cast<omp_lock_t *>(Name));
 }
 
 void __kmpc_end_critical(IdentTy *Loc, int32_t TId, CriticalNameTy *Name) {
-  impl::unsetCriticalLock(reinterpret_cast<omp_lock_t *>(Name));
+  FunctionTracingRAII();
+  omp_unset_lock(reinterpret_cast<omp_lock_t *>(Name));
 }
 
 void omp_init_lock(omp_lock_t *Lock) { impl::initLock(Lock); }
@@ -584,16 +535,6 @@ void omp_set_lock(omp_lock_t *Lock) { impl::setLock(Lock); }
 void omp_unset_lock(omp_lock_t *Lock) { impl::unsetLock(Lock); }
 
 int omp_test_lock(omp_lock_t *Lock) { return impl::testLock(Lock); }
-
-void ompx_sync_block(int Ordering) {
-  impl::syncThreadsAligned(atomic::OrderingTy(Ordering));
-}
-void ompx_sync_block_acq_rel() {
-  impl::syncThreadsAligned(atomic::OrderingTy::acq_rel);
-}
-void ompx_sync_block_divergent(int Ordering) {
-  impl::syncThreads(atomic::OrderingTy(Ordering));
-}
 } // extern "C"
 
 #pragma omp end declare target

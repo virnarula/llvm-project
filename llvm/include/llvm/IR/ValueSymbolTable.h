@@ -27,9 +27,8 @@ class GlobalAlias;
 class GlobalIFunc;
 class GlobalVariable;
 class Instruction;
-template <bool ExtraIteratorBits> struct ilist_iterator_bits;
 template <unsigned InternalLen> class SmallString;
-template <typename ValueSubClass, typename ... Args> class SymbolTableListTraits;
+template <typename ValueSubClass> class SymbolTableListTraits;
 
 /// This class provides a symbol table of name/value pairs. It is essentially
 /// a std::map<std::string,Value*> but has a controlled interface provided by
@@ -42,7 +41,7 @@ class ValueSymbolTable {
   friend class SymbolTableListTraits<GlobalAlias>;
   friend class SymbolTableListTraits<GlobalIFunc>;
   friend class SymbolTableListTraits<GlobalVariable>;
-  friend class SymbolTableListTraits<Instruction, ilist_iterator_bits<true>>;
+  friend class SymbolTableListTraits<Instruction>;
   friend class Value;
 
 /// @name Types

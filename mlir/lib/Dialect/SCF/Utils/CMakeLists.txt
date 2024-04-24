@@ -14,7 +14,6 @@ add_mlir_dialect_library(MLIRSCFUtils
   MLIRFuncDialect
   MLIRIR
   MLIRSCFDialect
-  MLIRSideEffectInterfaces
   MLIRSupport
   MLIRTransforms
   )

@@ -9,6 +9,7 @@
 #ifndef PYTHON_BINDINGS_COMPLEX_OPS
 #define PYTHON_BINDINGS_COMPLEX_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/Complex/IR/ComplexOps.td"
 
 #endif

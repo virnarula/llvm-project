@@ -11,9 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/Support/DJB.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/ReverseIteration.h"
-#include "llvm/Support/xxhash.h"
 
 using namespace llvm;
 
@@ -85,9 +84,7 @@ unsigned StringMapImpl::LookupBucketFor(StringRef Name) {
   // Hash table unallocated so far?
   if (NumBuckets == 0)
     init(16);
-  unsigned FullHashValue = xxh3_64bits(Name);
-  if (shouldReverseIterate())
-    FullHashValue = ~FullHashValue;
+  unsigned FullHashValue = djbHash(Name, 0);
   unsigned BucketNo = FullHashValue & (NumBuckets - 1);
   unsigned *HashTable = getHashTable(TheTable, NumBuckets);
 
@@ -142,9 +139,7 @@ unsigned StringMapImpl::LookupBucketFor(StringRef Name) {
 int StringMapImpl::FindKey(StringRef Key) const {
   if (NumBuckets == 0)
     return -1; // Really empty table?
-  unsigned FullHashValue = xxh3_64bits(Key);
-  if (shouldReverseIterate())
-    FullHashValue = ~FullHashValue;
+  unsigned FullHashValue = djbHash(Key, 0);
   unsigned BucketNo = FullHashValue & (NumBuckets - 1);
   unsigned *HashTable = getHashTable(TheTable, NumBuckets);
 

@@ -23,11 +23,11 @@
 
 // These are for the Sourcename completers.
 // FIXME: Make a separate file for the completers.
+#include "lldb/Core/FileSpecList.h"
 #include "lldb/DataFormatters/FormatManager.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/FileSpec.h"
-#include "lldb/Utility/FileSpecList.h"
 
 #include "lldb/Target/Language.h"
 
@@ -715,7 +715,7 @@ Thread *CommandObject::GetDefaultThread() {
     return nullptr;
 }
 
-void CommandObjectParsed::Execute(const char *args_string,
+bool CommandObjectParsed::Execute(const char *args_string,
                                   CommandReturnObject &result) {
   bool handled = false;
   Args cmd_args(args_string);
@@ -727,14 +727,10 @@ void CommandObjectParsed::Execute(const char *args_string,
   }
   if (!handled) {
     for (auto entry : llvm::enumerate(cmd_args.entries())) {
-      const Args::ArgEntry &value = entry.value();
-      if (!value.ref().empty() && value.GetQuoteChar() == '`') {
-        // We have to put the backtick back in place for PreprocessCommand.
-        std::string opt_string = value.c_str();
-        Status error;
-        error = m_interpreter.PreprocessToken(opt_string);
-        if (error.Success())
-          cmd_args.ReplaceArgumentAtIndex(entry.index(), opt_string);
+      if (!entry.value().ref().empty() && entry.value().GetQuoteChar() == '`') {
+        cmd_args.ReplaceArgumentAtIndex(
+            entry.index(),
+            m_interpreter.ProcessEmbeddedScriptCommands(entry.value().c_str()));
       }
     }
 
@@ -746,17 +742,18 @@ void CommandObjectParsed::Execute(const char *args_string,
           result.AppendErrorWithFormatv("'{0}' doesn't take any arguments.",
                                         GetCommandName());
           Cleanup();
-          return;
+          return false;
         }
-        DoExecute(cmd_args, result);
+        handled = DoExecute(cmd_args, result);
       }
     }
 
     Cleanup();
   }
+  return handled;
 }
 
-void CommandObjectRaw::Execute(const char *args_string,
+bool CommandObjectRaw::Execute(const char *args_string,
                                CommandReturnObject &result) {
   bool handled = false;
   if (HasOverrideCallback()) {
@@ -769,8 +766,9 @@ void CommandObjectRaw::Execute(const char *args_string,
   }
   if (!handled) {
     if (CheckRequirements(result))
-      DoExecute(args_string, result);
+      handled = DoExecute(args_string, result);
 
     Cleanup();
   }
+  return handled;
 }

@@ -11,8 +11,8 @@
 
 include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/IR/AttrTypeBase.td"
+include "mlir/IR/SubElementInterfaces.td"
 include "mlir/Interfaces/DataLayoutInterfaces.td"
-include "mlir/Interfaces/MemorySlotInterfaces.td"
 
 /// Base class for all LLVM dialect types.
 class LLVMType<string typeName, string typeMnemonic, list<Trait> traits = []>
@@ -26,7 +26,7 @@ class LLVMType<string typeName, string typeMnemonic, list<Trait> traits = []>
 
 def LLVMArrayType : LLVMType<"LLVMArray", "array", [
     DeclareTypeInterfaceMethods<DataLayoutTypeInterface, ["getTypeSize"]>,
-    DeclareTypeInterfaceMethods<DestructurableTypeInterface>]> {
+    DeclareTypeInterfaceMethods<SubElementTypeInterface>]> {
   let summary = "LLVM array type";
   let description = [{
     The `!llvm.array` type represents a fixed-size array of element types.
@@ -42,7 +42,7 @@ def LLVMArrayType : LLVMType<"LLVMArray", "array", [
 
   let parameters = (ins "Type":$elementType, "unsigned":$numElements);
   let assemblyFormat = [{
-    `<` $numElements `x` custom<PrettyLLVMType>($elementType) `>`
+    `<` $numElements `x` ` ` custom<PrettyLLVMType>($elementType) `>`
   }];
 
   let genVerifyDecl = 1;
@@ -62,7 +62,8 @@ def LLVMArrayType : LLVMType<"LLVMArray", "array", [
 // LLVMFunctionType
 //===----------------------------------------------------------------------===//
 
-def LLVMFunctionType : LLVMType<"LLVMFunction", "func"> {
+def LLVMFunctionType : LLVMType<"LLVMFunction", "func", [
+    DeclareTypeInterfaceMethods<SubElementTypeInterface>]> {
   let summary = "LLVM function type";
   let description = [{
     The `!llvm.func` is a function type. It consists of a single return type
@@ -123,38 +124,55 @@ def LLVMFunctionType : LLVMType<"LLVMFunction", "func"> {
 
 def LLVMPointerType : LLVMType<"LLVMPointer", "ptr", [
     DeclareTypeInterfaceMethods<DataLayoutTypeInterface, [
-      "areCompatible", "verifyEntries"]>]> {
+      "areCompatible", "verifyEntries"]>,
+    DeclareTypeInterfaceMethods<SubElementTypeInterface>]> {
   let summary = "LLVM pointer type";
   let description = [{
     The `!llvm.ptr` type is an LLVM pointer type. This type typically represents
-    a reference to an object in memory. Pointers are optionally parameterized
-    by the address space.
+    a reference to an object in memory. Pointers may be opaque or parameterized
+    by the element type. Both opaque and non-opaque pointers are additionally
+    parameterized by the address space.
 
     Example:
 
     ```mlir
+    !llvm.ptr<i8>
     !llvm.ptr
     ```
   }];
 
-  let parameters = (ins DefaultValuedParameter<"unsigned", "0">:$addressSpace);
+  let parameters = (ins DefaultValuedParameter<"Type", "Type()">:$elementType,
+                        DefaultValuedParameter<"unsigned", "0">:$addressSpace);
   let assemblyFormat = [{
-    (`<` $addressSpace^ `>`)?
+    (`<` custom<Pointer>($elementType, $addressSpace)^ `>`)?
   }];
 
-  let skipDefaultBuilders = 1;
+  let genVerifyDecl = 1;
+
   let builders = [
+    TypeBuilderWithInferredContext<(ins "Type":$elementType,
+                                         CArg<"unsigned", "0">:$addressSpace)>,
     TypeBuilder<(ins CArg<"unsigned", "0">:$addressSpace), [{
-      return $_get($_ctxt, addressSpace);
+      return $_get($_ctxt, Type(), addressSpace);
     }]>
   ];
+
+  let extraClassDeclaration = [{
+    /// Returns `true` if this type is the opaque pointer type, i.e., it has no
+    /// pointed-to type.
+    bool isOpaque() const { return !getElementType(); }
+
+    /// Checks if the given type can have a pointer type pointing to it.
+    static bool isValidElementType(Type type);
+  }];
 }
 
 //===----------------------------------------------------------------------===//
 // LLVMFixedVectorType
 //===----------------------------------------------------------------------===//
 
-def LLVMFixedVectorType : LLVMType<"LLVMFixedVector", "vec"> {
+def LLVMFixedVectorType : LLVMType<"LLVMFixedVector", "vec", [
+    DeclareTypeInterfaceMethods<SubElementTypeInterface>]> {
   let summary = "LLVM fixed vector type";
   let description = [{
     LLVM dialect scalable vector type, represents a sequence of elements of
@@ -162,11 +180,9 @@ def LLVMFixedVectorType : LLVMType<"LLVMFixedVector", "vec"> {
     elements can be processed as one in SIMD context.
   }];
 
-  let typeName = "llvm.fixed_vec";
-
   let parameters = (ins "Type":$elementType, "unsigned":$numElements);
   let assemblyFormat = [{
-    `<` $numElements `x` custom<PrettyLLVMType>($elementType) `>`
+    `<` $numElements `x` ` ` custom<PrettyLLVMType>($elementType) `>`
   }];
 
   let genVerifyDecl = 1;
@@ -186,15 +202,14 @@ def LLVMFixedVectorType : LLVMType<"LLVMFixedVector", "vec"> {
 // LLVMScalableVectorType
 //===----------------------------------------------------------------------===//
 
-def LLVMScalableVectorType : LLVMType<"LLVMScalableVector", "vec"> {
+def LLVMScalableVectorType : LLVMType<"LLVMScalableVector", "vec", [
+    DeclareTypeInterfaceMethods<SubElementTypeInterface>]> {
   let summary = "LLVM scalable vector type";
   let description = [{
     LLVM dialect scalable vector type, represents a sequence of elements of
     unknown length that is known to be divisible by some constant. These
     elements can be processed as one in SIMD context.
   }];
-
-  let typeName = "llvm.scalable_vec";
 
   let parameters = (ins "Type":$elementType, "unsigned":$minNumElements);
   let assemblyFormat = [{
@@ -211,42 +226,6 @@ def LLVMScalableVectorType : LLVMType<"LLVMScalableVector", "vec"> {
   let extraClassDeclaration = [{
     /// Checks if the given type can be used in a vector type.
     static bool isValidElementType(Type type);
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// LLVMTargetExtType
-//===----------------------------------------------------------------------===//
-
-def LLVMTargetExtType : LLVMType<"LLVMTargetExt", "target"> {
-  let summary = "LLVM target-specific extension type";
-  let description = [{
-    LLVM dialect target extension type, which are generally unintrospectable
-    from target-independent optimizations.
-
-    Target extension types have a string name, and optionally have type and/or
-    integer parameters. The exact meaning of any parameters is dependent on the
-    target.
-  }];
-
-  let parameters = (ins StringRefParameter<>:$extTypeName,
-                        OptionalArrayRefParameter<"Type">:$typeParams,
-                        OptionalArrayRefParameter<"unsigned int">:$intParams);
-
-  let assemblyFormat = [{
-    `<` $extTypeName (`,` custom<ExtTypeParams>($typeParams, $intParams)^ )? `>`
-  }];
-
-  let extraClassDeclaration = [{
-    enum Property {
-      /// zeroinitializer is valid for this target extension type.
-      HasZeroInit = 1U << 0,
-      /// This type may be used as the value type of a global variable.
-      CanBeGlobal = 1U << 1,
-    };
-
-    bool hasProperty(Property Prop) const;
-    bool supportsMemOps() const;
   }];
 }
 

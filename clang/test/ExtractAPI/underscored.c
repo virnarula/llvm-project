@@ -65,8 +65,7 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
     {
       "kind": "memberOf",
       "source": "c:@S@ExposedRecord@FI@a",
-      "target": "c:@S@ExposedRecord",
-      "targetFallback": "ExposedRecord"
+      "target": "c:@S@ExposedRecord"
     }
   ],
   "symbols": [
@@ -85,10 +84,6 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
         {
           "kind": "identifier",
           "spelling": "exposed_global"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -101,8 +96,8 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
       },
       "location": {
         "position": {
-          "character": 4,
-          "line": 4
+          "character": 5,
+          "line": 5
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -139,10 +134,6 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
         {
           "kind": "identifier",
           "spelling": "ExposedRecord"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -155,8 +146,8 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
       },
       "location": {
         "position": {
-          "character": 7,
-          "line": 11
+          "character": 8,
+          "line": 12
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -194,10 +185,6 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
         {
           "kind": "identifier",
           "spelling": "a"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -210,8 +197,8 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
       },
       "location": {
         "position": {
-          "character": 6,
-          "line": 12
+          "character": 7,
+          "line": 13
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -261,8 +248,8 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
       },
       "location": {
         "position": {
-          "character": 8,
-          "line": 22
+          "character": 9,
+          "line": 23
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -308,10 +295,6 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
         {
           "kind": "identifier",
           "spelling": "ExposedTypedef"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -324,8 +307,8 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
       },
       "location": {
         "position": {
-          "character": 12,
-          "line": 17
+          "character": 13,
+          "line": 18
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -372,10 +355,6 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
         {
           "kind": "identifier",
           "spelling": "ExposedTypedefToHidden"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -388,8 +367,8 @@ typedef _HiddenTypedef ExposedTypedefToHidden;
       },
       "location": {
         "position": {
-          "character": 23,
-          "line": 18
+          "character": 24,
+          "line": 19
         },
         "uri": "file://INPUT_DIR/input.h"
       },

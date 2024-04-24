@@ -7,17 +7,15 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   BitWriter
   CodeGen
-  CodeGenTypes
   Core
-  IPO
   IRReader
   MC
   MIRParser
   Passes
   Support
   Target
-  TargetParser
   TransformUtils
+  IPO
   )
 
 add_llvm_tool(llvm-reduce
@@ -31,7 +29,6 @@ add_llvm_tool(llvm-reduce
   deltas/ReduceAttributes.cpp
   deltas/ReduceBasicBlocks.cpp
   deltas/ReduceDIMetadata.cpp
-  deltas/ReduceDPValues.cpp
   deltas/ReduceFunctionBodies.cpp
   deltas/ReduceFunctions.cpp
   deltas/ReduceGlobalObjects.cpp
@@ -40,7 +37,6 @@ add_llvm_tool(llvm-reduce
   deltas/ReduceGlobalVars.cpp
   deltas/ReduceInstructions.cpp
   deltas/ReduceInstructionFlags.cpp
-  deltas/ReduceInvokes.cpp
   deltas/ReduceMetadata.cpp
   deltas/ReduceModuleData.cpp
   deltas/ReduceMemoryOperations.cpp

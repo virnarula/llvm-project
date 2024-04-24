@@ -23,8 +23,6 @@
 // CHECK-NEXT:         "-cc1"
 // CHECK-NOT:          "-fdebug-compilation-dir="
 // CHECK-NOT:          "-fcoverage-compilation-dir="
-// CHECK-NOT:          "-coverage-notes-file
-// CHECK-NOT:          "-coverage-data-file
 // CHECK-NOT:          "-dwarf-debug-flags"
 // CHECK-NOT:          "-main-file-name"
 // CHECK-NOT:          "-include"
@@ -48,8 +46,6 @@
 // CHECK-NEXT:         "-cc1"
 // CHECK-NOT:          "-fdebug-compilation-dir=
 // CHECK-NOT:          "-fcoverage-compilation-dir=
-// CHECK-NOT:          "-coverage-notes-file
-// CHECK-NOT:          "-coverage-data-file
 // CHECK-NOT:          "-dwarf-debug-flags"
 // CHECK-NOT:          "-main-file-name"
 // CHECK-NOT:          "-include"

@@ -11,7 +11,9 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/Support/ConvertUTF.h"
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 // See https://www.unicode.org/Public/14.0.0/ucd/extracted/DerivedBidiClass.txt
 static bool isUnassignedAL(llvm::UTF32 CP) {
@@ -124,7 +126,7 @@ static bool hasRTLCharacters(StringRef Buffer) {
   const char *CurPtr = Buffer.begin();
   const char *EndPtr = Buffer.end();
   while (CurPtr < EndPtr) {
-    llvm::UTF32 CodePoint = 0;
+    llvm::UTF32 CodePoint;
     llvm::ConversionResult Result = llvm::convertUTF8Sequence(
         (const llvm::UTF8 **)&CurPtr, (const llvm::UTF8 *)EndPtr, &CodePoint,
         llvm::strictConversion);
@@ -159,4 +161,6 @@ void MisleadingIdentifierCheck::registerMatchers(
   Finder->addMatcher(ast_matchers::namedDecl().bind("nameddecl"), this);
 }
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

@@ -14,7 +14,9 @@
 #include "llvm/ADT/StringRef.h"
 #include <string>
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Finds `assert()` with side effect.
 ///
@@ -43,6 +45,8 @@ private:
   const std::vector<StringRef> IgnoredFunctions;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_ASSERTSIDEEFFECTCHECK_H

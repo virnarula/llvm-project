@@ -25,11 +25,11 @@ using namespace mlir::detail;
 //===----------------------------------------------------------------------===//
 
 Type ElementsAttr::getElementType(ElementsAttr elementsAttr) {
-  return elementsAttr.getShapedType().getElementType();
+  return elementsAttr.getType().getElementType();
 }
 
 int64_t ElementsAttr::getNumElements(ElementsAttr elementsAttr) {
-  return elementsAttr.getShapedType().getNumElements();
+  return elementsAttr.getType().getNumElements();
 }
 
 bool ElementsAttr::isValidIndex(ShapedType type, ArrayRef<uint64_t> index) {
@@ -49,11 +49,11 @@ bool ElementsAttr::isValidIndex(ShapedType type, ArrayRef<uint64_t> index) {
 }
 bool ElementsAttr::isValidIndex(ElementsAttr elementsAttr,
                                 ArrayRef<uint64_t> index) {
-  return isValidIndex(elementsAttr.getShapedType(), index);
+  return isValidIndex(elementsAttr.getType(), index);
 }
 
 uint64_t ElementsAttr::getFlattenedIndex(Type type, ArrayRef<uint64_t> index) {
-  ShapedType shapeType = llvm::cast<ShapedType>(type);
+  ShapedType shapeType = type.cast<ShapedType>();
   assert(isValidIndex(shapeType, index) &&
          "expected valid multi-dimensional index");
 

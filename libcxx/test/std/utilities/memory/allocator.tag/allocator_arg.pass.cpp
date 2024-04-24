@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03
-
 // <memory>
 
 // struct allocator_arg_t { explicit allocator_arg_t() = default; };

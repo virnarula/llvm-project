@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "flang/Runtime/pointer.h"
-#include "assign-impl.h"
 #include "derived.h"
 #include "stat.h"
 #include "terminator.h"
@@ -16,9 +15,8 @@
 
 namespace Fortran::runtime {
 extern "C" {
-RT_EXT_API_GROUP_BEGIN
 
-void RTDEF(PointerNullifyIntrinsic)(Descriptor &pointer, TypeCategory category,
+void RTNAME(PointerNullifyIntrinsic)(Descriptor &pointer, TypeCategory category,
     int kind, int rank, int corank) {
   INTERNAL_CHECK(corank == 0);
   pointer.Establish(TypeCode{category, kind},
@@ -26,20 +24,20 @@ void RTDEF(PointerNullifyIntrinsic)(Descriptor &pointer, TypeCategory category,
       CFI_attribute_pointer);
 }
 
-void RTDEF(PointerNullifyCharacter)(Descriptor &pointer, SubscriptValue length,
+void RTNAME(PointerNullifyCharacter)(Descriptor &pointer, SubscriptValue length,
     int kind, int rank, int corank) {
   INTERNAL_CHECK(corank == 0);
   pointer.Establish(
       kind, length, nullptr, rank, nullptr, CFI_attribute_pointer);
 }
 
-void RTDEF(PointerNullifyDerived)(Descriptor &pointer,
+void RTNAME(PointerNullifyDerived)(Descriptor &pointer,
     const typeInfo::DerivedType &derivedType, int rank, int corank) {
   INTERNAL_CHECK(corank == 0);
   pointer.Establish(derivedType, nullptr, rank, nullptr, CFI_attribute_pointer);
 }
 
-void RTDEF(PointerSetBounds)(Descriptor &pointer, int zeroBasedDim,
+void RTNAME(PointerSetBounds)(Descriptor &pointer, int zeroBasedDim,
     SubscriptValue lower, SubscriptValue upper) {
   INTERNAL_CHECK(zeroBasedDim >= 0 && zeroBasedDim < pointer.rank());
   pointer.GetDimension(zeroBasedDim).SetBounds(lower, upper);
@@ -48,28 +46,29 @@ void RTDEF(PointerSetBounds)(Descriptor &pointer, int zeroBasedDim,
 
 // TODO: PointerSetCoBounds
 
-void RTDEF(PointerSetDerivedLength)(
+void RTNAME(PointerSetDerivedLength)(
     Descriptor &pointer, int which, SubscriptValue x) {
   DescriptorAddendum *addendum{pointer.Addendum()};
   INTERNAL_CHECK(addendum != nullptr);
   addendum->SetLenParameterValue(which, x);
 }
 
-void RTDEF(PointerApplyMold)(
-    Descriptor &pointer, const Descriptor &mold, int rank) {
-  pointer.ApplyMold(mold, rank);
+void RTNAME(PointerApplyMold)(Descriptor &pointer, const Descriptor &mold) {
+  pointer = mold;
+  pointer.set_base_addr(nullptr);
+  pointer.raw().attribute = CFI_attribute_pointer;
 }
 
-void RTDEF(PointerAssociateScalar)(Descriptor &pointer, void *target) {
+void RTNAME(PointerAssociateScalar)(Descriptor &pointer, void *target) {
   pointer.set_base_addr(target);
 }
 
-void RTDEF(PointerAssociate)(Descriptor &pointer, const Descriptor &target) {
+void RTNAME(PointerAssociate)(Descriptor &pointer, const Descriptor &target) {
   pointer = target;
   pointer.raw().attribute = CFI_attribute_pointer;
 }
 
-void RTDEF(PointerAssociateLowerBounds)(Descriptor &pointer,
+void RTNAME(PointerAssociateLowerBounds)(Descriptor &pointer,
     const Descriptor &target, const Descriptor &lowerBounds) {
   pointer = target;
   pointer.raw().attribute = CFI_attribute_pointer;
@@ -85,25 +84,23 @@ void RTDEF(PointerAssociateLowerBounds)(Descriptor &pointer,
   }
 }
 
-void RTDEF(PointerAssociateRemapping)(Descriptor &pointer,
+void RTNAME(PointerAssociateRemapping)(Descriptor &pointer,
     const Descriptor &target, const Descriptor &bounds, const char *sourceFile,
     int sourceLine) {
   pointer = target;
   pointer.raw().attribute = CFI_attribute_pointer;
+  int rank{pointer.rank()};
   Terminator terminator{sourceFile, sourceLine};
   SubscriptValue byteStride{/*captured from first dimension*/};
   std::size_t boundElementBytes{bounds.ElementBytes()};
-  std::size_t boundsRank{
-      static_cast<std::size_t>(bounds.GetDimension(1).Extent())};
-  pointer.raw().rank = boundsRank;
-  for (unsigned j{0}; j < boundsRank; ++j) {
+  for (int j{0}; j < rank; ++j) {
     auto &dim{pointer.GetDimension(j)};
     dim.SetBounds(GetInt64(bounds.ZeroBasedIndexedElement<const char>(2 * j),
                       boundElementBytes, terminator),
         GetInt64(bounds.ZeroBasedIndexedElement<const char>(2 * j + 1),
             boundElementBytes, terminator));
     if (j == 0) {
-      byteStride = dim.ByteStride() * dim.Extent();
+      byteStride = dim.ByteStride();
     } else {
       dim.SetByteStride(byteStride);
       byteStride *= dim.Extent();
@@ -114,16 +111,9 @@ void RTDEF(PointerAssociateRemapping)(Descriptor &pointer,
                      "pointer (%zd > %zd)",
         pointer.Elements(), target.Elements());
   }
-  if (auto *pointerAddendum{pointer.Addendum()}) {
-    if (const auto *targetAddendum{target.Addendum()}) {
-      if (const auto *derived{targetAddendum->derivedType()}) {
-        pointerAddendum->set_derivedType(derived);
-      }
-    }
-  }
 }
 
-int RTDEF(PointerAllocate)(Descriptor &pointer, bool hasStat,
+int RTNAME(PointerAllocate)(Descriptor &pointer, bool hasStat,
     const Descriptor *errMsg, const char *sourceFile, int sourceLine) {
   Terminator terminator{sourceFile, sourceLine};
   if (!pointer.IsPointer()) {
@@ -142,19 +132,7 @@ int RTDEF(PointerAllocate)(Descriptor &pointer, bool hasStat,
   return stat;
 }
 
-int RTDEF(PointerAllocateSource)(Descriptor &pointer, const Descriptor &source,
-    bool hasStat, const Descriptor *errMsg, const char *sourceFile,
-    int sourceLine) {
-  int stat{RTNAME(PointerAllocate)(
-      pointer, hasStat, errMsg, sourceFile, sourceLine)};
-  if (stat == StatOk) {
-    Terminator terminator{sourceFile, sourceLine};
-    DoFromSourceAssign(pointer, source, terminator);
-  }
-  return stat;
-}
-
-int RTDEF(PointerDeallocate)(Descriptor &pointer, bool hasStat,
+int RTNAME(PointerDeallocate)(Descriptor &pointer, bool hasStat,
     const Descriptor *errMsg, const char *sourceFile, int sourceLine) {
   Terminator terminator{sourceFile, sourceLine};
   if (!pointer.IsPointer()) {
@@ -163,42 +141,19 @@ int RTDEF(PointerDeallocate)(Descriptor &pointer, bool hasStat,
   if (!pointer.IsAllocated()) {
     return ReturnError(terminator, StatBaseNull, errMsg, hasStat);
   }
-  return ReturnError(terminator,
-      pointer.Destroy(/*finalize=*/true, /*destroyPointers=*/true, &terminator),
-      errMsg, hasStat);
+  return ReturnError(terminator, pointer.Destroy(true, true), errMsg, hasStat);
 }
 
-int RTDEF(PointerDeallocatePolymorphic)(Descriptor &pointer,
-    const typeInfo::DerivedType *derivedType, bool hasStat,
-    const Descriptor *errMsg, const char *sourceFile, int sourceLine) {
-  int stat{RTNAME(PointerDeallocate)(
-      pointer, hasStat, errMsg, sourceFile, sourceLine)};
-  if (stat == StatOk) {
-    if (DescriptorAddendum * addendum{pointer.Addendum()}) {
-      addendum->set_derivedType(derivedType);
-      pointer.raw().type = derivedType ? CFI_type_struct : CFI_type_other;
-    } else {
-      // Unlimited polymorphic descriptors initialized with
-      // PointerNullifyIntrinsic do not have an addendum. Make sure the
-      // derivedType is null in that case.
-      INTERNAL_CHECK(!derivedType);
-      pointer.raw().type = CFI_type_other;
-    }
-  }
-  return stat;
-}
-
-bool RTDEF(PointerIsAssociated)(const Descriptor &pointer) {
+bool RTNAME(PointerIsAssociated)(const Descriptor &pointer) {
   return pointer.raw().base_addr != nullptr;
 }
 
-bool RTDEF(PointerIsAssociatedWith)(
+bool RTNAME(PointerIsAssociatedWith)(
     const Descriptor &pointer, const Descriptor *target) {
   if (!target) {
     return pointer.raw().base_addr != nullptr;
   }
-  if (!target->raw().base_addr ||
-      (target->raw().type != CFI_type_struct && target->ElementBytes() == 0)) {
+  if (!target->raw().base_addr || target->ElementBytes() == 0) {
     return false;
   }
   int rank{pointer.rank()};
@@ -219,8 +174,7 @@ bool RTDEF(PointerIsAssociatedWith)(
   return true;
 }
 
-// TODO: PointerCheckLengthParameter
+// TODO: PointerCheckLengthParameter, PointerAllocateSource
 
-RT_EXT_API_GROUP_END
 } // extern "C"
 } // namespace Fortran::runtime

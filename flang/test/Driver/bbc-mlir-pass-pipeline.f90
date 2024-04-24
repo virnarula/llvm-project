@@ -39,7 +39,6 @@ end program
 ! CHECK-NEXT:   (S) 0 num-dce'd - Number of operations DCE'd
 
 ! CHECK-NEXT: 'func.func' Pipeline
-! CHECK-NEXT:   PolymorphicOpConversion
 ! CHECK-NEXT:   CFGConversion
 
 ! CHECK-NEXT: SCFToControlFlow

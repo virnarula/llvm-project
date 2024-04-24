@@ -14,5 +14,4 @@ add_lldb_library(lldbPluginDynamicLoaderMacOSXDYLD PLUGIN
     lldbPluginTypeSystemClang
   LINK_COMPONENTS
     Support
-    TargetParser
   )

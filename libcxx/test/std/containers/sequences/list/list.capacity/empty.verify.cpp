@@ -16,7 +16,12 @@
 
 #include <list>
 
-void f() {
+#include "test_macros.h"
+
+int main(int, char**)
+{
     std::list<int> c;
     c.empty(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+
+    return 0;
 }

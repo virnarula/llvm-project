@@ -17,7 +17,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 SpecialMemberFunctionsCheck::SpecialMemberFunctionsCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -108,14 +110,10 @@ void SpecialMemberFunctionsCheck::check(
   };
 
   if (const auto *Dtor = Result.Nodes.getNodeAs<CXXMethodDecl>("dtor")) {
-    SpecialMemberFunctionKind DestructorType =
-        SpecialMemberFunctionKind::Destructor;
-    if (Dtor->isDefined()) {
-      DestructorType = Dtor->getDefinition()->isDefaulted()
-                           ? SpecialMemberFunctionKind::DefaultDestructor
-                           : SpecialMemberFunctionKind::NonDefaultDestructor;
-    }
-    StoreMember({DestructorType, Dtor->isDeleted()});
+    StoreMember({Dtor->isDefaulted()
+                     ? SpecialMemberFunctionKind::DefaultDestructor
+                     : SpecialMemberFunctionKind::NonDefaultDestructor,
+                 Dtor->isDeleted()});
   }
 
   std::initializer_list<std::pair<std::string, SpecialMemberFunctionKind>>
@@ -162,8 +160,7 @@ void SpecialMemberFunctionsCheck::checkForMissingMembers(
   bool RequireThree =
       HasMember(SpecialMemberFunctionKind::NonDefaultDestructor) ||
       (!AllowSoleDefaultDtor &&
-       (HasMember(SpecialMemberFunctionKind::Destructor) ||
-        HasMember(SpecialMemberFunctionKind::DefaultDestructor))) ||
+       HasMember(SpecialMemberFunctionKind::DefaultDestructor)) ||
       HasMember(SpecialMemberFunctionKind::CopyConstructor) ||
       HasMember(SpecialMemberFunctionKind::CopyAssignment) ||
       HasMember(SpecialMemberFunctionKind::MoveConstructor) ||
@@ -175,8 +172,7 @@ void SpecialMemberFunctionsCheck::checkForMissingMembers(
                      HasMember(SpecialMemberFunctionKind::MoveAssignment);
 
   if (RequireThree) {
-    if (!HasMember(SpecialMemberFunctionKind::Destructor) &&
-        !HasMember(SpecialMemberFunctionKind::DefaultDestructor) &&
+    if (!HasMember(SpecialMemberFunctionKind::DefaultDestructor) &&
         !HasMember(SpecialMemberFunctionKind::NonDefaultDestructor))
       MissingMembers.push_back(SpecialMemberFunctionKind::Destructor);
 
@@ -203,4 +199,6 @@ void SpecialMemberFunctionsCheck::checkForMissingMembers(
   }
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

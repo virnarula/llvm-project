@@ -19,8 +19,8 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Frontend/Utils.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -44,6 +44,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
@@ -52,10 +53,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/Triple.h"
 #include <memory>
-#include <optional>
 #include <system_error>
 using namespace clang;
 using namespace clang::driver;
@@ -98,7 +96,7 @@ struct AssemblerInvocation {
   std::string DwarfDebugFlags;
   std::string DwarfDebugProducer;
   std::string DebugCompilationDir;
-  llvm::SmallVector<std::pair<std::string, std::string>, 0> DebugPrefixMap;
+  std::map<const std::string, const std::string> DebugPrefixMap;
   llvm::DebugCompressionType CompressDebugSections =
       llvm::DebugCompressionType::None;
   std::string MainFileName;
@@ -143,10 +141,6 @@ struct AssemblerInvocation {
   /// Whether to emit DWARF unwind info.
   EmitDwarfUnwindType EmitDwarfUnwind;
 
-  // Whether to emit compact-unwind for non-canonical entries.
-  // Note: maybe overriden by other constraints.
-  unsigned EmitCompactUnwindNonCanonical : 1;
-
   /// The name of the relocation model to use.
   std::string RelocationModel;
 
@@ -156,7 +150,7 @@ struct AssemblerInvocation {
 
   /// Darwin target variant triple, the variant of the deployment target
   /// for which the code is being compiled.
-  std::optional<llvm::Triple> DarwinTargetVariantTriple;
+  llvm::Optional<llvm::Triple> DarwinTargetVariantTriple;
 
   /// The version of the darwin target variant SDK which was used during the
   /// compilation
@@ -186,7 +180,6 @@ public:
     DwarfVersion = 0;
     EmbedBitcode = 0;
     EmitDwarfUnwind = EmitDwarfUnwindType::Default;
-    EmitCompactUnwindNonCanonical = false;
   }
 
   static bool CreateFromArgs(AssemblerInvocation &Res,
@@ -204,10 +197,10 @@ bool AssemblerInvocation::CreateFromArgs(AssemblerInvocation &Opts,
   // Parse the arguments.
   const OptTable &OptTbl = getDriverOptTable();
 
-  llvm::opt::Visibility VisibilityMask(options::CC1AsOption);
+  const unsigned IncludedFlagsBitmask = options::CC1AsOption;
   unsigned MissingArgIndex, MissingArgCount;
-  InputArgList Args =
-      OptTbl.ParseArgs(Argv, MissingArgIndex, MissingArgCount, VisibilityMask);
+  InputArgList Args = OptTbl.ParseArgs(Argv, MissingArgIndex, MissingArgCount,
+                                       IncludedFlagsBitmask);
 
   // Check for missing argument error.
   if (MissingArgCount) {
@@ -220,7 +213,7 @@ bool AssemblerInvocation::CreateFromArgs(AssemblerInvocation &Opts,
   for (const Arg *A : Args.filtered(OPT_UNKNOWN)) {
     auto ArgString = A->getAsString(Args);
     std::string Nearest;
-    if (OptTbl.findNearest(ArgString, Nearest, VisibilityMask) > 1)
+    if (OptTbl.findNearest(ArgString, Nearest, IncludedFlagsBitmask) > 1)
       Diags.Report(diag::err_drv_unknown_argument) << ArgString;
     else
       Diags.Report(diag::err_drv_unknown_argument_with_suggestion)
@@ -266,7 +259,7 @@ bool AssemblerInvocation::CreateFromArgs(AssemblerInvocation &Opts,
             .Default(llvm::DebugCompressionType::None);
   }
 
-  Opts.RelaxELFRelocations = !Args.hasArg(OPT_mrelax_relocations_no);
+  Opts.RelaxELFRelocations = Args.hasArg(OPT_mrelax_relocations);
   if (auto *DwarfFormatArg = Args.getLastArg(OPT_gdwarf64, OPT_gdwarf32))
     Opts.Dwarf64 = DwarfFormatArg->getOption().matches(OPT_gdwarf64);
   Opts.DwarfVersion = getLastArgIntValue(Args, OPT_dwarf_version_EQ, 2, Diags);
@@ -281,7 +274,8 @@ bool AssemblerInvocation::CreateFromArgs(AssemblerInvocation &Opts,
 
   for (const auto &Arg : Args.getAllArgValues(OPT_fdebug_prefix_map_EQ)) {
     auto Split = StringRef(Arg).split('=');
-    Opts.DebugPrefixMap.emplace_back(Split.first, Split.second);
+    Opts.DebugPrefixMap.insert(
+        {std::string(Split.first), std::string(Split.second)});
   }
 
   // Frontend Options
@@ -354,9 +348,6 @@ bool AssemblerInvocation::CreateFromArgs(AssemblerInvocation &Opts,
             .Case("default", EmitDwarfUnwindType::Default);
   }
 
-  Opts.EmitCompactUnwindNonCanonical =
-      Args.hasArg(OPT_femit_compact_unwind_non_canonical);
-
   Opts.AsSecureLogFile = Args.getLastArgValue(OPT_as_secure_log_file);
 
   return Success;
@@ -392,8 +383,8 @@ static bool ExecuteAssemblerImpl(AssemblerInvocation &Opts,
       MemoryBuffer::getFileOrSTDIN(Opts.InputFile, /*IsText=*/true);
 
   if (std::error_code EC = Buffer.getError()) {
-    return Diags.Report(diag::err_fe_error_reading)
-           << Opts.InputFile << EC.message();
+    Error = EC.message();
+    return Diags.Report(diag::err_fe_error_reading) << Opts.InputFile;
   }
 
   SourceMgr SrcMgr;
@@ -410,7 +401,6 @@ static bool ExecuteAssemblerImpl(AssemblerInvocation &Opts,
 
   MCTargetOptions MCOptions;
   MCOptions.EmitDwarfUnwind = Opts.EmitDwarfUnwind;
-  MCOptions.EmitCompactUnwindNonCanonical = Opts.EmitCompactUnwindNonCanonical;
   MCOptions.AsSecureLogFile = Opts.AsSecureLogFile;
 
   std::unique_ptr<MCAsmInfo> MAI(
@@ -643,10 +633,9 @@ int cc1as_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   if (Asm.ShowHelp) {
     getDriverOptTable().printHelp(
         llvm::outs(), "clang -cc1as [options] file...",
-        "Clang Integrated Assembler", /*ShowHidden=*/false,
-        /*ShowAllAliases=*/false,
-        llvm::opt::Visibility(driver::options::CC1AsOption));
-
+        "Clang Integrated Assembler",
+        /*Include=*/driver::options::CC1AsOption, /*Exclude=*/0,
+        /*ShowAllAliases=*/false);
     return 0;
   }
 

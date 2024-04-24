@@ -34,10 +34,11 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymExpr.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h"
 #include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include <cassert>
-#include <optional>
 #include <tuple>
 
 using namespace clang;
@@ -114,7 +115,7 @@ nonloc::SymbolVal SValBuilder::makeNonLoc(const SymExpr *operand,
   assert(operand);
   assert(!Loc::isLocType(toTy));
   if (fromTy == toTy)
-    return nonloc::SymbolVal(operand);
+    return operand;
   return nonloc::SymbolVal(SymMgr.getCastSymbol(operand, fromTy, toTy));
 }
 
@@ -123,8 +124,7 @@ SVal SValBuilder::convertToArrayIndex(SVal val) {
     return val;
 
   // Common case: we have an appropriately sized integer.
-  if (std::optional<nonloc::ConcreteInt> CI =
-          val.getAs<nonloc::ConcreteInt>()) {
+  if (Optional<nonloc::ConcreteInt> CI = val.getAs<nonloc::ConcreteInt>()) {
     const llvm::APSInt& I = CI->getValue();
     if (I.getBitWidth() == ArrayIndexWidth && I.isSigned())
       return val;
@@ -231,14 +231,6 @@ SValBuilder::getConjuredHeapSymbolVal(const Expr *E,
   return loc::MemRegionVal(MemMgr.getSymbolicHeapRegion(sym));
 }
 
-loc::MemRegionVal SValBuilder::getAllocaRegionVal(const Expr *E,
-                                                  const LocationContext *LCtx,
-                                                  unsigned VisitCount) {
-  const AllocaRegion *R =
-      getRegionManager().getAllocaRegion(E, VisitCount, LCtx);
-  return loc::MemRegionVal(R);
-}
-
 DefinedSVal SValBuilder::getMetadataSymbolVal(const void *symbolTag,
                                               const MemRegion *region,
                                               const Expr *expr, QualType type,
@@ -283,7 +275,7 @@ DefinedSVal SValBuilder::getMemberPointer(const NamedDecl *ND) {
     // We don't need to play a similar trick for static member fields
     // because these are represented as plain VarDecls and not FieldDecls
     // in the AST.
-    if (!MD->isImplicitObjectMemberFunction())
+    if (MD->isStatic())
       return getFunctionPointer(MD);
   }
 
@@ -305,11 +297,11 @@ DefinedSVal SValBuilder::getBlockPointer(const BlockDecl *block,
   return loc::MemRegionVal(BD);
 }
 
-std::optional<loc::MemRegionVal>
+Optional<loc::MemRegionVal>
 SValBuilder::getCastedMemRegionVal(const MemRegion *R, QualType Ty) {
   if (auto OptR = StateMgr.getStoreManager().castRegion(R, Ty))
     return loc::MemRegionVal(*OptR);
-  return std::nullopt;
+  return None;
 }
 
 /// Return a memory region for the 'this' object reference.
@@ -327,7 +319,7 @@ loc::MemRegionVal SValBuilder::getCXXThis(const CXXRecordDecl *D,
   return loc::MemRegionVal(getRegionManager().getCXXThisRegion(PT, SFC));
 }
 
-std::optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
+Optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
   E = E->IgnoreParens();
 
   switch (E->getStmtClass()) {
@@ -397,12 +389,13 @@ std::optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
     case CK_NoOp:
     case CK_BitCast: {
       const Expr *SE = CE->getSubExpr();
-      std::optional<SVal> Val = getConstantVal(SE);
+      Optional<SVal> Val = getConstantVal(SE);
       if (!Val)
-        return std::nullopt;
+        return None;
       return evalCast(*Val, CE->getType(), SE->getType());
     }
     }
+    // FALLTHROUGH
     [[fallthrough]];
   }
 
@@ -410,7 +403,7 @@ std::optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
   default: {
     // Don't try to come up with a value for materialized temporaries.
     if (E->isGLValue())
-      return std::nullopt;
+      return None;
 
     ASTContext &Ctx = getContext();
     Expr::EvalResult Result;
@@ -421,7 +414,7 @@ std::optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
       if (E->isNullPointerConstant(Ctx, Expr::NPC_ValueDependentIsNotNull))
         return makeNullWithType(E->getType());
 
-    return std::nullopt;
+    return None;
   }
   }
 }
@@ -441,20 +434,18 @@ SVal SValBuilder::makeSymExprValNN(BinaryOperator::Opcode Op,
     return makeNonLoc(symLHS, Op, symRHS, ResultTy);
 
   if (symLHS && symLHS->computeComplexity() < MaxComp)
-    if (std::optional<nonloc::ConcreteInt> rInt =
-            RHS.getAs<nonloc::ConcreteInt>())
+    if (Optional<nonloc::ConcreteInt> rInt = RHS.getAs<nonloc::ConcreteInt>())
       return makeNonLoc(symLHS, Op, rInt->getValue(), ResultTy);
 
   if (symRHS && symRHS->computeComplexity() < MaxComp)
-    if (std::optional<nonloc::ConcreteInt> lInt =
-            LHS.getAs<nonloc::ConcreteInt>())
+    if (Optional<nonloc::ConcreteInt> lInt = LHS.getAs<nonloc::ConcreteInt>())
       return makeNonLoc(lInt->getValue(), Op, symRHS, ResultTy);
 
   return UnknownVal();
 }
 
 SVal SValBuilder::evalMinus(NonLoc X) {
-  switch (X.getKind()) {
+  switch (X.getSubKind()) {
   case nonloc::ConcreteIntKind:
     return makeIntVal(-X.castAs<nonloc::ConcreteInt>().getValue());
   case nonloc::SymbolValKind:
@@ -466,7 +457,7 @@ SVal SValBuilder::evalMinus(NonLoc X) {
 }
 
 SVal SValBuilder::evalComplement(NonLoc X) {
-  switch (X.getKind()) {
+  switch (X.getSubKind()) {
   case nonloc::ConcreteIntKind:
     return makeIntVal(~X.castAs<nonloc::ConcreteInt>().getValue());
   case nonloc::SymbolValKind:
@@ -510,14 +501,14 @@ SVal SValBuilder::evalBinOp(ProgramStateRef state, BinaryOperator::Opcode op,
     return UnknownVal();
   }
 
-  if (std::optional<Loc> LV = lhs.getAs<Loc>()) {
-    if (std::optional<Loc> RV = rhs.getAs<Loc>())
+  if (Optional<Loc> LV = lhs.getAs<Loc>()) {
+    if (Optional<Loc> RV = rhs.getAs<Loc>())
       return evalBinOpLL(state, op, *LV, *RV, type);
 
     return evalBinOpLN(state, op, *LV, rhs.castAs<NonLoc>(), type);
   }
 
-  if (const std::optional<Loc> RV = rhs.getAs<Loc>()) {
+  if (const Optional<Loc> RV = rhs.getAs<Loc>()) {
     const auto IsCommutative = [](BinaryOperatorKind Op) {
       return Op == BO_Mul || Op == BO_Add || Op == BO_And || Op == BO_Xor ||
              Op == BO_Or;
@@ -606,9 +597,11 @@ SVal SValBuilder::evalIntegralCast(ProgramStateRef state, SVal val,
   APSIntType ToType(getContext().getTypeSize(castTy),
                     castTy->isUnsignedIntegerType());
   llvm::APSInt ToTypeMax = ToType.getMaxValue();
-
-  NonLoc ToTypeMaxVal = makeIntVal(ToTypeMax);
-
+  NonLoc ToTypeMaxVal =
+      makeIntVal(ToTypeMax.isUnsigned() ? ToTypeMax.getZExtValue()
+                                        : ToTypeMax.getSExtValue(),
+                 castTy)
+          .castAs<NonLoc>();
   // Check the range of the symbol being casted against the maximum value of the
   // target type.
   NonLoc FromVal = val.castAs<NonLoc>();
@@ -666,7 +659,7 @@ public:
   }
   SVal VisitUndefinedVal(UndefinedVal V) { return V; }
   SVal VisitUnknownVal(UnknownVal V) { return V; }
-  SVal VisitConcreteInt(loc::ConcreteInt V) {
+  SVal VisitLocConcreteInt(loc::ConcreteInt V) {
     // Pointer to bool.
     if (CastTy->isBooleanType())
       return VB.makeTruthVal(V.getValue().getBoolValue(), CastTy);
@@ -688,7 +681,7 @@ public:
     // Pointer to whatever else.
     return UnknownVal();
   }
-  SVal VisitGotoLabel(loc::GotoLabel V) {
+  SVal VisitLocGotoLabel(loc::GotoLabel V) {
     // Pointer to bool.
     if (CastTy->isBooleanType())
       // Labels are always true.
@@ -715,7 +708,7 @@ public:
     // Pointer to whatever else.
     return UnknownVal();
   }
-  SVal VisitMemRegionVal(loc::MemRegionVal V) {
+  SVal VisitLocMemRegionVal(loc::MemRegionVal V) {
     // Pointer to bool.
     if (CastTy->isBooleanType()) {
       const MemRegion *R = V.getRegion();
@@ -860,11 +853,11 @@ public:
     // necessary for bit-level reasoning as well.
     return UnknownVal();
   }
-  SVal VisitCompoundVal(nonloc::CompoundVal V) {
+  SVal VisitNonLocCompoundVal(nonloc::CompoundVal V) {
     // Compound to whatever.
     return UnknownVal();
   }
-  SVal VisitConcreteInt(nonloc::ConcreteInt V) {
+  SVal VisitNonLocConcreteInt(nonloc::ConcreteInt V) {
     auto CastedValue = [V, this]() {
       llvm::APSInt Value = V.getValue();
       VB.getBasicValueFactory().getAPSIntType(CastTy).apply(Value);
@@ -886,11 +879,11 @@ public:
     // Pointer to whatever else.
     return UnknownVal();
   }
-  SVal VisitLazyCompoundVal(nonloc::LazyCompoundVal V) {
+  SVal VisitNonLocLazyCompoundVal(nonloc::LazyCompoundVal V) {
     // LazyCompound to whatever.
     return UnknownVal();
   }
-  SVal VisitLocAsInteger(nonloc::LocAsInteger V) {
+  SVal VisitNonLocLocAsInteger(nonloc::LocAsInteger V) {
     Loc L = V.getLoc();
 
     // Pointer as integer to bool.
@@ -912,7 +905,7 @@ public:
     const MemRegion *R = L.getAsRegion();
     if (!IsUnknownOriginalType && R) {
       if (CastTy->isIntegralOrEnumerationType())
-        return VisitMemRegionVal(loc::MemRegionVal(R));
+        return VisitLocMemRegionVal(loc::MemRegionVal(R));
 
       if (Loc::isLocType(CastTy)) {
         assert(Loc::isLocType(OriginalTy) || OriginalTy->isFunctionType() ||
@@ -926,7 +919,7 @@ public:
     } else {
       if (Loc::isLocType(CastTy)) {
         if (IsUnknownOriginalType)
-          return VisitMemRegionVal(loc::MemRegionVal(R));
+          return VisitLocMemRegionVal(loc::MemRegionVal(R));
         return L;
       }
 
@@ -951,7 +944,7 @@ public:
     // Pointer as integer to whatever else.
     return UnknownVal();
   }
-  SVal VisitSymbolVal(nonloc::SymbolVal V) {
+  SVal VisitNonLocSymbolVal(nonloc::SymbolVal V) {
     SymbolRef SE = V.getSymbol();
 
     const bool IsUnknownOriginalType = OriginalTy.isNull();
@@ -988,15 +981,10 @@ public:
           return VB.makeNonLoc(SE, T, CastTy);
     }
 
-    // FIXME: We should be able to cast NonLoc -> Loc
-    // (when Loc::isLocType(CastTy) is true)
-    // But it's hard to do as SymbolicRegions can't refer to SymbolCasts holding
-    // generic SymExprs. Check the commit message for the details.
-
     // Symbol to pointer and whatever else.
     return UnknownVal();
   }
-  SVal VisitPointerToMember(nonloc::PointerToMember V) {
+  SVal VisitNonLocPointerToMember(nonloc::PointerToMember V) {
     // Member pointer to whatever.
     return V;
   }

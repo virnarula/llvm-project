@@ -128,7 +128,6 @@ struct ThreadData {
   std::vector<lldb_private::CoreNote> notes;
   lldb::tid_t tid;
   int signo = 0;
-  int code = 0;
   int prstatus_sig = 0;
   std::string name;
 };
@@ -167,7 +166,6 @@ protected:
   lldb::RegisterContextSP m_thread_reg_ctx_sp;
 
   int m_signo;
-  int m_code;
 
   lldb_private::DataExtractor m_gpregset_data;
   std::vector<lldb_private::CoreNote> m_notes;

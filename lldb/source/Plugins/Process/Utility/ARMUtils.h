@@ -11,7 +11,6 @@
 
 #include "ARMDefines.h"
 #include "InstructionUtils.h"
-#include "llvm/ADT/bit.h"
 #include "llvm/Support/MathExtras.h"
 
 // Common utilities for the ARM/Thumb Instruction Set Architecture.
@@ -174,7 +173,8 @@ static inline uint32_t ROR_C(const uint32_t value, const uint32_t amount,
     return 0;
   }
   *success = true;
-  uint32_t result = llvm::rotr<uint32_t>(value, amount);
+  uint32_t amt = amount % 32;
+  uint32_t result = Rotr32(value, amt);
   carry_out = Bit32(value, 31);
   return result;
 }

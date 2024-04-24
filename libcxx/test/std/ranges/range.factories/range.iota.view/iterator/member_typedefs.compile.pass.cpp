@@ -13,7 +13,6 @@
 #include <cassert>
 #include <cstdint>
 #include <ranges>
-#include <type_traits>
 
 #include "test_macros.h"
 #include "../types.h"

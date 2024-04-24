@@ -103,10 +103,10 @@ FullCommentParts::FullCommentParts(const FullComment *C,
     if (!Child)
       continue;
     switch (Child->getCommentKind()) {
-    case CommentKind::None:
+    case Comment::NoCommentKind:
       continue;
 
-    case CommentKind::ParagraphComment: {
+    case Comment::ParagraphCommentKind: {
       const ParagraphComment *PC = cast<ParagraphComment>(Child);
       if (PC->isWhitespace())
         break;
@@ -117,7 +117,7 @@ FullCommentParts::FullCommentParts(const FullComment *C,
       break;
     }
 
-    case CommentKind::BlockCommandComment: {
+    case Comment::BlockCommandCommentKind: {
       const BlockCommandComment *BCC = cast<BlockCommandComment>(Child);
       const CommandInfo *Info = Traits.getCommandInfo(BCC->getCommandID());
       if (!Brief && Info->IsBriefCommand) {
@@ -140,7 +140,7 @@ FullCommentParts::FullCommentParts(const FullComment *C,
       break;
     }
 
-    case CommentKind::ParamCommandComment: {
+    case Comment::ParamCommandCommentKind: {
       const ParamCommandComment *PCC = cast<ParamCommandComment>(Child);
       if (!PCC->hasParamName())
         break;
@@ -152,7 +152,7 @@ FullCommentParts::FullCommentParts(const FullComment *C,
       break;
     }
 
-    case CommentKind::TParamCommandComment: {
+    case Comment::TParamCommandCommentKind: {
       const TParamCommandComment *TPCC = cast<TParamCommandComment>(Child);
       if (!TPCC->hasParamName())
         break;
@@ -164,11 +164,11 @@ FullCommentParts::FullCommentParts(const FullComment *C,
       break;
     }
 
-    case CommentKind::VerbatimBlockComment:
+    case Comment::VerbatimBlockCommentKind:
       MiscBlocks.push_back(cast<BlockCommandComment>(Child));
       break;
 
-    case CommentKind::VerbatimLineComment: {
+    case Comment::VerbatimLineCommentKind: {
       const VerbatimLineComment *VLC = cast<VerbatimLineComment>(Child);
       const CommandInfo *Info = Traits.getCommandInfo(VLC->getCommandID());
       if (!Info->IsDeclarationCommand)
@@ -176,12 +176,12 @@ FullCommentParts::FullCommentParts(const FullComment *C,
       break;
     }
 
-    case CommentKind::TextComment:
-    case CommentKind::InlineCommandComment:
-    case CommentKind::HTMLStartTagComment:
-    case CommentKind::HTMLEndTagComment:
-    case CommentKind::VerbatimBlockLineComment:
-    case CommentKind::FullComment:
+    case Comment::TextCommentKind:
+    case Comment::InlineCommandCommentKind:
+    case Comment::HTMLStartTagCommentKind:
+    case Comment::HTMLEndTagCommentKind:
+    case Comment::VerbatimBlockLineCommentKind:
+    case Comment::FullCommentKind:
       llvm_unreachable("AST node of this kind can't be a child of "
                        "a FullComment");
     }
@@ -274,32 +274,32 @@ void CommentASTToHTMLConverter::visitInlineCommandComment(
     return;
 
   switch (C->getRenderKind()) {
-  case InlineCommandRenderKind::Normal:
+  case InlineCommandComment::RenderNormal:
     for (unsigned i = 0, e = C->getNumArgs(); i != e; ++i) {
       appendToResultWithHTMLEscaping(C->getArgText(i));
       Result << " ";
     }
     return;
 
-  case InlineCommandRenderKind::Bold:
+  case InlineCommandComment::RenderBold:
     assert(C->getNumArgs() == 1);
     Result << "<b>";
     appendToResultWithHTMLEscaping(Arg0);
     Result << "</b>";
     return;
-  case InlineCommandRenderKind::Monospaced:
+  case InlineCommandComment::RenderMonospaced:
     assert(C->getNumArgs() == 1);
     Result << "<tt>";
     appendToResultWithHTMLEscaping(Arg0);
     Result<< "</tt>";
     return;
-  case InlineCommandRenderKind::Emphasized:
+  case InlineCommandComment::RenderEmphasized:
     assert(C->getNumArgs() == 1);
     Result << "<em>";
     appendToResultWithHTMLEscaping(Arg0);
     Result << "</em>";
     return;
-  case InlineCommandRenderKind::Anchor:
+  case InlineCommandComment::RenderAnchor:
     assert(C->getNumArgs() == 1);
     Result << "<span id=\"" << Arg0 << "\"></span>";
     return;
@@ -623,31 +623,31 @@ void CommentASTToXMLConverter::visitInlineCommandComment(
     return;
 
   switch (C->getRenderKind()) {
-  case InlineCommandRenderKind::Normal:
+  case InlineCommandComment::RenderNormal:
     for (unsigned i = 0, e = C->getNumArgs(); i != e; ++i) {
       appendToResultWithXMLEscaping(C->getArgText(i));
       Result << " ";
     }
     return;
-  case InlineCommandRenderKind::Bold:
+  case InlineCommandComment::RenderBold:
     assert(C->getNumArgs() == 1);
     Result << "<bold>";
     appendToResultWithXMLEscaping(Arg0);
     Result << "</bold>";
     return;
-  case InlineCommandRenderKind::Monospaced:
+  case InlineCommandComment::RenderMonospaced:
     assert(C->getNumArgs() == 1);
     Result << "<monospaced>";
     appendToResultWithXMLEscaping(Arg0);
     Result << "</monospaced>";
     return;
-  case InlineCommandRenderKind::Emphasized:
+  case InlineCommandComment::RenderEmphasized:
     assert(C->getNumArgs() == 1);
     Result << "<emphasized>";
     appendToResultWithXMLEscaping(Arg0);
     Result << "</emphasized>";
     return;
-  case InlineCommandRenderKind::Anchor:
+  case InlineCommandComment::RenderAnchor:
     assert(C->getNumArgs() == 1);
     Result << "<anchor id=\"" << Arg0 << "\"></anchor>";
     return;
@@ -751,13 +751,13 @@ void CommentASTToXMLConverter::visitParamCommandComment(
 
   Result << "<Direction isExplicit=\"" << C->isDirectionExplicit() << "\">";
   switch (C->getDirection()) {
-  case ParamCommandPassDirection::In:
+  case ParamCommandComment::In:
     Result << "in";
     break;
-  case ParamCommandPassDirection::Out:
+  case ParamCommandComment::Out:
     Result << "out";
     break;
-  case ParamCommandPassDirection::InOut:
+  case ParamCommandComment::InOut:
     Result << "in,out";
     break;
   }
@@ -891,7 +891,7 @@ void CommentASTToXMLConverter::visitFullComment(const FullComment *C) {
       unsigned FileOffset = LocInfo.second;
 
       if (FID.isValid()) {
-        if (OptionalFileEntryRef FE = SM.getFileEntryRefForID(FID)) {
+        if (const FileEntry *FE = SM.getFileEntryForID(FID)) {
           Result << " file=\"";
           appendToResultWithXMLEscaping(FE->getName());
           Result << "\"";

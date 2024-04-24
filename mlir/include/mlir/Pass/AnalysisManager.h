@@ -16,7 +16,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/TypeName.h"
-#include <optional>
 
 namespace mlir {
 class AnalysisManager;
@@ -169,10 +168,10 @@ public:
 
   /// Get a cached analysis instance if one exists, otherwise return null.
   template <typename AnalysisT>
-  std::optional<std::reference_wrapper<AnalysisT>> getCachedAnalysis() const {
+  Optional<std::reference_wrapper<AnalysisT>> getCachedAnalysis() const {
     auto res = analyses.find(TypeID::get<AnalysisT>());
     if (res == analyses.end())
-      return std::nullopt;
+      return llvm::None;
     return {static_cast<AnalysisModel<AnalysisT> &>(*res->second).analysis};
   }
 
@@ -254,7 +253,7 @@ struct NestedAnalysisMap {
   /// Returns the parent analysis map for this analysis map, or null if this is
   /// the top-level map.
   const NestedAnalysisMap *getParent() const {
-    return llvm::dyn_cast_if_present<NestedAnalysisMap *>(parentOrInstrumentor);
+    return parentOrInstrumentor.dyn_cast<NestedAnalysisMap *>();
   }
 
   /// Returns a pass instrumentation object for the current operation. This
@@ -302,7 +301,7 @@ public:
   /// Query for a cached analysis on the given parent operation. The analysis
   /// may not exist and if it does it may be out-of-date.
   template <typename AnalysisT>
-  std::optional<std::reference_wrapper<AnalysisT>>
+  Optional<std::reference_wrapper<AnalysisT>>
   getCachedParentAnalysis(Operation *parentOp) const {
     const detail::NestedAnalysisMap *curParent = impl;
     while (auto *parentAM = curParent->getParent()) {
@@ -310,7 +309,7 @@ public:
         return parentAM->analyses.getCachedAnalysis<AnalysisT>();
       curParent = parentAM;
     }
-    return std::nullopt;
+    return None;
   }
 
   /// Query for the given analysis for the current operation.
@@ -329,7 +328,7 @@ public:
 
   /// Query for a cached entry of the given analysis on the current operation.
   template <typename AnalysisT>
-  std::optional<std::reference_wrapper<AnalysisT>> getCachedAnalysis() const {
+  Optional<std::reference_wrapper<AnalysisT>> getCachedAnalysis() const {
     return impl->analyses.getCachedAnalysis<AnalysisT>();
   }
 
@@ -348,12 +347,12 @@ public:
 
   /// Query for a cached analysis of a child operation, or return null.
   template <typename AnalysisT>
-  std::optional<std::reference_wrapper<AnalysisT>>
+  Optional<std::reference_wrapper<AnalysisT>>
   getCachedChildAnalysis(Operation *op) const {
     assert(op->getParentOp() == impl->getOperation());
     auto it = impl->childAnalyses.find(op);
     if (it == impl->childAnalyses.end())
-      return std::nullopt;
+      return llvm::None;
     return it->second->analyses.getCachedAnalysis<AnalysisT>();
   }
 

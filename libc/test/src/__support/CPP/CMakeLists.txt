@@ -1,50 +1,39 @@
-add_custom_target(libc-cpp-utils-tests)
+add_libc_testsuite(libc_cpp_utils_unittests)
 
-add_libc_test(
-  bit_test
-  SUITE
-    libc-cpp-utils-tests
-  SRCS
-    bit_test.cpp
-  DEPENDS
-    libc.src.__support.CPP.bit
-    libc.src.__support.uint
-)
-
-add_libc_test(
+add_libc_unittest(
   bitset_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     bitset_test.cpp
   DEPENDS
     libc.src.__support.CPP.bitset
 )
 
-add_libc_test(
+add_libc_unittest(
   cstddef_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     cstddef_test.cpp
   DEPENDS
     libc.src.__support.CPP.cstddef
 )
 
-add_libc_test(
+add_libc_unittest(
   stringview_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     stringview_test.cpp
   DEPENDS
     libc.src.__support.CPP.string_view
 )
 
-add_libc_test(
+add_libc_unittest(
   limits_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     limits_test.cpp
   DEPENDS
@@ -52,34 +41,40 @@ add_libc_test(
     libc.src.__support.uint
 )
 
-add_libc_test(
+add_libc_unittest(
+  vector_test
+  SUITE
+    libc_cpp_utils_unittests
+  SRCS
+    vector_test.cpp
+  DEPENDS
+    libc.src.__support.CPP.vector
+)
+
+add_libc_unittest(
   int_seq_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     integer_sequence_test.cpp
   DEPENDS
     libc.src.__support.CPP.utility
 )
 
+add_libc_unittest(
+  atomic_test
+  SUITE
+    libc_cpp_utils_unittests
+  SRCS
+    atomic_test.cpp
+  DEPENDS
+    libc.src.__support.CPP.atomic
+)
 
-# This test fails with invalid address space operations on sm_60
-if(NOT LIBC_GPU_TARGET_ARCHITECTURE_IS_NVPTX)
-  add_libc_test(
-    atomic_test
-    SUITE
-      libc-cpp-utils-tests
-    SRCS
-      atomic_test.cpp
-    DEPENDS
-      libc.src.__support.CPP.atomic
-  )
-endif()
-
-add_libc_test(
+add_libc_unittest(
   stringstream_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     stringstream_test.cpp
   DEPENDS
@@ -87,43 +82,22 @@ add_libc_test(
     libc.src.__support.CPP.stringstream
 )
 
-add_libc_test(
+add_libc_unittest(
   optional_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     optional_test.cpp
   DEPENDS
-    libc.src.__support.CPP.optional
+  libc.src.__support.CPP.optional
 )
 
-add_libc_test(
+add_libc_unittest(
   span_test
   SUITE
-    libc-cpp-utils-tests
+    libc_cpp_utils_unittests
   SRCS
     span_test.cpp
   DEPENDS
-    libc.src.__support.CPP.span
-)
-
-add_libc_test(
-  string_test
-  SUITE
-    libc-cpp-utils-tests
-  SRCS
-    string_test.cpp
-  DEPENDS
-  libc.src.__support.CPP.string
-  libc.src.__support.CPP.string_view
-)
-
-add_libc_test(
-  type_traits_test
-  SUITE
-    libc-cpp-utils-tests
-  SRCS
-  type_traits_test.cpp
-  DEPENDS
-  libc.src.__support.CPP.type_traits
+  libc.src.__support.CPP.span
 )

@@ -16,7 +16,9 @@
 using namespace clang;
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 namespace {
 static const char AutoPtrTokenId[] = "AutoPrTokenId";
@@ -148,4 +150,6 @@ void ReplaceAutoPtrCheck::check(const MatchFinder::MatchResult &Result) {
                                       "unique_ptr");
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

@@ -132,57 +132,6 @@ entry:
   ret i32 %ret
 }
 
-define i32 @selectRI_0_if_true(i1 %c, i32 %q) {
-; CHECK-LABEL: selectRI_0_if_true:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    btsti16 a0, 0
-; CHECK-NEXT:    clrt32 a1
-; CHECK-NEXT:    mov16 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: selectRI_0_if_true:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    .cfi_def_cfa_offset 0
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    mov16 a2, a0
-; GENERIC-NEXT:    movi16 a0, 0
-; GENERIC-NEXT:    btsti16 a2, 0
-; GENERIC-NEXT:    bt16 .LBB4_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    mov16 a0, a1
-; GENERIC-NEXT:  .LBB4_2:
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %ret = select i1 %c, i32 0, i32 %q
-  ret i32 %ret
-}
-
-define i32 @selectRI_0_if_false(i1 %c, i32 %q) {
-; CHECK-LABEL: selectRI_0_if_false:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    btsti16 a0, 0
-; CHECK-NEXT:    clrf32 a1
-; CHECK-NEXT:    mov16 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: selectRI_0_if_false:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    .cfi_def_cfa_offset 0
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB5_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    movi16 a1, 0
-; GENERIC-NEXT:  .LBB5_2:
-; GENERIC-NEXT:    mov16 a0, a1
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %ret = select i1 %c, i32 %q, i32 0
-  ret i32 %ret
-}
-
 define i64 @selectRR_eq_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; CHECK-LABEL: selectRR_eq_i64:
 ; CHECK:       # %bb.0: # %entry
@@ -210,13 +159,13 @@ define i64 @selectRR_eq_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a0, 0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB6_2
+; GENERIC-NEXT:    bt16 .LBB4_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    movi16 a0, 4
-; GENERIC-NEXT:    br32 .LBB6_3
-; GENERIC-NEXT:  .LBB6_2:
+; GENERIC-NEXT:    br32 .LBB4_3
+; GENERIC-NEXT:  .LBB4_2:
 ; GENERIC-NEXT:    movi16 a0, 12
-; GENERIC-NEXT:  .LBB6_3: # %entry
+; GENERIC-NEXT:  .LBB4_3: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -257,15 +206,15 @@ define i64 @selectRI_eq_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 l0, 0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB7_2
+; GENERIC-NEXT:    bf16 .LBB5_2
 ; GENERIC-NEXT:  # %bb.1:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 8)
-; GENERIC-NEXT:  .LBB7_2: # %entry
+; GENERIC-NEXT:  .LBB5_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB7_4
+; GENERIC-NEXT:    bf16 .LBB5_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 12)
-; GENERIC-NEXT:  .LBB7_4: # %entry
+; GENERIC-NEXT:  .LBB5_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -326,15 +275,15 @@ define i64 @selectRX_eq_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 l1, 0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB8_2
+; GENERIC-NEXT:    bf16 .LBB6_2
 ; GENERIC-NEXT:  # %bb.1:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
-; GENERIC-NEXT:  .LBB8_2: # %entry
+; GENERIC-NEXT:  .LBB6_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB8_4
+; GENERIC-NEXT:    bf16 .LBB6_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB8_4: # %entry
+; GENERIC-NEXT:  .LBB6_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -365,15 +314,15 @@ define i64 @selectC_eq_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB9_2
+; GENERIC-NEXT:    bt16 .LBB7_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB9_2: # %entry
+; GENERIC-NEXT:  .LBB7_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB9_4
+; GENERIC-NEXT:    bf16 .LBB7_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB9_4: # %entry
+; GENERIC-NEXT:  .LBB7_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -419,10 +368,10 @@ define i16 @selectRR_eq_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmpne16 l2, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB10_2
+; GENERIC-NEXT:    bt16 .LBB8_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB10_2: # %entry
+; GENERIC-NEXT:  .LBB8_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -467,10 +416,10 @@ define i16 @selectRI_eq_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmpnei16 l1, 10
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB11_2
+; GENERIC-NEXT:    bt16 .LBB9_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB11_2: # %entry
+; GENERIC-NEXT:  .LBB9_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -519,10 +468,10 @@ define i16 @selectRX_eq_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmpne16 l1, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB12_2
+; GENERIC-NEXT:    bt16 .LBB10_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB12_2: # %entry
+; GENERIC-NEXT:  .LBB10_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -549,10 +498,10 @@ define i16 @selectC_eq_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB13_2
+; GENERIC-NEXT:    bt16 .LBB11_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB13_2: # %entry
+; GENERIC-NEXT:  .LBB11_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -586,10 +535,10 @@ define i8 @selectRR_eq_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmpne16 a1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB14_2
+; GENERIC-NEXT:    bt16 .LBB12_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB14_2: # %entry
+; GENERIC-NEXT:  .LBB12_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -620,10 +569,10 @@ define i8 @selectRI_eq_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmpnei16 a3, 10
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB15_2
+; GENERIC-NEXT:    bt16 .LBB13_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB15_2: # %entry
+; GENERIC-NEXT:  .LBB13_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -653,10 +602,10 @@ define i8 @selectRX_eq_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB16_2
+; GENERIC-NEXT:    bt16 .LBB14_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB16_2: # %entry
+; GENERIC-NEXT:  .LBB14_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -680,10 +629,10 @@ define i8 @selectC_eq_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB17_2
+; GENERIC-NEXT:    bt16 .LBB15_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB17_2: # %entry
+; GENERIC-NEXT:  .LBB15_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -709,10 +658,10 @@ define i1 @selectRR_eq_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    xor16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB18_2
+; GENERIC-NEXT:    bt16 .LBB16_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a3
-; GENERIC-NEXT:  .LBB18_2: # %entry
+; GENERIC-NEXT:  .LBB16_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -736,10 +685,10 @@ define i1 @selectRI_eq_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB19_2
+; GENERIC-NEXT:    bt16 .LBB17_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a1, a2
-; GENERIC-NEXT:  .LBB19_2: # %entry
+; GENERIC-NEXT:  .LBB17_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a1
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -763,10 +712,10 @@ define i1 @selectRX_eq_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB20_2
+; GENERIC-NEXT:    bt16 .LBB18_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB20_2: # %entry
+; GENERIC-NEXT:  .LBB18_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -790,10 +739,10 @@ define i1 @selectC_eq_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB21_2
+; GENERIC-NEXT:    bt16 .LBB19_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB21_2: # %entry
+; GENERIC-NEXT:  .LBB19_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -821,10 +770,10 @@ define i32 @selectRR_ne_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB22_2
+; GENERIC-NEXT:    bt16 .LBB20_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB22_2: # %entry
+; GENERIC-NEXT:  .LBB20_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -852,10 +801,10 @@ define i32 @selectRI_ne_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB23_2
+; GENERIC-NEXT:    bt16 .LBB21_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB23_2: # %entry
+; GENERIC-NEXT:  .LBB21_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -898,10 +847,10 @@ define i32 @selectRX_ne_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB24_2
+; GENERIC-NEXT:    bt16 .LBB22_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB24_2: # %entry
+; GENERIC-NEXT:  .LBB22_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -927,10 +876,10 @@ define i32 @selectC_ne_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB25_2
+; GENERIC-NEXT:    bt16 .LBB23_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB25_2: # %entry
+; GENERIC-NEXT:  .LBB23_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -968,13 +917,13 @@ define i64 @selectRR_ne_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB26_2
+; GENERIC-NEXT:    bt16 .LBB24_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    movi16 a0, 4
-; GENERIC-NEXT:    br32 .LBB26_3
-; GENERIC-NEXT:  .LBB26_2:
+; GENERIC-NEXT:    br32 .LBB24_3
+; GENERIC-NEXT:  .LBB24_2:
 ; GENERIC-NEXT:    movi16 a0, 12
-; GENERIC-NEXT:  .LBB26_3: # %entry
+; GENERIC-NEXT:  .LBB24_3: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -1017,15 +966,15 @@ define i64 @selectRI_ne_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB27_2
+; GENERIC-NEXT:    bf16 .LBB25_2
 ; GENERIC-NEXT:  # %bb.1:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 8)
-; GENERIC-NEXT:  .LBB27_2: # %entry
+; GENERIC-NEXT:  .LBB25_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB27_4
+; GENERIC-NEXT:    bf16 .LBB25_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 12)
-; GENERIC-NEXT:  .LBB27_4: # %entry
+; GENERIC-NEXT:  .LBB25_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -1088,15 +1037,15 @@ define i64 @selectRX_ne_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB28_2
+; GENERIC-NEXT:    bf16 .LBB26_2
 ; GENERIC-NEXT:  # %bb.1:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
-; GENERIC-NEXT:  .LBB28_2: # %entry
+; GENERIC-NEXT:  .LBB26_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB28_4
+; GENERIC-NEXT:    bf16 .LBB26_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB28_4: # %entry
+; GENERIC-NEXT:  .LBB26_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -1127,15 +1076,15 @@ define i64 @selectC_ne_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB29_2
+; GENERIC-NEXT:    bt16 .LBB27_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB29_2: # %entry
+; GENERIC-NEXT:  .LBB27_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB29_4
+; GENERIC-NEXT:    bf16 .LBB27_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB29_4: # %entry
+; GENERIC-NEXT:  .LBB27_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -1183,10 +1132,10 @@ define i16 @selectRR_ne_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB30_2
+; GENERIC-NEXT:    bt16 .LBB28_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB30_2: # %entry
+; GENERIC-NEXT:  .LBB28_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -1233,10 +1182,10 @@ define i16 @selectRI_ne_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB31_2
+; GENERIC-NEXT:    bt16 .LBB29_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB31_2: # %entry
+; GENERIC-NEXT:  .LBB29_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -1287,10 +1236,10 @@ define i16 @selectRX_ne_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB32_2
+; GENERIC-NEXT:    bt16 .LBB30_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB32_2: # %entry
+; GENERIC-NEXT:  .LBB30_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -1317,10 +1266,10 @@ define i16 @selectC_ne_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB33_2
+; GENERIC-NEXT:    bt16 .LBB31_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB33_2: # %entry
+; GENERIC-NEXT:  .LBB31_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1356,10 +1305,10 @@ define i8 @selectRR_ne_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB34_2
+; GENERIC-NEXT:    bt16 .LBB32_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB34_2: # %entry
+; GENERIC-NEXT:  .LBB32_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -1392,10 +1341,10 @@ define i8 @selectRI_ne_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB35_2
+; GENERIC-NEXT:    bt16 .LBB33_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB35_2: # %entry
+; GENERIC-NEXT:  .LBB33_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1427,10 +1376,10 @@ define i8 @selectRX_ne_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB36_2
+; GENERIC-NEXT:    bt16 .LBB34_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB36_2: # %entry
+; GENERIC-NEXT:  .LBB34_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1454,10 +1403,10 @@ define i8 @selectC_ne_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB37_2
+; GENERIC-NEXT:    bt16 .LBB35_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB37_2: # %entry
+; GENERIC-NEXT:  .LBB35_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1483,10 +1432,10 @@ define i1 @selectRR_ne_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    xor16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB38_2
+; GENERIC-NEXT:    bt16 .LBB36_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB38_2: # %entry
+; GENERIC-NEXT:  .LBB36_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1510,10 +1459,10 @@ define i1 @selectRI_ne_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB39_2
+; GENERIC-NEXT:    bt16 .LBB37_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB39_2: # %entry
+; GENERIC-NEXT:  .LBB37_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1537,10 +1486,10 @@ define i1 @selectRX_ne_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB40_2
+; GENERIC-NEXT:    bt16 .LBB38_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a1, a2
-; GENERIC-NEXT:  .LBB40_2: # %entry
+; GENERIC-NEXT:  .LBB38_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a1
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1564,10 +1513,10 @@ define i1 @selectC_ne_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB41_2
+; GENERIC-NEXT:    bt16 .LBB39_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB41_2: # %entry
+; GENERIC-NEXT:  .LBB39_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1593,10 +1542,10 @@ define i32 @selectRR_ugt_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, a1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB42_2
+; GENERIC-NEXT:    bt16 .LBB40_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB42_2: # %entry
+; GENERIC-NEXT:  .LBB40_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1624,10 +1573,10 @@ define i32 @selectRI_ugt_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 a3, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB43_2
+; GENERIC-NEXT:    bt16 .LBB41_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB43_2: # %entry
+; GENERIC-NEXT:  .LBB41_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1668,10 +1617,10 @@ define i32 @selectRX_ugt_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 l0, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB44_2
+; GENERIC-NEXT:    bt16 .LBB42_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB44_2: # %entry
+; GENERIC-NEXT:  .LBB42_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -1697,10 +1646,10 @@ define i32 @selectC_ugt_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB45_2
+; GENERIC-NEXT:    bt16 .LBB43_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB45_2: # %entry
+; GENERIC-NEXT:  .LBB43_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -1749,18 +1698,18 @@ define i64 @selectRR_ugt_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB46_2
+; GENERIC-NEXT:    bt16 .LBB44_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a0, l0
-; GENERIC-NEXT:  .LBB46_2: # %entry
+; GENERIC-NEXT:  .LBB44_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB46_4
+; GENERIC-NEXT:    bt16 .LBB44_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    movi16 a0, 8
-; GENERIC-NEXT:    br32 .LBB46_5
-; GENERIC-NEXT:  .LBB46_4:
+; GENERIC-NEXT:    br32 .LBB44_5
+; GENERIC-NEXT:  .LBB44_4:
 ; GENERIC-NEXT:    movi16 a0, 16
-; GENERIC-NEXT:  .LBB46_5: # %entry
+; GENERIC-NEXT:  .LBB44_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -1814,32 +1763,32 @@ define i64 @selectRI_ugt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmphs16 l0, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB47_5
+; GENERIC-NEXT:    bf16 .LBB45_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB47_6
-; GENERIC-NEXT:  .LBB47_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB45_6
+; GENERIC-NEXT:  .LBB45_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB47_4
-; GENERIC-NEXT:  .LBB47_3:
+; GENERIC-NEXT:    bf16 .LBB45_4
+; GENERIC-NEXT:  .LBB45_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 12)
-; GENERIC-NEXT:  .LBB47_4: # %entry
+; GENERIC-NEXT:  .LBB45_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB47_5: # %entry
+; GENERIC-NEXT:  .LBB45_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB47_2
-; GENERIC-NEXT:  .LBB47_6:
+; GENERIC-NEXT:    bf16 .LBB45_2
+; GENERIC-NEXT:  .LBB45_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 8)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB47_3
-; GENERIC-NEXT:    br32 .LBB47_4
+; GENERIC-NEXT:    bt16 .LBB45_3
+; GENERIC-NEXT:    br32 .LBB45_4
 entry:
   %icmp = icmp ugt i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -1897,16 +1846,16 @@ define i64 @selectRX_ugt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmphs16 l1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB48_5
+; GENERIC-NEXT:    bf16 .LBB46_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB48_6
-; GENERIC-NEXT:  .LBB48_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB46_6
+; GENERIC-NEXT:  .LBB46_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB48_4
-; GENERIC-NEXT:  .LBB48_3:
+; GENERIC-NEXT:    bf16 .LBB46_4
+; GENERIC-NEXT:  .LBB46_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB48_4: # %entry
+; GENERIC-NEXT:  .LBB46_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -1914,16 +1863,16 @@ define i64 @selectRX_ugt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l1, (sp, 4) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 8
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB48_5: # %entry
+; GENERIC-NEXT:  .LBB46_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB48_2
-; GENERIC-NEXT:  .LBB48_6:
+; GENERIC-NEXT:    bf16 .LBB46_2
+; GENERIC-NEXT:  .LBB46_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB48_3
-; GENERIC-NEXT:    br32 .LBB48_4
+; GENERIC-NEXT:    bt16 .LBB46_3
+; GENERIC-NEXT:    br32 .LBB46_4
 entry:
   %icmp = icmp ugt i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -1947,15 +1896,15 @@ define i64 @selectC_ugt_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB49_2
+; GENERIC-NEXT:    bt16 .LBB47_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB49_2: # %entry
+; GENERIC-NEXT:  .LBB47_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB49_4
+; GENERIC-NEXT:    bf16 .LBB47_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB49_4: # %entry
+; GENERIC-NEXT:  .LBB47_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -2001,10 +1950,10 @@ define i16 @selectRR_ugt_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 l2, a1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB50_2
+; GENERIC-NEXT:    bt16 .LBB48_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB50_2: # %entry
+; GENERIC-NEXT:  .LBB48_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2051,10 +2000,10 @@ define i16 @selectRI_ugt_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, l1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB51_2
+; GENERIC-NEXT:    bt16 .LBB49_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB51_2: # %entry
+; GENERIC-NEXT:  .LBB49_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2104,10 +2053,10 @@ define i16 @selectRX_ugt_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 a3, l1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB52_2
+; GENERIC-NEXT:    bt16 .LBB50_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB52_2: # %entry
+; GENERIC-NEXT:  .LBB50_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2134,10 +2083,10 @@ define i16 @selectC_ugt_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB53_2
+; GENERIC-NEXT:    bt16 .LBB51_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB53_2: # %entry
+; GENERIC-NEXT:  .LBB51_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2171,10 +2120,10 @@ define i8 @selectRR_ugt_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, a1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB54_2
+; GENERIC-NEXT:    bt16 .LBB52_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB54_2: # %entry
+; GENERIC-NEXT:  .LBB52_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2207,10 +2156,10 @@ define i8 @selectRI_ugt_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB55_2
+; GENERIC-NEXT:    bt16 .LBB53_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB55_2: # %entry
+; GENERIC-NEXT:  .LBB53_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2241,10 +2190,10 @@ define i8 @selectRX_ugt_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB56_2
+; GENERIC-NEXT:    bt16 .LBB54_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB56_2: # %entry
+; GENERIC-NEXT:  .LBB54_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2268,10 +2217,10 @@ define i8 @selectC_ugt_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB57_2
+; GENERIC-NEXT:    bt16 .LBB55_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB57_2: # %entry
+; GENERIC-NEXT:  .LBB55_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2298,18 +2247,18 @@ define i1 @selectRR_ugt_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
 ; GENERIC-NEXT:    mov16 a0, a2
-; GENERIC-NEXT:    bf16 .LBB58_3
+; GENERIC-NEXT:    bf16 .LBB56_3
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB58_4
-; GENERIC-NEXT:  .LBB58_2: # %entry
+; GENERIC-NEXT:    bf16 .LBB56_4
+; GENERIC-NEXT:  .LBB56_2: # %entry
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB58_3: # %entry
+; GENERIC-NEXT:  .LBB56_3: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB58_2
-; GENERIC-NEXT:  .LBB58_4: # %entry
+; GENERIC-NEXT:    bt16 .LBB56_2
+; GENERIC-NEXT:  .LBB56_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2333,10 +2282,10 @@ define i1 @selectRI_ugt_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB59_2
+; GENERIC-NEXT:    bt16 .LBB57_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB59_2: # %entry
+; GENERIC-NEXT:  .LBB57_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2380,10 +2329,10 @@ define i1 @selectC_ugt_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB61_2
+; GENERIC-NEXT:    bt16 .LBB59_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB61_2: # %entry
+; GENERIC-NEXT:  .LBB59_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2411,10 +2360,10 @@ define i32 @selectRR_uge_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB62_2
+; GENERIC-NEXT:    bt16 .LBB60_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB62_2: # %entry
+; GENERIC-NEXT:  .LBB60_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2442,10 +2391,10 @@ define i32 @selectRI_uge_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 a3, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB63_2
+; GENERIC-NEXT:    bt16 .LBB61_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB63_2: # %entry
+; GENERIC-NEXT:  .LBB61_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2486,10 +2435,10 @@ define i32 @selectRX_uge_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 l0, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB64_2
+; GENERIC-NEXT:    bt16 .LBB62_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB64_2: # %entry
+; GENERIC-NEXT:  .LBB62_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2515,10 +2464,10 @@ define i32 @selectC_uge_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB65_2
+; GENERIC-NEXT:    bt16 .LBB63_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB65_2: # %entry
+; GENERIC-NEXT:  .LBB63_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -2578,21 +2527,21 @@ define i64 @selectRR_uge_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB66_3
+; GENERIC-NEXT:    bt16 .LBB64_3
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    subu16 l0, l1
 ; GENERIC-NEXT:    btsti16 l0, 0
-; GENERIC-NEXT:    bf16 .LBB66_4
-; GENERIC-NEXT:  .LBB66_2:
+; GENERIC-NEXT:    bf16 .LBB64_4
+; GENERIC-NEXT:  .LBB64_2:
 ; GENERIC-NEXT:    movi16 a0, 20
-; GENERIC-NEXT:    br32 .LBB66_5
-; GENERIC-NEXT:  .LBB66_3:
+; GENERIC-NEXT:    br32 .LBB64_5
+; GENERIC-NEXT:  .LBB64_3:
 ; GENERIC-NEXT:    subu16 l0, a0
 ; GENERIC-NEXT:    btsti16 l0, 0
-; GENERIC-NEXT:    bt16 .LBB66_2
-; GENERIC-NEXT:  .LBB66_4: # %entry
+; GENERIC-NEXT:    bt16 .LBB64_2
+; GENERIC-NEXT:  .LBB64_4: # %entry
 ; GENERIC-NEXT:    movi16 a0, 12
-; GENERIC-NEXT:  .LBB66_5: # %entry
+; GENERIC-NEXT:  .LBB64_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -2647,32 +2596,32 @@ define i64 @selectRI_uge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmphs16 l0, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB67_5
+; GENERIC-NEXT:    bf16 .LBB65_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB67_6
-; GENERIC-NEXT:  .LBB67_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB65_6
+; GENERIC-NEXT:  .LBB65_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB67_4
-; GENERIC-NEXT:  .LBB67_3:
+; GENERIC-NEXT:    bf16 .LBB65_4
+; GENERIC-NEXT:  .LBB65_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 12)
-; GENERIC-NEXT:  .LBB67_4: # %entry
+; GENERIC-NEXT:  .LBB65_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB67_5: # %entry
+; GENERIC-NEXT:  .LBB65_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB67_2
-; GENERIC-NEXT:  .LBB67_6:
+; GENERIC-NEXT:    bf16 .LBB65_2
+; GENERIC-NEXT:  .LBB65_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 8)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB67_3
-; GENERIC-NEXT:    br32 .LBB67_4
+; GENERIC-NEXT:    bt16 .LBB65_3
+; GENERIC-NEXT:    br32 .LBB65_4
 entry:
   %icmp = icmp uge i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -2730,16 +2679,16 @@ define i64 @selectRX_uge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmphs16 l1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB68_5
+; GENERIC-NEXT:    bf16 .LBB66_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB68_6
-; GENERIC-NEXT:  .LBB68_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB66_6
+; GENERIC-NEXT:  .LBB66_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB68_4
-; GENERIC-NEXT:  .LBB68_3:
+; GENERIC-NEXT:    bf16 .LBB66_4
+; GENERIC-NEXT:  .LBB66_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB68_4: # %entry
+; GENERIC-NEXT:  .LBB66_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -2747,16 +2696,16 @@ define i64 @selectRX_uge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l1, (sp, 4) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 8
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB68_5: # %entry
+; GENERIC-NEXT:  .LBB66_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a1
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB68_2
-; GENERIC-NEXT:  .LBB68_6:
+; GENERIC-NEXT:    bf16 .LBB66_2
+; GENERIC-NEXT:  .LBB66_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB68_3
-; GENERIC-NEXT:    br32 .LBB68_4
+; GENERIC-NEXT:    bt16 .LBB66_3
+; GENERIC-NEXT:    br32 .LBB66_4
 entry:
   %icmp = icmp uge i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -2780,15 +2729,15 @@ define i64 @selectC_uge_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB69_2
+; GENERIC-NEXT:    bt16 .LBB67_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB69_2: # %entry
+; GENERIC-NEXT:  .LBB67_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB69_4
+; GENERIC-NEXT:    bf16 .LBB67_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB69_4: # %entry
+; GENERIC-NEXT:  .LBB67_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -2836,10 +2785,10 @@ define i16 @selectRR_uge_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB70_2
+; GENERIC-NEXT:    bt16 .LBB68_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB70_2: # %entry
+; GENERIC-NEXT:  .LBB68_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2886,10 +2835,10 @@ define i16 @selectRI_uge_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, l1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB71_2
+; GENERIC-NEXT:    bt16 .LBB69_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB71_2: # %entry
+; GENERIC-NEXT:  .LBB69_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2939,10 +2888,10 @@ define i16 @selectRX_uge_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 a3, l1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB72_2
+; GENERIC-NEXT:    bt16 .LBB70_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB72_2: # %entry
+; GENERIC-NEXT:  .LBB70_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -2969,10 +2918,10 @@ define i16 @selectC_uge_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB73_2
+; GENERIC-NEXT:    bt16 .LBB71_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB73_2: # %entry
+; GENERIC-NEXT:  .LBB71_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3008,10 +2957,10 @@ define i8 @selectRR_uge_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB74_2
+; GENERIC-NEXT:    bt16 .LBB72_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB74_2: # %entry
+; GENERIC-NEXT:  .LBB72_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -3044,10 +2993,10 @@ define i8 @selectRI_uge_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB75_2
+; GENERIC-NEXT:    bt16 .LBB73_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB75_2: # %entry
+; GENERIC-NEXT:  .LBB73_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3078,10 +3027,10 @@ define i8 @selectRX_uge_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB76_2
+; GENERIC-NEXT:    bt16 .LBB74_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB76_2: # %entry
+; GENERIC-NEXT:  .LBB74_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3105,10 +3054,10 @@ define i8 @selectC_uge_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB77_2
+; GENERIC-NEXT:    bt16 .LBB75_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB77_2: # %entry
+; GENERIC-NEXT:  .LBB75_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3134,15 +3083,15 @@ define i1 @selectRR_uge_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB78_2
+; GENERIC-NEXT:    bt16 .LBB76_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a3
-; GENERIC-NEXT:  .LBB78_2: # %entry
+; GENERIC-NEXT:  .LBB76_2: # %entry
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB78_4
+; GENERIC-NEXT:    bt16 .LBB76_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB78_4: # %entry
+; GENERIC-NEXT:  .LBB76_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3186,10 +3135,10 @@ define i1 @selectRX_uge_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB80_2
+; GENERIC-NEXT:    bt16 .LBB78_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB80_2: # %entry
+; GENERIC-NEXT:  .LBB78_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3213,10 +3162,10 @@ define i1 @selectC_uge_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB81_2
+; GENERIC-NEXT:    bt16 .LBB79_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB81_2: # %entry
+; GENERIC-NEXT:  .LBB79_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3242,10 +3191,10 @@ define i32 @selectRR_ult_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 a1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB82_2
+; GENERIC-NEXT:    bt16 .LBB80_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB82_2: # %entry
+; GENERIC-NEXT:  .LBB80_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3271,10 +3220,10 @@ define i32 @selectRI_ult_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphsi16 a0, 10
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB83_2
+; GENERIC-NEXT:    bt16 .LBB81_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB83_2: # %entry
+; GENERIC-NEXT:  .LBB81_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3315,10 +3264,10 @@ define i32 @selectRX_ult_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, l0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB84_2
+; GENERIC-NEXT:    bt16 .LBB82_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB84_2: # %entry
+; GENERIC-NEXT:  .LBB82_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -3344,10 +3293,10 @@ define i32 @selectC_ult_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB85_2
+; GENERIC-NEXT:    bt16 .LBB83_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB85_2: # %entry
+; GENERIC-NEXT:  .LBB83_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3396,18 +3345,18 @@ define i64 @selectRR_ult_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB86_2
+; GENERIC-NEXT:    bt16 .LBB84_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a0, l0
-; GENERIC-NEXT:  .LBB86_2: # %entry
+; GENERIC-NEXT:  .LBB84_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB86_4
+; GENERIC-NEXT:    bt16 .LBB84_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    movi16 a0, 8
-; GENERIC-NEXT:    br32 .LBB86_5
-; GENERIC-NEXT:  .LBB86_4:
+; GENERIC-NEXT:    br32 .LBB84_5
+; GENERIC-NEXT:  .LBB84_4:
 ; GENERIC-NEXT:    movi16 a0, 16
-; GENERIC-NEXT:  .LBB86_5: # %entry
+; GENERIC-NEXT:  .LBB84_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -3459,29 +3408,29 @@ define i64 @selectRI_ult_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB87_5
+; GENERIC-NEXT:    bf16 .LBB85_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB87_6
-; GENERIC-NEXT:  .LBB87_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB85_6
+; GENERIC-NEXT:  .LBB85_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB87_4
-; GENERIC-NEXT:  .LBB87_3:
+; GENERIC-NEXT:    bf16 .LBB85_4
+; GENERIC-NEXT:  .LBB85_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 8)
-; GENERIC-NEXT:  .LBB87_4: # %entry
+; GENERIC-NEXT:  .LBB85_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB87_5: # %entry
+; GENERIC-NEXT:  .LBB85_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB87_2
-; GENERIC-NEXT:  .LBB87_6:
+; GENERIC-NEXT:    bf16 .LBB85_2
+; GENERIC-NEXT:  .LBB85_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB87_3
-; GENERIC-NEXT:    br32 .LBB87_4
+; GENERIC-NEXT:    bt16 .LBB85_3
+; GENERIC-NEXT:    br32 .LBB85_4
 entry:
   %icmp = icmp ult i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -3539,16 +3488,16 @@ define i64 @selectRX_ult_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB88_5
+; GENERIC-NEXT:    bf16 .LBB86_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB88_6
-; GENERIC-NEXT:  .LBB88_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB86_6
+; GENERIC-NEXT:  .LBB86_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB88_4
-; GENERIC-NEXT:  .LBB88_3:
+; GENERIC-NEXT:    bf16 .LBB86_4
+; GENERIC-NEXT:  .LBB86_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB88_4: # %entry
+; GENERIC-NEXT:  .LBB86_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -3556,15 +3505,15 @@ define i64 @selectRX_ult_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l1, (sp, 4) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 8
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB88_5: # %entry
+; GENERIC-NEXT:  .LBB86_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB88_2
-; GENERIC-NEXT:  .LBB88_6:
+; GENERIC-NEXT:    bf16 .LBB86_2
+; GENERIC-NEXT:  .LBB86_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB88_3
-; GENERIC-NEXT:    br32 .LBB88_4
+; GENERIC-NEXT:    bt16 .LBB86_3
+; GENERIC-NEXT:    br32 .LBB86_4
 entry:
   %icmp = icmp ult i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -3588,15 +3537,15 @@ define i64 @selectC_ult_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB89_2
+; GENERIC-NEXT:    bt16 .LBB87_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB89_2: # %entry
+; GENERIC-NEXT:  .LBB87_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB89_4
+; GENERIC-NEXT:    bf16 .LBB87_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB89_4: # %entry
+; GENERIC-NEXT:  .LBB87_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -3642,10 +3591,10 @@ define i16 @selectRR_ult_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 l2, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB90_2
+; GENERIC-NEXT:    bt16 .LBB88_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB90_2: # %entry
+; GENERIC-NEXT:  .LBB88_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -3690,10 +3639,10 @@ define i16 @selectRI_ult_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphsi16 l1, 10
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB91_2
+; GENERIC-NEXT:    bt16 .LBB89_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB91_2: # %entry
+; GENERIC-NEXT:  .LBB89_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -3742,10 +3691,10 @@ define i16 @selectRX_ult_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 l1, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB92_2
+; GENERIC-NEXT:    bt16 .LBB90_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB92_2: # %entry
+; GENERIC-NEXT:  .LBB90_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -3772,10 +3721,10 @@ define i16 @selectC_ult_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB93_2
+; GENERIC-NEXT:    bt16 .LBB91_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB93_2: # %entry
+; GENERIC-NEXT:  .LBB91_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3809,10 +3758,10 @@ define i8 @selectRR_ult_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB94_2
+; GENERIC-NEXT:    bt16 .LBB92_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB94_2: # %entry
+; GENERIC-NEXT:  .LBB92_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -3843,10 +3792,10 @@ define i8 @selectRI_ult_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphsi16 a3, 10
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB95_2
+; GENERIC-NEXT:    bt16 .LBB93_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB95_2: # %entry
+; GENERIC-NEXT:  .LBB93_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3876,10 +3825,10 @@ define i8 @selectRX_ult_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a3, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB96_2
+; GENERIC-NEXT:    bt16 .LBB94_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB96_2: # %entry
+; GENERIC-NEXT:  .LBB94_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3903,10 +3852,10 @@ define i8 @selectC_ult_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB97_2
+; GENERIC-NEXT:    bt16 .LBB95_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB97_2: # %entry
+; GENERIC-NEXT:  .LBB95_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -3937,15 +3886,15 @@ define i1 @selectRR_ult_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    mov16 l0, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
 ; GENERIC-NEXT:    mov16 a0, a2
-; GENERIC-NEXT:    bt16 .LBB98_2
+; GENERIC-NEXT:    bt16 .LBB96_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
-; GENERIC-NEXT:  .LBB98_2: # %entry
+; GENERIC-NEXT:  .LBB96_2: # %entry
 ; GENERIC-NEXT:    btsti16 l0, 0
-; GENERIC-NEXT:    bt16 .LBB98_4
+; GENERIC-NEXT:    bt16 .LBB96_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
-; GENERIC-NEXT:  .LBB98_4: # %entry
+; GENERIC-NEXT:  .LBB96_4: # %entry
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -3990,10 +3939,10 @@ define i1 @selectRX_ult_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB100_2
+; GENERIC-NEXT:    bt16 .LBB98_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a1, a2
-; GENERIC-NEXT:  .LBB100_2: # %entry
+; GENERIC-NEXT:  .LBB98_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a1
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4017,10 +3966,10 @@ define i1 @selectC_ult_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB101_2
+; GENERIC-NEXT:    bt16 .LBB99_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB101_2: # %entry
+; GENERIC-NEXT:  .LBB99_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4047,10 +3996,10 @@ define i32 @selectRR_ule_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB102_2
+; GENERIC-NEXT:    bt16 .LBB100_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB102_2: # %entry
+; GENERIC-NEXT:  .LBB100_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4076,10 +4025,10 @@ define i32 @selectRI_ule_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphsi16 a0, 11
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB103_2
+; GENERIC-NEXT:    bt16 .LBB101_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB103_2: # %entry
+; GENERIC-NEXT:  .LBB101_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4120,10 +4069,10 @@ define i32 @selectRX_ule_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmphs16 a0, l0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB104_2
+; GENERIC-NEXT:    bt16 .LBB102_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB104_2: # %entry
+; GENERIC-NEXT:  .LBB102_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -4149,10 +4098,10 @@ define i32 @selectC_ule_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB105_2
+; GENERIC-NEXT:    bt16 .LBB103_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB105_2: # %entry
+; GENERIC-NEXT:  .LBB103_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4212,21 +4161,21 @@ define i64 @selectRR_ule_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB106_3
+; GENERIC-NEXT:    bt16 .LBB104_3
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    subu16 l0, l1
 ; GENERIC-NEXT:    btsti16 l0, 0
-; GENERIC-NEXT:    bf16 .LBB106_4
-; GENERIC-NEXT:  .LBB106_2:
+; GENERIC-NEXT:    bf16 .LBB104_4
+; GENERIC-NEXT:  .LBB104_2:
 ; GENERIC-NEXT:    movi16 a0, 20
-; GENERIC-NEXT:    br32 .LBB106_5
-; GENERIC-NEXT:  .LBB106_3:
+; GENERIC-NEXT:    br32 .LBB104_5
+; GENERIC-NEXT:  .LBB104_3:
 ; GENERIC-NEXT:    subu16 l0, a0
 ; GENERIC-NEXT:    btsti16 l0, 0
-; GENERIC-NEXT:    bt16 .LBB106_2
-; GENERIC-NEXT:  .LBB106_4: # %entry
+; GENERIC-NEXT:    bt16 .LBB104_2
+; GENERIC-NEXT:  .LBB104_4: # %entry
 ; GENERIC-NEXT:    movi16 a0, 12
-; GENERIC-NEXT:  .LBB106_5: # %entry
+; GENERIC-NEXT:  .LBB104_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -4279,29 +4228,29 @@ define i64 @selectRI_ule_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB107_5
+; GENERIC-NEXT:    bf16 .LBB105_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB107_6
-; GENERIC-NEXT:  .LBB107_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB105_6
+; GENERIC-NEXT:  .LBB105_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB107_4
-; GENERIC-NEXT:  .LBB107_3:
+; GENERIC-NEXT:    bf16 .LBB105_4
+; GENERIC-NEXT:  .LBB105_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 8)
-; GENERIC-NEXT:  .LBB107_4: # %entry
+; GENERIC-NEXT:  .LBB105_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB107_5: # %entry
+; GENERIC-NEXT:  .LBB105_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB107_2
-; GENERIC-NEXT:  .LBB107_6:
+; GENERIC-NEXT:    bf16 .LBB105_2
+; GENERIC-NEXT:  .LBB105_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB107_3
-; GENERIC-NEXT:    br32 .LBB107_4
+; GENERIC-NEXT:    bt16 .LBB105_3
+; GENERIC-NEXT:    br32 .LBB105_4
 entry:
   %icmp = icmp ule i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -4359,16 +4308,16 @@ define i64 @selectRX_ule_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB108_5
+; GENERIC-NEXT:    bf16 .LBB106_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB108_6
-; GENERIC-NEXT:  .LBB108_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB106_6
+; GENERIC-NEXT:  .LBB106_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB108_4
-; GENERIC-NEXT:  .LBB108_3:
+; GENERIC-NEXT:    bf16 .LBB106_4
+; GENERIC-NEXT:  .LBB106_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB108_4: # %entry
+; GENERIC-NEXT:  .LBB106_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -4376,15 +4325,15 @@ define i64 @selectRX_ule_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l1, (sp, 4) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 8
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB108_5: # %entry
+; GENERIC-NEXT:  .LBB106_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB108_2
-; GENERIC-NEXT:  .LBB108_6:
+; GENERIC-NEXT:    bf16 .LBB106_2
+; GENERIC-NEXT:  .LBB106_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB108_3
-; GENERIC-NEXT:    br32 .LBB108_4
+; GENERIC-NEXT:    bt16 .LBB106_3
+; GENERIC-NEXT:    br32 .LBB106_4
 entry:
   %icmp = icmp ule i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -4408,15 +4357,15 @@ define i64 @selectC_ule_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB109_2
+; GENERIC-NEXT:    bt16 .LBB107_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB109_2: # %entry
+; GENERIC-NEXT:  .LBB107_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB109_4
+; GENERIC-NEXT:    bf16 .LBB107_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB109_4: # %entry
+; GENERIC-NEXT:  .LBB107_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -4464,10 +4413,10 @@ define i16 @selectRR_ule_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB110_2
+; GENERIC-NEXT:    bt16 .LBB108_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB110_2: # %entry
+; GENERIC-NEXT:  .LBB108_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -4512,10 +4461,10 @@ define i16 @selectRI_ule_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphsi16 l1, 11
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB111_2
+; GENERIC-NEXT:    bt16 .LBB109_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB111_2: # %entry
+; GENERIC-NEXT:  .LBB109_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -4564,10 +4513,10 @@ define i16 @selectRX_ule_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmphs16 l1, a3
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB112_2
+; GENERIC-NEXT:    bt16 .LBB110_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB112_2: # %entry
+; GENERIC-NEXT:  .LBB110_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -4594,10 +4543,10 @@ define i16 @selectC_ule_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB113_2
+; GENERIC-NEXT:    bt16 .LBB111_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB113_2: # %entry
+; GENERIC-NEXT:  .LBB111_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4633,10 +4582,10 @@ define i8 @selectRR_ule_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB114_2
+; GENERIC-NEXT:    bt16 .LBB112_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB114_2: # %entry
+; GENERIC-NEXT:  .LBB112_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -4667,10 +4616,10 @@ define i8 @selectRI_ule_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphsi16 a3, 11
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB115_2
+; GENERIC-NEXT:    bt16 .LBB113_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB115_2: # %entry
+; GENERIC-NEXT:  .LBB113_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4700,10 +4649,10 @@ define i8 @selectRX_ule_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmphs16 a3, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB116_2
+; GENERIC-NEXT:    bt16 .LBB114_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB116_2: # %entry
+; GENERIC-NEXT:  .LBB114_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4727,10 +4676,10 @@ define i8 @selectC_ule_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB117_2
+; GENERIC-NEXT:    bt16 .LBB115_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB117_2: # %entry
+; GENERIC-NEXT:  .LBB115_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4757,15 +4706,15 @@ define i1 @selectRR_ule_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB118_2
+; GENERIC-NEXT:    bt16 .LBB116_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a3
-; GENERIC-NEXT:  .LBB118_2: # %entry
+; GENERIC-NEXT:  .LBB116_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB118_4
+; GENERIC-NEXT:    bt16 .LBB116_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB118_4: # %entry
+; GENERIC-NEXT:  .LBB116_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4789,10 +4738,10 @@ define i1 @selectRI_ule_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB119_2
+; GENERIC-NEXT:    bt16 .LBB117_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a1, a2
-; GENERIC-NEXT:  .LBB119_2: # %entry
+; GENERIC-NEXT:  .LBB117_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a1
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4836,10 +4785,10 @@ define i1 @selectC_ule_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB121_2
+; GENERIC-NEXT:    bt16 .LBB119_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB121_2: # %entry
+; GENERIC-NEXT:  .LBB119_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4867,10 +4816,10 @@ define i32 @selectRR_sgt_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB122_2
+; GENERIC-NEXT:    bt16 .LBB120_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB122_2: # %entry
+; GENERIC-NEXT:  .LBB120_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4900,10 +4849,10 @@ define i32 @selectRI_sgt_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB123_2
+; GENERIC-NEXT:    bt16 .LBB121_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB123_2: # %entry
+; GENERIC-NEXT:  .LBB121_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -4946,10 +4895,10 @@ define i32 @selectRX_sgt_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB124_2
+; GENERIC-NEXT:    bt16 .LBB122_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB124_2: # %entry
+; GENERIC-NEXT:  .LBB122_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -4975,10 +4924,10 @@ define i32 @selectC_sgt_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB125_2
+; GENERIC-NEXT:    bt16 .LBB123_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB125_2: # %entry
+; GENERIC-NEXT:  .LBB123_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5031,19 +4980,19 @@ define i64 @selectRR_sgt_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB126_2
+; GENERIC-NEXT:    bt16 .LBB124_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
-; GENERIC-NEXT:  .LBB126_2: # %entry
+; GENERIC-NEXT:  .LBB124_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB126_4
+; GENERIC-NEXT:    bt16 .LBB124_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    movi16 a0, 8
-; GENERIC-NEXT:    br32 .LBB126_5
-; GENERIC-NEXT:  .LBB126_4:
+; GENERIC-NEXT:    br32 .LBB124_5
+; GENERIC-NEXT:  .LBB124_4:
 ; GENERIC-NEXT:    movi16 a0, 16
-; GENERIC-NEXT:  .LBB126_5: # %entry
+; GENERIC-NEXT:  .LBB124_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -5114,16 +5063,16 @@ define i64 @selectRI_sgt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB127_5
+; GENERIC-NEXT:    bf16 .LBB125_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB127_6
-; GENERIC-NEXT:  .LBB127_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB125_6
+; GENERIC-NEXT:  .LBB125_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB127_4
-; GENERIC-NEXT:  .LBB127_3:
+; GENERIC-NEXT:    bf16 .LBB125_4
+; GENERIC-NEXT:  .LBB125_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB127_4: # %entry
+; GENERIC-NEXT:  .LBB125_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -5131,16 +5080,16 @@ define i64 @selectRI_sgt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l1, (sp, 4) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 8
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB127_5: # %entry
+; GENERIC-NEXT:  .LBB125_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB127_2
-; GENERIC-NEXT:  .LBB127_6:
+; GENERIC-NEXT:    bf16 .LBB125_2
+; GENERIC-NEXT:  .LBB125_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB127_3
-; GENERIC-NEXT:    br32 .LBB127_4
+; GENERIC-NEXT:    bt16 .LBB125_3
+; GENERIC-NEXT:    br32 .LBB125_4
 entry:
   %icmp = icmp sgt i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -5215,16 +5164,16 @@ define i64 @selectRX_sgt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB128_5
+; GENERIC-NEXT:    bf16 .LBB126_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB128_6
-; GENERIC-NEXT:  .LBB128_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB126_6
+; GENERIC-NEXT:  .LBB126_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB128_4
-; GENERIC-NEXT:  .LBB128_3:
+; GENERIC-NEXT:    bf16 .LBB126_4
+; GENERIC-NEXT:  .LBB126_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 20)
-; GENERIC-NEXT:  .LBB128_4: # %entry
+; GENERIC-NEXT:  .LBB126_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -5233,16 +5182,16 @@ define i64 @selectRX_sgt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l2, (sp, 8) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 12
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB128_5: # %entry
+; GENERIC-NEXT:  .LBB126_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB128_2
-; GENERIC-NEXT:  .LBB128_6:
+; GENERIC-NEXT:    bf16 .LBB126_2
+; GENERIC-NEXT:  .LBB126_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 16)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB128_3
-; GENERIC-NEXT:    br32 .LBB128_4
+; GENERIC-NEXT:    bt16 .LBB126_3
+; GENERIC-NEXT:    br32 .LBB126_4
 entry:
   %icmp = icmp sgt i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -5266,15 +5215,15 @@ define i64 @selectC_sgt_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB129_2
+; GENERIC-NEXT:    bt16 .LBB127_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB129_2: # %entry
+; GENERIC-NEXT:  .LBB127_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB129_4
+; GENERIC-NEXT:    bf16 .LBB127_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB129_4: # %entry
+; GENERIC-NEXT:  .LBB127_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -5307,10 +5256,10 @@ define i16 @selectRR_sgt_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB130_2
+; GENERIC-NEXT:    bt16 .LBB128_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB130_2: # %entry
+; GENERIC-NEXT:  .LBB128_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5342,10 +5291,10 @@ define i16 @selectRI_sgt_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB131_2
+; GENERIC-NEXT:    bt16 .LBB129_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB131_2: # %entry
+; GENERIC-NEXT:  .LBB129_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5388,10 +5337,10 @@ define i16 @selectRX_sgt_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB132_2
+; GENERIC-NEXT:    bt16 .LBB130_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB132_2: # %entry
+; GENERIC-NEXT:  .LBB130_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -5417,10 +5366,10 @@ define i16 @selectC_sgt_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB133_2
+; GENERIC-NEXT:    bt16 .LBB131_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB133_2: # %entry
+; GENERIC-NEXT:  .LBB131_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5452,10 +5401,10 @@ define i8 @selectRR_sgt_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB134_2
+; GENERIC-NEXT:    bt16 .LBB132_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB134_2: # %entry
+; GENERIC-NEXT:  .LBB132_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5487,10 +5436,10 @@ define i8 @selectRI_sgt_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB135_2
+; GENERIC-NEXT:    bt16 .LBB133_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB135_2: # %entry
+; GENERIC-NEXT:  .LBB133_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5535,10 +5484,10 @@ define i8 @selectRX_sgt_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB136_2
+; GENERIC-NEXT:    bt16 .LBB134_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB136_2: # %entry
+; GENERIC-NEXT:  .LBB134_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -5565,10 +5514,10 @@ define i8 @selectC_sgt_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB137_2
+; GENERIC-NEXT:    bt16 .LBB135_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB137_2: # %entry
+; GENERIC-NEXT:  .LBB135_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5599,15 +5548,15 @@ define i1 @selectRR_sgt_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    mov16 l0, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
 ; GENERIC-NEXT:    mov16 a0, a2
-; GENERIC-NEXT:    bt16 .LBB138_2
+; GENERIC-NEXT:    bt16 .LBB136_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
-; GENERIC-NEXT:  .LBB138_2: # %entry
+; GENERIC-NEXT:  .LBB136_2: # %entry
 ; GENERIC-NEXT:    btsti16 l0, 0
-; GENERIC-NEXT:    bt16 .LBB138_4
+; GENERIC-NEXT:    bt16 .LBB136_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
-; GENERIC-NEXT:  .LBB138_4: # %entry
+; GENERIC-NEXT:  .LBB136_4: # %entry
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -5652,10 +5601,10 @@ define i1 @selectRX_sgt_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB140_2
+; GENERIC-NEXT:    bt16 .LBB138_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a1, a2
-; GENERIC-NEXT:  .LBB140_2: # %entry
+; GENERIC-NEXT:  .LBB138_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a1
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5679,10 +5628,10 @@ define i1 @selectC_sgt_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB141_2
+; GENERIC-NEXT:    bt16 .LBB139_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB141_2: # %entry
+; GENERIC-NEXT:  .LBB139_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5708,10 +5657,10 @@ define i32 @selectRR_sge_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmplt16 a1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB142_2
+; GENERIC-NEXT:    bt16 .LBB140_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB142_2: # %entry
+; GENERIC-NEXT:  .LBB140_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5741,10 +5690,10 @@ define i32 @selectRI_sge_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB143_2
+; GENERIC-NEXT:    bt16 .LBB141_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB143_2: # %entry
+; GENERIC-NEXT:  .LBB141_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5787,10 +5736,10 @@ define i32 @selectRX_sge_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB144_2
+; GENERIC-NEXT:    bt16 .LBB142_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB144_2: # %entry
+; GENERIC-NEXT:  .LBB142_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -5816,10 +5765,10 @@ define i32 @selectC_sge_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB145_2
+; GENERIC-NEXT:    bt16 .LBB143_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB145_2: # %entry
+; GENERIC-NEXT:  .LBB143_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -5869,19 +5818,19 @@ define i64 @selectRR_sge_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB146_2
+; GENERIC-NEXT:    bf16 .LBB144_2
 ; GENERIC-NEXT:  # %bb.1:
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a2
-; GENERIC-NEXT:  .LBB146_2: # %entry
+; GENERIC-NEXT:  .LBB144_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB146_4
+; GENERIC-NEXT:    bt16 .LBB144_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    movi16 a0, 4
-; GENERIC-NEXT:    br32 .LBB146_5
-; GENERIC-NEXT:  .LBB146_4:
+; GENERIC-NEXT:    br32 .LBB144_5
+; GENERIC-NEXT:  .LBB144_4:
 ; GENERIC-NEXT:    movi16 a0, 12
-; GENERIC-NEXT:  .LBB146_5: # %entry
+; GENERIC-NEXT:  .LBB144_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -5950,16 +5899,16 @@ define i64 @selectRI_sge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB147_5
+; GENERIC-NEXT:    bf16 .LBB145_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB147_6
-; GENERIC-NEXT:  .LBB147_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB145_6
+; GENERIC-NEXT:  .LBB145_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB147_4
-; GENERIC-NEXT:  .LBB147_3:
+; GENERIC-NEXT:    bf16 .LBB145_4
+; GENERIC-NEXT:  .LBB145_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 16)
-; GENERIC-NEXT:  .LBB147_4: # %entry
+; GENERIC-NEXT:  .LBB145_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -5967,16 +5916,16 @@ define i64 @selectRI_sge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l1, (sp, 4) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 8
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB147_5: # %entry
+; GENERIC-NEXT:  .LBB145_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB147_2
-; GENERIC-NEXT:  .LBB147_6:
+; GENERIC-NEXT:    bf16 .LBB145_2
+; GENERIC-NEXT:  .LBB145_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 12)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB147_3
-; GENERIC-NEXT:    br32 .LBB147_4
+; GENERIC-NEXT:    bt16 .LBB145_3
+; GENERIC-NEXT:    br32 .LBB145_4
 entry:
   %icmp = icmp sge i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -6051,16 +6000,16 @@ define i64 @selectRX_sge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB148_5
+; GENERIC-NEXT:    bf16 .LBB146_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB148_6
-; GENERIC-NEXT:  .LBB148_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB146_6
+; GENERIC-NEXT:  .LBB146_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB148_4
-; GENERIC-NEXT:  .LBB148_3:
+; GENERIC-NEXT:    bf16 .LBB146_4
+; GENERIC-NEXT:  .LBB146_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 20)
-; GENERIC-NEXT:  .LBB148_4: # %entry
+; GENERIC-NEXT:  .LBB146_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -6069,16 +6018,16 @@ define i64 @selectRX_sge_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l2, (sp, 8) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 12
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB148_5: # %entry
+; GENERIC-NEXT:  .LBB146_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB148_2
-; GENERIC-NEXT:  .LBB148_6:
+; GENERIC-NEXT:    bf16 .LBB146_2
+; GENERIC-NEXT:  .LBB146_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 16)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB148_3
-; GENERIC-NEXT:    br32 .LBB148_4
+; GENERIC-NEXT:    bt16 .LBB146_3
+; GENERIC-NEXT:    br32 .LBB146_4
 entry:
   %icmp = icmp sge i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -6102,15 +6051,15 @@ define i64 @selectC_sge_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB149_2
+; GENERIC-NEXT:    bt16 .LBB147_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB149_2: # %entry
+; GENERIC-NEXT:  .LBB147_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB149_4
+; GENERIC-NEXT:    bf16 .LBB147_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB149_4: # %entry
+; GENERIC-NEXT:  .LBB147_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -6141,10 +6090,10 @@ define i16 @selectRR_sge_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmplt16 a1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB150_2
+; GENERIC-NEXT:    bt16 .LBB148_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB150_2: # %entry
+; GENERIC-NEXT:  .LBB148_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6176,10 +6125,10 @@ define i16 @selectRI_sge_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB151_2
+; GENERIC-NEXT:    bt16 .LBB149_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB151_2: # %entry
+; GENERIC-NEXT:  .LBB149_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6222,10 +6171,10 @@ define i16 @selectRX_sge_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB152_2
+; GENERIC-NEXT:    bt16 .LBB150_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB152_2: # %entry
+; GENERIC-NEXT:  .LBB150_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -6251,10 +6200,10 @@ define i16 @selectC_sge_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB153_2
+; GENERIC-NEXT:    bt16 .LBB151_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB153_2: # %entry
+; GENERIC-NEXT:  .LBB151_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6284,10 +6233,10 @@ define i8 @selectRR_sge_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmplt16 a1, a0
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB154_2
+; GENERIC-NEXT:    bt16 .LBB152_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB154_2: # %entry
+; GENERIC-NEXT:  .LBB152_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6319,10 +6268,10 @@ define i8 @selectRI_sge_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB155_2
+; GENERIC-NEXT:    bt16 .LBB153_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB155_2: # %entry
+; GENERIC-NEXT:  .LBB153_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6367,10 +6316,10 @@ define i8 @selectRX_sge_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB156_2
+; GENERIC-NEXT:    bt16 .LBB154_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB156_2: # %entry
+; GENERIC-NEXT:  .LBB154_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -6397,10 +6346,10 @@ define i8 @selectC_sge_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB157_2
+; GENERIC-NEXT:    bt16 .LBB155_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB157_2: # %entry
+; GENERIC-NEXT:  .LBB155_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6427,15 +6376,15 @@ define i1 @selectRR_sge_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB158_2
+; GENERIC-NEXT:    bt16 .LBB156_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a3
-; GENERIC-NEXT:  .LBB158_2: # %entry
+; GENERIC-NEXT:  .LBB156_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB158_4
+; GENERIC-NEXT:    bt16 .LBB156_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB158_4: # %entry
+; GENERIC-NEXT:  .LBB156_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6459,10 +6408,10 @@ define i1 @selectRI_sge_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB159_2
+; GENERIC-NEXT:    bt16 .LBB157_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a1, a2
-; GENERIC-NEXT:  .LBB159_2: # %entry
+; GENERIC-NEXT:  .LBB157_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a1
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6506,10 +6455,10 @@ define i1 @selectC_sge_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB161_2
+; GENERIC-NEXT:    bt16 .LBB159_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB161_2: # %entry
+; GENERIC-NEXT:  .LBB159_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6537,10 +6486,10 @@ define i32 @selectRR_slt_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB162_2
+; GENERIC-NEXT:    bt16 .LBB160_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB162_2: # %entry
+; GENERIC-NEXT:  .LBB160_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6568,10 +6517,10 @@ define i32 @selectRI_slt_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB163_2
+; GENERIC-NEXT:    bt16 .LBB161_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB163_2: # %entry
+; GENERIC-NEXT:  .LBB161_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6614,10 +6563,10 @@ define i32 @selectRX_slt_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB164_2
+; GENERIC-NEXT:    bt16 .LBB162_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB164_2: # %entry
+; GENERIC-NEXT:  .LBB162_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -6643,10 +6592,10 @@ define i32 @selectC_slt_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB165_2
+; GENERIC-NEXT:    bt16 .LBB163_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB165_2: # %entry
+; GENERIC-NEXT:  .LBB163_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -6699,19 +6648,19 @@ define i64 @selectRR_slt_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB166_2
+; GENERIC-NEXT:    bt16 .LBB164_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
-; GENERIC-NEXT:  .LBB166_2: # %entry
+; GENERIC-NEXT:  .LBB164_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB166_4
+; GENERIC-NEXT:    bt16 .LBB164_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    movi16 a0, 8
-; GENERIC-NEXT:    br32 .LBB166_5
-; GENERIC-NEXT:  .LBB166_4:
+; GENERIC-NEXT:    br32 .LBB164_5
+; GENERIC-NEXT:  .LBB164_4:
 ; GENERIC-NEXT:    movi16 a0, 16
-; GENERIC-NEXT:  .LBB166_5: # %entry
+; GENERIC-NEXT:  .LBB164_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -6778,32 +6727,32 @@ define i64 @selectRI_slt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB167_5
+; GENERIC-NEXT:    bf16 .LBB165_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB167_6
-; GENERIC-NEXT:  .LBB167_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB165_6
+; GENERIC-NEXT:  .LBB165_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB167_4
-; GENERIC-NEXT:  .LBB167_3:
+; GENERIC-NEXT:    bf16 .LBB165_4
+; GENERIC-NEXT:  .LBB165_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 12)
-; GENERIC-NEXT:  .LBB167_4: # %entry
+; GENERIC-NEXT:  .LBB165_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB167_5: # %entry
+; GENERIC-NEXT:  .LBB165_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB167_2
-; GENERIC-NEXT:  .LBB167_6:
+; GENERIC-NEXT:    bf16 .LBB165_2
+; GENERIC-NEXT:  .LBB165_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 8)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB167_3
-; GENERIC-NEXT:    br32 .LBB167_4
+; GENERIC-NEXT:    bt16 .LBB165_3
+; GENERIC-NEXT:    br32 .LBB165_4
 entry:
   %icmp = icmp slt i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -6878,16 +6827,16 @@ define i64 @selectRX_slt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB168_5
+; GENERIC-NEXT:    bf16 .LBB166_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB168_6
-; GENERIC-NEXT:  .LBB168_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB166_6
+; GENERIC-NEXT:  .LBB166_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB168_4
-; GENERIC-NEXT:  .LBB168_3:
+; GENERIC-NEXT:    bf16 .LBB166_4
+; GENERIC-NEXT:  .LBB166_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 20)
-; GENERIC-NEXT:  .LBB168_4: # %entry
+; GENERIC-NEXT:  .LBB166_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -6896,16 +6845,16 @@ define i64 @selectRX_slt_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l2, (sp, 8) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 12
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB168_5: # %entry
+; GENERIC-NEXT:  .LBB166_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB168_2
-; GENERIC-NEXT:  .LBB168_6:
+; GENERIC-NEXT:    bf16 .LBB166_2
+; GENERIC-NEXT:  .LBB166_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 16)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB168_3
-; GENERIC-NEXT:    br32 .LBB168_4
+; GENERIC-NEXT:    bt16 .LBB166_3
+; GENERIC-NEXT:    br32 .LBB166_4
 entry:
   %icmp = icmp slt i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -6929,15 +6878,15 @@ define i64 @selectC_slt_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB169_2
+; GENERIC-NEXT:    bt16 .LBB167_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB169_2: # %entry
+; GENERIC-NEXT:  .LBB167_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB169_4
+; GENERIC-NEXT:    bf16 .LBB167_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB169_4: # %entry
+; GENERIC-NEXT:  .LBB167_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -6970,10 +6919,10 @@ define i16 @selectRR_slt_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB170_2
+; GENERIC-NEXT:    bt16 .LBB168_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB170_2: # %entry
+; GENERIC-NEXT:  .LBB168_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7003,10 +6952,10 @@ define i16 @selectRI_slt_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB171_2
+; GENERIC-NEXT:    bt16 .LBB169_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB171_2: # %entry
+; GENERIC-NEXT:  .LBB169_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7048,10 +6997,10 @@ define i16 @selectRX_slt_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB172_2
+; GENERIC-NEXT:    bt16 .LBB170_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB172_2: # %entry
+; GENERIC-NEXT:  .LBB170_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -7077,10 +7026,10 @@ define i16 @selectC_slt_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB173_2
+; GENERIC-NEXT:    bt16 .LBB171_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB173_2: # %entry
+; GENERIC-NEXT:  .LBB171_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7112,10 +7061,10 @@ define i8 @selectRR_slt_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a1, 1
 ; GENERIC-NEXT:    subu16 a1, a0
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB174_2
+; GENERIC-NEXT:    bt16 .LBB172_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB174_2: # %entry
+; GENERIC-NEXT:  .LBB172_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7145,10 +7094,10 @@ define i8 @selectRI_slt_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB175_2
+; GENERIC-NEXT:    bt16 .LBB173_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB175_2: # %entry
+; GENERIC-NEXT:  .LBB173_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7193,10 +7142,10 @@ define i8 @selectRX_slt_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB176_2
+; GENERIC-NEXT:    bt16 .LBB174_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB176_2: # %entry
+; GENERIC-NEXT:  .LBB174_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -7223,10 +7172,10 @@ define i8 @selectC_slt_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB177_2
+; GENERIC-NEXT:    bt16 .LBB175_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB177_2: # %entry
+; GENERIC-NEXT:  .LBB175_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7253,18 +7202,18 @@ define i1 @selectRR_slt_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
 ; GENERIC-NEXT:    mov16 a0, a2
-; GENERIC-NEXT:    bf16 .LBB178_3
+; GENERIC-NEXT:    bf16 .LBB176_3
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB178_4
-; GENERIC-NEXT:  .LBB178_2: # %entry
+; GENERIC-NEXT:    bf16 .LBB176_4
+; GENERIC-NEXT:  .LBB176_2: # %entry
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB178_3: # %entry
+; GENERIC-NEXT:  .LBB176_3: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB178_2
-; GENERIC-NEXT:  .LBB178_4: # %entry
+; GENERIC-NEXT:    bt16 .LBB176_2
+; GENERIC-NEXT:  .LBB176_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7288,10 +7237,10 @@ define i1 @selectRI_slt_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB179_2
+; GENERIC-NEXT:    bt16 .LBB177_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB179_2: # %entry
+; GENERIC-NEXT:  .LBB177_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7335,10 +7284,10 @@ define i1 @selectC_slt_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB181_2
+; GENERIC-NEXT:    bt16 .LBB179_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB181_2: # %entry
+; GENERIC-NEXT:  .LBB179_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7363,10 +7312,10 @@ define i32 @selectRR_sle_i32(i32 %x, i32 %y, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    cmplt16 a0, a1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB182_2
+; GENERIC-NEXT:    bt16 .LBB180_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB182_2: # %entry
+; GENERIC-NEXT:  .LBB180_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7394,10 +7343,10 @@ define i32 @selectRI_sle_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB183_2
+; GENERIC-NEXT:    bt16 .LBB181_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB183_2: # %entry
+; GENERIC-NEXT:  .LBB181_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7440,10 +7389,10 @@ define i32 @selectRX_sle_i32(i32 %x, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB184_2
+; GENERIC-NEXT:    bt16 .LBB182_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB184_2: # %entry
+; GENERIC-NEXT:  .LBB182_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -7469,10 +7418,10 @@ define i32 @selectC_sle_i32(i1 %c, i32 %n, i32 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB185_2
+; GENERIC-NEXT:    bt16 .LBB183_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB185_2: # %entry
+; GENERIC-NEXT:  .LBB183_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7522,19 +7471,19 @@ define i64 @selectRR_sle_i64(i64 %x, i64 %y, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpne16 a3, a1
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB186_2
+; GENERIC-NEXT:    bf16 .LBB184_2
 ; GENERIC-NEXT:  # %bb.1:
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, a2
-; GENERIC-NEXT:  .LBB186_2: # %entry
+; GENERIC-NEXT:  .LBB184_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB186_4
+; GENERIC-NEXT:    bt16 .LBB184_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    movi16 a0, 4
-; GENERIC-NEXT:    br32 .LBB186_5
-; GENERIC-NEXT:  .LBB186_4:
+; GENERIC-NEXT:    br32 .LBB184_5
+; GENERIC-NEXT:  .LBB184_4:
 ; GENERIC-NEXT:    movi16 a0, 12
-; GENERIC-NEXT:  .LBB186_5: # %entry
+; GENERIC-NEXT:  .LBB184_5: # %entry
 ; GENERIC-NEXT:    addu16 a0, sp
 ; GENERIC-NEXT:    mov16 a1, a0
 ; GENERIC-NEXT:    ld16.w a0, (a0, 0)
@@ -7599,32 +7548,32 @@ define i64 @selectRI_sle_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB187_5
+; GENERIC-NEXT:    bf16 .LBB185_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB187_6
-; GENERIC-NEXT:  .LBB187_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB185_6
+; GENERIC-NEXT:  .LBB185_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB187_4
-; GENERIC-NEXT:  .LBB187_3:
+; GENERIC-NEXT:    bf16 .LBB185_4
+; GENERIC-NEXT:  .LBB185_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 12)
-; GENERIC-NEXT:  .LBB187_4: # %entry
+; GENERIC-NEXT:  .LBB185_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB187_5: # %entry
+; GENERIC-NEXT:  .LBB185_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB187_2
-; GENERIC-NEXT:  .LBB187_6:
+; GENERIC-NEXT:    bf16 .LBB185_2
+; GENERIC-NEXT:  .LBB185_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 8)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB187_3
-; GENERIC-NEXT:    br32 .LBB187_4
+; GENERIC-NEXT:    bt16 .LBB185_3
+; GENERIC-NEXT:    br32 .LBB185_4
 entry:
   %icmp = icmp sle i64 %x, 10
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -7699,16 +7648,16 @@ define i64 @selectRX_sle_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    cmpnei16 a1, 0
 ; GENERIC-NEXT:    mvcv16 a1
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bf16 .LBB188_5
+; GENERIC-NEXT:    bf16 .LBB186_5
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB188_6
-; GENERIC-NEXT:  .LBB188_2: # %entry
+; GENERIC-NEXT:    bt16 .LBB186_6
+; GENERIC-NEXT:  .LBB186_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB188_4
-; GENERIC-NEXT:  .LBB188_3:
+; GENERIC-NEXT:    bf16 .LBB186_4
+; GENERIC-NEXT:  .LBB186_3:
 ; GENERIC-NEXT:    ld16.w a3, (sp, 20)
-; GENERIC-NEXT:  .LBB188_4: # %entry
+; GENERIC-NEXT:  .LBB186_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    mov16 a1, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -7717,16 +7666,16 @@ define i64 @selectRX_sle_i64(i64 %x, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    ld16.w l2, (sp, 8) # 4-byte Folded Reload
 ; GENERIC-NEXT:    addi16 sp, sp, 12
 ; GENERIC-NEXT:    rts16
-; GENERIC-NEXT:  .LBB188_5: # %entry
+; GENERIC-NEXT:  .LBB186_5: # %entry
 ; GENERIC-NEXT:    movi16 a0, 1
 ; GENERIC-NEXT:    subu16 a0, l0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB188_2
-; GENERIC-NEXT:  .LBB188_6:
+; GENERIC-NEXT:    bf16 .LBB186_2
+; GENERIC-NEXT:  .LBB186_6:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 16)
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB188_3
-; GENERIC-NEXT:    br32 .LBB188_4
+; GENERIC-NEXT:    bt16 .LBB186_3
+; GENERIC-NEXT:    br32 .LBB186_4
 entry:
   %icmp = icmp sle i64 %x, 47777777
   %ret = select i1 %icmp, i64 %m, i64 %n
@@ -7750,15 +7699,15 @@ define i64 @selectC_sle_i64(i1 %c, i64 %n, i64 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB189_2
+; GENERIC-NEXT:    bt16 .LBB187_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a1
-; GENERIC-NEXT:  .LBB189_2: # %entry
+; GENERIC-NEXT:  .LBB187_2: # %entry
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bf16 .LBB189_4
+; GENERIC-NEXT:    bf16 .LBB187_4
 ; GENERIC-NEXT:  # %bb.3:
 ; GENERIC-NEXT:    ld16.w a2, (sp, 4)
-; GENERIC-NEXT:  .LBB189_4: # %entry
+; GENERIC-NEXT:  .LBB187_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    mov16 a1, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
@@ -7789,10 +7738,10 @@ define i16 @selectRR_sle_i16(i16 %x, i16 %y, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    cmplt16 a0, a1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB190_2
+; GENERIC-NEXT:    bt16 .LBB188_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB190_2: # %entry
+; GENERIC-NEXT:  .LBB188_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7822,10 +7771,10 @@ define i16 @selectRI_sle_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB191_2
+; GENERIC-NEXT:    bt16 .LBB189_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB191_2: # %entry
+; GENERIC-NEXT:  .LBB189_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7867,10 +7816,10 @@ define i16 @selectRX_sle_i16(i16 %x, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB192_2
+; GENERIC-NEXT:    bt16 .LBB190_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB192_2: # %entry
+; GENERIC-NEXT:  .LBB190_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -7896,10 +7845,10 @@ define i16 @selectC_sle_i16(i1 %c, i16 %n, i16 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB193_2
+; GENERIC-NEXT:    bt16 .LBB191_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB193_2: # %entry
+; GENERIC-NEXT:  .LBB191_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7929,10 +7878,10 @@ define i8 @selectRR_sle_i8(i8 %x, i8 %y, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    cmplt16 a0, a1
 ; GENERIC-NEXT:    mvcv16 a0
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB194_2
+; GENERIC-NEXT:    bt16 .LBB192_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB194_2: # %entry
+; GENERIC-NEXT:  .LBB192_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -7962,10 +7911,10 @@ define i8 @selectRI_sle_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB195_2
+; GENERIC-NEXT:    bt16 .LBB193_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB195_2: # %entry
+; GENERIC-NEXT:  .LBB193_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -8010,10 +7959,10 @@ define i8 @selectRX_sle_i8(i8 %x, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    movi16 a3, 1
 ; GENERIC-NEXT:    subu16 a3, a0
 ; GENERIC-NEXT:    btsti16 a3, 0
-; GENERIC-NEXT:    bt16 .LBB196_2
+; GENERIC-NEXT:    bt16 .LBB194_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB196_2: # %entry
+; GENERIC-NEXT:  .LBB194_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
@@ -8040,10 +7989,10 @@ define i8 @selectC_sle_i8(i1 %c, i8 %n, i8 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB197_2
+; GENERIC-NEXT:    bt16 .LBB195_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB197_2: # %entry
+; GENERIC-NEXT:  .LBB195_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -8069,15 +8018,15 @@ define i1 @selectRR_sle_i1(i1 %x, i1 %y, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB198_2
+; GENERIC-NEXT:    bt16 .LBB196_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a3
-; GENERIC-NEXT:  .LBB198_2: # %entry
+; GENERIC-NEXT:  .LBB196_2: # %entry
 ; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB198_4
+; GENERIC-NEXT:    bt16 .LBB196_4
 ; GENERIC-NEXT:  # %bb.3: # %entry
 ; GENERIC-NEXT:    mov16 a3, a2
-; GENERIC-NEXT:  .LBB198_4: # %entry
+; GENERIC-NEXT:  .LBB196_4: # %entry
 ; GENERIC-NEXT:    mov16 a0, a3
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -8121,10 +8070,10 @@ define i1 @selectRX_sle_i1(i1 %x, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB200_2
+; GENERIC-NEXT:    bt16 .LBB198_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB200_2: # %entry
+; GENERIC-NEXT:  .LBB198_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
@@ -8148,222 +8097,14 @@ define i1 @selectC_sle_i1(i1 %c, i1 %n, i1 %m) {
 ; GENERIC-NEXT:    subi16 sp, sp, 4
 ; GENERIC-NEXT:    .cfi_def_cfa_offset 4
 ; GENERIC-NEXT:    btsti16 a0, 0
-; GENERIC-NEXT:    bt16 .LBB201_2
+; GENERIC-NEXT:    bt16 .LBB199_2
 ; GENERIC-NEXT:  # %bb.1: # %entry
 ; GENERIC-NEXT:    mov16 a2, a1
-; GENERIC-NEXT:  .LBB201_2: # %entry
+; GENERIC-NEXT:  .LBB199_2: # %entry
 ; GENERIC-NEXT:    mov16 a0, a2
 ; GENERIC-NEXT:    addi16 sp, sp, 4
 ; GENERIC-NEXT:    rts16
 entry:
   %ret = select i1 %c, i1 %m, i1 %n
   ret i1 %ret
-}
-
-define i32 @select_bit_test_eq_0(i32 %0) {
-; CHECK-LABEL: select_bit_test_eq_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    btsti16 a0, 17
-; CHECK-NEXT:    movi16 a0, 23
-; CHECK-NEXT:    movi16 a1, 1
-; CHECK-NEXT:    movf32 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: select_bit_test_eq_0:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    .cfi_def_cfa_offset 0
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    movi16 a1, 0
-; GENERIC-NEXT:    lsli16 a2, a1, 24
-; GENERIC-NEXT:    movi16 a3, 2
-; GENERIC-NEXT:    lsli16 a3, a3, 16
-; GENERIC-NEXT:    or16 a3, a2
-; GENERIC-NEXT:    lsli16 a2, a1, 8
-; GENERIC-NEXT:    or16 a2, a3
-; GENERIC-NEXT:    or16 a2, a1
-; GENERIC-NEXT:    and16 a2, a0
-; GENERIC-NEXT:    cmpnei16 a2, 0
-; GENERIC-NEXT:    mvcv16 a1
-; GENERIC-NEXT:    movi16 a0, 1
-; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB202_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    movi16 a0, 23
-; GENERIC-NEXT:  .LBB202_2:
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %2 = and i32 %0, 131072
-  %3 = icmp eq i32 %2, 0
-  %4 = select i1 %3, i32 1, i32 23
-  ret i32 %4
-}
-
-define i32 @select_bit_test_ne_0(i32 %0) {
-; CHECK-LABEL: select_bit_test_ne_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    btsti16 a0, 17
-; CHECK-NEXT:    movi16 a0, 34
-; CHECK-NEXT:    movi16 a1, 5
-; CHECK-NEXT:    movt32 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: select_bit_test_ne_0:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    .cfi_def_cfa_offset 0
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    movi16 a1, 0
-; GENERIC-NEXT:    lsli16 a2, a1, 24
-; GENERIC-NEXT:    movi16 a3, 2
-; GENERIC-NEXT:    lsli16 a3, a3, 16
-; GENERIC-NEXT:    or16 a3, a2
-; GENERIC-NEXT:    lsli16 a2, a1, 8
-; GENERIC-NEXT:    or16 a2, a3
-; GENERIC-NEXT:    or16 a2, a1
-; GENERIC-NEXT:    and16 a2, a0
-; GENERIC-NEXT:    cmpnei16 a2, 0
-; GENERIC-NEXT:    mvcv16 a0
-; GENERIC-NEXT:    movi16 a1, 1
-; GENERIC-NEXT:    subu16 a1, a0
-; GENERIC-NEXT:    movi16 a0, 5
-; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB203_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    movi16 a0, 34
-; GENERIC-NEXT:  .LBB203_2:
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %2 = and i32 %0, 131072
-  %3 = icmp ne i32 %2, 0
-  %4 = select i1 %3, i32 5, i32 34
-  ret i32 %4
-}
-
-define i32 @select_bit_test_eq_mask(i32 %0) {
-; CHECK-LABEL: select_bit_test_eq_mask:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    btsti16 a0, 17
-; CHECK-NEXT:    movi16 a0, 5
-; CHECK-NEXT:    movi16 a1, 34
-; CHECK-NEXT:    movt32 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: select_bit_test_eq_mask:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    .cfi_def_cfa_offset 0
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    movi16 a1, 0
-; GENERIC-NEXT:    lsli16 a2, a1, 24
-; GENERIC-NEXT:    movi16 a3, 2
-; GENERIC-NEXT:    lsli16 a3, a3, 16
-; GENERIC-NEXT:    or16 a3, a2
-; GENERIC-NEXT:    lsli16 a2, a1, 8
-; GENERIC-NEXT:    or16 a2, a3
-; GENERIC-NEXT:    or16 a2, a1
-; GENERIC-NEXT:    and16 a2, a0
-; GENERIC-NEXT:    cmpnei16 a2, 0
-; GENERIC-NEXT:    mvcv16 a0
-; GENERIC-NEXT:    movi16 a1, 1
-; GENERIC-NEXT:    subu16 a1, a0
-; GENERIC-NEXT:    movi16 a0, 34
-; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB204_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    movi16 a0, 5
-; GENERIC-NEXT:  .LBB204_2:
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %2 = and i32 %0, 131072
-  %3 = icmp eq i32 %2, 131072
-  %4 = select i1 %3, i32 34, i32 5
-  ret i32 %4
-}
-
-define i32 @select_bit_test_ne_mask(i32 %0) {
-; CHECK-LABEL: select_bit_test_ne_mask:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    btsti16 a0, 17
-; CHECK-NEXT:    movi16 a0, 34
-; CHECK-NEXT:    movi16 a1, 5
-; CHECK-NEXT:    movt32 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: select_bit_test_ne_mask:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    .cfi_def_cfa_offset 0
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    movi16 a1, 0
-; GENERIC-NEXT:    lsli16 a2, a1, 24
-; GENERIC-NEXT:    movi16 a3, 2
-; GENERIC-NEXT:    lsli16 a3, a3, 16
-; GENERIC-NEXT:    or16 a3, a2
-; GENERIC-NEXT:    lsli16 a2, a1, 8
-; GENERIC-NEXT:    or16 a2, a3
-; GENERIC-NEXT:    or16 a2, a1
-; GENERIC-NEXT:    and16 a2, a0
-; GENERIC-NEXT:    cmpnei16 a2, 0
-; GENERIC-NEXT:    mvcv16 a0
-; GENERIC-NEXT:    movi16 a1, 1
-; GENERIC-NEXT:    subu16 a1, a0
-; GENERIC-NEXT:    movi16 a0, 5
-; GENERIC-NEXT:    btsti16 a1, 0
-; GENERIC-NEXT:    bt16 .LBB205_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    movi16 a0, 34
-; GENERIC-NEXT:  .LBB205_2:
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %2 = and i32 %0, 131072
-  %3 = icmp eq i32 %2, 131072
-  %4 = select i1 %3, i32 5, i32 34
-  ret i32 %4
-}
-
-define i32 @select_lowbit_test_ne_0(i32 %0) {
-; CHECK-LABEL: select_lowbit_test_ne_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    andi32 a0, a0, 256
-; CHECK-NEXT:    cmpnei16 a0, 0
-; CHECK-NEXT:    movi16 a0, 34
-; CHECK-NEXT:    movi16 a1, 5
-; CHECK-NEXT:    movt32 a0, a1
-; CHECK-NEXT:    rts16
-;
-; GENERIC-LABEL: select_lowbit_test_ne_0:
-; GENERIC:       # %bb.0:
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 4
-; GENERIC-NEXT:    st16.w l0, (sp, 0) # 4-byte Folded Spill
-; GENERIC-NEXT:    .cfi_offset l0, -4
-; GENERIC-NEXT:    subi16 sp, sp, 4
-; GENERIC-NEXT:    .cfi_def_cfa_offset 8
-; GENERIC-NEXT:    movi16 a1, 0
-; GENERIC-NEXT:    lsli16 a2, a1, 24
-; GENERIC-NEXT:    lsli16 a3, a1, 16
-; GENERIC-NEXT:    or16 a3, a2
-; GENERIC-NEXT:    movi16 a2, 1
-; GENERIC-NEXT:    lsli16 l0, a2, 8
-; GENERIC-NEXT:    or16 l0, a3
-; GENERIC-NEXT:    or16 l0, a1
-; GENERIC-NEXT:    and16 l0, a0
-; GENERIC-NEXT:    cmpnei16 l0, 0
-; GENERIC-NEXT:    mvcv16 a0
-; GENERIC-NEXT:    subu16 a2, a0
-; GENERIC-NEXT:    movi16 a0, 5
-; GENERIC-NEXT:    btsti16 a2, 0
-; GENERIC-NEXT:    bt16 .LBB206_2
-; GENERIC-NEXT:  # %bb.1:
-; GENERIC-NEXT:    movi16 a0, 34
-; GENERIC-NEXT:  .LBB206_2:
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    ld16.w l0, (sp, 0) # 4-byte Folded Reload
-; GENERIC-NEXT:    addi16 sp, sp, 4
-; GENERIC-NEXT:    rts16
-  %2 = and i32 %0, 256
-  %3 = icmp ne i32 %2, 0
-  %4 = select i1 %3, i32 5, i32 34
-  ret i32 %4
 }

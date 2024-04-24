@@ -14,7 +14,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 void SlicingCheck::registerMatchers(MatchFinder *Finder) {
   // When we see:
@@ -40,15 +42,12 @@ void SlicingCheck::registerMatchers(MatchFinder *Finder) {
   const auto HasTypeDerivedFromBaseDecl =
       anyOf(hasType(IsDerivedFromBaseDecl),
             hasType(references(IsDerivedFromBaseDecl)));
-  const auto IsCallToBaseClass = hasParent(cxxConstructorDecl(
-      ofClass(isSameOrDerivedFrom(equalsBoundNode("DerivedDecl"))),
-      hasAnyConstructorInitializer(allOf(
-          isBaseInitializer(), withInitializer(equalsBoundNode("Call"))))));
+  const auto IsWithinDerivedCtor =
+      hasParent(cxxConstructorDecl(ofClass(equalsBoundNode("DerivedDecl"))));
 
   // Assignment slicing: "a = b;" and "a = std::move(b);" variants.
   const auto SlicesObjectInAssignment =
-      callExpr(expr().bind("Call"),
-               callee(cxxMethodDecl(anyOf(isCopyAssignmentOperator(),
+      callExpr(callee(cxxMethodDecl(anyOf(isCopyAssignmentOperator(),
                                           isMoveAssignmentOperator()),
                                     OfBaseClass)),
                hasArgument(1, HasTypeDerivedFromBaseDecl));
@@ -56,17 +55,17 @@ void SlicingCheck::registerMatchers(MatchFinder *Finder) {
   // Construction slicing: "A a{b};" and "f(b);" variants. Note that in case of
   // slicing the letter will create a temporary and therefore call a ctor.
   const auto SlicesObjectInCtor = cxxConstructExpr(
-      expr().bind("Call"),
       hasDeclaration(cxxConstructorDecl(
           anyOf(isCopyConstructor(), isMoveConstructor()), OfBaseClass)),
       hasArgument(0, HasTypeDerivedFromBaseDecl),
       // We need to disable matching on the call to the base copy/move
       // constructor in DerivedDecl's constructors.
-      unless(IsCallToBaseClass));
+      unless(IsWithinDerivedCtor));
 
-  Finder->addMatcher(
-      traverse(TK_AsIs, expr(SlicesObjectInAssignment).bind("Call")), this);
-  Finder->addMatcher(traverse(TK_AsIs, SlicesObjectInCtor), this);
+  Finder->addMatcher(traverse(TK_AsIs, expr(anyOf(SlicesObjectInAssignment,
+                                                  SlicesObjectInCtor))
+                                           .bind("Call")),
+                     this);
 }
 
 /// Warns on methods overridden in DerivedDecl with respect to BaseDecl.
@@ -132,4 +131,6 @@ void SlicingCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

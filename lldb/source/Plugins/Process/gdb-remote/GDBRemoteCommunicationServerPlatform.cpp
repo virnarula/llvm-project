@@ -14,7 +14,6 @@
 #include <csignal>
 #include <cstring>
 #include <mutex>
-#include <optional>
 #include <sstream>
 #include <thread>
 
@@ -159,7 +158,7 @@ GDBRemoteCommunicationServerPlatform::~GDBRemoteCommunicationServerPlatform() =
 
 Status GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
     const lldb_private::Args &args, std::string hostname, lldb::pid_t &pid,
-    std::optional<uint16_t> &port, std::string &socket_name) {
+    llvm::Optional<uint16_t> &port, std::string &socket_name) {
   if (!port) {
     llvm::Expected<uint16_t> available_port = m_port_map.GetNextAvailablePort();
     if (available_port)
@@ -195,10 +194,10 @@ Status GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
 #if !defined(__APPLE__)
   url << m_socket_scheme << "://";
 #endif
-  uint16_t *port_ptr = &*port;
+  uint16_t *port_ptr = port.getPointer();
   if (m_socket_protocol == Socket::ProtocolTcp) {
     std::string platform_uri = GetConnection()->GetURI();
-    std::optional<URI> parsed_uri = URI::Parse(platform_uri);
+    llvm::Optional<URI> parsed_uri = URI::Parse(platform_uri);
     url << '[' << parsed_uri->hostname.str() << "]:" << *port;
   } else {
     socket_name = GetDomainSocketPath("gdbserver").GetPath();
@@ -237,7 +236,7 @@ GDBRemoteCommunicationServerPlatform::Handle_qLaunchGDBServer(
   packet.SetFilePos(::strlen("qLaunchGDBServer;"));
   llvm::StringRef name;
   llvm::StringRef value;
-  std::optional<uint16_t> port;
+  llvm::Optional<uint16_t> port;
   while (packet.GetNameColonValue(name, value)) {
     if (name.equals("host"))
       hostname = std::string(value);
@@ -500,7 +499,7 @@ GDBRemoteCommunicationServerPlatform::Handle_jSignalsInfo(
     auto dictionary = std::make_shared<StructuredData::Dictionary>();
 
     dictionary->AddIntegerItem("signo", signo);
-    dictionary->AddStringItem("name", signals->GetSignalAsStringRef(signo));
+    dictionary->AddStringItem("name", signals->GetSignalAsCString(signo));
 
     bool suppress, stop, notify;
     signals->GetSignalInfo(signo, suppress, stop, notify);
@@ -559,7 +558,7 @@ Status GDBRemoteCommunicationServerPlatform::LaunchProcess() {
 }
 
 void GDBRemoteCommunicationServerPlatform::SetPortMap(PortMap &&port_map) {
-  m_port_map = std::move(port_map);
+  m_port_map = port_map;
 }
 
 const FileSpec &GDBRemoteCommunicationServerPlatform::GetDomainSocketDir() {

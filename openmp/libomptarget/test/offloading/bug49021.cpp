@@ -1,12 +1,13 @@
 // RUN: %libomptarget-compilexx-generic -O3 && %libomptarget-run-generic
-// RUN: %libomptarget-compilexx-generic -O3 -ffast-math && %libomptarget-run-generic
-// RUN: %libomptarget-compileoptxx-generic -O3 && %libomptarget-run-generic
-// RUN: %libomptarget-compileoptxx-generic -O3 -ffast-math && %libomptarget-run-generic
+
+// Hangs
+// UNSUPPORTED: amdgcn-amd-amdhsa
+// UNSUPPORTED: amdgcn-amd-amdhsa-LTO
 
 #include <iostream>
 
 template <typename T> int test_map() {
-  std::cout << "map(T)" << std::endl;
+  std::cout << "map(complex<>)" << std::endl;
   T a(0.2), a_check;
 #pragma omp target map(from : a_check)
   { a_check = a; }

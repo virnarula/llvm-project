@@ -9,8 +9,8 @@
 #include "lldb/API/SBStream.h"
 
 #include "lldb/API/SBFile.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/Host/FileSystem.h"
-#include "lldb/Host/StreamFile.h"
 #include "lldb/Utility/Instrumentation.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Status.h"
@@ -47,8 +47,7 @@ const char *SBStream::GetData() {
   if (m_is_file || m_opaque_up == nullptr)
     return nullptr;
 
-  return ConstString(static_cast<StreamString *>(m_opaque_up.get())->GetData())
-      .GetCString();
+  return static_cast<StreamString *>(m_opaque_up.get())->GetData();
 }
 
 // If this stream is not redirected to a file, it will maintain a local cache

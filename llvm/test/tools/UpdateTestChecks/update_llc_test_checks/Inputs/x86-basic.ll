@@ -30,9 +30,3 @@ entry:
   %c = add i32 %a, %b
   ret i32 %c
 }
-
-declare i32 @pers(...)
-
-define i32 @eh() personality ptr @pers {
-  ret i32 0
-}

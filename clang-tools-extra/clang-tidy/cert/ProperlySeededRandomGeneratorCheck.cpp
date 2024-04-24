@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 ProperlySeededRandomGeneratorCheck::ProperlySeededRandomGeneratorCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -118,4 +120,6 @@ void ProperlySeededRandomGeneratorCheck::checkSeed(
   }
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

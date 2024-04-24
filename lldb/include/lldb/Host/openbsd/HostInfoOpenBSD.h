@@ -12,14 +12,13 @@
 #include "lldb/Host/posix/HostInfoPosix.h"
 #include "lldb/Utility/FileSpec.h"
 #include "llvm/Support/VersionTuple.h"
-#include <optional>
 
 namespace lldb_private {
 
 class HostInfoOpenBSD : public HostInfoPosix {
 public:
   static llvm::VersionTuple GetOSVersion();
-  static std::optional<std::string> GetOSBuildString();
+  static llvm::Optional<std::string> GetOSBuildString();
   static FileSpec GetProgramFileSpec();
 };
 }

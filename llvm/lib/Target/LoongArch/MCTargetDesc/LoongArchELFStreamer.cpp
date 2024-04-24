@@ -12,7 +12,6 @@
 
 #include "LoongArchELFStreamer.h"
 #include "LoongArchAsmBackend.h"
-#include "LoongArchBaseInfo.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
@@ -24,10 +23,9 @@ using namespace llvm;
 LoongArchTargetELFStreamer::LoongArchTargetELFStreamer(
     MCStreamer &S, const MCSubtargetInfo &STI)
     : LoongArchTargetStreamer(S) {
-  auto &MAB = static_cast<LoongArchAsmBackend &>(
-      getStreamer().getAssembler().getBackend());
-  setTargetABI(LoongArchABI::computeTargetABI(
-      STI.getTargetTriple(), MAB.getTargetOptions().getABIName()));
+  // FIXME: select appropriate ABI.
+  setTargetABI(STI.getTargetTriple().isArch64Bit() ? LoongArchABI::ABI_LP64D
+                                                   : LoongArchABI::ABI_ILP32D);
 }
 
 MCELFStreamer &LoongArchTargetELFStreamer::getStreamer() {

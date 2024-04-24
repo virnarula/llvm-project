@@ -228,13 +228,10 @@ def FeatureFuseAES        : SubtargetFeature<"fuse-aes", "HasFuseAES", "true",
 def FeatureFuseLiterals   : SubtargetFeature<"fuse-literals", "HasFuseLiterals", "true",
                                              "CPU fuses literal generation operations">;
 
-// Choice of hardware register to use as the thread pointer, if any.
-def FeatureReadTpTPIDRURW :  SubtargetFeature<"read-tp-tpidrurw", "IsReadTPTPIDRURW", "true",
-                                      "Reading thread pointer from TPIDRURW register">;
-def FeatureReadTpTPIDRURO :  SubtargetFeature<"read-tp-tpidruro", "IsReadTPTPIDRURO", "true",
-                                      "Reading thread pointer from TPIDRURO register">;
-def FeatureReadTpTPIDRPRW :  SubtargetFeature<"read-tp-tpidrprw", "IsReadTPTPIDRPRW", "true",
-                                      "Reading thread pointer from TPIDRPRW register">;
+// The way of reading thread pointer.
+// True if read thread pointer from coprocessor register.
+def FeatureReadTp :  SubtargetFeature<"read-tp-hard", "IsReadTPHard", "true",
+                                      "Reading thread pointer from register">;
 
 // Cyclone can zero VFP registers in 0 cycles.
 // True if the instructions "vmov.i32 d0, #0" and "vmov.i32 q0, #0" are
@@ -545,11 +542,6 @@ def FeatureNoBTIAtReturnTwice : SubtargetFeature<"no-bti-at-return-twice",
                                                  "Don't place a BTI instruction "
                                                  "after a return-twice">;
 
-// Armv8.9-A/Armv9.4-A 2022 Architecture Extensions
-def FeatureCLRBHB : SubtargetFeature<"clrbhb", "HasCLRBHB", "true",
-                                     "Enable Clear BHB instruction">;
-
-
 def FeatureFixCortexA57AES1742098 : SubtargetFeature<"fix-cortex-a57-aes-1742098",
   "FixCortexA57AES1742098", "true",
   "Work around Cortex-A57 Erratum 1742098 / Cortex-A72 Erratum 1655431 (AES)">;
@@ -680,10 +672,6 @@ def HasV8_8aOps   : SubtargetFeature<"v8.8a", "HasV8_8aOps", "true",
                                    "Support ARM v8.8a instructions",
                                    [HasV8_7aOps]>;
 
-def HasV8_9aOps   : SubtargetFeature<"v8.9a", "HasV8_9aOps", "true",
-                                   "Support ARM v8.9a instructions",
-                                   [HasV8_8aOps, FeatureCLRBHB]>;
-
 def HasV9_0aOps   : SubtargetFeature<"v9a", "HasV9_0aOps", "true",
                                    "Support ARM v9a instructions",
                                    [HasV8_5aOps]>;
@@ -699,16 +687,6 @@ def HasV9_2aOps   : SubtargetFeature<"v9.2a", "HasV9_2aOps", "true",
 def HasV9_3aOps   : SubtargetFeature<"v9.3a", "HasV9_3aOps", "true",
                                    "Support ARM v9.3a instructions",
                                    [HasV8_8aOps, HasV9_2aOps]>;
-
-def HasV9_4aOps   : SubtargetFeature<"v9.4a", "HasV9_4aOps", "true",
-                                   "Support ARM v9.4a instructions",
-                                   [HasV8_9aOps, HasV9_3aOps]>;
-
-// Armv9.5-A is a v9-only architecture. From v9.5-A onwards there's no mapping
-// to an equivalent v8.x version.
-def HasV9_5aOps   : SubtargetFeature<"v9.5a", "HasV9_5aOps", "true",
-                                   "Support ARM v9.5a instructions",
-                                   [HasV9_4aOps]>;
 
 def HasV8_1MMainlineOps : SubtargetFeature<
                "v8.1m.main", "HasV8_1MMainlineOps", "true",
@@ -1070,19 +1048,6 @@ def ARMv88a   : Architecture<"armv8.8-a", "ARMv88a",  [HasV8_8aOps,
                                                        FeatureCRC,
                                                        FeatureRAS,
                                                        FeatureDotProd]>;
-def ARMv89a   : Architecture<"armv8.9-a", "ARMv89a",  [HasV8_9aOps,
-                                                       FeatureAClass,
-                                                       FeatureDB,
-                                                       FeatureFPARMv8,
-                                                       FeatureNEON,
-                                                       FeatureDSP,
-                                                       FeatureTrustZone,
-                                                       FeatureMP,
-                                                       FeatureVirtualization,
-                                                       FeatureCrypto,
-                                                       FeatureCRC,
-                                                       FeatureRAS,
-                                                       FeatureDotProd]>;
 
 def ARMv9a   : Architecture<"armv9-a", "ARMv9a",       [HasV9_0aOps,
                                                        FeatureAClass,
@@ -1130,30 +1095,6 @@ def ARMv93a   : Architecture<"armv9.3-a", "ARMv93a",  [HasV9_3aOps,
                                                        FeatureMP,
                                                        FeatureVirtualization,
                                                        FeatureCrypto,
-                                                       FeatureCRC,
-                                                       FeatureRAS,
-                                                       FeatureDotProd]>;
-def ARMv94a   : Architecture<"armv9.4-a", "ARMv94a",  [HasV9_4aOps,
-                                                       FeatureAClass,
-                                                       FeatureDB,
-                                                       FeatureFPARMv8,
-                                                       FeatureNEON,
-                                                       FeatureDSP,
-                                                       FeatureTrustZone,
-                                                       FeatureMP,
-                                                       FeatureVirtualization,
-                                                       FeatureCRC,
-                                                       FeatureRAS,
-                                                       FeatureDotProd]>;
-def ARMv95a   : Architecture<"armv9.5-a", "ARMv95a",  [HasV9_5aOps,
-                                                       FeatureAClass,
-                                                       FeatureDB,
-                                                       FeatureFPARMv8,
-                                                       FeatureNEON,
-                                                       FeatureDSP,
-                                                       FeatureTrustZone,
-                                                       FeatureMP,
-                                                       FeatureVirtualization,
                                                        FeatureCRC,
                                                        FeatureRAS,
                                                        FeatureDotProd]>;
@@ -1243,9 +1184,7 @@ include "ARMScheduleSwift.td"
 include "ARMScheduleR52.td"
 include "ARMScheduleA57.td"
 include "ARMScheduleM4.td"
-include "ARMScheduleM55.td"
 include "ARMScheduleM7.td"
-include "ARMScheduleM85.td"
 
 //===----------------------------------------------------------------------===//
 // ARM processors
@@ -1520,7 +1459,7 @@ def : ProcessorModel<"cortex-m35p", CortexM4Model,      [ARMv8mMainline,
                                                          FeatureHasNoBranchPredictor,
                                                          FeatureFixCMSE_CVE_2021_35465]>;
 
-def : ProcessorModel<"cortex-m55", CortexM55Model,      [ARMv81mMainline,
+def : ProcessorModel<"cortex-m55", CortexM4Model,      [ARMv81mMainline,
                                                          FeatureDSP,
                                                          FeatureFPARMv8_D16,
                                                          FeatureUseMISched,
@@ -1530,22 +1469,11 @@ def : ProcessorModel<"cortex-m55", CortexM55Model,      [ARMv81mMainline,
                                                          HasMVEFloatOps,
                                                          FeatureFixCMSE_CVE_2021_35465]>;
 
-def : ProcessorModel<"cortex-m85", CortexM85Model,      [ARMv81mMainline,
+def : ProcessorModel<"cortex-m85", CortexM7Model,       [ARMv81mMainline,
                                                          FeatureDSP,
                                                          FeatureFPARMv8_D16,
                                                          FeaturePACBTI,
                                                          FeatureUseMISched,
-                                                         HasMVEFloatOps]>;
-
-def : ProcessorModel<"cortex-m52", CortexM55Model,      [ARMv81mMainline,
-                                                         FeatureDSP,
-                                                         FeatureFPARMv8_D16,
-                                                         FeatureHasNoBranchPredictor,
-                                                         FeaturePACBTI,
-                                                         FeatureUseMISched,
-                                                         FeaturePrefLoopAlign32,
-                                                         FeatureHasSlowFPVMLx,
-                                                         FeatureMVEVectorCostFactor1,
                                                          HasMVEFloatOps]>;
 
 def : ProcNoItin<"cortex-a32",                           [ARMv8a,
@@ -1680,7 +1608,7 @@ def : ProcNoItin<"neoverse-n1",                         [ARMv82a,
                                                          FeatureCRC,
                                                          FeatureDotProd]>;
 
-def : ProcNoItin<"neoverse-n2",                         [ARMv9a,
+def : ProcNoItin<"neoverse-n2",                         [ARMv85a,
                                                          FeatureBF16,
                                                          FeatureMatMulInt8]>;
 

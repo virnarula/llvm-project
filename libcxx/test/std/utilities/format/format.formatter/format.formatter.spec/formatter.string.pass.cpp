@@ -6,6 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: libcpp-has-no-incomplete-format
 
 // <format>
 
@@ -22,7 +23,6 @@
 #include <format>
 #include <cassert>
 #include <concepts>
-#include <iterator>
 #include <type_traits>
 
 #include "make_string.h"
@@ -34,7 +34,7 @@
 #define CSTR(S) MAKE_CSTRING(CharT, S)
 
 template <class T, class ArgumentT, class StringT, class StringViewT>
-void test(StringT expected, StringViewT fmt, StringT a, std::size_t offset) {
+void test(StringT expected, StringViewT fmt, StringT a) {
   static_assert(
       std::same_as<typename T::value_type,
                    typename std::decay_t<ArgumentT>::value_type> &&
@@ -46,14 +46,15 @@ void test(StringT expected, StringViewT fmt, StringT a, std::size_t offset) {
   static_assert(std::semiregular<decltype(formatter)>);
 
   auto it = formatter.parse(parse_ctx);
-  assert(it == fmt.end() - offset);
+  assert(it == fmt.end() - (!fmt.empty() && fmt.back() == '}'));
 
   StringT result;
   auto out = std::back_inserter(result);
   using FormatCtxT = std::basic_format_context<decltype(out), CharT>;
 
   ArgumentT arg = a;
-  FormatCtxT format_ctx = test_format_context_create<decltype(out), CharT>(out, std::make_format_args<FormatCtxT>(arg));
+  FormatCtxT format_ctx = test_format_context_create<decltype(out), CharT>(
+      out, std::make_format_args<FormatCtxT>(std::forward<ArgumentT>(arg)));
   formatter.format(arg, format_ctx);
   assert(result == expected);
 }
@@ -68,9 +69,9 @@ void test_termination_condition(StringT expected, StringT f, StringT arg) {
   std::basic_string_view<CharT> fmt{f};
   assert(fmt.back() == CharT('}') && "Pre-condition failure");
 
-  test<T, ArgumentT>(expected, fmt, arg, 1);
+  test<T, ArgumentT>(expected, fmt, arg);
   fmt.remove_suffix(1);
-  test<T, ArgumentT>(expected, fmt, arg, 0);
+  test<T, ArgumentT>(expected, fmt, arg);
 }
 
 #if TEST_STD_VER > 20

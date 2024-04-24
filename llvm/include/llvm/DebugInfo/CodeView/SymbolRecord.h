@@ -11,6 +11,7 @@
 
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
@@ -140,27 +141,6 @@ public:
   explicit ScopeEndSym(SymbolRecordKind Kind) : SymbolRecord(Kind) {}
   ScopeEndSym(SymbolRecordKind Kind, uint32_t RecordOffset)
       : SymbolRecord(Kind), RecordOffset(RecordOffset) {}
-
-  uint32_t RecordOffset = 0;
-};
-
-class JumpTableSym : public SymbolRecord {
-public:
-  explicit JumpTableSym(SymbolRecordKind Kind) : SymbolRecord(Kind) {}
-  JumpTableSym(uint32_t RecordOffset)
-      : SymbolRecord(SymbolRecordKind::JumpTableSym),
-        RecordOffset(RecordOffset) {}
-
-  uint32_t BaseOffset = 0;
-  uint16_t BaseSegment = 0;
-
-  JumpTableEntrySize SwitchType;
-  uint32_t BranchOffset = 0;
-  uint32_t TableOffset = 0;
-  uint16_t BranchSegment = 0;
-  uint16_t TableSegment = 0;
-
-  uint32_t EntriesCount = 0;
 
   uint32_t RecordOffset = 0;
 };
@@ -344,7 +324,7 @@ private:
     return true;
   }
 
-  std::optional<DecodedAnnotation> Current;
+  Optional<DecodedAnnotation> Current;
   ArrayRef<uint8_t> Data;
   ArrayRef<uint8_t> Next;
 };

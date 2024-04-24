@@ -6,24 +6,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
 // path temp_directory_path();
 // path temp_directory_path(error_code& ec);
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <memory>
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
 void PutEnv(std::string var, fs::path value) {
@@ -34,14 +33,16 @@ void UnsetEnv(std::string var) {
     assert(utils::unsetenv(var.c_str()) == 0);
 }
 
-static void signature_test()
+TEST_SUITE(filesystem_temp_directory_path_test_suite)
+
+TEST_CASE(signature_test)
 {
     std::error_code ec; ((void)ec);
     ASSERT_NOT_NOEXCEPT(temp_directory_path());
     ASSERT_NOT_NOEXCEPT(temp_directory_path(ec));
 }
 
-static void basic_tests()
+TEST_CASE(basic_tests)
 {
     scoped_test_env env;
     const path dne = env.make_env_path("dne");
@@ -86,45 +87,45 @@ static void basic_tests()
     for (auto& TC : cases) {
         std::error_code ec = GetTestEC();
         path ret = temp_directory_path(ec);
-        assert(!ec);
-        assert(ret == TC.p);
-        assert(is_directory(ret));
+        TEST_CHECK(!ec);
+        TEST_CHECK(ret == TC.p);
+        TEST_CHECK(is_directory(ret));
 
         // Set the env variable to a path that does not exist and check
         // that it fails.
         PutEnv(TC.name, dne);
         ec = GetTestEC();
         ret = temp_directory_path(ec);
-        LIBCPP_ASSERT(ErrorIs(ec, expect_errc));
-        assert(ec != GetTestEC());
-        assert(ec);
-        assert(ret == "");
+        LIBCPP_ONLY(TEST_CHECK(ErrorIs(ec, expect_errc)));
+        TEST_CHECK(ec != GetTestEC());
+        TEST_CHECK(ec);
+        TEST_CHECK(ret == "");
 
         // Set the env variable to point to a file and check that it fails.
         PutEnv(TC.name, file);
         ec = GetTestEC();
         ret = temp_directory_path(ec);
-        LIBCPP_ASSERT(ErrorIs(ec, expect_errc));
-        assert(ec != GetTestEC());
-        assert(ec);
-        assert(ret == "");
+        LIBCPP_ONLY(TEST_CHECK(ErrorIs(ec, expect_errc)));
+        TEST_CHECK(ec != GetTestEC());
+        TEST_CHECK(ec);
+        TEST_CHECK(ret == "");
 
         if (!inaccessible_dir.empty()) {
             // Set the env variable to point to a dir we can't access
             PutEnv(TC.name, inaccessible_dir);
             ec = GetTestEC();
             ret = temp_directory_path(ec);
-            assert(ErrorIs(ec, std::errc::permission_denied));
-            assert(ret == "");
+            TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
+            TEST_CHECK(ret == "");
         }
 
         // Set the env variable to point to a non-existent dir
         PutEnv(TC.name, TC.p / "does_not_exist");
         ec = GetTestEC();
         ret = temp_directory_path(ec);
-        assert(ec != GetTestEC());
-        assert(ec);
-        assert(ret == "");
+        TEST_CHECK(ec != GetTestEC());
+        TEST_CHECK(ec);
+        TEST_CHECK(ret == "");
 
         // Finally erase this env variable
         UnsetEnv(TC.name);
@@ -134,20 +135,12 @@ static void basic_tests()
     {
         std::error_code ec = GetTestEC();
         path ret = temp_directory_path(ec);
-        assert(!ec);
-#if defined(_WIN32)
+        TEST_CHECK(!ec);
+#ifndef _WIN32
         // On Windows, the function falls back to the Windows folder.
-        wchar_t win_dir[MAX_PATH];
-        DWORD win_dir_sz = GetWindowsDirectoryW(win_dir, MAX_PATH);
-        assert(win_dir_sz > 0 && win_dir_sz < MAX_PATH);
-        assert(win_dir[win_dir_sz-1] != L'\\');
-        assert(ret == win_dir);
-#elif defined(__ANDROID__)
-        assert(ret == "/data/local/tmp");
-#else
-        assert(ret == "/tmp");
+        TEST_CHECK(ret == "/tmp");
 #endif
-        assert(is_directory(ret));
+        TEST_CHECK(is_directory(ret));
         fallback = ret;
     }
     for (auto& TC : ignored_cases) {
@@ -155,18 +148,14 @@ static void basic_tests()
         PutEnv(TC.name, TC.p);
         std::error_code ec = GetTestEC();
         path ret = temp_directory_path(ec);
-        assert(!ec);
+        TEST_CHECK(!ec);
 
         // Check that we return the same as above when no vars were defined.
-        assert(ret == fallback);
+        TEST_CHECK(ret == fallback);
 
         // Finally erase this env variable
         UnsetEnv(TC.name);
     }
 }
 
-int main(int, char**) {
-    signature_test();
-    basic_tests();
-    return 0;
-}
+TEST_SUITE_END()

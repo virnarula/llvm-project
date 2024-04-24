@@ -68,10 +68,6 @@ char unavailable __attribute__((unavailable));
         {
           "kind": "identifier",
           "spelling": "num"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -84,8 +80,8 @@ char unavailable __attribute__((unavailable));
       },
       "location": {
         "position": {
-          "character": 4,
-          "line": 0
+          "character": 5,
+          "line": 1
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -193,7 +189,7 @@ char unavailable __attribute__((unavailable));
         },
         {
           "kind": "text",
-          "spelling": ");"
+          "spelling": ")"
         }
       ],
       "docComment": {
@@ -201,12 +197,12 @@ char unavailable __attribute__((unavailable));
           {
             "range": {
               "end": {
-                "character": 3,
-                "line": 2
+                "character": 4,
+                "line": 3
               },
               "start": {
-                "character": 3,
-                "line": 2
+                "character": 4,
+                "line": 3
               }
             },
             "text": ""
@@ -214,12 +210,12 @@ char unavailable __attribute__((unavailable));
           {
             "range": {
               "end": {
-                "character": 26,
-                "line": 3
+                "character": 27,
+                "line": 4
               },
               "start": {
-                "character": 2,
-                "line": 3
+                "character": 3,
+                "line": 4
               }
             },
             "text": " \\brief Add two numbers."
@@ -227,12 +223,12 @@ char unavailable __attribute__((unavailable));
           {
             "range": {
               "end": {
-                "character": 29,
-                "line": 4
+                "character": 30,
+                "line": 5
               },
               "start": {
-                "character": 2,
-                "line": 4
+                "character": 3,
+                "line": 5
               }
             },
             "text": " \\param [in]  x   A number."
@@ -240,12 +236,12 @@ char unavailable __attribute__((unavailable));
           {
             "range": {
               "end": {
-                "character": 35,
-                "line": 5
+                "character": 36,
+                "line": 6
               },
               "start": {
-                "character": 2,
-                "line": 5
+                "character": 3,
+                "line": 6
               }
             },
             "text": " \\param [in]  y   Another number."
@@ -253,12 +249,12 @@ char unavailable __attribute__((unavailable));
           {
             "range": {
               "end": {
-                "character": 40,
-                "line": 6
+                "character": 41,
+                "line": 7
               },
               "start": {
-                "character": 2,
-                "line": 6
+                "character": 3,
+                "line": 7
               }
             },
             "text": " \\param [out] res The result of x + y."
@@ -266,12 +262,12 @@ char unavailable __attribute__((unavailable));
           {
             "range": {
               "end": {
-                "character": 3,
-                "line": 7
+                "character": 4,
+                "line": 8
               },
               "start": {
-                "character": 0,
-                "line": 7
+                "character": 1,
+                "line": 8
               }
             },
             "text": " "
@@ -369,8 +365,8 @@ char unavailable __attribute__((unavailable));
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 8
+          "character": 6,
+          "line": 9
         },
         "uri": "file://INPUT_DIR/input.h"
       },

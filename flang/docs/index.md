@@ -9,7 +9,7 @@ is capable of generating executables for a number of examples, some
 functionality is still missing. See [GettingInvolved](GettingInvolved) for tips
 on how to get in touch with us and to learn more about the current status.
 
-```{eval-rst}
+```eval_rst
 .. toctree::
    :titlesonly:
 
@@ -18,74 +18,58 @@ on how to get in touch with us and to learn more about the current status.
 
 # Contributing to Flang
 
-```{eval-rst}
+```eval_rst
 .. toctree::
    :titlesonly:
 
    C++17
    C++style
-   DesignGuideline
    FortranForCProgrammers
    GettingInvolved
-   GettingStarted
    ImplementingASemanticCheck
    PullRequestChecklist
 ```
 
 # Design Documents
 
-```{eval-rst}
+```eval_rst
 .. toctree::
    :titlesonly:
 
-   Aliasing
-   AliasingAnalysisFIR
    ArrayComposition
-   AssumedRank
    BijectiveInternalNameUniquing
    Calls
    Character
-   ComplexOperations
    ControlFlowGraph
    Directives
    DoConcurrent
    Extensions
-   F202X
-   FIRArrayOperations
    FIRLangRef
    FlangCommandLineReference
    FlangDriver
-   FortranFeatureHistory
    FortranIR
    FortranLLVMTestSuite
-   HighLevelFIR
    IORuntimeInternals
-   InternalProcedureTrampolines
    Intrinsics
    IntrinsicTypes
    LabelResolution
    ModFiles
-   OpenACC
    OpenMP-4.5-grammar.md
    OpenMP-semantics
    OptionComparison
    Overview
-   ParameterizedDerivedTypes
    ParserCombinators
    Parsing
-   PolymorphicEntities
    Preprocessing
-   ProcedurePointer
    RuntimeDescriptor
    RuntimeTypeInfo
    Semantics
    f2018-grammar.md
-   fstack-arrays
 ```
 
 # Indices and tables
 
-```{eval-rst}
+```eval_rst
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`

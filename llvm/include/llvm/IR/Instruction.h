@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Bitfields.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/DebugLoc.h"
@@ -29,72 +30,23 @@
 namespace llvm {
 
 class BasicBlock;
-class DPMarker;
 class FastMathFlags;
 class MDNode;
 class Module;
 struct AAMDNodes;
-class DPMarker;
 
 template <> struct ilist_alloc_traits<Instruction> {
   static inline void deleteNode(Instruction *V);
 };
 
 class Instruction : public User,
-                    public ilist_node_with_parent<Instruction, BasicBlock,
-                                                  ilist_iterator_bits<true>> {
-public:
-  using InstListType = SymbolTableList<Instruction, ilist_iterator_bits<true>>;
-private:
+                    public ilist_node_with_parent<Instruction, BasicBlock> {
   BasicBlock *Parent;
   DebugLoc DbgLoc;                         // 'dbg' Metadata cache.
 
   /// Relative order of this instruction in its parent basic block. Used for
   /// O(1) local dominance checks between instructions.
   mutable unsigned Order = 0;
-
-public:
-  /// Optional marker recording the position for debugging information that
-  /// takes effect immediately before this instruction. Null unless there is
-  /// debugging information present.
-  DPMarker *DbgMarker = nullptr;
-
-  /// Clone any debug-info attached to \p From onto this instruction. Used to
-  /// copy debugging information from one block to another, when copying entire
-  /// blocks. \see DebugProgramInstruction.h , because the ordering of DPValues
-  /// is still important, fine grain control of which instructions are moved and
-  /// where they go is necessary.
-  /// \p From The instruction to clone debug-info from.
-  /// \p from_here Optional iterator to limit DPValues cloned to be a range from
-  ///    from_here to end().
-  /// \p InsertAtHead Whether the cloned DPValues should be placed at the end
-  ///    or the beginning of existing DPValues attached to this.
-  /// \returns A range over the newly cloned DPValues.
-  iterator_range<simple_ilist<DPValue>::iterator> cloneDebugInfoFrom(
-      const Instruction *From,
-      std::optional<simple_ilist<DPValue>::iterator> FromHere = std::nullopt,
-      bool InsertAtHead = false);
-
-  /// Return a range over the DPValues attached to this instruction.
-  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const;
-
-  /// Return an iterator to the position of the "Next" DPValue after this
-  /// instruction, or std::nullopt. This is the position to pass to
-  /// BasicBlock::reinsertInstInDPValues when re-inserting an instruction.
-  std::optional<simple_ilist<DPValue>::iterator> getDbgReinsertionPosition();
-
-  /// Returns true if any DPValues are attached to this instruction.
-  bool hasDbgValues() const;
-
-  /// Erase any DPValues attached to this instruction.
-  void dropDbgValues();
-
-  /// Erase a single DPValue \p I that is attached to this instruction.
-  void dropOneDbgValue(DPValue *I);
-
-  /// Handle the debug-info implications of this instruction being removed. Any
-  /// attached DPValues need to "fall" down onto the next instruction.
-  void handleMarkerRemoval();
 
 protected:
   // The 15 first bits of `Value::SubclassData` are available for subclasses of
@@ -167,55 +119,28 @@ public:
   /// This method unlinks 'this' from the containing basic block and deletes it.
   ///
   /// \returns an iterator pointing to the element after the erased one
-  InstListType::iterator eraseFromParent();
+  SymbolTableList<Instruction>::iterator eraseFromParent();
 
   /// Insert an unlinked instruction into a basic block immediately before
   /// the specified instruction.
   void insertBefore(Instruction *InsertPos);
-  void insertBefore(InstListType::iterator InsertPos);
 
   /// Insert an unlinked instruction into a basic block immediately after the
   /// specified instruction.
   void insertAfter(Instruction *InsertPos);
 
-  /// Inserts an unlinked instruction into \p ParentBB at position \p It and
-  /// returns the iterator of the inserted instruction.
-  InstListType::iterator insertInto(BasicBlock *ParentBB,
-                                    InstListType::iterator It);
-
-  void insertBefore(BasicBlock &BB, InstListType::iterator InsertPos);
-
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
   void moveBefore(Instruction *MovePos);
 
-  /// Perform a \ref moveBefore operation, while signalling that the caller
-  /// intends to preserve the original ordering of instructions. This implicitly
-  /// means that any adjacent debug-info should move with this instruction.
-  /// This method is currently a no-op placeholder, but it will become meaningful
-  /// when the "RemoveDIs" project is enabled.
-  void moveBeforePreserving(Instruction *MovePos);
-
-private:
-  /// RemoveDIs project: all other moves implemented with this method,
-  /// centralising debug-info updates into one place.
-  void moveBeforeImpl(BasicBlock &BB, InstListType::iterator I, bool Preserve);
-
-public:
   /// Unlink this instruction and insert into BB before I.
   ///
   /// \pre I is a valid iterator into BB.
-  void moveBefore(BasicBlock &BB, InstListType::iterator I);
-
-  /// (See other overload for moveBeforePreserving).
-  void moveBeforePreserving(BasicBlock &BB, InstListType::iterator I);
+  void moveBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right after MovePos.
   void moveAfter(Instruction *MovePos);
-
-  /// See \ref moveBeforePreserving .
-  void moveAfterPreserving(Instruction *MovePos);
 
   /// Given an instruction Other in the same basic block as this instruction,
   /// return true if this instruction comes before Other. In this worst case,
@@ -229,7 +154,7 @@ public:
   /// of cases, e.g. phi nodes or terminators that return values. This function
   /// may return null if the insertion after the definition is not possible,
   /// e.g. due to a catchswitch terminator.
-  std::optional<InstListType::iterator> getInsertionPointAfterDef();
+  Instruction *getInsertionPointAfterDef();
 
   //===--------------------------------------------------------------------===//
   // Subclass classification.
@@ -246,16 +171,18 @@ public:
   bool isShift() const { return isShift(getOpcode()); }
   bool isCast() const { return isCast(getOpcode()); }
   bool isFuncletPad() const { return isFuncletPad(getOpcode()); }
-  bool isSpecialTerminator() const { return isSpecialTerminator(getOpcode()); }
+  bool isExceptionalTerminator() const {
+    return isExceptionalTerminator(getOpcode());
+  }
 
   /// It checks if this instruction is the only user of at least one of
   /// its operands.
   bool isOnlyUserOfAnyOperand();
 
-  static const char *getOpcodeName(unsigned Opcode);
+  static const char* getOpcodeName(unsigned OpCode);
 
-  static inline bool isTerminator(unsigned Opcode) {
-    return Opcode >= TermOpsBegin && Opcode < TermOpsEnd;
+  static inline bool isTerminator(unsigned OpCode) {
+    return OpCode >= TermOpsBegin && OpCode < TermOpsEnd;
   }
 
   static inline bool isUnaryOp(unsigned Opcode) {
@@ -294,26 +221,24 @@ public:
     return isBitwiseLogicOp(getOpcode());
   }
 
-  /// Determine if the Opcode is one of the CastInst instructions.
-  static inline bool isCast(unsigned Opcode) {
-    return Opcode >= CastOpsBegin && Opcode < CastOpsEnd;
+  /// Determine if the OpCode is one of the CastInst instructions.
+  static inline bool isCast(unsigned OpCode) {
+    return OpCode >= CastOpsBegin && OpCode < CastOpsEnd;
   }
 
-  /// Determine if the Opcode is one of the FuncletPadInst instructions.
-  static inline bool isFuncletPad(unsigned Opcode) {
-    return Opcode >= FuncletPadOpsBegin && Opcode < FuncletPadOpsEnd;
+  /// Determine if the OpCode is one of the FuncletPadInst instructions.
+  static inline bool isFuncletPad(unsigned OpCode) {
+    return OpCode >= FuncletPadOpsBegin && OpCode < FuncletPadOpsEnd;
   }
 
-  /// Returns true if the Opcode is a "special" terminator that does more than
-  /// branch to a successor (e.g. have a side effect or return a value).
-  static inline bool isSpecialTerminator(unsigned Opcode) {
-    switch (Opcode) {
+  /// Returns true if the OpCode is a terminator related to exception handling.
+  static inline bool isExceptionalTerminator(unsigned OpCode) {
+    switch (OpCode) {
     case Instruction::CatchSwitch:
     case Instruction::CatchRet:
     case Instruction::CleanupRet:
     case Instruction::Invoke:
     case Instruction::Resume:
-    case Instruction::CallBr:
       return true;
     default:
       return false;
@@ -344,10 +269,8 @@ public:
   /// Get the metadata of given kind attached to this Instruction.
   /// If the metadata is not found then return null.
   MDNode *getMetadata(unsigned KindID) const {
-    // Handle 'dbg' as a special case since it is not stored in the hash table.
-    if (KindID == LLVMContext::MD_dbg)
-      return DbgLoc.getAsMDNode();
-    return Value::getMetadata(KindID);
+    if (!hasMetadata()) return nullptr;
+    return getMetadataImpl(KindID);
   }
 
   /// Get the metadata of given kind attached to this Instruction.
@@ -384,9 +307,6 @@ public:
   void copyMetadata(const Instruction &SrcInst,
                     ArrayRef<unsigned> WL = ArrayRef<unsigned>());
 
-  /// Erase all metadata that matches the predicate.
-  void eraseMetadataIf(function_ref<bool(unsigned, MDNode *)> Pred);
-
   /// If the instruction has "branch_weights" MD_prof metadata and the MDNode
   /// has three operands (including name string), swap the order of the
   /// metadata.
@@ -396,14 +316,14 @@ public:
   /// @{
   /// Passes are required to drop metadata they don't understand. This is a
   /// convenience method for passes to do so.
-  /// dropUBImplyingAttrsAndUnknownMetadata should be used instead of
+  /// dropUndefImplyingAttrsAndUnknownMetadata should be used instead of
   /// this API if the Instruction being modified is a call.
   void dropUnknownNonDebugMetadata(ArrayRef<unsigned> KnownIDs);
   void dropUnknownNonDebugMetadata() {
-    return dropUnknownNonDebugMetadata(std::nullopt);
+    return dropUnknownNonDebugMetadata(None);
   }
   void dropUnknownNonDebugMetadata(unsigned ID1) {
-    return dropUnknownNonDebugMetadata(ArrayRef(ID1));
+    return dropUnknownNonDebugMetadata(makeArrayRef(ID1));
   }
   void dropUnknownNonDebugMetadata(unsigned ID1, unsigned ID2) {
     unsigned IDs[] = {ID1, ID2};
@@ -415,19 +335,12 @@ public:
   /// If this instruction already has !annotation metadata, append \p Annotation
   /// to the existing node.
   void addAnnotationMetadata(StringRef Annotation);
-  /// Adds an !annotation metadata node with an array of \p Annotations
-  /// as a tuple to this instruction. If this instruction already has
-  /// !annotation metadata, append the tuple to
-  /// the existing node.
-  void addAnnotationMetadata(SmallVector<StringRef> Annotations);
+
   /// Returns the AA metadata for this instruction.
   AAMDNodes getAAMetadata() const;
 
   /// Sets the AA metadata on this instruction from the AAMDNodes structure.
   void setAAMetadata(const AAMDNodes &N);
-
-  /// Sets the nosanitize metadata on this instruction.
-  void setNoSanitizeMetadata();
 
   /// Retrieve total raw weight values of a branch.
   /// Returns true on success with profile total weights filled in.
@@ -439,10 +352,6 @@ public:
 
   /// Return the debug location for this node as a DebugLoc.
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
-
-  /// Fetch the debug location for this node, unless this is a debug intrinsic,
-  /// in which case fetch the debug location of the next non-debug node.
-  const DebugLoc &getStableDebugLoc() const;
 
   /// Set or clear the nuw flag on this instruction, which must be an operator
   /// which supports this flag. See LangRef.html for the meaning of this flag.
@@ -456,57 +365,29 @@ public:
   /// which supports this flag. See LangRef.html for the meaning of this flag.
   void setIsExact(bool b = true);
 
-  /// Set or clear the nneg flag on this instruction, which must be a zext
-  /// instruction.
-  void setNonNeg(bool b = true);
-
   /// Determine whether the no unsigned wrap flag is set.
-  bool hasNoUnsignedWrap() const LLVM_READONLY;
+  bool hasNoUnsignedWrap() const;
 
   /// Determine whether the no signed wrap flag is set.
-  bool hasNoSignedWrap() const LLVM_READONLY;
-
-  /// Determine whether the the nneg flag is set.
-  bool hasNonNeg() const LLVM_READONLY;
+  bool hasNoSignedWrap() const;
 
   /// Return true if this operator has flags which may cause this instruction
   /// to evaluate to poison despite having non-poison inputs.
-  bool hasPoisonGeneratingFlags() const LLVM_READONLY;
+  bool hasPoisonGeneratingFlags() const;
 
   /// Drops flags that may cause this instruction to evaluate to poison despite
   /// having non-poison inputs.
   void dropPoisonGeneratingFlags();
 
-  /// Return true if this instruction has poison-generating metadata.
-  bool hasPoisonGeneratingMetadata() const LLVM_READONLY;
-
-  /// Drops metadata that may generate poison.
-  void dropPoisonGeneratingMetadata();
-
-  /// Return true if this instruction has poison-generating flags or metadata.
-  bool hasPoisonGeneratingFlagsOrMetadata() const {
-    return hasPoisonGeneratingFlags() || hasPoisonGeneratingMetadata();
-  }
-
-  /// Drops flags and metadata that may generate poison.
-  void dropPoisonGeneratingFlagsAndMetadata() {
-    dropPoisonGeneratingFlags();
-    dropPoisonGeneratingMetadata();
-  }
-
   /// This function drops non-debug unknown metadata (through
-  /// dropUnknownNonDebugMetadata). For calls, it also drops parameter and
+  /// dropUnknownNonDebugMetadata). For calls, it also drops parameter and 
   /// return attributes that can cause undefined behaviour. Both of these should
   /// be done by passes which move instructions in IR.
-  void dropUBImplyingAttrsAndUnknownMetadata(ArrayRef<unsigned> KnownIDs = {});
-
-  /// Drop any attributes or metadata that can cause immediate undefined
-  /// behavior. Retain other attributes/metadata on a best-effort basis.
-  /// This should be used when speculating instructions.
-  void dropUBImplyingAttrsAndMetadata();
+  void
+  dropUndefImplyingAttrsAndUnknownMetadata(ArrayRef<unsigned> KnownIDs = {});
 
   /// Determine whether the exact flag is set.
-  bool isExact() const LLVM_READONLY;
+  bool isExact() const;
 
   /// Set or clear all fast-math-flags on this instruction, which must be an
   /// operator which supports this flag. See LangRef.html for the meaning of
@@ -559,33 +440,33 @@ public:
   void copyFastMathFlags(FastMathFlags FMF);
 
   /// Determine whether all fast-math-flags are set.
-  bool isFast() const LLVM_READONLY;
+  bool isFast() const;
 
   /// Determine whether the allow-reassociation flag is set.
-  bool hasAllowReassoc() const LLVM_READONLY;
+  bool hasAllowReassoc() const;
 
   /// Determine whether the no-NaNs flag is set.
-  bool hasNoNaNs() const LLVM_READONLY;
+  bool hasNoNaNs() const;
 
   /// Determine whether the no-infs flag is set.
-  bool hasNoInfs() const LLVM_READONLY;
+  bool hasNoInfs() const;
 
   /// Determine whether the no-signed-zeros flag is set.
-  bool hasNoSignedZeros() const LLVM_READONLY;
+  bool hasNoSignedZeros() const;
 
   /// Determine whether the allow-reciprocal flag is set.
-  bool hasAllowReciprocal() const LLVM_READONLY;
+  bool hasAllowReciprocal() const;
 
   /// Determine whether the allow-contract flag is set.
-  bool hasAllowContract() const LLVM_READONLY;
+  bool hasAllowContract() const;
 
   /// Determine whether the approximate-math-functions flag is set.
-  bool hasApproxFunc() const LLVM_READONLY;
+  bool hasApproxFunc() const;
 
   /// Convenience function for getting all the fast-math flags, which must be an
   /// operator which supports these flags. See LangRef.html for the meaning of
   /// these flags.
-  FastMathFlags getFastMathFlags() const LLVM_READONLY;
+  FastMathFlags getFastMathFlags() const;
 
   /// Copy I's fast-math flags
   void copyFastMathFlags(const Instruction *I);
@@ -611,7 +492,7 @@ public:
   ///     applications, thus the N-way merging should be in code path.
   /// The DebugLoc attached to this instruction will be overwritten by the
   /// merged DebugLoc.
-  void applyMergedLocation(DILocation *LocA, DILocation *LocB);
+  void applyMergedLocation(const DILocation *LocA, const DILocation *LocB);
 
   /// Updates the debug location given that the instruction has been hoisted
   /// from a block to a predecessor of that block.
@@ -627,26 +508,12 @@ public:
   /// currently inserted into a function.
   void dropLocation();
 
-  /// Merge the DIAssignID metadata from this instruction and those attached to
-  /// instructions in \p SourceInstructions. This process performs a RAUW on
-  /// the MetadataAsValue uses of the merged DIAssignID nodes. Not every
-  /// instruction in \p SourceInstructions needs to have DIAssignID
-  /// metadata. If none of them do then nothing happens. If this instruction
-  /// does not have a DIAssignID attachment but at least one in \p
-  /// SourceInstructions does then the merged one will be attached to
-  /// it. However, instructions without attachments in \p SourceInstructions
-  /// are not modified.
-  void mergeDIAssignID(ArrayRef<const Instruction *> SourceInstructions);
-
 private:
   // These are all implemented in Metadata.cpp.
+  MDNode *getMetadataImpl(unsigned KindID) const;
   MDNode *getMetadataImpl(StringRef Kind) const;
   void
   getAllMetadataImpl(SmallVectorImpl<std::pair<unsigned, MDNode *>> &) const;
-
-  /// Update the LLVMContext ID-to-Instruction(s) mapping. If \p ID is nullptr
-  /// then clear the mapping for this instruction.
-  void updateDIAssignIDMapping(DIAssignID *ID);
 
 public:
   //===--------------------------------------------------------------------===//
@@ -710,10 +577,10 @@ public:
   }
 
   /// Return true if this instruction may modify memory.
-  bool mayWriteToMemory() const LLVM_READONLY;
+  bool mayWriteToMemory() const;
 
   /// Return true if this instruction may read memory.
-  bool mayReadFromMemory() const LLVM_READONLY;
+  bool mayReadFromMemory() const;
 
   /// Return true if this instruction may read or write memory.
   bool mayReadOrWriteMemory() const {
@@ -722,26 +589,19 @@ public:
 
   /// Return true if this instruction has an AtomicOrdering of unordered or
   /// higher.
-  bool isAtomic() const LLVM_READONLY;
+  bool isAtomic() const;
 
   /// Return true if this atomic instruction loads from memory.
-  bool hasAtomicLoad() const LLVM_READONLY;
+  bool hasAtomicLoad() const;
 
   /// Return true if this atomic instruction stores to memory.
-  bool hasAtomicStore() const LLVM_READONLY;
+  bool hasAtomicStore() const;
 
   /// Return true if this instruction has a volatile memory access.
-  bool isVolatile() const LLVM_READONLY;
-
-  /// Return the type this instruction accesses in memory, if any.
-  Type *getAccessType() const LLVM_READONLY;
+  bool isVolatile() const;
 
   /// Return true if this instruction may throw an exception.
-  ///
-  /// If IncludePhaseOneUnwind is set, this will also include cases where
-  /// phase one unwinding may unwind past this frame due to skipping of
-  /// cleanup landingpads.
-  bool mayThrow(bool IncludePhaseOneUnwind = false) const LLVM_READONLY;
+  bool mayThrow() const;
 
   /// Return true if this instruction behaves like a memory fence: it can load
   /// or store to memory location without being given a memory location.
@@ -771,7 +631,7 @@ public:
   /// effects because the newly allocated memory is completely invisible to
   /// instructions which don't use the returned value.  For cases where this
   /// matters, isSafeToSpeculativelyExecute may be more appropriate.
-  bool mayHaveSideEffects() const LLVM_READONLY;
+  bool mayHaveSideEffects() const;
 
   /// Return true if the instruction can be removed if the result is unused.
   ///
@@ -779,11 +639,11 @@ public:
   /// results are unused. Specifically terminator instructions and calls that
   /// may have side effects cannot be removed without semantically changing the
   /// generated program.
-  bool isSafeToRemove() const LLVM_READONLY;
+  bool isSafeToRemove() const;
 
   /// Return true if the instruction will return (unwinding is considered as
   /// a form of returning control flow here).
-  bool willReturn() const LLVM_READONLY;
+  bool willReturn() const;
 
   /// Return true if the instruction is a variety of EH-block.
   bool isEHPad() const {
@@ -800,14 +660,14 @@ public:
 
   /// Return true if the instruction is a llvm.lifetime.start or
   /// llvm.lifetime.end marker.
-  bool isLifetimeStartOrEnd() const LLVM_READONLY;
+  bool isLifetimeStartOrEnd() const;
 
   /// Return true if the instruction is a llvm.launder.invariant.group or
   /// llvm.strip.invariant.group.
-  bool isLaunderOrStripInvariantGroup() const LLVM_READONLY;
+  bool isLaunderOrStripInvariantGroup() const;
 
   /// Return true if the instruction is a DbgInfoIntrinsic or PseudoProbeInst.
-  bool isDebugOrPseudoInst() const LLVM_READONLY;
+  bool isDebugOrPseudoInst() const;
 
   /// Return a pointer to the next non-debug instruction in the same basic
   /// block as 'this', or nullptr if no such instruction exists. Skip any pseudo
@@ -841,12 +701,12 @@ public:
   /// Return true if the specified instruction is exactly identical to the
   /// current one. This means that all operands match and any extra information
   /// (e.g. load is volatile) agree.
-  bool isIdenticalTo(const Instruction *I) const LLVM_READONLY;
+  bool isIdenticalTo(const Instruction *I) const;
 
   /// This is like isIdenticalTo, except that it ignores the
   /// SubclassOptionalData flags, which may specify conditions under which the
   /// instruction's result is undefined.
-  bool isIdenticalToWhenDefined(const Instruction *I) const LLVM_READONLY;
+  bool isIdenticalToWhenDefined(const Instruction *I) const;
 
   /// When checking for operation equivalence (using isSameOperationAs) it is
   /// sometimes useful to ignore certain attributes.
@@ -866,30 +726,19 @@ public:
   /// @returns true if the specified instruction is the same operation as
   /// the current one.
   /// Determine if one instruction is the same operation as another.
-  bool isSameOperationAs(const Instruction *I, unsigned flags = 0) const LLVM_READONLY;
-
-  /// This function determines if the speficied instruction has the same
-  /// "special" characteristics as the current one. This means that opcode
-  /// specific details are the same. As a common example, if we are comparing
-  /// loads, then hasSameSpecialState would compare the alignments (among
-  /// other things).
-  /// @returns true if the specific instruction has the same opcde specific
-  /// characteristics as the current one. Determine if one instruction has the
-  /// same state as another.
-  bool hasSameSpecialState(const Instruction *I2,
-                           bool IgnoreAlignment = false) const LLVM_READONLY;
+  bool isSameOperationAs(const Instruction *I, unsigned flags = 0) const;
 
   /// Return true if there are any uses of this instruction in blocks other than
   /// the specified block. Note that PHI nodes are considered to evaluate their
   /// operands in the corresponding predecessor block.
-  bool isUsedOutsideOfBlock(const BasicBlock *BB) const LLVM_READONLY;
+  bool isUsedOutsideOfBlock(const BasicBlock *BB) const;
 
   /// Return the number of successors that this instruction has. The instruction
   /// must be a terminator.
-  unsigned getNumSuccessors() const LLVM_READONLY;
+  unsigned getNumSuccessors() const;
 
   /// Return the specified successor. This instruction must be a terminator.
-  BasicBlock *getSuccessor(unsigned Idx) const LLVM_READONLY;
+  BasicBlock *getSuccessor(unsigned Idx) const;
 
   /// Update the specified successor to point at the provided block. This
   /// instruction must be a terminator.
@@ -957,7 +806,7 @@ public:
   };
 
 private:
-  friend class SymbolTableListTraits<Instruction, ilist_iterator_bits<true>>;
+  friend class SymbolTableListTraits<Instruction>;
   friend class BasicBlock; // For renumbering.
 
   // Shadow Value::setValueSubclassData with a private forwarding method so that

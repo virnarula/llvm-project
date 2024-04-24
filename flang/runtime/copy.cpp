@@ -14,9 +14,8 @@
 #include <cstring>
 
 namespace Fortran::runtime {
-RT_OFFLOAD_API_GROUP_BEGIN
 
-RT_API_ATTRS void CopyElement(const Descriptor &to, const SubscriptValue toAt[],
+void CopyElement(const Descriptor &to, const SubscriptValue toAt[],
     const Descriptor &from, const SubscriptValue fromAt[],
     Terminator &terminator) {
   char *toPtr{to.Element<char>(toAt)};
@@ -49,7 +48,7 @@ RT_API_ATTRS void CopyElement(const Descriptor &to, const SubscriptValue toAt[],
   }
 }
 
-RT_API_ATTRS void CopyArray(
+void CopyArray(
     const Descriptor &to, const Descriptor &from, Terminator &terminator) {
   std::size_t elements{to.Elements()};
   RUNTIME_CHECK(terminator, elements == from.Elements());
@@ -62,6 +61,4 @@ RT_API_ATTRS void CopyArray(
     from.IncrementSubscripts(fromAt);
   }
 }
-
-RT_OFFLOAD_API_GROUP_END
 } // namespace Fortran::runtime

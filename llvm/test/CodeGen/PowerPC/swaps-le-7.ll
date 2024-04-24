@@ -10,12 +10,12 @@
 
 ; CHECK-LABEL: @zg
 ; CHECK: lxvdsx
-; CHECK: xxswapd
-; CHECK-NEXT: xvmuldp
 ; CHECK-NEXT: lxvdsx
+; CHECK-NEXT: xvmuldp
 ; CHECK-DAG: xvmuldp
 ; CHECK-DAG: xvsubdp
 ; CHECK-DAG: xvadddp
+; CHECK-DAG: xxswapd
 ; CHECK-DAG: xxpermdi
 ; CHECK-DAG: xvsubdp
 ; CHECK: xxswapd

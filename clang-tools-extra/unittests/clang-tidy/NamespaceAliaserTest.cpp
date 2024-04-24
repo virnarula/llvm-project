@@ -35,7 +35,7 @@ public:
     auto Hint = Aliaser->createAlias(*Result.Context, *Call, "::foo::bar",
                                      {"b", "some_alias"});
     if (Hint)
-      diag(Call->getBeginLoc(), "Fix for testing") << *Hint;
+      diag(Call->getBeginLoc(), "Fix for testing") << Hint.value();
 
     diag(Call->getBeginLoc(), "insert call") << FixItHint::CreateInsertion(
         Call->getBeginLoc(),
@@ -57,7 +57,7 @@ std::string runChecker(StringRef Code, unsigned ExpectedWarningCount) {
   std::vector<ClangTidyError> errors;
 
   std::string result =
-      test::runCheckOnCode<Check>(Code, &errors, "foo.cc", std::nullopt,
+      test::runCheckOnCode<Check>(Code, &errors, "foo.cc", None,
                                   ClangTidyOptions(), AdditionalFileContents);
 
   EXPECT_EQ(ExpectedWarningCount, errors.size());

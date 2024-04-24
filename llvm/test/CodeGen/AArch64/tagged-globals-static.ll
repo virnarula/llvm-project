@@ -10,7 +10,7 @@ target triple = "aarch64-unknown-linux-android"
 @global = external dso_local global i32
 declare dso_local void @func()
 
-define ptr @global_addr() #0 {
+define i32* @global_addr() #0 {
   ; Static relocation model has common codegen between SelectionDAGISel and
   ; GlobalISel when the address-taken of a global isn't folded into a load or
   ; store instruction.
@@ -20,7 +20,7 @@ define ptr @global_addr() #0 {
   ; CHECK-STATIC: add x0, [[REG]], :lo12:global
   ; CHECK-STATIC: ret
 
-  ret ptr @global
+  ret i32* @global
 }
 
 define i32 @global_load() #0 {
@@ -36,7 +36,7 @@ define i32 @global_load() #0 {
   ; CHECK-GLOBALISEL: ldr w0, [[[REG]]]
   ; CHECK-GLOBALISEL: ret
 
-  %load = load i32, ptr @global
+  %load = load i32, i32* @global
   ret i32 %load
 }
 
@@ -53,17 +53,17 @@ define void @global_store() #0 {
   ; CHECK-GLOBALISEL: str wzr, [[[REG]]]
   ; CHECK-GLOBALISEL: ret
 
-  store i32 0, ptr @global
+  store i32 0, i32* @global
   ret void
 }
 
-define ptr @func_addr() #0 {
+define void ()* @func_addr() #0 {
   ; CHECK-STATIC: func_addr:
   ; CHECK-STATIC: adrp [[REG:x[0-9]+]], func
   ; CHECK-STATIC: add x0, [[REG]], :lo12:func
   ; CHECK-STATIC: ret
 
-  ret ptr @func
+  ret void ()* @func
 }
 
 attributes #0 = { "target-features"="+tagged-globals" }

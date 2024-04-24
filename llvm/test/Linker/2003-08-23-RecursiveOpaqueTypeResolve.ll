@@ -2,9 +2,9 @@
 ; net.
 
 ; RUN: llvm-as < %s > %t.out1.bc
-; RUN: echo "%M = type { ptr, ptr }" | llvm-as > %t.out2.bc
+; RUN: echo "%M = type { %M*, i32* }" | llvm-as > %t.out2.bc
 ; RUN: llvm-link %t.out1.bc %t.out2.bc
 
 %T1 = type opaque
-%M = type { ptr, ptr }
+%M = type { %M*, %T1* }
 

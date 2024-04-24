@@ -25,7 +25,7 @@ Example `[1] <https://godbolt.org/z/x7SYYA>`_:
     return obj;  // calls `StatusOr::StatusOr(const std::vector<int>&)`
   }
 
-The former version (``Cool``) should be preferred over the latter (``NotCool``)
+The former version (``Cool``) should be preferred over the latter (``Uncool``)
 as it will avoid allocations and potentially large memory copies.
 
 Semantics

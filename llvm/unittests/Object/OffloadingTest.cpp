@@ -30,7 +30,7 @@ TEST(OffloadingTest, checkOffloadingBinary) {
   }
 
   // Create the image.
-  MapVector<StringRef, StringRef> StringData;
+  StringMap<StringRef> StringData;
   for (auto &KeyAndValue : Strings)
     StringData[KeyAndValue.first] = KeyAndValue.second;
   std::unique_ptr<MemoryBuffer> ImageData = MemoryBuffer::getMemBuffer(
@@ -43,8 +43,8 @@ TEST(OffloadingTest, checkOffloadingBinary) {
   Data.StringData = StringData;
   Data.Image = std::move(ImageData);
 
-  auto BinaryBuffer =
-      MemoryBuffer::getMemBufferCopy(OffloadBinary::write(Data));
+  auto BinaryBuffer = OffloadBinary::write(Data);
+
   auto BinaryOrErr = OffloadBinary::create(*BinaryBuffer);
   if (!BinaryOrErr)
     FAIL();

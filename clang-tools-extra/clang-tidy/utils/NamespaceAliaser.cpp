@@ -12,8 +12,9 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Lex/Lexer.h"
-#include <optional>
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 using namespace ast_matchers;
 
@@ -25,16 +26,16 @@ AST_MATCHER_P(NamespaceAliasDecl, hasTargetNamespace,
   return innerMatcher.matches(*Node.getNamespace(), Finder, Builder);
 }
 
-std::optional<FixItHint>
+Optional<FixItHint>
 NamespaceAliaser::createAlias(ASTContext &Context, const Stmt &Statement,
                               StringRef Namespace,
                               const std::vector<std::string> &Abbreviations) {
   const FunctionDecl *Function = getSurroundingFunction(Context, Statement);
   if (!Function || !Function->hasBody())
-    return std::nullopt;
+    return None;
 
   if (AddedAliases[Function].count(Namespace.str()) != 0)
-    return std::nullopt;
+    return None;
 
   // FIXME: Doesn't consider the order of declarations.
   // If we accidentally pick an alias defined later in the function,
@@ -50,7 +51,7 @@ NamespaceAliaser::createAlias(ASTContext &Context, const Stmt &Statement,
 
   if (ExistingAlias != nullptr) {
     AddedAliases[Function][Namespace.str()] = ExistingAlias->getName().str();
-    return std::nullopt;
+    return None;
   }
 
   for (const auto &Abbreviation : Abbreviations) {
@@ -74,7 +75,7 @@ NamespaceAliaser::createAlias(ASTContext &Context, const Stmt &Statement,
     return FixItHint::CreateInsertion(Loc, Declaration);
   }
 
-  return std::nullopt;
+  return None;
 }
 
 std::string NamespaceAliaser::getNamespaceName(ASTContext &Context,
@@ -90,4 +91,6 @@ std::string NamespaceAliaser::getNamespaceName(ASTContext &Context,
   return Namespace.str();
 }
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang

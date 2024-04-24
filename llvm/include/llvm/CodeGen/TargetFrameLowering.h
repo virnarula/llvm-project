@@ -13,7 +13,6 @@
 #ifndef LLVM_CODEGEN_TARGETFRAMELOWERING_H
 #define LLVM_CODEGEN_TARGETFRAMELOWERING_H
 
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/Support/TypeSize.h"
 #include <vector>
@@ -55,18 +54,15 @@ public:
   };
 
   struct DwarfFrameBase {
-    // The frame base may be either a register (the default), the CFA with an
-    // offset, or a WebAssembly-specific location description.
+    // The frame base may be either a register (the default), the CFA,
+    // or a WebAssembly-specific location description.
     enum FrameBaseKind { Register, CFA, WasmFrameBase } Kind;
     struct WasmFrameBase {
       unsigned Kind; // Wasm local, global, or value stack
       unsigned Index;
     };
     union {
-      // Used with FrameBaseKind::Register.
       unsigned Reg;
-      // Used with FrameBaseKind::CFA.
-      int Offset;
       struct WasmFrameBase WasmLoc;
     } Location;
   };
@@ -103,10 +99,6 @@ public:
   ///
   Align getStackAlign() const { return StackAlignment; }
 
-  /// getStackThreshold - Return the maximum stack size
-  ///
-  virtual uint64_t getStackThreshold() const { return UINT_MAX; }
-
   /// alignSPAdjust - This method aligns the stack adjustment to the correct
   /// alignment.
   ///
@@ -130,6 +122,11 @@ public:
   bool isStackRealignable() const {
     return StackRealignable;
   }
+
+  /// Return the skew that has to be applied to stack alignment under
+  /// certain conditions (e.g. stack was adjusted before function \p MF
+  /// was called).
+  virtual unsigned getStackAlignmentSkew(const MachineFunction &MF) const;
 
   /// This method returns whether or not it is safe for an object with the
   /// given stack id to be bundled into the local area.

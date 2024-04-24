@@ -131,15 +131,8 @@ Log::MaskType Log::GetMask() const {
   return m_mask.load(std::memory_order_relaxed);
 }
 
-void Log::PutCString(const char *cstr) { PutString(cstr); }
-
-void Log::PutString(llvm::StringRef str) {
-  std::string FinalMessage;
-  llvm::raw_string_ostream Stream(FinalMessage);
-  WriteHeader(Stream, "", "");
-  Stream << str << "\n";
-  WriteMessage(FinalMessage);
-}
+void Log::PutCString(const char *cstr) { Printf("%s", cstr); }
+void Log::PutString(llvm::StringRef str) { PutCString(str.str().c_str()); }
 
 // Simple variable argument logging with flags.
 void Log::Printf(const char *format, ...) {
@@ -149,25 +142,20 @@ void Log::Printf(const char *format, ...) {
   va_end(args);
 }
 
+// All logging eventually boils down to this function call. If we have a
+// callback registered, then we call the logging callback. If we have a valid
+// file handle, we also log to the file.
 void Log::VAPrintf(const char *format, va_list args) {
+  llvm::SmallString<64> FinalMessage;
+  llvm::raw_svector_ostream Stream(FinalMessage);
+  WriteHeader(Stream, "", "");
+
   llvm::SmallString<64> Content;
   lldb_private::VASprintf(Content, format, args);
-  PutString(Content);
-}
 
-void Log::Formatf(llvm::StringRef file, llvm::StringRef function,
-                  const char *format, ...) {
-  va_list args;
-  va_start(args, format);
-  VAFormatf(file, function, format, args);
-  va_end(args);
-}
+  Stream << Content << "\n";
 
-void Log::VAFormatf(llvm::StringRef file, llvm::StringRef function,
-                    const char *format, va_list args) {
-  llvm::SmallString<64> Content;
-  lldb_private::VASprintf(Content, format, args);
-  Format(file, function, llvm::formatv("{0}", Content));
+  WriteMessage(std::string(FinalMessage.str()));
 }
 
 // Printing of errors that are not fatal.
@@ -210,7 +198,7 @@ void Log::Warning(const char *format, ...) {
 void Log::Register(llvm::StringRef name, Channel &channel) {
   auto iter = g_channel_map->try_emplace(name, channel);
   assert(iter.second == true);
-  UNUSED_IF_ASSERT_DISABLED(iter);
+  (void)iter;
 }
 
 void Log::Unregister(llvm::StringRef name) {
@@ -356,9 +344,7 @@ void Log::WriteHeader(llvm::raw_ostream &OS, llvm::StringRef file,
   }
 }
 
-// If we have a callback registered, then we call the logging callback. If we
-// have a valid file handle, we also log to the file.
-void Log::WriteMessage(llvm::StringRef message) {
+void Log::WriteMessage(const std::string &message) {
   // Make a copy of our stream shared pointer in case someone disables our log
   // while we are logging and releases the stream
   auto handler_sp = GetHandler();

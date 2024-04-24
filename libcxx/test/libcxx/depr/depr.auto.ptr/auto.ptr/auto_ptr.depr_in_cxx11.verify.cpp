@@ -25,6 +25,11 @@
 #include <memory>
 #include "test_macros.h"
 
-typedef std::auto_ptr<int> AP; // expected-warning {{'auto_ptr<int>' is deprecated}}
-typedef std::auto_ptr<void> APV; // expected-warning {{'auto_ptr<void>' is deprecated}}
-typedef std::auto_ptr_ref<int> APR; // expected-warning {{'auto_ptr_ref<int>' is deprecated}}
+int main(int, char**)
+{
+    typedef std::auto_ptr<int> AP; // expected-warning {{'auto_ptr<int>' is deprecated}}
+    typedef std::auto_ptr<void> APV; // expected-warning {{'auto_ptr<void>' is deprecated}}
+    typedef std::auto_ptr_ref<int> APR; // expected-warning {{'auto_ptr_ref<int>' is deprecated}}
+
+  return 0;
+}

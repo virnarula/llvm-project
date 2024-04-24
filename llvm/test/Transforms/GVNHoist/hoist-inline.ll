@@ -3,17 +3,15 @@
 ; Check that the inlined loads are hoisted.
 ; CHECK-LABEL: define i32 @fun(
 ; CHECK-LABEL: entry:
-; CHECK: load i32, ptr @A
+; CHECK: load i32, i32* @A
 ; CHECK: if.then:
 
 @A = external global i32
 @B = external global i32
 @C = external global i32
-@D = external global i32
-@E = external global i32
 
 define i32 @loadA() {
-   %a = load i32, ptr @A
+   %a = load i32, i32* @A
    ret i32 %a
 }
 
@@ -22,15 +20,15 @@ entry:
   br i1 %c, label %if.then, label %if.else
 
 if.then:
-  store i32 1, ptr @B
+  store i32 1, i32* @B
   %call1 = call i32 @loadA()
-  store i32 2, ptr @C
+  store i32 2, i32* @C
   br label %if.endif
 
 if.else:
-  store i32 2, ptr @D
+  store i32 2, i32* @C
   %call2 = call i32 @loadA()
-  store i32 1, ptr @E
+  store i32 1, i32* @B
   br label %if.endif
 
 if.endif:

@@ -12,14 +12,14 @@ target triple = "arm64-apple-ios5.0.0"
 ; CHECK: call void @g
 ; CHECK: store double
 ; CHECK: store double
-define void @f(ptr %p, ptr %q) {
-  %addr2 = getelementptr double, ptr %q, i32 1
-  %addr = getelementptr double, ptr %p, i32 1
-  %x = load double, ptr %p
-  %y = load double, ptr %addr
+define void @f(double* %p, double* %q) {
+  %addr2 = getelementptr double, double* %q, i32 1
+  %addr = getelementptr double, double* %p, i32 1
+  %x = load double, double* %p
+  %y = load double, double* %addr
   call void @g()
-  store double %x, ptr %q
-  store double %y, ptr %addr2
+  store double %x, double* %q
+  store double %y, double* %addr2
   ret void
 }
 declare void @g()
@@ -28,19 +28,19 @@ declare void @g()
 ;
 ; CHECK: store <2 x double>
 ; CHECK: load <2 x double>
-define void @f2(ptr %p, ptr %q) {
+define void @f2(double* %p, double* %q) {
 entry:
   br label %loop
 
 loop:
   %p1 = phi double [0.0, %entry], [%x, %loop]
   %p2 = phi double [0.0, %entry], [%y, %loop]
-  %addr2 = getelementptr double, ptr %q, i32 1
-  %addr = getelementptr double, ptr %p, i32 1
-  store double %p1, ptr %q
-  store double %p2, ptr %addr2
+  %addr2 = getelementptr double, double* %q, i32 1
+  %addr = getelementptr double, double* %p, i32 1
+  store double %p1, double* %q
+  store double %p2, double* %addr2
 
-  %x = load double, ptr %p
-  %y = load double, ptr %addr
+  %x = load double, double* %p
+  %y = load double, double* %addr
   br label %loop
 }

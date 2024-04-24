@@ -1,6 +1,6 @@
 ; RUN: llvm-link -S %s %p/Inputs/type-unique-unrelated2.ll %p/Inputs/type-unique-unrelated3.ll | FileCheck %s
 
-; CHECK: %t = type { ptr }
+; CHECK: %t = type { i8* }
 
 ; CHECK: define %t @f2() {
 ; CHECK-NEXT:   %x = call %t @f2()
@@ -21,7 +21,7 @@
 ; type-unique-unrelated2.ll look unrelated until type-unique-unrelated3.ll
 ; is merged in.
 
-%t = type { ptr }
+%t = type { i8* }
 declare %t @f()
 
 define %t @f2() {

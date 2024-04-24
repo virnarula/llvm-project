@@ -20,10 +20,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK:   br label %polly.stmt.bb13.exit
 
 ; CHECK: polly.stmt.bb5:                                   ; preds = %polly.stmt.bb3
-; CHECK:   load i32, ptr %B
+; CHECK:   load i32, i32* %B
 
 ; Function Attrs: nounwind uwtable
-define void @quux(ptr %arg, ptr %B) {
+define void @quux(%struct.wombat* %arg, i32* %B) {
 bb:
   br i1 undef, label %bb2, label %bb1
 
@@ -41,8 +41,9 @@ bb4:                                              ; preds = %bb3
   br label %bb13
 
 bb5:                                              ; preds = %bb3
-  %tmp7 = load i32, ptr %B
-  store i32 %tmp7, ptr %arg
+  %tmp7 = load i32, i32* %B
+  %tmp12 = getelementptr inbounds %struct.wombat, %struct.wombat* %arg, i64 0, i32 0, i64 0
+  store i32 %tmp7, i32* %tmp12
   br label %bb13
 
 bb13:                                             ; preds = %bb5, %bb4

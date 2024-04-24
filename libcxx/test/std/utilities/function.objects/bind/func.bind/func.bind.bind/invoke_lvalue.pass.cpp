@@ -11,9 +11,9 @@
 // <functional>
 
 // template<CopyConstructible Fn, CopyConstructible... Types>
-//   unspecified bind(Fn, Types...);    // constexpr since C++20
+//   unspecified bind(Fn, Types...);
 // template<Returnable R, CopyConstructible Fn, CopyConstructible... Types>
-//   unspecified bind(Fn, Types...);    // constexpr since C++20
+//   unspecified bind(Fn, Types...);
 
 #include <stdio.h>
 
@@ -140,22 +140,27 @@ test_void_1()
 
 // 1 arg, return int
 
-TEST_CONSTEXPR_CXX20 int f_int_1(int i) {
+int f_int_1(int i)
+{
     return i + 1;
 }
 
-struct A_int_1 {
-    TEST_CONSTEXPR_CXX20 A_int_1() : data_(5) {}
-    TEST_CONSTEXPR_CXX20 int operator()(int i) {
+struct A_int_1
+{
+    A_int_1() : data_(5) {}
+    int operator()(int i)
+    {
         return i - 1;
     }
 
-    TEST_CONSTEXPR_CXX20 int mem1() { return 3; }
-    TEST_CONSTEXPR_CXX20 int mem2() const { return 4; }
+    int mem1() {return 3;}
+    int mem2() const {return 4;}
     int data_;
 };
 
-TEST_CONSTEXPR_CXX20 bool test_int_1() {
+void
+test_int_1()
+{
     using namespace std::placeholders;
     // function
     {
@@ -207,8 +212,6 @@ TEST_CONSTEXPR_CXX20 bool test_int_1() {
     std::bind(&A_int_1::data_, _1)(ap) = 7;
     assert(std::bind(&A_int_1::data_, _1)(ap) == 7);
     }
-
-    return true;
 }
 
 // 2 arg, return void
@@ -260,45 +263,31 @@ test_void_2()
     }
 }
 
-struct ConstQualifiedMemberFunction {
-    TEST_CONSTEXPR_CXX20 bool foo(unsigned long long) const {
+struct TFENode
+{
+    bool foo(unsigned long long) const
+    {
         return true;
     }
 };
 
-TEST_CONSTEXPR_CXX20 bool test_const_qualified_member() {
+void
+test3()
+{
     using namespace std;
     using namespace std::placeholders;
-    const auto f = bind(&ConstQualifiedMemberFunction::foo, _1, 0UL);
-    const ConstQualifiedMemberFunction n = ConstQualifiedMemberFunction{};
+    const auto f = bind(&TFENode::foo, _1, 0UL);
+    const TFENode n = TFENode{};
     bool b = f(n);
     assert(b);
-    return true;
 }
 
-TEST_CONSTEXPR_CXX20 bool test_many_args() {
-    using namespace std::placeholders;
-    auto f = [](int& a, char&, float&, long&) -> int& { return a; };
-    auto bound = std::bind(f, _4, _3, _2, _1);
-    int a = 3; char b = '2'; float c = 1.0f; long d = 0l;
-    int& result = bound(d, c, b, a);
-    assert(&result == &a);
-    return true;
-}
-
-int main(int, char**) {
+int main(int, char**)
+{
     test_void_1();
     test_int_1();
     test_void_2();
-    test_const_qualified_member();
-    test_many_args();
+    test3();
 
-    // The other tests are not constexpr-friendly since they need to use a global variable
-#if TEST_STD_VER >= 20
-    static_assert(test_int_1());
-    static_assert(test_const_qualified_member());
-    static_assert(test_many_args());
-#endif
-
-    return 0;
+  return 0;
 }

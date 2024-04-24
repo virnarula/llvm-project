@@ -18,6 +18,7 @@
 #include "lldb/Breakpoint/Breakpoint.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredDataImpl.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/ScriptInterpreter.h"
@@ -168,12 +169,12 @@ const char *SBBreakpointLocation::GetCondition() {
   LLDB_INSTRUMENT_VA(this);
 
   BreakpointLocationSP loc_sp = GetSP();
-  if (!loc_sp)
-    return nullptr;
-
-  std::lock_guard<std::recursive_mutex> guard(
-      loc_sp->GetTarget().GetAPIMutex());
-  return ConstString(loc_sp->GetConditionText()).GetCString();
+  if (loc_sp) {
+    std::lock_guard<std::recursive_mutex> guard(
+        loc_sp->GetTarget().GetAPIMutex());
+    return loc_sp->GetConditionText();
+  }
+  return nullptr;
 }
 
 void SBBreakpointLocation::SetAutoContinue(bool auto_continue) {
@@ -262,8 +263,7 @@ SBBreakpointLocation::SetScriptCallbackBody(const char *callback_body_text) {
             .GetTarget()
             .GetDebugger()
             .GetScriptInterpreter()
-            ->SetBreakpointCommandCallback(bp_options, callback_body_text,
-                                           /*is_callback=*/false);
+            ->SetBreakpointCommandCallback(bp_options, callback_body_text);
     sb_error.SetError(error);
   } else
     sb_error.SetErrorString("invalid breakpoint");
@@ -365,12 +365,12 @@ const char *SBBreakpointLocation::GetThreadName() const {
   LLDB_INSTRUMENT_VA(this);
 
   BreakpointLocationSP loc_sp = GetSP();
-  if (!loc_sp)
-    return nullptr;
-
-  std::lock_guard<std::recursive_mutex> guard(
-      loc_sp->GetTarget().GetAPIMutex());
-  return ConstString(loc_sp->GetThreadName()).GetCString();
+  if (loc_sp) {
+    std::lock_guard<std::recursive_mutex> guard(
+        loc_sp->GetTarget().GetAPIMutex());
+    return loc_sp->GetThreadName();
+  }
+  return nullptr;
 }
 
 void SBBreakpointLocation::SetQueueName(const char *queue_name) {
@@ -388,12 +388,12 @@ const char *SBBreakpointLocation::GetQueueName() const {
   LLDB_INSTRUMENT_VA(this);
 
   BreakpointLocationSP loc_sp = GetSP();
-  if (!loc_sp)
-    return nullptr;
-
-  std::lock_guard<std::recursive_mutex> guard(
-      loc_sp->GetTarget().GetAPIMutex());
-  return ConstString(loc_sp->GetQueueName()).GetCString();
+  if (loc_sp) {
+    std::lock_guard<std::recursive_mutex> guard(
+        loc_sp->GetTarget().GetAPIMutex());
+    return loc_sp->GetQueueName();
+  }
+  return nullptr;
 }
 
 bool SBBreakpointLocation::IsResolved() {

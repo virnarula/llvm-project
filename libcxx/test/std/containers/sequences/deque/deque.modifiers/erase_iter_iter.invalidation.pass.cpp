@@ -14,7 +14,6 @@
 //  to items that were not erased.
 
 
-#include "asan_testing.h"
 #include <deque>
 #include <cstdint>
 #include <cassert>
@@ -22,7 +21,7 @@
 #include "test_macros.h"
 
 template <typename C>
-void del_at_start(C c, std::size_t num)
+void del_at_start(C c, size_t num)
 {
     typename C::iterator first = c.begin();
     typename C::iterator last  = first + num;
@@ -39,11 +38,10 @@ void del_at_start(C c, std::size_t num)
     assert(  it2 ==   it4);
     assert( *it2 ==  *it4);
     assert(&*it2 == &*it4);
-    LIBCPP_ASSERT(is_double_ended_contiguous_container_asan_correct(c));
 }
 
 template <typename C>
-void del_at_end(C c, std::size_t num)
+void del_at_end(C c, size_t num)
 {
     typename C::iterator last  = c.end();
     typename C::iterator first = last - num;
@@ -60,7 +58,6 @@ void del_at_end(C c, std::size_t num)
     assert(  it2 ==   it4);
     assert( *it2 ==  *it4);
     assert(&*it2 == &*it4);
-    LIBCPP_ASSERT(is_double_ended_contiguous_container_asan_correct(c));
 }
 
 
@@ -72,7 +69,7 @@ int main(int, char**)
 
     while (queue.size() > 1)
     {
-        for (std::size_t i = 1; i < queue.size(); ++i)
+        for (size_t i = 1; i < queue.size(); ++i)
         {
             del_at_start(queue, i);
             del_at_end  (queue, i);

@@ -504,7 +504,7 @@ ValueType
 
 .. py:data:: eValueTypeVariableArgument
 
-   Function argument variable.
+   Funfction argument variable.
 
 .. py:data:: eValueTypeVariableLocal
 
@@ -731,7 +731,6 @@ LanguageType
 .. py:data:: eLanguageTypeFortran03
 .. py:data:: eLanguageTypeFortran08
 .. py:data:: eLanguageTypeMipsAssembler
-.. py:data:: eLanguageTypeMojo
 .. py:data:: eLanguageTypeExtRenderScript
 .. py:data:: eNumLanguageTypes
 
@@ -876,7 +875,6 @@ CommandArgumentType
 .. py:data:: eArgTypeColumnNum
 .. py:data:: eArgTypeModuleUUID
 .. py:data:: eArgTypeLastArg
-.. py:data:: eArgTypeCompletionType
 
 .. _SymbolType:
 
@@ -1409,24 +1407,3 @@ The result from a command interpreter run.
 .. py:data:: eCommandInterpreterResultQuitRequested
 
    Stopped because quit was requested.
-
-
-.. _WatchPointValueKind:
-
-WatchPointValueKind
--------------------
-
-The type of value that the watchpoint was created to monitor.
-
-.. py:data:: eWatchPointValueKindInvalid
-
-   Invalid kind.
-
-.. py:data:: eWatchPointValueKindVariable
-
-   Watchpoint was created watching a variable
-
-.. py:data:: eWatchPointValueKindExpression
-
-   Watchpoint was created watching the result of an expression that was
-   evaluated at creation time.

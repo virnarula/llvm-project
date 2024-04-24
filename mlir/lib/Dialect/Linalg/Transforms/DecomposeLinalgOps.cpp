@@ -10,7 +10,6 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::linalg;
@@ -111,8 +110,8 @@ static SmallVector<OpFoldResult> getGenericOpLoopRange(OpBuilder &b,
       cast<LinalgOp>(op.getOperation()).createFlatListOfOperandDims(b, loc);
   AffineMap map = op.getShapesToLoopsMap();
   IRRewriter rewriter(b);
-  return affine::makeComposedFoldedMultiResultAffineApply(rewriter, loc, map,
-                                                          allShapesSizes);
+  return makeComposedFoldedMultiResultAffineApply(rewriter, loc, map,
+                                                  allShapesSizes);
 }
 
 /// Helper method to permute the list of `values` based on the `map`.
@@ -122,7 +121,7 @@ SmallVector<OpFoldResult> permuteValues(ArrayRef<OpFoldResult> values,
   SmallVector<OpFoldResult> permutedValues(values.size());
   for (const auto &position :
        llvm::enumerate(llvm::map_range(map.getResults(), [](AffineExpr expr) {
-         return cast<AffineDimExpr>(expr).getPosition();
+         return expr.cast<AffineDimExpr>().getPosition();
        })))
     permutedValues[position.value()] = values[position.index()];
   return permutedValues;
@@ -132,12 +131,12 @@ SmallVector<OpFoldResult> permuteValues(ArrayRef<OpFoldResult> values,
 static Value getZero(OpBuilder &b, Location loc, Type elementType) {
   assert(elementType.isIntOrIndexOrFloat() &&
          "expected scalar type while computing zero value");
-  if (isa<IntegerType>(elementType))
+  if (elementType.isa<IntegerType>())
     return b.create<arith::ConstantIntOp>(loc, 0, elementType);
   if (elementType.isIndex())
     return b.create<arith::ConstantIndexOp>(loc, 0);
   // Assume float.
-  auto floatType = cast<FloatType>(elementType);
+  auto floatType = elementType.cast<FloatType>();
   return b.create<arith::ConstantFloatOp>(
       loc, APFloat::getZero(floatType.getFloatSemantics()), floatType);
 }
@@ -162,7 +161,7 @@ DecomposeLinalgOp::createPeeledGenericOp(GenericOp genericOp,
     // If the result is yielded by the original op, use the operand, indexing
     // map and result type that correspond to the yielded value.
 
-    std::optional<unsigned> resultNumber;
+    Optional<unsigned> resultNumber;
     for (auto *user : scalarOpResult.getUsers()) {
       if (auto yieldOp = dyn_cast<YieldOp>(user)) {
         // Find the first use of the `scalarOpResult` in the yield op.
@@ -179,7 +178,7 @@ DecomposeLinalgOp::createPeeledGenericOp(GenericOp genericOp,
     if (resultNumber) {
       newInitValues.push_back(
           genericOp.getDpsInitOperand(*resultNumber)->get());
-      OpResult result = cast<OpResult>(genericOp.getResult(*resultNumber));
+      OpResult result = genericOp.getResult(*resultNumber).cast<OpResult>();
       newResultTypes.push_back(result.getType());
       peeledGenericOpIndexingMaps.push_back(
           genericOp.getIndexingMapMatchingResult(result));
@@ -231,12 +230,12 @@ DecomposeLinalgOp::createResidualGenericOp(GenericOp genericOp,
       }));
   for (auto resultNum :
        llvm::seq<unsigned>(origNumResults, peeledGenericOpNumResults)) {
-    OpResult result = cast<OpResult>(peeledGenericOp.getResult(resultNum));
+    OpResult result = peeledGenericOp.getResult(resultNum).cast<OpResult>();
     indexingMaps.push_back(
         peeledGenericOp.getIndexingMapMatchingResult(result));
   }
-  for (OpOperand &outOperand : genericOp.getDpsInitsMutable())
-    indexingMaps.push_back(genericOp.getMatchingIndexingMap(&outOperand));
+  for (OpOperand *outOperand : genericOp.getDpsInitOperands())
+    indexingMaps.push_back(genericOp.getMatchingIndexingMap(outOperand));
 
   auto indexingMapAttr = rewriter.getAffineMapArrayAttr(indexingMaps);
   return rewriter.create<GenericOp>(
@@ -258,13 +257,13 @@ DecomposeLinalgOp::matchAndRewrite(GenericOp genericOp,
   // TODO: this could be generalized to handle `linalg.generic` with buffer
   // operands too but requires allocation for intermediates. Punt on this for
   // now.
-  if (!genericOp.hasPureTensorSemantics()) {
+  if (!genericOp.hasTensorSemantics()) {
     return rewriter.notifyMatchFailure(
         genericOp, "only operations with tensor semantics are handled");
   }
 
-  if (llvm::any_of(genericOp.getDpsInitsMutable(), [&](OpOperand &outOperand) {
-        return !genericOp.getMatchingIndexingMap(&outOperand).isPermutation();
+  if (llvm::any_of(genericOp.getDpsInitOperands(), [&](OpOperand *outOperand) {
+        return !genericOp.getMatchingIndexingMap(outOperand).isPermutation();
       })) {
     return rewriter.notifyMatchFailure(
         genericOp, "unhandled decomposition of generic op with out operand not "
@@ -312,11 +311,6 @@ DecomposeLinalgOp::matchAndRewrite(GenericOp genericOp,
       if (origYield.getDefiningOp() == peeledScalarOperation) {
         yieldedVals.push_back(origYield);
       } else {
-        // Do not materialize any new ops inside of the decomposed LinalgOp,
-        // as that would trigger another application of the rewrite pattern
-        // (infinite loop).
-        OpBuilder::InsertionGuard g(rewriter);
-        rewriter.setInsertionPoint(peeledGenericOp);
         yieldedVals.push_back(
             getZero(rewriter, genericOp.getLoc(), origYield.getType()));
       }
@@ -334,15 +328,15 @@ DecomposeLinalgOp::matchAndRewrite(GenericOp genericOp,
        llvm::enumerate(genericOp.getBody()->getArguments())) {
     Value residualOpReplacementArg =
         residualGenericOpBody->getArgument(inputBlockArg.index());
-    rewriter.replaceUsesWithIf(
-        inputBlockArg.value(), residualOpReplacementArg, [&](OpOperand &use) {
+    inputBlockArg.value().replaceUsesWithIf(
+        residualOpReplacementArg, [&](OpOperand &use) {
           return use.getOwner()->getBlock() == residualGenericOpBody;
         });
 
     Value peeledOpReplacementArg =
         peeledGenericOpBody->getArgument(inputBlockArg.index());
-    rewriter.replaceUsesWithIf(
-        inputBlockArg.value(), peeledOpReplacementArg, [&](OpOperand &use) {
+    inputBlockArg.value().replaceUsesWithIf(
+        peeledOpReplacementArg, [&](OpOperand &use) {
           return use.getOwner()->getBlock() == peeledGenericOpBody;
         });
   }
@@ -353,7 +347,7 @@ DecomposeLinalgOp::matchAndRewrite(GenericOp genericOp,
   /// the peeled operation.
   SmallVector<Value> replacements;
   for (const auto &yieldValue : llvm::enumerate(yieldOp->getOperands())) {
-    OpResult opr = dyn_cast<OpResult>(yieldValue.value());
+    OpResult opr = yieldValue.value().dyn_cast<OpResult>();
     if (!opr || opr.getOwner() != peeledScalarOperation)
       replacements.push_back(residualGenericOp.getResult(yieldValue.index()));
     else
@@ -382,9 +376,6 @@ DecomposeLinalgOp::matchAndRewrite(GenericOp genericOp,
 }
 
 void mlir::linalg::populateDecomposeLinalgOpsPattern(
-    RewritePatternSet &patterns, bool removeDeadArgsAndResults) {
+    RewritePatternSet &patterns) {
   patterns.insert<DecomposeLinalgOp>(patterns.getContext());
-  // Add the patterns to clean up the dead operands and results.
-  if (removeDeadArgsAndResults)
-    populateEraseUnusedOperandsAndResultsPatterns(patterns);
 }

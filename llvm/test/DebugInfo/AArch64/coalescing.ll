@@ -1,7 +1,7 @@
 ; RUN: llc -filetype=obj %s -o - | llvm-dwarfdump - | FileCheck %s
 ;
 ; Generated at -Os from:
-; ptr foo(ptr dst);
+; void *foo(void *dst);
 ; void start() {
 ;   unsigned size;
 ;   foo(&size);
@@ -17,8 +17,9 @@ target triple = "arm64-apple-ios"
 define void @_Z5startv() #0 !dbg !4 {
 entry:
   %size = alloca i32, align 4
-  %call = call ptr @_Z3fooPv(ptr %size) #3, !dbg !15
-  call void @llvm.dbg.value(metadata ptr %size, metadata !10, metadata !16), !dbg !17
+  %0 = bitcast i32* %size to i8*, !dbg !15
+  %call = call i8* @_Z3fooPv(i8* %0) #3, !dbg !15
+  call void @llvm.dbg.value(metadata i32* %size, metadata !10, metadata !16), !dbg !17
 
   ; The *location* of the variable should be $sp+12. This tells the debugger to
   ; look up its value in [$sp+12].
@@ -31,7 +32,7 @@ entry:
 }
 
 ; Function Attrs: optsize
-declare ptr @_Z3fooPv(ptr) #1
+declare i8* @_Z3fooPv(i8*) #1
 
 ; Function Attrs: nounwind readnone
 declare void @llvm.dbg.value(metadata, metadata, metadata) #2

@@ -26,7 +26,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -115,7 +114,7 @@ public:
 
   /// Return the bit # of the bit we are reading.
   uint64_t GetCurrentBitNo() const {
-    return uint64_t(NextChar)*CHAR_BIT - BitsInCurWord;
+    return NextChar*CHAR_BIT - BitsInCurWord;
   }
 
   // Return the byte # of the current bit.
@@ -169,7 +168,8 @@ public:
     if (BitcodeBytes.size() >= NextChar + sizeof(word_t)) {
       BytesRead = sizeof(word_t);
       CurWord =
-          support::endian::read<word_t, llvm::endianness::little>(NextCharPtr);
+          support::endian::read<word_t, support::little, support::unaligned>(
+              NextCharPtr);
     } else {
       // Short read.
       BytesRead = BitcodeBytes.size() - NextChar;
@@ -560,11 +560,11 @@ public:
   Error ReadAbbrevRecord();
 
   /// Read and return a block info block from the bitstream. If an error was
-  /// encountered, return std::nullopt.
+  /// encountered, return None.
   ///
   /// \param ReadBlockInfoNames Whether to read block/record name information in
   /// the BlockInfo block. Only llvm-bcanalyzer uses this.
-  Expected<std::optional<BitstreamBlockInfo>>
+  Expected<Optional<BitstreamBlockInfo>>
   ReadBlockInfoBlock(bool ReadBlockInfoNames = false);
 
   /// Set the block info to be used by this BitstreamCursor to interpret

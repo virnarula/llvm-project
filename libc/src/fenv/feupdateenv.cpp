@@ -12,7 +12,7 @@
 
 #include <fenv.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, feupdateenv, (const fenv_t *envp)) {
   int current_excepts = fputil::test_except(FE_ALL_EXCEPT);
@@ -21,4 +21,4 @@ LLVM_LIBC_FUNCTION(int, feupdateenv, (const fenv_t *envp)) {
   return fputil::raise_except(current_excepts);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

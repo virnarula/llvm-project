@@ -19,7 +19,7 @@
 # CHECK-NEXT:         <internal>:(.bss.rel.ro)
 ## Ideally this is displayed as copy@v2.
 # CHECK-NEXT:                 copy{{$}}
-# CHECK-NEXT: .relro_padding
+# CHECK-NEXT: .got.plt
 
 #--- 1.s
 .global _start

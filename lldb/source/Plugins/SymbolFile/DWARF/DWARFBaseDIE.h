@@ -13,10 +13,7 @@
 #include "lldb/lldb-types.h"
 
 #include "llvm/Support/Error.h"
-#include <optional>
 
-namespace lldb_private::plugin {
-namespace dwarf {
 class DIERef;
 class DWARFASTParser;
 class DWARFAttributes;
@@ -58,7 +55,7 @@ public:
 
   DWARFDebugInfoEntry *GetDIE() const { return m_die; }
 
-  std::optional<DIERef> GetDIERef() const;
+  llvm::Optional<DIERef> GetDIERef() const;
 
   void Set(DWARFUnit *cu, DWARFDebugInfoEntry *die) {
     if (cu && die) {
@@ -80,7 +77,7 @@ public:
   // correct section data.
   //
   // Clients must validate that this object is valid before calling this.
-  const DWARFDataExtractor &GetData() const;
+  const lldb_private::DWARFDataExtractor &GetData() const;
 
   // Accessing information about a DIE
   dw_tag_t Tag() const;
@@ -110,14 +107,15 @@ public:
   uint64_t GetAttributeValueAsUnsigned(const dw_attr_t attr,
                                        uint64_t fail_value) const;
 
-  std::optional<uint64_t>
+  llvm::Optional<uint64_t>
   GetAttributeValueAsOptionalUnsigned(const dw_attr_t attr) const;
 
   uint64_t GetAttributeValueAsAddress(const dw_attr_t attr,
                                       uint64_t fail_value) const;
 
   enum class Recurse : bool { no, yes };
-  DWARFAttributes GetAttributes(Recurse recurse = Recurse::yes) const;
+  size_t GetAttributes(DWARFAttributes &attributes,
+                       Recurse recurse = Recurse::yes) const;
 
 protected:
   DWARFUnit *m_cu = nullptr;
@@ -126,7 +124,5 @@ protected:
 
 bool operator==(const DWARFBaseDIE &lhs, const DWARFBaseDIE &rhs);
 bool operator!=(const DWARFBaseDIE &lhs, const DWARFBaseDIE &rhs);
-} // namespace dwarf
-} // namespace lldb_private::plugin
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFBASEDIE_H

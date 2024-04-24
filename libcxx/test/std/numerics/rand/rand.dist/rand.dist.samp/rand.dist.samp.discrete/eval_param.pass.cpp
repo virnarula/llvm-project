@@ -15,10 +15,11 @@
 
 // template<class _URNG> result_type operator()(_URNG& g, const param_type& parm);
 
-#include <cassert>
-#include <cstdlib>
 #include <random>
 #include <vector>
+#include <cassert>
+
+#include "test_macros.h"
 
 int main(int, char**)
 {

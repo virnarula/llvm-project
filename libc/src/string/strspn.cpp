@@ -12,18 +12,17 @@
 #include "src/__support/common.h"
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(size_t, strspn, (const char *src, const char *segment)) {
   const char *initial = src;
   cpp::bitset<256> bitset;
 
   for (; *segment; ++segment)
-    bitset.set(*reinterpret_cast<const unsigned char *>(segment));
-  for (; *src && bitset.test(*reinterpret_cast<const unsigned char *>(src));
-       ++src)
+    bitset.set(*segment);
+  for (; *src && bitset.test(*src); ++src)
     ;
   return src - initial;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

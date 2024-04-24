@@ -15,7 +15,6 @@
 
 #include "lldb/Host/posix/ConnectionFileDescriptorPosix.h"
 #include "lldb/Host/Config.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Socket.h"
 #include "lldb/Host/SocketAddress.h"
 #include "lldb/Utility/LLDBLog.h"
@@ -201,6 +200,9 @@ ConnectionStatus ConnectionFileDescriptor::Disconnect(Status *error_ptr) {
         static_cast<void *>(this));
     return eConnectionStatusSuccess;
   }
+
+  if (m_io_sp->GetFdType() == IOObject::eFDTypeSocket)
+    static_cast<Socket &>(*m_io_sp).PreDisconnect();
 
   // Try to get the ConnectionFileDescriptor's mutex.  If we fail, that is
   // quite likely because somebody is doing a blocking read on our file
@@ -510,7 +512,7 @@ ConnectionFileDescriptor::BytesAvailable(const Timeout<std::micro> &timeout,
           ssize_t bytes_read =
               llvm::sys::RetryAfterSignal(-1, ::read, pipe_fd, &c, 1);
           assert(bytes_read == 1);
-          UNUSED_IF_ASSERT_DISABLED(bytes_read);
+          (void)bytes_read;
           switch (c) {
           case 'q':
             LLDB_LOGF(log,
@@ -724,7 +726,7 @@ ConnectionStatus ConnectionFileDescriptor::ConnectFile(
 #if LLDB_ENABLE_POSIX
   std::string addr_str = s.str();
   // file:///PATH
-  int fd = FileSystem::Instance().Open(addr_str.c_str(), O_RDWR);
+  int fd = llvm::sys::RetryAfterSignal(-1, ::open, addr_str.c_str(), O_RDWR);
   if (fd == -1) {
     if (error_ptr)
       error_ptr->SetErrorToErrno();
@@ -774,7 +776,7 @@ ConnectionStatus ConnectionFileDescriptor::ConnectSerialPort(
     return eConnectionStatusError;
   }
 
-  int fd = FileSystem::Instance().Open(path.str().c_str(), O_RDWR);
+  int fd = llvm::sys::RetryAfterSignal(-1, ::open, path.str().c_str(), O_RDWR);
   if (fd == -1) {
     if (error_ptr)
       error_ptr->SetErrorToErrno();

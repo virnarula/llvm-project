@@ -1,8 +1,8 @@
 // RUN: %check_clang_tidy %s performance-faster-string-find %t
 // RUN: %check_clang_tidy -check-suffix=CUSTOM %s performance-faster-string-find %t -- \
 // RUN:   -config="{CheckOptions: \
-// RUN:             {performance-faster-string-find.StringLikeClasses: \
-// RUN:                '::llvm::StringRef;'}}"
+// RUN:             [{key: performance-faster-string-find.StringLikeClasses, \
+// RUN:               value: '::llvm::StringRef;'}]}"
 
 namespace std {
 template <typename Char>
@@ -56,20 +56,12 @@ void StringFind() {
   // CHECK-MESSAGES: [[@LINE-1]]:12: warning: 'find' called with a string literal
   // CHECK-FIXES: Str.find('a', 1);
 
-  // Doesn't work with strings smaller or larger than 1 char.
+  // Doens't work with strings smaller or larger than 1 char.
   Str.find("");
   Str.find("ab");
 
   // Doesn't do anything with the 3 argument overload.
   Str.find("a", 1, 1);
-
-  // Single quotes are escaped properly
-  Str.find("'");
-  // CHECK-MESSAGES: [[@LINE-1]]:12: warning: 'find' called with a string literal
-  // CHECK-FIXES: Str.find('\'');
-  Str.find("\'");
-  // CHECK-MESSAGES: [[@LINE-1]]:12: warning: 'find' called with a string literal
-  // CHECK-FIXES: Str.find('\'');
 
   // Other methods that can also be replaced
   Str.rfind("a");

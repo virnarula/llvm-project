@@ -7,15 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/IR/Location.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Support/LogicalResult.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/Config/abi-breaking.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "dataflow"
 #if LLVM_ENABLE_ABI_BREAKING_CHECKS
@@ -38,21 +30,6 @@ GenericProgramPoint::~GenericProgramPoint() = default;
 
 AnalysisState::~AnalysisState() = default;
 
-void AnalysisState::addDependency(ProgramPoint dependent,
-                                  DataFlowAnalysis *analysis) {
-  auto inserted = dependents.insert({dependent, analysis});
-  (void)inserted;
-  DATAFLOW_DEBUG({
-    if (inserted) {
-      llvm::dbgs() << "Creating dependency between " << debugName << " of "
-                   << point << "\nand " << debugName << " on " << dependent
-                   << "\n";
-    }
-  });
-}
-
-void AnalysisState::dump() const { print(llvm::errs()); }
-
 //===----------------------------------------------------------------------===//
 // ProgramPoint
 //===----------------------------------------------------------------------===//
@@ -62,21 +39,21 @@ void ProgramPoint::print(raw_ostream &os) const {
     os << "<NULL POINT>";
     return;
   }
-  if (auto *programPoint = llvm::dyn_cast<GenericProgramPoint *>(*this))
+  if (auto *programPoint = dyn_cast<GenericProgramPoint *>())
     return programPoint->print(os);
-  if (auto *op = llvm::dyn_cast<Operation *>(*this))
-    return op->print(os, OpPrintingFlags().skipRegions());
-  if (auto value = llvm::dyn_cast<Value>(*this))
-    return value.print(os, OpPrintingFlags().skipRegions());
+  if (auto *op = dyn_cast<Operation *>())
+    return op->print(os);
+  if (auto value = dyn_cast<Value>())
+    return value.print(os);
   return get<Block *>()->print(os);
 }
 
 Location ProgramPoint::getLoc() const {
-  if (auto *programPoint = llvm::dyn_cast<GenericProgramPoint *>(*this))
+  if (auto *programPoint = dyn_cast<GenericProgramPoint *>())
     return programPoint->getLoc();
-  if (auto *op = llvm::dyn_cast<Operation *>(*this))
+  if (auto *op = dyn_cast<Operation *>())
     return op->getLoc();
-  if (auto value = llvm::dyn_cast<Value>(*this))
+  if (auto value = dyn_cast<Value>())
     return value.getLoc();
   return get<Block *>()->getParent()->getLoc();
 }
@@ -120,8 +97,24 @@ void DataFlowSolver::propagateIfChanged(AnalysisState *state,
     DATAFLOW_DEBUG(llvm::dbgs() << "Propagating update to " << state->debugName
                                 << " of " << state->point << "\n"
                                 << "Value: " << *state << "\n");
+    for (const WorkItem &item : state->dependents)
+      enqueue(item);
     state->onUpdate(this);
   }
+}
+
+void DataFlowSolver::addDependency(AnalysisState *state,
+                                   DataFlowAnalysis *analysis,
+                                   ProgramPoint point) {
+  auto inserted = state->dependents.insert({point, analysis});
+  (void)inserted;
+  DATAFLOW_DEBUG({
+    if (inserted) {
+      llvm::dbgs() << "Creating dependency between " << state->debugName
+                   << " of " << state->point << "\nand " << analysis->debugName
+                   << " on " << point << "\n";
+    }
+  });
 }
 
 //===----------------------------------------------------------------------===//
@@ -133,7 +126,7 @@ DataFlowAnalysis::~DataFlowAnalysis() = default;
 DataFlowAnalysis::DataFlowAnalysis(DataFlowSolver &solver) : solver(solver) {}
 
 void DataFlowAnalysis::addDependency(AnalysisState *state, ProgramPoint point) {
-  state->addDependency(point, this);
+  solver.addDependency(state, this, point);
 }
 
 void DataFlowAnalysis::propagateIfChanged(AnalysisState *state,

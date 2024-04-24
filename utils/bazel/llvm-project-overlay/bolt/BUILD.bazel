@@ -2,8 +2,6 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
-
 package(
     default_visibility = ["//visibility:public"],
 )
@@ -19,12 +17,12 @@ cc_binary(
         ":Profile",
         ":Rewrite",
         ":Utils",
-        "//llvm:AllTargetsAsmParsers",
-        "//llvm:AllTargetsDisassemblers",
         "//llvm:MC",
         "//llvm:Object",
         "//llvm:Support",
-    ],
+        "//llvm:AllTargetsAsmParsers",
+        "//llvm:AllTargetsDisassemblers",
+    ]
 )
 
 cc_binary(
@@ -35,7 +33,7 @@ cc_binary(
     deps = [
         ":Profile",
         "//llvm:Support",
-    ],
+    ]
 )
 
 cc_binary(
@@ -48,9 +46,9 @@ cc_binary(
         ":Profile",
         ":Rewrite",
         ":RuntimeLibs",
-        ":TargetAArch64",
-        ":TargetX86",
         ":Utils",
+        ":TargetX86",
+        ":TargetAArch64",
         "//llvm:AllTargetsAsmParsers",
         "//llvm:AllTargetsCodeGens",
         "//llvm:AllTargetsDisassemblers",
@@ -83,26 +81,14 @@ cc_library(
         "//llvm:DWP",
         "//llvm:DebugInfoDWARF",
         "//llvm:Demangle",
-        "//llvm:DWARFLinker",
-        "//llvm:JITLink",
+        "//llvm:ExecutionEngine",
         "//llvm:MC",
         "//llvm:MCDisassembler",
         "//llvm:MCParser",
         "//llvm:Object",
-        "//llvm:OrcShared",
         "//llvm:Support",
         "//llvm:ir_headers",
     ],
-)
-
-expand_template(
-    name = "RuntimeLibraryVariables_inc",
-    out = "include/bolt/RuntimeLibs/RuntimeLibraryVariables.inc",
-    substitutions = {
-        # FIXME this is a total guess
-        "@LLVM_LIBDIR_SUFFIX@": "lib",
-    },
-    template = "include/bolt/RuntimeLibs/RuntimeLibraryVariables.inc.in",
 )
 
 cc_library(
@@ -110,10 +96,10 @@ cc_library(
     srcs = glob([
         "lib/RuntimeLibs/*.cpp",
     ]),
-    includes = ["include"],
-    textual_hdrs = glob([
+    hdrs = glob([
         "include/bolt/RuntimeLibs/*.h",
-    ]) + ["include/bolt/RuntimeLibs/RuntimeLibraryVariables.inc"],
+    ]),
+    includes = ["include"],
     deps = [
         ":Core",
         ":Passes",
@@ -124,6 +110,7 @@ cc_library(
         "//llvm:DWP",
         "//llvm:DebugInfoDWARF",
         "//llvm:Demangle",
+        "//llvm:ExecutionEngine",
         "//llvm:MC",
         "//llvm:MCDisassembler",
         "//llvm:MCParser",
@@ -156,7 +143,6 @@ cc_library(
         "//llvm:MCParser",
         "//llvm:Object",
         "//llvm:Support",
-        "//llvm:TransformUtils",
     ],
 )
 
@@ -184,7 +170,6 @@ cc_library(
         "//llvm:Object",
         "//llvm:Support",
         "//llvm:Target",
-        "//llvm:TransformUtils",
     ],
 )
 
@@ -199,6 +184,8 @@ cc_library(
     includes = ["include"],
     deps = [
         ":Core",
+        "//llvm:X86CommonTableGen",
+        "//llvm:X86UtilsAndDesc",
         "//llvm:Analysis",
         "//llvm:BinaryFormat",
         "//llvm:CodeGen",
@@ -211,8 +198,6 @@ cc_library(
         "//llvm:MCParser",
         "//llvm:Object",
         "//llvm:Support",
-        "//llvm:X86CommonTableGen",
-        "//llvm:X86UtilsAndDesc",
     ],
 )
 
@@ -268,9 +253,7 @@ cc_library(
         "//llvm:MCDisassembler",
         "//llvm:MCParser",
         "//llvm:Object",
-        "//llvm:ObjectYAML",
         "//llvm:Support",
-        "//llvm:TargetParser",
         "//llvm:ir_headers",
     ],
 )

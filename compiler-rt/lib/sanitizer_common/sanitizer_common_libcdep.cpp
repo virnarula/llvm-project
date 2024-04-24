@@ -67,8 +67,6 @@ void *BackgroundThread(void *arg) {
       } else if (soft_rss_limit_mb >= current_rss_mb &&
                  reached_soft_rss_limit) {
         reached_soft_rss_limit = false;
-        Report("%s: soft rss limit unexhausted (%zdMb vs %zdMb)\n",
-               SanitizerToolName, soft_rss_limit_mb, current_rss_mb);
         SetRssLimitExceeded(false);
       }
     }
@@ -119,10 +117,8 @@ void MaybeStartBackgroudThread() {}
 #endif
 
 void WriteToSyslog(const char *msg) {
-  if (!msg)
-    return;
   InternalScopedString msg_copy;
-  msg_copy.Append(msg);
+  msg_copy.append("%s", msg);
   const char *p = msg_copy.data();
 
   // Print one line at a time.

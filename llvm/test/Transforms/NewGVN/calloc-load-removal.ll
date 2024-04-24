@@ -5,14 +5,15 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 ; Function Attrs: nounwind uwtable
 define i32 @test1() {
-  %1 = tail call noalias ptr @calloc(i64 1, i64 4)
+  %1 = tail call noalias i8* @calloc(i64 1, i64 4)
+  %2 = bitcast i8* %1 to i32*
   ; This load is trivially constant zero
-  %2 = load i32, ptr %1, align 4
-  ret i32 %2
+  %3 = load i32, i32* %2, align 4
+  ret i32 %3
 
 ; CHECK-LABEL: @test1(
-; CHECK-NOT: %2 = load i32, ptr %1, align 4
+; CHECK-NOT: %3 = load i32, i32* %2, align 4
 ; CHECK: ret i32 0
 }
 
-declare noalias ptr @calloc(i64, i64) mustprogress nofree nounwind willreturn allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc"
+declare noalias i8* @calloc(i64, i64) mustprogress nofree nounwind willreturn allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc"

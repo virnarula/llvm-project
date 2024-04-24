@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include <string>
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 /// Finds base classes whose destructor is neither public and virtual
 /// nor protected and non-virtual.
@@ -32,6 +34,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CPPCOREGUIDELINES_VIRTUALCLASSDESTRUCTORCHECK_H

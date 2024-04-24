@@ -67,20 +67,20 @@ class GlobalModuleIndex {
 
   /// Information about a given module file.
   struct ModuleInfo {
-    ModuleInfo() = default;
+    ModuleInfo() : File(), Size(), ModTime() { }
 
     /// The module file, once it has been resolved.
-    ModuleFile *File = nullptr;
+    ModuleFile *File;
 
     /// The module file name.
     std::string FileName;
 
     /// Size of the module file at the time the global index was built.
-    off_t Size = 0;
+    off_t Size;
 
     /// Modification time of the module file at the time the global
     /// index was built.
-    time_t ModTime = 0;
+    time_t ModTime;
 
     /// The module IDs on which this module directly depends.
     /// FIXME: We don't really need a vector here.
@@ -135,6 +135,12 @@ public:
   ///
   /// The caller accepts ownership of the returned object.
   IdentifierIterator *createIdentifierIterator() const;
+
+  /// Retrieve the set of modules that have up-to-date indexes.
+  ///
+  /// \param ModuleFiles Will be populated with the set of module files that
+  /// have been indexed.
+  void getKnownModules(llvm::SmallVectorImpl<ModuleFile *> &ModuleFiles);
 
   /// Retrieve the set of module files on which the given module file
   /// directly depends.

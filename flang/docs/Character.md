@@ -8,10 +8,9 @@
 
 # Implementation of `CHARACTER` types in f18
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 ## Kinds and Character Sets

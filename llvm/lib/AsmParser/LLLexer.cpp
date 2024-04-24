@@ -158,7 +158,8 @@ static const char *isLabelTail(const char *CurPtr) {
 
 LLLexer::LLLexer(StringRef StartBuf, SourceMgr &SM, SMDiagnostic &Err,
                  LLVMContext &C)
-    : CurBuf(StartBuf), ErrorInfo(Err), SM(SM), Context(C) {
+    : CurBuf(StartBuf), ErrorInfo(Err), SM(SM), Context(C), APFloatVal(0.0),
+      IgnoreColonInIdentifiers(false) {
   CurPtr = CurBuf.begin();
 }
 
@@ -279,7 +280,7 @@ lltok::Kind LLLexer::LexDollar() {
       if (CurChar == '"') {
         StrVal.assign(TokStart + 2, CurPtr - 1);
         UnEscapeLexed(StrVal);
-        if (StringRef(StrVal).contains(0)) {
+        if (StringRef(StrVal).find_first_of(0) != StringRef::npos) {
           Error("Null bytes are not allowed in names");
           return lltok::Error;
         }
@@ -362,7 +363,7 @@ lltok::Kind LLLexer::LexVar(lltok::Kind Var, lltok::Kind VarID) {
       if (CurChar == '"') {
         StrVal.assign(TokStart+2, CurPtr-1);
         UnEscapeLexed(StrVal);
-        if (StringRef(StrVal).contains(0)) {
+        if (StringRef(StrVal).find_first_of(0) != StringRef::npos) {
           Error("Null bytes are not allowed in names");
           return lltok::Error;
         }
@@ -397,7 +398,7 @@ lltok::Kind LLLexer::LexQuote() {
 
   if (CurPtr[0] == ':') {
     ++CurPtr;
-    if (StringRef(StrVal).contains(0)) {
+    if (StringRef(StrVal).find_first_of(0) != StringRef::npos) {
       Error("Null bytes are not allowed in names");
       kind = lltok::Error;
     } else {
@@ -564,14 +565,11 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(nuw);
   KEYWORD(nsw);
   KEYWORD(exact);
-  KEYWORD(disjoint);
   KEYWORD(inbounds);
-  KEYWORD(nneg);
   KEYWORD(inrange);
   KEYWORD(addrspace);
   KEYWORD(section);
   KEYWORD(partition);
-  KEYWORD(code_model);
   KEYWORD(alias);
   KEYWORD(ifunc);
   KEYWORD(module);
@@ -612,6 +610,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(x86_64_sysvcc);
   KEYWORD(win64cc);
   KEYWORD(x86_regcallcc);
+  KEYWORD(webkit_jscc);
   KEYWORD(swiftcc);
   KEYWORD(swifttailcc);
   KEYWORD(anyregcc);
@@ -629,13 +628,9 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(amdgpu_gs);
   KEYWORD(amdgpu_ps);
   KEYWORD(amdgpu_cs);
-  KEYWORD(amdgpu_cs_chain);
-  KEYWORD(amdgpu_cs_chain_preserve);
   KEYWORD(amdgpu_kernel);
   KEYWORD(amdgpu_gfx);
   KEYWORD(tailcc);
-  KEYWORD(m68k_rtdcc);
-  KEYWORD(graalcc);
 
   KEYWORD(cc);
   KEYWORD(c);
@@ -654,27 +649,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(readwrite);
   KEYWORD(argmem);
   KEYWORD(inaccessiblemem);
-  KEYWORD(argmemonly);
-  KEYWORD(inaccessiblememonly);
-  KEYWORD(inaccessiblemem_or_argmemonly);
-
-  // nofpclass attribute
-  KEYWORD(all);
-  KEYWORD(nan);
-  KEYWORD(snan);
-  KEYWORD(qnan);
-  KEYWORD(inf);
-  // ninf already a keyword
-  KEYWORD(pinf);
-  KEYWORD(norm);
-  KEYWORD(nnorm);
-  KEYWORD(pnorm);
-  // sub already a keyword
-  KEYWORD(nsub);
-  KEYWORD(psub);
-  KEYWORD(zero);
-  KEYWORD(nzero);
-  KEYWORD(pzero);
 
   KEYWORD(type);
   KEYWORD(opaque);
@@ -695,10 +669,7 @@ lltok::Kind LLLexer::LexIdentifier() {
 
   KEYWORD(xchg); KEYWORD(nand); KEYWORD(max); KEYWORD(min); KEYWORD(umax);
   KEYWORD(umin); KEYWORD(fmax); KEYWORD(fmin);
-  KEYWORD(uinc_wrap);
-  KEYWORD(udec_wrap);
 
-  KEYWORD(splat);
   KEYWORD(vscale);
   KEYWORD(x);
   KEYWORD(blockaddress);
@@ -798,13 +769,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(byte);
   KEYWORD(bit);
   KEYWORD(varFlags);
-  KEYWORD(callsites);
-  KEYWORD(clones);
-  KEYWORD(stackIds);
-  KEYWORD(allocs);
-  KEYWORD(versions);
-  KEYWORD(memProf);
-  KEYWORD(notcold);
 
 #undef KEYWORD
 
@@ -830,7 +794,18 @@ lltok::Kind LLLexer::LexIdentifier() {
   TYPEKEYWORD("x86_mmx",   Type::getX86_MMXTy(Context));
   TYPEKEYWORD("x86_amx",   Type::getX86_AMXTy(Context));
   TYPEKEYWORD("token",     Type::getTokenTy(Context));
-  TYPEKEYWORD("ptr",       PointerType::getUnqual(Context));
+
+  if (Keyword == "ptr") {
+    // setOpaquePointers() must be called before creating any pointer types.
+    if (!Context.hasSetOpaquePointersValue()) {
+      Context.setOpaquePointers(true);
+    } else if (Context.supportsTypedPointers()) {
+      Warning("ptr type is only supported in -opaque-pointers mode");
+      return lltok::Error;
+    }
+    TyVal = PointerType::getUnqual(Context);
+    return lltok::Type;
+  }
 
 #undef TYPEKEYWORD
 
@@ -906,7 +881,7 @@ lltok::Kind LLLexer::LexIdentifier() {
 
 #define DWKEYWORD(TYPE, TOKEN)                                                 \
   do {                                                                         \
-    if (Keyword.starts_with("DW_" #TYPE "_")) {                                \
+    if (Keyword.startswith("DW_" #TYPE "_")) {                                 \
       StrVal.assign(Keyword.begin(), Keyword.end());                           \
       return lltok::TOKEN;                                                     \
     }                                                                          \
@@ -922,17 +897,17 @@ lltok::Kind LLLexer::LexIdentifier() {
 
 #undef DWKEYWORD
 
-  if (Keyword.starts_with("DIFlag")) {
+  if (Keyword.startswith("DIFlag")) {
     StrVal.assign(Keyword.begin(), Keyword.end());
     return lltok::DIFlag;
   }
 
-  if (Keyword.starts_with("DISPFlag")) {
+  if (Keyword.startswith("DISPFlag")) {
     StrVal.assign(Keyword.begin(), Keyword.end());
     return lltok::DISPFlag;
   }
 
-  if (Keyword.starts_with("CSK_")) {
+  if (Keyword.startswith("CSK_")) {
     StrVal.assign(Keyword.begin(), Keyword.end());
     return lltok::ChecksumKind;
   }
@@ -943,8 +918,7 @@ lltok::Kind LLLexer::LexIdentifier() {
     return lltok::EmissionKind;
   }
 
-  if (Keyword == "GNU" || Keyword == "Apple" || Keyword == "None" ||
-      Keyword == "Default") {
+  if (Keyword == "GNU" || Keyword == "None" || Keyword == "Default") {
     StrVal.assign(Keyword.begin(), Keyword.end());
     return lltok::NameTableKind;
   }

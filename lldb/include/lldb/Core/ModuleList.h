@@ -340,22 +340,26 @@ public:
                                        lldb::SymbolType symbol_type,
                                        SymbolContextList &sc_list) const;
 
-  /// Find types using a type-matching object that contains all search
-  /// parameters.
+  /// Find types by name.
   ///
   /// \param[in] search_first
   ///     If non-null, this module will be searched before any other
   ///     modules.
   ///
-  /// \param[in] query
-  ///     A type matching object that contains all of the details of the type
-  ///     search.
+  /// \param[in] name
+  ///     The name of the type we are looking for.
   ///
-  /// \param[in] results
-  ///     Any matching types will be populated into the \a results object using
-  ///     TypeMap::InsertUnique(...).
-  void FindTypes(Module *search_first, const TypeQuery &query,
-                 lldb_private::TypeResults &results) const;
+  /// \param[in] max_matches
+  ///     Allow the number of matches to be limited to \a
+  ///     max_matches. Specify UINT32_MAX to get all possible matches.
+  ///
+  /// \param[out] types
+  ///     A type list gets populated with any matches.
+  ///
+  void FindTypes(Module *search_first, ConstString name,
+                 bool name_is_fully_qualified, size_t max_matches,
+                 llvm::DenseSet<SymbolFile *> &searched_symbol_files,
+                 TypeList &types) const;
 
   bool FindSourceFile(const FileSpec &orig_spec, FileSpec &new_spec) const;
 
@@ -436,7 +440,7 @@ public:
   bool IsEmpty() const { return !GetSize(); }
 
   bool LoadScriptingResourcesInTarget(Target *target, std::list<Status> &errors,
-                                      Stream &feedback_stream,
+                                      Stream *feedback_stream = nullptr,
                                       bool continue_on_error = true);
 
   static ModuleListProperties &GetGlobalModuleListProperties();
@@ -460,24 +464,8 @@ public:
 
   static bool RemoveSharedModuleIfOrphaned(const Module *module_ptr);
 
-  /// Applies 'callback' to each module in this ModuleList.
-  /// If 'callback' returns false, iteration terminates.
-  /// The 'module_sp' passed to 'callback' is guaranteed to
-  /// be non-null.
-  ///
-  /// This function is thread-safe.
   void ForEach(std::function<bool(const lldb::ModuleSP &module_sp)> const
                    &callback) const;
-
-  /// Returns true if 'callback' returns true for one of the modules
-  /// in this ModuleList.
-  ///
-  /// This function is thread-safe.
-  bool AnyOf(
-      std::function<bool(lldb_private::Module &module)> const &callback) const;
-
-  /// Atomically swaps the contents of this module list with \a other.
-  void Swap(ModuleList &other);
 
 protected:
   // Class typedefs.

@@ -23,7 +23,6 @@
 #include "llvm/ProfileData/SampleProfReader.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/SampleProfile.h"
-#include <optional>
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-discriminate-memops"
@@ -145,8 +144,8 @@ bool X86DiscriminateMemOps::runOnMachineFunction(MachineFunction &MF) {
       if (!TryInsert.second || !HasDebug) {
         unsigned BF, DF, CI = 0;
         DILocation::decodeDiscriminator(DI->getDiscriminator(), BF, DF, CI);
-        std::optional<unsigned> EncodedDiscriminator =
-            DILocation::encodeDiscriminator(MemOpDiscriminators[L] + 1, DF, CI);
+        Optional<unsigned> EncodedDiscriminator = DILocation::encodeDiscriminator(
+            MemOpDiscriminators[L] + 1, DF, CI);
 
         if (!EncodedDiscriminator) {
           // FIXME(mtrofin): The assumption is that this scenario is infrequent/OK

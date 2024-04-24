@@ -217,8 +217,6 @@ public:
 
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &U);
-
-  static bool isRequired() { return true; }
 };
 
 } // namespace llvm

@@ -177,7 +177,6 @@ FormatToken FormatLexer::lexIdentifier(const char *tokStart) {
       StringSwitch<FormatToken::Kind>(str)
           .Case("attr-dict", FormatToken::kw_attr_dict)
           .Case("attr-dict-with-keyword", FormatToken::kw_attr_dict_w_keyword)
-          .Case("prop-dict", FormatToken::kw_prop_dict)
           .Case("custom", FormatToken::kw_custom)
           .Case("functional-type", FormatToken::kw_functional_type)
           .Case("oilist", FormatToken::kw_oilist)
@@ -383,9 +382,9 @@ FailureOr<FormatElement *> FormatParser::parseOptionalGroup(Context ctx) {
   unsigned thenParseStart = std::distance(thenElements.begin(), thenParseBegin);
   unsigned elseParseStart = std::distance(elseElements.begin(), elseParseBegin);
 
-  if (!isa<LiteralElement, VariableElement, CustomDirective>(*thenParseBegin)) {
+  if (!isa<LiteralElement, VariableElement>(*thenParseBegin)) {
     return emitError(loc, "first parsable element of an optional group must be "
-                          "a literal, variable, or custom directive");
+                          "a literal or variable");
   }
   return create<OptionalElement>(std::move(thenElements),
                                  std::move(elseElements), thenParseStart,

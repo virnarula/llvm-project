@@ -233,7 +233,8 @@ class file_status : public basic_file_status {
   #elif defined (_WIN32)
   uint32_t NumLinks = 0;
   uint32_t VolumeSerialNumber = 0;
-  uint64_t PathHash = 0;
+  uint32_t FileIndexHigh = 0;
+  uint32_t FileIndexLow = 0;
   #endif
 
 public:
@@ -254,12 +255,13 @@ public:
               uint32_t LastAccessTimeHigh, uint32_t LastAccessTimeLow,
               uint32_t LastWriteTimeHigh, uint32_t LastWriteTimeLow,
               uint32_t VolumeSerialNumber, uint32_t FileSizeHigh,
-              uint32_t FileSizeLow, uint64_t PathHash)
+              uint32_t FileSizeLow, uint32_t FileIndexHigh,
+              uint32_t FileIndexLow)
       : basic_file_status(Type, Perms, LastAccessTimeHigh, LastAccessTimeLow,
                           LastWriteTimeHigh, LastWriteTimeLow, FileSizeHigh,
                           FileSizeLow),
         NumLinks(LinkCount), VolumeSerialNumber(VolumeSerialNumber),
-        PathHash(PathHash) {}
+        FileIndexHigh(FileIndexHigh), FileIndexLow(FileIndexLow) {}
   #endif
 
   UniqueID getUniqueID() const;
@@ -792,7 +794,7 @@ enum OpenFlags : unsigned {
 /// is false the current directory will be used instead.
 ///
 /// This function does not check if the file exists. If you want to be sure
-/// that the file does not yet exist, you should use enough '%' characters
+/// that the file does not yet exist, you should use use enough '%' characters
 /// in your model to ensure this. Each '%' gives 4-bits of entropy so you can
 /// use 32 of them to get 128 bits of entropy.
 ///

@@ -20,7 +20,6 @@
 using namespace lldb;
 using namespace lldb_private;
 
-namespace {
 class TestArmv7Disassembly : public testing::Test {
 public:
   static void SetUpTestCase();
@@ -43,7 +42,6 @@ void TestArmv7Disassembly::SetUpTestCase() {
 void TestArmv7Disassembly::TearDownTestCase() {
   DisassemblerLLVMC::Terminate();
 }
-} // namespace
 
 TEST_F(TestArmv7Disassembly, TestCortexFPDisass) {
   ArchSpec arch("armv7em--");

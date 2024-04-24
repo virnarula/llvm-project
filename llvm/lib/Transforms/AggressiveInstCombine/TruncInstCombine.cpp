@@ -366,7 +366,7 @@ static Type *getReducedType(Value *V, Type *Ty) {
 Value *TruncInstCombine::getReducedOperand(Value *V, Type *SclTy) {
   Type *Ty = getReducedType(V, SclTy);
   if (auto *C = dyn_cast<Constant>(V)) {
-    C = ConstantExpr::getTrunc(C, Ty);
+    C = ConstantExpr::getIntegerCast(C, Ty, false);
     // If we got a constantexpr back, try to simplify it with DL info.
     return ConstantFoldConstant(C, DL, &TLI);
   }

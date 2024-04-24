@@ -238,7 +238,7 @@ public:
     }
   };
   class LValuePathSerializationHelper {
-    const void *Ty;
+    const void *ElemTy;
 
   public:
     ArrayRef<LValuePathEntry> Path;
@@ -267,19 +267,15 @@ private:
   };
   struct LV;
   struct Vec {
-    APValue *Elts = nullptr;
-    unsigned NumElts = 0;
-    Vec() = default;
-    Vec(const Vec &) = delete;
-    Vec &operator=(const Vec &) = delete;
+    APValue *Elts;
+    unsigned NumElts;
+    Vec() : Elts(nullptr), NumElts(0) {}
     ~Vec() { delete[] Elts; }
   };
   struct Arr {
     APValue *Elts;
     unsigned NumElts, ArrSize;
     Arr(unsigned NumElts, unsigned ArrSize);
-    Arr(const Arr &) = delete;
-    Arr &operator=(const Arr &) = delete;
     ~Arr();
   };
   struct StructData {
@@ -287,16 +283,12 @@ private:
     unsigned NumBases;
     unsigned NumFields;
     StructData(unsigned NumBases, unsigned NumFields);
-    StructData(const StructData &) = delete;
-    StructData &operator=(const StructData &) = delete;
     ~StructData();
   };
   struct UnionData {
     const FieldDecl *Field;
     APValue *Value;
     UnionData();
-    UnionData(const UnionData &) = delete;
-    UnionData &operator=(const UnionData &) = delete;
     ~UnionData();
   };
   struct AddrLabelDiffData {

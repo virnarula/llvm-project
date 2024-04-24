@@ -206,7 +206,7 @@ public:
   void setIsGNUVarargs() { IsGNUVarargs = true; }
   bool isC99Varargs() const { return IsC99Varargs; }
   bool isGNUVarargs() const { return IsGNUVarargs; }
-  bool isVariadic() const { return IsC99Varargs || IsGNUVarargs; }
+  bool isVariadic() const { return IsC99Varargs | IsGNUVarargs; }
 
   /// Return true if this macro requires processing before expansion.
   ///
@@ -247,7 +247,7 @@ public:
   }
   bool tokens_empty() const { return NumReplacementTokens == 0; }
   ArrayRef<Token> tokens() const {
-    return llvm::ArrayRef(ReplacementTokens, NumReplacementTokens);
+    return llvm::makeArrayRef(ReplacementTokens, NumReplacementTokens);
   }
 
   llvm::MutableArrayRef<Token>
@@ -257,7 +257,7 @@ public:
     NumReplacementTokens = NumTokens;
     Token *NewReplacementTokens = PPAllocator.Allocate<Token>(NumTokens);
     ReplacementTokens = NewReplacementTokens;
-    return llvm::MutableArrayRef(NewReplacementTokens, NumTokens);
+    return llvm::makeMutableArrayRef(NewReplacementTokens, NumTokens);
   }
 
   void setTokens(ArrayRef<Token> Tokens, llvm::BumpPtrAllocator &PPAllocator) {
@@ -325,18 +325,15 @@ protected:
   SourceLocation Loc;
 
   /// MacroDirective kind.
-  LLVM_PREFERRED_TYPE(Kind)
   unsigned MDKind : 2;
 
   /// True if the macro directive was loaded from a PCH file.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned IsFromPCH : 1;
 
   // Used by VisibilityMacroDirective ----------------------------------------//
 
   /// Whether the macro has public visibility (when described in a
   /// module).
-  LLVM_PREFERRED_TYPE(bool)
   unsigned IsPublic : 1;
 
   MacroDirective(Kind K, SourceLocation Loc)
@@ -575,7 +572,7 @@ public:
   }
 
   ArrayRef<ModuleMacro *> overrides() const {
-    return llvm::ArrayRef(overrides_begin(), overrides_end());
+    return llvm::makeArrayRef(overrides_begin(), overrides_end());
   }
   /// \}
 

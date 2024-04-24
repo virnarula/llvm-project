@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=bpfel -filetype=obj -o - %s | llvm-objdump -d - | FileCheck %s
+; RUN: llc -march=bpfel -filetype=obj -o - %s | llvm-objdump -d - | FileCheck %s
 ;
 ; Source:
 ;   int test() {

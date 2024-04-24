@@ -11,10 +11,10 @@
 
 #include <dirent.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 ::DIR *opendir(const char *name);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_DIRENT_OPENDIR_H

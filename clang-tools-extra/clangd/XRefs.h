@@ -19,9 +19,9 @@
 #include "index/SymbolID.h"
 #include "support/Path.h"
 #include "clang/AST/ASTTypeTraits.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 #include <vector>
 
 namespace clang {
@@ -44,7 +44,7 @@ struct LocatedSymbol {
   // The canonical or best declaration: where most users find its interface.
   Location PreferredDeclaration;
   // Where the symbol is defined, if known. May equal PreferredDeclaration.
-  std::optional<Location> Definition;
+  llvm::Optional<Location> Definition;
   // SymbolID of the located symbol if available.
   SymbolID ID;
 };
@@ -88,7 +88,7 @@ struct ReferencesResult {
     Override = 1 << 2,
   };
   struct Reference {
-    ReferenceLocation Loc;
+    Location Loc;
     unsigned Attributes = 0;
   };
   std::vector<Reference> References;
@@ -107,14 +107,12 @@ std::vector<LocatedSymbol> findImplementations(ParsedAST &AST, Position Pos,
 ///
 /// For example, given `b^ar()` wher bar return Foo, this function returns the
 /// definition of class Foo.
-std::vector<LocatedSymbol> findType(ParsedAST &AST, Position Pos,
-                                    const SymbolIndex *Index);
+std::vector<LocatedSymbol> findType(ParsedAST &AST, Position Pos);
 
 /// Returns references of the symbol at a specified \p Pos.
 /// \p Limit limits the number of results returned (0 means no limit).
 ReferencesResult findReferences(ParsedAST &AST, Position Pos, uint32_t Limit,
-                                const SymbolIndex *Index = nullptr,
-                                bool AddContext = false);
+                                const SymbolIndex *Index = nullptr);
 
 /// Get info about symbols at \p Pos.
 std::vector<SymbolDetails> getSymbolInfo(ParsedAST &AST, Position Pos);
@@ -133,7 +131,7 @@ std::vector<TypeHierarchyItem> getTypeHierarchy(
 
 /// Returns direct parents of a TypeHierarchyItem using SymbolIDs stored inside
 /// the item.
-std::optional<std::vector<TypeHierarchyItem>>
+llvm::Optional<std::vector<TypeHierarchyItem>>
 superTypes(const TypeHierarchyItem &Item, const SymbolIndex *Index);
 /// Returns direct children of a TypeHierarchyItem.
 std::vector<TypeHierarchyItem> subTypes(const TypeHierarchyItem &Item,

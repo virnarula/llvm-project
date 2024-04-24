@@ -95,7 +95,7 @@ def TileZeroOp : AMX_Op<"tile_zero", [Pure]> {
     VectorOfRankAndType<[2], [F32, BF16, I32, I8]>:$res);
   let extraClassDeclaration = [{
     VectorType getVectorType() {
-      return ::llvm::cast<VectorType>(getRes().getType());
+      return getRes().getType().cast<VectorType>();
     }
   }];
   let assemblyFormat = "attr-dict `:` type($res)";
@@ -126,10 +126,10 @@ def TileLoadOp : AMX_Op<"tile_load", [Pure]> {
     VectorOfRankAndType<[2], [F32, BF16, I32, I8]>:$res);
   let extraClassDeclaration = [{
     MemRefType getMemRefType() {
-      return ::llvm::cast<MemRefType>(getBase().getType());
+      return getBase().getType().cast<MemRefType>();
     }
     VectorType getVectorType() {
-      return ::llvm::cast<VectorType>(getRes().getType());
+      return getRes().getType().cast<VectorType>();
     }
   }];
   let assemblyFormat = "$base `[` $indices `]` attr-dict `:` "
@@ -156,10 +156,10 @@ def TileStoreOp : AMX_Op<"tile_store"> {
                    VectorOfRankAndType<[2], [F32, BF16, I32, I8]>:$val);
   let extraClassDeclaration = [{
     MemRefType getMemRefType() {
-      return ::llvm::cast<MemRefType>(getBase().getType());
+      return getBase().getType().cast<MemRefType>();
     }
     VectorType getVectorType() {
-      return ::llvm::cast<VectorType>(getVal().getType());
+      return getVal().getType().cast<VectorType>();
     }
   }];
   let assemblyFormat = "$base `[` $indices `]` `,` $val attr-dict `:` "
@@ -193,13 +193,13 @@ def TileMulFOp : AMX_Op<"tile_mulf", [
   let results = (outs VectorOfRankAndType<[2], [F32, BF16]>:$res);
   let extraClassDeclaration = [{
     VectorType getLhsVectorType() {
-      return ::llvm::cast<VectorType>(getLhs().getType());
+      return getLhs().getType().cast<VectorType>();
     }
     VectorType getRhsVectorType() {
-      return ::llvm::cast<VectorType>(getRhs().getType());
+      return getRhs().getType().cast<VectorType>();
     }
     VectorType getVectorType() {
-      return ::llvm::cast<VectorType>(getRes().getType());
+      return getRes().getType().cast<VectorType>();
     }
   }];
   let assemblyFormat = "$lhs `,` $rhs `,` $acc attr-dict `:` "
@@ -235,13 +235,13 @@ def TileMulIOp : AMX_Op<"tile_muli", [
   let results = (outs VectorOfRankAndType<[2], [I32, I8]>:$res);
   let extraClassDeclaration = [{
     VectorType getLhsVectorType() {
-      return ::llvm::cast<VectorType>(getLhs().getType());
+      return getLhs().getType().cast<VectorType>();
     }
     VectorType getRhsVectorType() {
-      return ::llvm::cast<VectorType>(getRhs().getType());
+      return getRhs().getType().cast<VectorType>();
     }
     VectorType getVectorType() {
-      return ::llvm::cast<VectorType>(getRes().getType());
+      return getRes().getType().cast<VectorType>();
     }
   }];
   let assemblyFormat = "$lhs (`zext` $isZextLhs^)? `,` $rhs (`zext` $isZextRhs^)? `,` $acc attr-dict `:` "

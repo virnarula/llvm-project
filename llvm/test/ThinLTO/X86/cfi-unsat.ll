@@ -31,26 +31,28 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-grtev4-linux-gnu"
 
-%struct.A = type { ptr }
+%struct.A = type { i32 (...)** }
 
 $test2 = comdat any
 
-define linkonce_odr i32 @test2(ptr %obj, i32 %a) comdat {
+define linkonce_odr i32 @test2(%struct.A* %obj, i32 %a) comdat {
 entry:
-  %vtable5 = load ptr, ptr %obj
+  %0 = bitcast %struct.A* %obj to i8**
+  %vtable5 = load i8*, i8** %0
 
-  %0 = tail call { ptr, i1 } @llvm.type.checked.load(ptr %vtable5, i32 8, metadata !"_ZTS1A")
-  %1 = extractvalue { ptr, i1 } %0, 1
-  br i1 %1, label %cont, label %trap
+  %1 = tail call { i8*, i1 } @llvm.type.checked.load(i8* %vtable5, i32 8, metadata !"_ZTS1A")
+  %2 = extractvalue { i8*, i1 } %1, 1
+  br i1 %2, label %cont, label %trap
 
 trap:
   tail call void @llvm.trap()
   unreachable
 
 cont:
-  %2 = extractvalue { ptr, i1 } %0, 0
+  %3 = extractvalue { i8*, i1 } %1, 0
+  %4 = bitcast i8* %3 to i32 (%struct.A*, i32)*
 
-  %call = tail call i32 %2(ptr nonnull %obj, i32 %a)
+  %call = tail call i32 %4(%struct.A* nonnull %obj, i32 %a)
 
   ret i32 %call
 }
@@ -74,5 +76,5 @@ cont:
 ; CHECK-IR1-NEXT:     unreachable
 ; CHECK-IR1-NEXT:   }
 
-declare { ptr, i1 } @llvm.type.checked.load(ptr, i32, metadata)
+declare { i8*, i1 } @llvm.type.checked.load(i8*, i32, metadata)
 declare void @llvm.trap()

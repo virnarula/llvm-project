@@ -1,6 +1,6 @@
 ; Exit blocks need to be updated for all nested loops...
 
-; RUN: opt < %s -passes=loop-simplify
+; RUN: opt < %s -loop-simplify
 
 define i32 @yyparse() {
 bb0:

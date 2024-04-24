@@ -79,7 +79,7 @@ void AArch64CondBrTuning::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 MachineInstr *AArch64CondBrTuning::getOperandDef(const MachineOperand &MO) {
-  if (!MO.getReg().isVirtual())
+  if (!Register::isVirtualRegister(MO.getReg()))
     return nullptr;
   return MRI->getUniqueVRegDef(MO.getReg());
 }

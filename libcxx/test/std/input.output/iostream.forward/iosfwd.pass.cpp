@@ -28,6 +28,7 @@ int main(int, char**)
 #ifndef TEST_HAS_NO_WIDE_CHARACTERS
     test<std::char_traits<wchar_t>*       >();
 #endif
+    test<std::char_traits<unsigned short>*>();
 
     test<std::basic_ios<char>*          >();
 #ifndef TEST_HAS_NO_WIDE_CHARACTERS

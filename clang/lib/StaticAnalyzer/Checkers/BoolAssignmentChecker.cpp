@@ -17,14 +17,13 @@
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
 
 namespace {
   class BoolAssignmentChecker : public Checker< check::Bind > {
-    const BugType BT{this, "Assignment of a non-Boolean value"};
+    mutable std::unique_ptr<BuiltinBug> BT;
     void emitReport(ProgramStateRef state, CheckerContext &C,
                     bool IsTainted = false) const;
 
@@ -36,9 +35,12 @@ namespace {
 void BoolAssignmentChecker::emitReport(ProgramStateRef state, CheckerContext &C,
                                        bool IsTainted) const {
   if (ExplodedNode *N = C.generateNonFatalErrorNode(state)) {
+    if (!BT)
+      BT.reset(new BuiltinBug(this, "Assignment of a non-Boolean value"));
+
     StringRef Msg = IsTainted ? "Might assign a tainted non-Boolean value"
                               : "Assignment of a non-Boolean value";
-    C.emitReport(std::make_unique<PathSensitiveBugReport>(BT, Msg, N));
+    C.emitReport(std::make_unique<PathSensitiveBugReport>(*BT, Msg, N));
   }
 }
 
@@ -72,7 +74,7 @@ void BoolAssignmentChecker::checkBind(SVal loc, SVal val, const Stmt *S,
   // Get the value of the right-hand side.  We only care about values
   // that are defined (UnknownVals and UndefinedVals are handled by other
   // checkers).
-  std::optional<NonLoc> NV = val.getAs<NonLoc>();
+  Optional<NonLoc> NV = val.getAs<NonLoc>();
   if (!NV)
     return;
 

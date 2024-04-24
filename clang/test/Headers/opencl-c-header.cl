@@ -187,9 +187,6 @@ global atomic_int z = ATOMIC_VAR_INIT(99);
 #if __opencl_c_ext_fp64_local_atomic_min_max != 1
 #error "Incorrectly defined __opencl_c_ext_fp64_local_atomic_min_max"
 #endif
-#if __opencl_c_ext_image_raw10_raw12 != 1
-#error "Incorrectly defined __opencl_c_ext_image_raw10_raw12"
-#endif
 
 #else
 
@@ -233,49 +230,46 @@ global atomic_int z = ATOMIC_VAR_INIT(99);
 #error "Incorrect cl_ext_float_atomics define"
 #endif
 #ifdef __opencl_c_ext_fp16_global_atomic_load_store
-#error "Incorrect __opencl_c_ext_fp16_global_atomic_load_store define"
+#error "Incorrectly __opencl_c_ext_fp16_global_atomic_load_store defined"
 #endif
 #ifdef __opencl_c_ext_fp16_local_atomic_load_store
-#error "Incorrect __opencl_c_ext_fp16_local_atomic_load_store define"
+#error "Incorrectly __opencl_c_ext_fp16_local_atomic_load_store defined"
 #endif
 #ifdef __opencl_c_ext_fp16_global_atomic_add
-#error "Incorrect __opencl_c_ext_fp16_global_atomic_add define"
+#error "Incorrectly __opencl_c_ext_fp16_global_atomic_add defined"
 #endif
 #ifdef __opencl_c_ext_fp32_global_atomic_add
-#error "Incorrect __opencl_c_ext_fp32_global_atomic_add define"
+#error "Incorrectly __opencl_c_ext_fp32_global_atomic_add defined"
 #endif
 #ifdef __opencl_c_ext_fp64_global_atomic_add
-#error "Incorrect __opencl_c_ext_fp64_global_atomic_add define"
+#error "Incorrectly __opencl_c_ext_fp64_global_atomic_add defined"
 #endif
 #ifdef __opencl_c_ext_fp16_local_atomic_add
-#error "Incorrect __opencl_c_ext_fp16_local_atomic_add define"
+#error "Incorrectly __opencl_c_ext_fp16_local_atomic_add defined"
 #endif
 #ifdef __opencl_c_ext_fp32_local_atomic_add
-#error "Incorrect __opencl_c_ext_fp32_local_atomic_add define"
+#error "Incorrectly __opencl_c_ext_fp32_local_atomic_add defined"
 #endif
 #ifdef __opencl_c_ext_fp64_local_atomic_add
-#error "Incorrect __opencl_c_ext_fp64_local_atomic_add define"
+#error "Incorrectly __opencl_c_ext_fp64_local_atomic_add defined"
 #endif
 #ifdef __opencl_c_ext_fp16_global_atomic_min_max
-#error "Incorrect __opencl_c_ext_fp16_global_atomic_min_max define"
+#error "Incorrectly __opencl_c_ext_fp16_global_atomic_min_max defined"
 #endif
 #ifdef __opencl_c_ext_fp32_global_atomic_min_max
-#error "Incorrect __opencl_c_ext_fp32_global_atomic_min_max define"
+#error "Incorrectly __opencl_c_ext_fp32_global_atomic_min_max defined"
 #endif
 #ifdef __opencl_c_ext_fp64_global_atomic_min_max
-#error "Incorrect __opencl_c_ext_fp64_global_atomic_min_max define"
+#error "Incorrectly __opencl_c_ext_fp64_global_atomic_min_max defined"
 #endif
 #ifdef __opencl_c_ext_fp16_local_atomic_min_max
-#error "Incorrect __opencl_c_ext_fp16_local_atomic_min_max define"
+#error "Incorrectly __opencl_c_ext_fp16_local_atomic_min_max defined"
 #endif
 #ifdef __opencl_c_ext_fp32_local_atomic_min_max
-#error "Incorrect __opencl_c_ext_fp32_local_atomic_min_max define"
+#error "Incorrectly __opencl_c_ext_fp32_local_atomic_min_max defined"
 #endif
 #ifdef __opencl_c_ext_fp64_local_atomic_min_max
-#error "Incorrect __opencl_c_ext_fp64_local_atomic_min_max define"
-#endif
-#ifdef __opencl_c_ext_image_raw10_raw12
-#error "Incorrect __opencl_c_ext_image_raw10_raw12 define"
+#error "Incorrectly __opencl_c_ext_fp64_local_atomic_min_max defined"
 #endif
 
 #endif //(defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)

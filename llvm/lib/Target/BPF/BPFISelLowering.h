@@ -23,7 +23,7 @@ class BPFSubtarget;
 namespace BPFISD {
 enum NodeType : unsigned {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
-  RET_GLUE,
+  RET_FLAG,
   CALL,
   SELECT_CC,
   BR_CC,
@@ -71,23 +71,20 @@ private:
   bool HasAlu32;
   bool HasJmp32;
   bool HasJmpExt;
-  bool HasMovsx;
 
-  SDValue LowerSDIVSREM(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
 
   // Lower the result values of a call, copying them out of physregs into vregs
-  SDValue LowerCallResult(SDValue Chain, SDValue InGlue,
+  SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
                           CallingConv::ID CallConv, bool IsVarArg,
                           const SmallVectorImpl<ISD::InputArg> &Ins,
                           const SDLoc &DL, SelectionDAG &DAG,
                           SmallVectorImpl<SDValue> &InVals) const;
 
   // Maximum number of arguments to a call
-  static const size_t MaxArgs;
+  static const unsigned MaxArgs;
 
   // Lower a call into CALLSEQ_START - BPFISD:CALL - CALLSEQ_END chain
   SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
@@ -146,7 +143,6 @@ private:
   // For 32bit ALU result zext to 64bit is free.
   bool isZExtFree(Type *Ty1, Type *Ty2) const override;
   bool isZExtFree(EVT VT1, EVT VT2) const override;
-  bool isZExtFree(SDValue Val, EVT VT2) const override;
 
   unsigned EmitSubregExt(MachineInstr &MI, MachineBasicBlock *BB, unsigned Reg,
                          bool isSigned) const;

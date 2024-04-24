@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/__support/threads/thread.h"
-#include "test/IntegrationTest/test.h"
+#include "utils/IntegrationTest/test.h"
 
 static constexpr int INIT_VAL = 100;
 static constexpr int UPDATE_VAL = 123;
@@ -24,12 +24,12 @@ int func(void *) {
 void thread_local_test() {
   int retval;
 
-  LIBC_NAMESPACE::Thread th1;
+  __llvm_libc::Thread th1;
   th1.run(func, nullptr, nullptr, 0);
   th1.join(&retval);
   ASSERT_EQ(retval, INIT_VAL);
 
-  LIBC_NAMESPACE::Thread th2;
+  __llvm_libc::Thread th2;
   th2.run(func, nullptr, nullptr, 0);
   th2.join(&retval);
   ASSERT_EQ(retval, INIT_VAL);

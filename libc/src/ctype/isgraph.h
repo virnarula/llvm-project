@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_CTYPE_ISGRAPH_H
 #define LLVM_LIBC_SRC_CTYPE_ISGRAPH_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int isgraph(int c);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif //  LLVM_LIBC_SRC_CTYPE_ISGRAPH_H

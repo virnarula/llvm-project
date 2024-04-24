@@ -21,7 +21,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
-#include <optional>
 
 using namespace llvm;
 using namespace polly;
@@ -338,7 +337,6 @@ private:
   ///
   ///{
   const SCEV *visitConstant(const SCEVConstant *E) { return E; }
-  const SCEV *visitVScale(const SCEVVScale *E) { return E; }
   const SCEV *visitPtrToIntExpr(const SCEVPtrToIntExpr *E) {
     return SE.getPtrToIntExpr(visit(E->getOperand()), E->getType());
   }
@@ -701,11 +699,11 @@ static MDNode *findNamedMetadataNode(MDNode *LoopMD, StringRef Name) {
   return nullptr;
 }
 
-static std::optional<const MDOperand *> findNamedMetadataArg(MDNode *LoopID,
-                                                             StringRef Name) {
+static Optional<const MDOperand *> findNamedMetadataArg(MDNode *LoopID,
+                                                        StringRef Name) {
   MDNode *MD = findNamedMetadataNode(LoopID, Name);
   if (!MD)
-    return std::nullopt;
+    return None;
   switch (MD->getNumOperands()) {
   case 1:
     return nullptr;
@@ -716,11 +714,11 @@ static std::optional<const MDOperand *> findNamedMetadataArg(MDNode *LoopID,
   }
 }
 
-std::optional<Metadata *> polly::findMetadataOperand(MDNode *LoopMD,
-                                                     StringRef Name) {
+Optional<Metadata *> polly::findMetadataOperand(MDNode *LoopMD,
+                                                StringRef Name) {
   MDNode *MD = findNamedMetadataNode(LoopMD, Name);
   if (!MD)
-    return std::nullopt;
+    return None;
   switch (MD->getNumOperands()) {
   case 1:
     return nullptr;
@@ -731,11 +729,11 @@ std::optional<Metadata *> polly::findMetadataOperand(MDNode *LoopMD,
   }
 }
 
-static std::optional<bool> getOptionalBoolLoopAttribute(MDNode *LoopID,
-                                                        StringRef Name) {
+static Optional<bool> getOptionalBoolLoopAttribute(MDNode *LoopID,
+                                                   StringRef Name) {
   MDNode *MD = findNamedMetadataNode(LoopID, Name);
   if (!MD)
-    return std::nullopt;
+    return None;
   switch (MD->getNumOperands()) {
   case 1:
     return true;
@@ -752,16 +750,16 @@ bool polly::getBooleanLoopAttribute(MDNode *LoopID, StringRef Name) {
   return getOptionalBoolLoopAttribute(LoopID, Name).value_or(false);
 }
 
-std::optional<int> polly::getOptionalIntLoopAttribute(MDNode *LoopID,
-                                                      StringRef Name) {
+llvm::Optional<int> polly::getOptionalIntLoopAttribute(MDNode *LoopID,
+                                                       StringRef Name) {
   const MDOperand *AttrMD =
       findNamedMetadataArg(LoopID, Name).value_or(nullptr);
   if (!AttrMD)
-    return std::nullopt;
+    return None;
 
   ConstantInt *IntMD = mdconst::extract_or_null<ConstantInt>(AttrMD->get());
   if (!IntMD)
-    return std::nullopt;
+    return None;
 
   return IntMD->getSExtValue();
 }

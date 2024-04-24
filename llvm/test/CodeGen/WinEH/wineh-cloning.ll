@@ -1,5 +1,4 @@
-; RUN: opt -mtriple=x86_64-pc-windows-msvc -S -win-eh-prepare  < %s | FileCheck %s
-; RUN: opt -mtriple=x86_64-pc-windows-msvc -S -passes=win-eh-prepare  < %s | FileCheck %s
+; RUN: opt -mtriple=x86_64-pc-windows-msvc -S -winehprepare  < %s | FileCheck %s
 
 declare i32 @__CxxFrameHandler3(...)
 declare i32 @__C_specific_handler(...)
@@ -12,7 +11,7 @@ declare void @llvm.bar() nounwind
 declare i32 @llvm.qux() nounwind
 declare i1 @llvm.baz() nounwind
 
-define void @test1() personality ptr @__CxxFrameHandler3 {
+define void @test1() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   ; %x def colors: {entry} subset of use colors; must spill
   %x = call i32 @llvm.qux()
@@ -45,7 +44,7 @@ noreturn:
 ; CHECK:   call void @llvm.foo(i32 %x)
 
 
-define void @test2() personality ptr @__CxxFrameHandler3 {
+define void @test2() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   invoke void @f()
     to label %exit unwind label %cleanup
@@ -72,7 +71,7 @@ exit:
 ; CHECK-NEXT: ret void
 
 
-define void @test3() personality ptr @__CxxFrameHandler3 {
+define void @test3() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   invoke void @f()
     to label %invoke.cont unwind label %catch.switch
@@ -111,7 +110,7 @@ exit:
 ; CHECK:   ret void
 
 
-define void @test4() personality ptr @__CxxFrameHandler3 {
+define void @test4() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   invoke void @f()
     to label %shared unwind label %catch.switch
@@ -196,7 +195,7 @@ exit:
 ; CHECK:    unreachable
 
 
-define void @test5() personality ptr @__C_specific_handler {
+define void @test5() personality i32 (...)* @__C_specific_handler {
 entry:
   invoke void @f()
     to label %exit unwind label %outer
@@ -234,7 +233,7 @@ exit:
 ; CHECK-NEXT:   br label %outer.ret
 
 
-define void @test10() personality ptr @__CxxFrameHandler3 {
+define void @test10() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   invoke void @f()
     to label %unreachable unwind label %inner
@@ -269,7 +268,7 @@ unreachable:
 ; CHECK:      exit:
 ; CHECK-NEXT:   ret void
 
-define void @test11() personality ptr @__C_specific_handler {
+define void @test11() personality i32 (...)* @__C_specific_handler {
 entry:
   invoke void @f()
     to label %exit unwind label %cleanup.outer
@@ -296,7 +295,7 @@ exit:
 ; CHECK-NEXT: call void @llvm.bar()
 ; CHECK-NEXT: unreachable
 
-define void @test12() personality ptr @__CxxFrameHandler3 !dbg !5 {
+define void @test12() personality i32 (...)* @__CxxFrameHandler3 !dbg !5 {
 entry:
   invoke void @f()
     to label %cont unwind label %left, !dbg !8
@@ -320,7 +319,7 @@ exit:
 
 ; CHECK-LABEL: define void @test13()
 ; CHECK: ret void
-define void @test13() personality ptr @__CxxFrameHandler3 {
+define void @test13() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   ret void
 
@@ -329,7 +328,7 @@ unreachable:
   unreachable
 }
 
-define void @test14() personality ptr @ProcessCLRException {
+define void @test14() personality void (...)* @ProcessCLRException {
 entry:
   invoke void @f()
     to label %cont unwind label %cleanup

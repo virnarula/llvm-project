@@ -11,7 +11,6 @@
 
 #include <cstdint>
 
-#include <optional>
 #include <vector>
 
 #include "lldb/Symbol/ObjectFile.h"
@@ -125,7 +124,7 @@ public:
 
   /// Return the contents of the .gnu_debuglink section, if the object file
   /// contains it.
-  std::optional<lldb_private::FileSpec> GetDebugLink();
+  llvm::Optional<lldb_private::FileSpec> GetDebugLink();
 
   uint32_t GetDependentModules(lldb_private::FileSpecList &files) override;
 

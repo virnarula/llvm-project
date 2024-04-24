@@ -29,16 +29,15 @@ namespace comments {
 #undef ABSTRACT_COMMENT
 
 // DeclInfo is also allocated with a BumpPtrAllocator.
-static_assert(std::is_trivially_destructible_v<DeclInfo>,
+static_assert(std::is_trivially_destructible<DeclInfo>::value,
               "DeclInfo should be trivially destructible!");
 
 const char *Comment::getCommentKindName() const {
   switch (getCommentKind()) {
-  case CommentKind::None:
-    return "None";
+  case NoCommentKind: return "NoCommentKind";
 #define ABSTRACT_COMMENT(COMMENT)
-#define COMMENT(CLASS, PARENT)                                                 \
-  case CommentKind::CLASS:                                                     \
+#define COMMENT(CLASS, PARENT) \
+  case CLASS##Kind: \
     return #CLASS;
 #include "clang/AST/CommentNodes.inc"
 #undef COMMENT
@@ -82,11 +81,10 @@ static inline void CheckCommentASTNodes() {
 
 Comment::child_iterator Comment::child_begin() const {
   switch (getCommentKind()) {
-  case CommentKind::None:
-    llvm_unreachable("comment without a kind");
+  case NoCommentKind: llvm_unreachable("comment without a kind");
 #define ABSTRACT_COMMENT(COMMENT)
-#define COMMENT(CLASS, PARENT)                                                 \
-  case CommentKind::CLASS:                                                     \
+#define COMMENT(CLASS, PARENT) \
+  case CLASS##Kind: \
     return static_cast<const CLASS *>(this)->child_begin();
 #include "clang/AST/CommentNodes.inc"
 #undef COMMENT
@@ -97,11 +95,10 @@ Comment::child_iterator Comment::child_begin() const {
 
 Comment::child_iterator Comment::child_end() const {
   switch (getCommentKind()) {
-  case CommentKind::None:
-    llvm_unreachable("comment without a kind");
+  case NoCommentKind: llvm_unreachable("comment without a kind");
 #define ABSTRACT_COMMENT(COMMENT)
-#define COMMENT(CLASS, PARENT)                                                 \
-  case CommentKind::CLASS:                                                     \
+#define COMMENT(CLASS, PARENT) \
+  case CLASS##Kind: \
     return static_cast<const CLASS *>(this)->child_end();
 #include "clang/AST/CommentNodes.inc"
 #undef COMMENT
@@ -187,14 +184,13 @@ static bool getFunctionTypeLoc(TypeLoc TL, FunctionTypeLoc &ResFTL) {
   return false;
 }
 
-const char *
-ParamCommandComment::getDirectionAsString(ParamCommandPassDirection D) {
+const char *ParamCommandComment::getDirectionAsString(PassDirection D) {
   switch (D) {
-  case ParamCommandPassDirection::In:
+  case ParamCommandComment::In:
     return "[in]";
-  case ParamCommandPassDirection::Out:
+  case ParamCommandComment::Out:
     return "[out]";
-  case ParamCommandPassDirection::InOut:
+  case ParamCommandComment::InOut:
     return "[in,out]";
   }
   llvm_unreachable("unknown PassDirection");
@@ -210,7 +206,7 @@ void DeclInfo::fill() {
   IsInstanceMethod = false;
   IsClassMethod = false;
   IsVariadic = false;
-  ParamVars = std::nullopt;
+  ParamVars = None;
   TemplateParameters = nullptr;
 
   if (!CommentDecl) {

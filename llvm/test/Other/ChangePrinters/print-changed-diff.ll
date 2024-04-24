@@ -140,6 +140,7 @@ entry:
 
 ; CHECK-DIFF-SIMPLE: *** IR Dump At Start ***
 ; CHECK-DIFF-SIMPLE: ModuleID = {{.+}}
+; CHECK-DIFF-SIMPLE: *** IR Dump After VerifierPass on [module] omitted because no change ***
 ; CHECK-DIFF-SIMPLE: *** IR Dump After InstSimplifyPass on g ***
 ; CHECK-DIFF-SIMPLE-NOT: ModuleID = {{.+}}
 ; CHECK-DIFF-SIMPLE-NOT: *** IR{{.*}}
@@ -157,8 +158,8 @@ entry:
 ; CHECK-DIFF-SIMPLE-NEXT:+  ret i32 5
 ; CHECK-DIFF-SIMPLE: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-DIFF-SIMPLE: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-DIFF-SIMPLE: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-DIFF-SIMPLE: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-DIFF-SIMPLE: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-DIFF-SIMPLE: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
 ; CHECK-DIFF-FUNC-FILTER: *** IR Dump At Start ***
 ; CHECK-DIFF-FUNC-FILTER-NEXT: ; ModuleID = {{.+}}
@@ -171,8 +172,8 @@ entry:
 ; CHECK-DIFF-FUNC-FILTER:+  ret i32 5
 ; CHECK-DIFF-FUNC-FILTER: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-DIFF-FUNC-FILTER: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-DIFF-FUNC-FILTER: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-DIFF-FUNC-FILTER: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-DIFF-FUNC-FILTER: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-DIFF-FUNC-FILTER: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
 ; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Dump At Start ***
 ; CHECK-DIFF-PRINT-MOD-SCOPE: ModuleID = {{.+}}
@@ -190,8 +191,8 @@ entry:
 ; CHECK-DIFF-PRINT-MOD-SCOPE:+  ret i32 5
 ; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-DIFF-PRINT-MOD-SCOPE: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
 ; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Dump At Start ***
 ; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Dump After InstSimplifyPass on g ***
@@ -208,11 +209,11 @@ entry:
 ; CHECK-DIFF-FILTER-MULT-FUNC:+  ret i32 5
 ; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-DIFF-FILTER-MULT-FUNC: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
-; CHECK-DIFF-FILTER-PASSES: *** IR Dump At Start ***
 ; CHECK-DIFF-FILTER-PASSES: *** IR Dump After InstSimplifyPass on g filtered out ***
+; CHECK-DIFF-FILTER-PASSES: *** IR Dump At Start ***
 ; CHECK-DIFF-FILTER-PASSES: *** IR Dump After NoOpFunctionPass on g omitted because no change ***
 ; CHECK-DIFF-FILTER-PASSES: *** IR Dump After InstSimplifyPass on f filtered out ***
 ; CHECK-DIFF-FILTER-PASSES: *** IR Dump After NoOpFunctionPass on f omitted because no change ***
@@ -233,9 +234,9 @@ entry:
 ; CHECK-DIFF-FILTER-MULT-PASSES:+  ret i32 5
 ; CHECK-DIFF-FILTER-MULT-PASSES: *** IR Dump After NoOpFunctionPass on f omitted because no change ***
 
-; CHECK-DIFF-FILTER-FUNC-PASSES: *** IR Dump At Start ***
 ; CHECK-DIFF-FILTER-FUNC-PASSES: *** IR Dump After InstSimplifyPass on g filtered out ***
 ; CHECK-DIFF-FILTER-FUNC-PASSES: *** IR Dump After NoOpFunctionPass on g filtered out ***
+; CHECK-DIFF-FILTER-FUNC-PASSES: *** IR Dump At Start ***
 ; CHECK-DIFF-FILTER-FUNC-PASSES: *** IR Dump After InstSimplifyPass on f ***
 ; CHECK-DIFF-FILTER-FUNC-PASSES-NOT: ModuleID = {{.+}}
 ; CHECK-DIFF-FILTER-FUNC-PASSES: entry:
@@ -352,6 +353,7 @@ entry:
 
 ; CHECK-CDIFF-SIMPLE: *** IR Dump At Start ***
 ; CHECK-CDIFF-SIMPLE: ModuleID = {{.+}}
+; CHECK-CDIFF-SIMPLE: *** IR Dump After VerifierPass on [module] omitted because no change ***
 ; CHECK-CDIFF-SIMPLE: *** IR Dump After InstSimplifyPass on g ***
 ; CHECK-CDIFF-SIMPLE-NOT: ModuleID = {{.+}}
 ; CHECK-CDIFF-SIMPLE-NOT: *** IR{{.*}}
@@ -369,8 +371,8 @@ entry:
 ; CHECK-CDIFF-SIMPLE-NEXT:{{.\[32m\+}}  ret i32 5{{.\[0m}}
 ; CHECK-CDIFF-SIMPLE: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-CDIFF-SIMPLE: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-CDIFF-SIMPLE: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-CDIFF-SIMPLE: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-CDIFF-SIMPLE: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-CDIFF-SIMPLE: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
 ; CHECK-CDIFF-FUNC-FILTER: *** IR Dump At Start ***
 ; CHECK-CDIFF-FUNC-FILTER-NEXT: ; ModuleID = {{.+}}
@@ -383,8 +385,8 @@ entry:
 ; CHECK-CDIFF-FUNC-FILTER:{{.\[32m\+}}  ret i32 5{{.\[0m}}
 ; CHECK-CDIFF-FUNC-FILTER: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-CDIFF-FUNC-FILTER: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-CDIFF-FUNC-FILTER: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-CDIFF-FUNC-FILTER: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-CDIFF-FUNC-FILTER: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-CDIFF-FUNC-FILTER: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
 ; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Dump At Start ***
 ; CHECK-CDIFF-PRINT-MOD-SCOPE: ModuleID = {{.+}}
@@ -402,8 +404,8 @@ entry:
 ; CHECK-CDIFF-PRINT-MOD-SCOPE:{{.\[32m\+}}  ret i32 5{{.\[0m}}
 ; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-CDIFF-PRINT-MOD-SCOPE: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
 ; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Dump At Start ***
 ; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Dump After InstSimplifyPass on g ***
@@ -420,11 +422,11 @@ entry:
 ; CHECK-CDIFF-FILTER-MULT-FUNC:{{.\[32m\+}}  ret i32 5{{.\[0m}}
 ; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Pass PassManager{{.*}} on f ignored ***
 ; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Pass ModuleToFunctionPassAdaptor on [module] ignored ***
-; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Pass VerifierPass on [module] ignored ***
-; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Pass PrintModulePass on [module] ignored ***
+; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Dump After VerifierPass on [module] omitted because no change ***
+; CHECK-CDIFF-FILTER-MULT-FUNC: *** IR Dump After PrintModulePass on [module] omitted because no change ***
 
-; CHECK-CDIFF-FILTER-PASSES: *** IR Dump At Start ***
 ; CHECK-CDIFF-FILTER-PASSES: *** IR Dump After InstSimplifyPass on g filtered out ***
+; CHECK-CDIFF-FILTER-PASSES: *** IR Dump At Start ***
 ; CHECK-CDIFF-FILTER-PASSES: *** IR Dump After NoOpFunctionPass on g omitted because no change ***
 ; CHECK-CDIFF-FILTER-PASSES: *** IR Dump After InstSimplifyPass on f filtered out ***
 ; CHECK-CDIFF-FILTER-PASSES: *** IR Dump After NoOpFunctionPass on f omitted because no change ***
@@ -445,9 +447,9 @@ entry:
 ; CHECK-CDIFF-FILTER-MULT-PASSES:{{.\[32m\+}}  ret i32 5{{.\[0m}}
 ; CHECK-CDIFF-FILTER-MULT-PASSES: *** IR Dump After NoOpFunctionPass on f omitted because no change ***
 
-; CHECK-CDIFF-FILTER-FUNC-PASSES: *** IR Dump At Start ***
 ; CHECK-CDIFF-FILTER-FUNC-PASSES: *** IR Dump After InstSimplifyPass on g filtered out ***
 ; CHECK-CDIFF-FILTER-FUNC-PASSES: *** IR Dump After NoOpFunctionPass on g filtered out ***
+; CHECK-CDIFF-FILTER-FUNC-PASSES: *** IR Dump At Start ***
 ; CHECK-CDIFF-FILTER-FUNC-PASSES: *** IR Dump After InstSimplifyPass on f ***
 ; CHECK-CDIFF-FILTER-FUNC-PASSES-NOT: ModuleID = {{.+}}
 ; CHECK-CDIFF-FILTER-FUNC-PASSES: entry:

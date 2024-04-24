@@ -10,11 +10,12 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 namespace {
 AST_MATCHER_P(CXXForRangeStmt, hasRangeBeginEndStmt,
@@ -57,13 +58,12 @@ void ProBoundsArrayToPointerDecayCheck::registerMatchers(MatchFinder *Finder) {
           TK_AsIs,
           implicitCastExpr(
               unless(hasParent(arraySubscriptExpr())),
-              unless(hasSourceExpression(predefinedExpr())),
               unless(hasParentIgnoringImpCasts(explicitCastExpr())),
               unless(isInsideOfRangeBeginEndStmt()),
               unless(hasSourceExpression(ignoringParens(stringLiteral()))),
-              unless(hasSourceExpression(ignoringParens(
-                  conditionalOperator(hasTrueExpression(stringLiteral()),
-                                      hasFalseExpression(stringLiteral()))))))
+              unless(hasSourceExpression(ignoringParens(conditionalOperator(
+                  allOf(hasTrueExpression(stringLiteral()),
+                        hasFalseExpression(stringLiteral())))))))
               .bind("cast")),
       this);
 }
@@ -79,4 +79,6 @@ void ProBoundsArrayToPointerDecayCheck::check(
                                   "an explicit cast instead");
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

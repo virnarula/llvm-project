@@ -32,7 +32,6 @@ public:
   void expect(StringRef expect);
   bool consumeLabel(StringRef tok);
   std::string getCurrentLocation();
-  MemoryBufferRef getCurrentMB();
 
   std::vector<MemoryBufferRef> mbs;
   std::vector<StringRef> tokens;
@@ -41,6 +40,9 @@ public:
 
   size_t lastLineNumber = 0;
   size_t lastLineNumberOffset = 0;
+
+protected:
+  MemoryBufferRef getCurrentMB();
 
 private:
   void maybeSplitExpr();

@@ -16,7 +16,6 @@
 
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/Log.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -24,10 +23,8 @@ using namespace lldb_private::formatters;
 
 static CompilerType GetCompilerTypeForFormat(lldb::Format format,
                                              CompilerType element_type,
-                                             TypeSystemSP type_system) {
+                                             TypeSystem *type_system) {
   lldbassert(type_system && "type_system needs to be not NULL");
-  if (!type_system)
-    return {};
 
   switch (format) {
   case lldb::eFormatAddressInfo:
@@ -169,49 +166,21 @@ static lldb::Format GetItemFormatForFormat(lldb::Format format,
   }
 }
 
-/// Calculates the number of elements stored in a container (with
-/// element type 'container_elem_type') as if it had elements of type
-/// 'element_type'.
-///
-/// For example, a container of type
-/// `uint8_t __attribute__((vector_size(16)))` has 16 elements.
-/// But calling `CalculateNumChildren` with an 'element_type'
-/// of `float` (4-bytes) will return `4` because we are interpreting
-/// the byte-array as a `float32[]`.
-///
-/// \param[in] container_elem_type The type of the elements stored
-/// in the container we are calculating the children of.
-///
-/// \param[in] num_elements Number of 'container_elem_type's our
-/// container stores.
-///
-/// \param[in] element_type The type of elements we interpret
-/// container_type to contain for the purposes of calculating
-/// the number of children.
-///
-/// \returns The number of elements stored in a container of
-/// type 'element_type'. Returns a std::nullopt if the
-/// size of the container is not a multiple of 'element_type'
-/// or if an error occurs.
-static std::optional<size_t>
-CalculateNumChildren(CompilerType container_elem_type, uint64_t num_elements,
-                     CompilerType element_type) {
-  std::optional<uint64_t> container_elem_size =
-      container_elem_type.GetByteSize(/* exe_scope */ nullptr);
-  if (!container_elem_size)
-    return {};
+static size_t CalculateNumChildren(
+    CompilerType container_type, CompilerType element_type,
+    lldb_private::ExecutionContextScope *exe_scope =
+        nullptr // does not matter here because all we trade in are basic types
+    ) {
+  llvm::Optional<uint64_t> container_size =
+      container_type.GetByteSize(exe_scope);
+  llvm::Optional<uint64_t> element_size = element_type.GetByteSize(exe_scope);
 
-  auto container_size = *container_elem_size * num_elements;
-
-  std::optional<uint64_t> element_size =
-      element_type.GetByteSize(/* exe_scope */ nullptr);
-  if (!element_size || !*element_size)
-    return {};
-
-  if (container_size % *element_size)
-    return {};
-
-  return container_size / *element_size;
+  if (container_size && element_size && *element_size) {
+    if (*container_size % *element_size)
+      return 0;
+    return *container_size / *element_size;
+  }
+  return 0;
 }
 
 namespace lldb_private {
@@ -229,7 +198,7 @@ public:
   lldb::ValueObjectSP GetChildAtIndex(size_t idx) override {
     if (idx >= CalculateNumChildren())
       return {};
-    std::optional<uint64_t> size = m_child_type.GetByteSize(nullptr);
+    llvm::Optional<uint64_t> size = m_child_type.GetByteSize(nullptr);
     if (!size)
       return {};
     auto offset = idx * *size;
@@ -249,14 +218,10 @@ public:
     m_parent_format = m_backend.GetFormat();
     CompilerType parent_type(m_backend.GetCompilerType());
     CompilerType element_type;
-    uint64_t num_elements;
-    parent_type.IsVectorType(&element_type, &num_elements);
-    m_child_type = ::GetCompilerTypeForFormat(
-        m_parent_format, element_type,
-        parent_type.GetTypeSystem().GetSharedPointer());
-    m_num_children =
-        ::CalculateNumChildren(element_type, num_elements, m_child_type)
-            .value_or(0);
+    parent_type.IsVectorType(&element_type);
+    m_child_type = ::GetCompilerTypeForFormat(m_parent_format, element_type,
+                                              parent_type.GetTypeSystem());
+    m_num_children = ::CalculateNumChildren(parent_type, m_child_type);
     m_item_format = GetItemFormatForFormat(m_parent_format, m_child_type);
     return false;
   }

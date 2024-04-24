@@ -9,12 +9,10 @@
 #include "llvm/ExecutionEngine/Orc/ExecutorProcessControl.h"
 
 #include "llvm/ExecutionEngine/Orc/Core.h"
-#include "llvm/ExecutionEngine/Orc/Shared/OrcRTBridge.h"
-#include "llvm/ExecutionEngine/Orc/TargetProcess/RegisterEHFrames.h"
 #include "llvm/ExecutionEngine/Orc/TargetProcess/TargetExecutionUtils.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/Process.h"
-#include "llvm/TargetParser/Host.h"
 
 #define DEBUG_TYPE "orc"
 
@@ -29,8 +27,7 @@ SelfExecutorProcessControl::SelfExecutorProcessControl(
     std::shared_ptr<SymbolStringPool> SSP, std::unique_ptr<TaskDispatcher> D,
     Triple TargetTriple, unsigned PageSize,
     std::unique_ptr<jitlink::JITLinkMemoryManager> MemMgr)
-    : ExecutorProcessControl(std::move(SSP), std::move(D)),
-      InProcessMemoryAccess(TargetTriple.isArch64Bit()) {
+    : ExecutorProcessControl(std::move(SSP), std::move(D)) {
 
   OwnedMemMgr = std::move(MemMgr);
   if (!OwnedMemMgr)
@@ -45,11 +42,6 @@ SelfExecutorProcessControl::SelfExecutorProcessControl(
                ExecutorAddr::fromPtr(this)};
   if (this->TargetTriple.isOSBinFormatMachO())
     GlobalManglingPrefix = '_';
-
-  this->BootstrapSymbols[rt::RegisterEHFrameSectionWrapperName] =
-      ExecutorAddr::fromPtr(&llvm_orc_registerEHFrameSectionWrapper);
-  this->BootstrapSymbols[rt::DeregisterEHFrameSectionWrapperName] =
-      ExecutorAddr::fromPtr(&llvm_orc_deregisterEHFrameSectionWrapper);
 }
 
 Expected<std::unique_ptr<SelfExecutorProcessControl>>
@@ -95,7 +87,7 @@ SelfExecutorProcessControl::lookupSymbols(ArrayRef<LookupRequest> Request) {
 
   for (auto &Elem : Request) {
     sys::DynamicLibrary Dylib(Elem.Handle.toPtr<void *>());
-    R.push_back(std::vector<ExecutorSymbolDef>());
+    R.push_back(std::vector<ExecutorAddr>());
     for (auto &KV : Elem.Symbols) {
       auto &Sym = KV.first;
       std::string Tmp((*Sym).data() + !!GlobalManglingPrefix,
@@ -107,9 +99,7 @@ SelfExecutorProcessControl::lookupSymbols(ArrayRef<LookupRequest> Request) {
         MissingSymbols.push_back(Sym);
         return make_error<SymbolsNotFound>(SSP, std::move(MissingSymbols));
       }
-      // FIXME: determine accurate JITSymbolFlags.
-      R.back().push_back(
-          {ExecutorAddr::fromPtr(Addr), JITSymbolFlags::Exported});
+      R.back().push_back(ExecutorAddr::fromPtr(Addr));
     }
   }
 
@@ -149,51 +139,38 @@ Error SelfExecutorProcessControl::disconnect() {
   return Error::success();
 }
 
-void InProcessMemoryAccess::writeUInt8sAsync(ArrayRef<tpctypes::UInt8Write> Ws,
-                                             WriteResultFn OnWriteComplete) {
+void SelfExecutorProcessControl::writeUInt8sAsync(
+    ArrayRef<tpctypes::UInt8Write> Ws, WriteResultFn OnWriteComplete) {
   for (auto &W : Ws)
     *W.Addr.toPtr<uint8_t *>() = W.Value;
   OnWriteComplete(Error::success());
 }
 
-void InProcessMemoryAccess::writeUInt16sAsync(
+void SelfExecutorProcessControl::writeUInt16sAsync(
     ArrayRef<tpctypes::UInt16Write> Ws, WriteResultFn OnWriteComplete) {
   for (auto &W : Ws)
     *W.Addr.toPtr<uint16_t *>() = W.Value;
   OnWriteComplete(Error::success());
 }
 
-void InProcessMemoryAccess::writeUInt32sAsync(
+void SelfExecutorProcessControl::writeUInt32sAsync(
     ArrayRef<tpctypes::UInt32Write> Ws, WriteResultFn OnWriteComplete) {
   for (auto &W : Ws)
     *W.Addr.toPtr<uint32_t *>() = W.Value;
   OnWriteComplete(Error::success());
 }
 
-void InProcessMemoryAccess::writeUInt64sAsync(
+void SelfExecutorProcessControl::writeUInt64sAsync(
     ArrayRef<tpctypes::UInt64Write> Ws, WriteResultFn OnWriteComplete) {
   for (auto &W : Ws)
     *W.Addr.toPtr<uint64_t *>() = W.Value;
   OnWriteComplete(Error::success());
 }
 
-void InProcessMemoryAccess::writeBuffersAsync(
+void SelfExecutorProcessControl::writeBuffersAsync(
     ArrayRef<tpctypes::BufferWrite> Ws, WriteResultFn OnWriteComplete) {
   for (auto &W : Ws)
     memcpy(W.Addr.toPtr<char *>(), W.Buffer.data(), W.Buffer.size());
-  OnWriteComplete(Error::success());
-}
-
-void InProcessMemoryAccess::writePointersAsync(
-    ArrayRef<tpctypes::PointerWrite> Ws, WriteResultFn OnWriteComplete) {
-  if (IsArch64Bit) {
-    for (auto &W : Ws)
-      *W.Addr.toPtr<uint64_t *>() = W.Value.getValue();
-  } else {
-    for (auto &W : Ws)
-      *W.Addr.toPtr<uint32_t *>() = static_cast<uint32_t>(W.Value.getValue());
-  }
-
   OnWriteComplete(Error::success());
 }
 
@@ -215,7 +192,7 @@ SelfExecutorProcessControl::jitDispatchViaWrapperFunctionManager(
               shared::WrapperFunctionResult Result) mutable {
             ResultP.set_value(std::move(Result));
           },
-          ExecutorAddr::fromPtr(FnTag), {Data, Size});
+          pointerToJITTargetAddress(FnTag), {Data, Size});
 
   return ResultF.get().release();
 }

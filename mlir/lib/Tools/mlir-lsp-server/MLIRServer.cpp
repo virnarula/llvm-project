@@ -7,41 +7,32 @@
 //===----------------------------------------------------------------------===//
 
 #include "MLIRServer.h"
+#include "../lsp-server-support/Logging.h"
+#include "../lsp-server-support/SourceMgrUtils.h"
 #include "Protocol.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/AsmParser/AsmParserState.h"
 #include "mlir/AsmParser/CodeComplete.h"
 #include "mlir/Bytecode/BytecodeWriter.h"
+#include "mlir/IR/FunctionInterfaces.h"
 #include "mlir/IR/Operation.h"
-#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Parser/Parser.h"
-#include "mlir/Tools/lsp-server-support/Logging.h"
-#include "mlir/Tools/lsp-server-support/SourceMgrUtils.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Base64.h"
 #include "llvm/Support/SourceMgr.h"
-#include <optional>
 
 using namespace mlir;
 
-/// Returns the range of a lexical token given a SMLoc corresponding to the
-/// start of an token location. The range is computed heuristically, and
-/// supports identifier-like tokens, strings, etc.
-static SMRange convertTokenLocToRange(SMLoc loc) {
-  return lsp::convertTokenLocToRange(loc, "$-.");
-}
-
 /// Returns a language server location from the given MLIR file location.
 /// `uriScheme` is the scheme to use when building new uris.
-static std::optional<lsp::Location> getLocationFromLoc(StringRef uriScheme,
-                                                       FileLineColLoc loc) {
+static Optional<lsp::Location> getLocationFromLoc(StringRef uriScheme,
+                                                  FileLineColLoc loc) {
   llvm::Expected<lsp::URIForFile> sourceURI =
       lsp::URIForFile::fromFile(loc.getFilename(), uriScheme);
   if (!sourceURI) {
     lsp::Logger::error("Failed to create URI for file `{0}`: {1}",
                        loc.getFilename(),
                        llvm::toString(sourceURI.takeError()));
-    return std::nullopt;
+    return llvm::None;
   }
 
   lsp::Position position;
@@ -50,21 +41,20 @@ static std::optional<lsp::Location> getLocationFromLoc(StringRef uriScheme,
   return lsp::Location{*sourceURI, lsp::Range(position)};
 }
 
-/// Returns a language server location from the given MLIR location, or
-/// std::nullopt if one couldn't be created. `uriScheme` is the scheme to use
-/// when building new uris. `uri` is an optional additional filter that, when
-/// present, is used to filter sub locations that do not share the same uri.
-static std::optional<lsp::Location>
+/// Returns a language server location from the given MLIR location, or None if
+/// one couldn't be created. `uriScheme` is the scheme to use when building new
+/// uris. `uri` is an optional additional filter that, when present, is used to
+/// filter sub locations that do not share the same uri.
+static Optional<lsp::Location>
 getLocationFromLoc(llvm::SourceMgr &sourceMgr, Location loc,
                    StringRef uriScheme, const lsp::URIForFile *uri = nullptr) {
-  std::optional<lsp::Location> location;
+  Optional<lsp::Location> location;
   loc->walk([&](Location nestedLoc) {
-    FileLineColLoc fileLoc = dyn_cast<FileLineColLoc>(nestedLoc);
+    FileLineColLoc fileLoc = nestedLoc.dyn_cast<FileLineColLoc>();
     if (!fileLoc)
       return WalkResult::advance();
 
-    std::optional<lsp::Location> sourceLoc =
-        getLocationFromLoc(uriScheme, fileLoc);
+    Optional<lsp::Location> sourceLoc = getLocationFromLoc(uriScheme, fileLoc);
     if (sourceLoc && (!uri || sourceLoc->uri == *uri)) {
       location = *sourceLoc;
       SMLoc loc = sourceMgr.FindLocForLineAndColumn(
@@ -73,7 +63,7 @@ getLocationFromLoc(llvm::SourceMgr &sourceMgr, Location loc,
       // Use range of potential identifier starting at location, else length 1
       // range.
       location->range.end.character += 1;
-      if (std::optional<SMRange> range = convertTokenLocToRange(loc)) {
+      if (Optional<SMRange> range = lsp::convertTokenLocToRange(loc)) {
         auto lineCol = sourceMgr.getLineAndColumn(range->End);
         location->range.end.character =
             std::max(fileLoc.getColumn() + 1, lineCol.second - 1);
@@ -92,11 +82,11 @@ static void collectLocationsFromLoc(Location loc,
                                     const lsp::URIForFile &uri) {
   SetVector<Location> visitedLocs;
   loc->walk([&](Location nestedLoc) {
-    FileLineColLoc fileLoc = dyn_cast<FileLineColLoc>(nestedLoc);
+    FileLineColLoc fileLoc = nestedLoc.dyn_cast<FileLineColLoc>();
     if (!fileLoc || !visitedLocs.insert(nestedLoc))
       return WalkResult::advance();
 
-    std::optional<lsp::Location> sourceLoc =
+    Optional<lsp::Location> sourceLoc =
         getLocationFromLoc(uri.scheme(), fileLoc);
     if (sourceLoc && sourceLoc->uri != uri)
       locations.push_back(*sourceLoc);
@@ -136,8 +126,8 @@ static bool isDefOrUse(const AsmParserState::SMDefinition &def, SMLoc loc,
 }
 
 /// Given a location pointing to a result, return the result number it refers
-/// to or std::nullopt if it refers to all of the results.
-static std::optional<unsigned> getResultNumberFromLoc(SMLoc loc) {
+/// to or None if it refers to all of the results.
+static Optional<unsigned> getResultNumberFromLoc(SMLoc loc) {
   // Skip all of the identifier characters.
   auto isIdentifierChar = [](char c) {
     return isalnum(c) || c == '%' || c == '$' || c == '.' || c == '_' ||
@@ -150,7 +140,7 @@ static std::optional<unsigned> getResultNumberFromLoc(SMLoc loc) {
   // Check to see if this location indexes into the result group, via `#`. If it
   // doesn't, we can't extract a sub result number.
   if (*curPtr != '#')
-    return std::nullopt;
+    return llvm::None;
 
   // Compute the sub result number from the remaining portion of the string.
   const char *numberStart = ++curPtr;
@@ -158,15 +148,15 @@ static std::optional<unsigned> getResultNumberFromLoc(SMLoc loc) {
     ++curPtr;
   StringRef numberStr(numberStart, curPtr - numberStart);
   unsigned resultNumber = 0;
-  return numberStr.consumeInteger(10, resultNumber) ? std::optional<unsigned>()
+  return numberStr.consumeInteger(10, resultNumber) ? Optional<unsigned>()
                                                     : resultNumber;
 }
 
 /// Given a source location range, return the text covered by the given range.
-/// If the range is invalid, returns std::nullopt.
-static std::optional<StringRef> getTextFromRange(SMRange range) {
+/// If the range is invalid, returns None.
+static Optional<StringRef> getTextFromRange(SMRange range) {
   if (!range.isValid())
-    return std::nullopt;
+    return None;
   const char *startPtr = range.Start.getPointer();
   return StringRef(startPtr, range.End.getPointer() - startPtr);
 }
@@ -180,8 +170,8 @@ static unsigned getBlockNumber(Block *block) {
 /// given output stream.
 static void printDefBlockName(raw_ostream &os, Block *block, SMRange loc = {}) {
   // Try to extract a name from the source location.
-  std::optional<StringRef> text = getTextFromRange(loc);
-  if (text && text->starts_with("^")) {
+  Optional<StringRef> text = getTextFromRange(loc);
+  if (text && text->startswith("^")) {
     os << *text;
     return;
   }
@@ -209,7 +199,7 @@ static lsp::Diagnostic getLspDiagnoticFromDiag(llvm::SourceMgr &sourceMgr,
   // TODO: For simplicity, we just grab the first one. It may be likely that we
   // will need a more interesting heuristic here.'
   StringRef uriScheme = uri.scheme();
-  std::optional<lsp::Location> lspLocation =
+  Optional<lsp::Location> lspLocation =
       getLocationFromLoc(sourceMgr, diag.getLocation(), uriScheme, &uri);
   if (lspLocation)
     lspDiag.range = lspLocation->range;
@@ -234,7 +224,7 @@ static lsp::Diagnostic getLspDiagnoticFromDiag(llvm::SourceMgr &sourceMgr,
   std::vector<lsp::DiagnosticRelatedInformation> relatedDiags;
   for (Diagnostic &note : diag.getNotes()) {
     lsp::Location noteLoc;
-    if (std::optional<lsp::Location> loc =
+    if (Optional<lsp::Location> loc =
             getLocationFromLoc(sourceMgr, note.getLocation(), uriScheme))
       noteLoc = *loc;
     else
@@ -273,9 +263,9 @@ struct MLIRDocument {
   // Hover
   //===--------------------------------------------------------------------===//
 
-  std::optional<lsp::Hover> findHover(const lsp::URIForFile &uri,
-                                      const lsp::Position &hoverPos);
-  std::optional<lsp::Hover>
+  Optional<lsp::Hover> findHover(const lsp::URIForFile &uri,
+                                 const lsp::Position &hoverPos);
+  Optional<lsp::Hover>
   buildHoverForOperation(SMRange hoverRange,
                          const AsmParserState::OperationDefinition &op);
   lsp::Hover buildHoverForOperationResult(SMRange hoverRange, Operation *op,
@@ -286,12 +276,6 @@ struct MLIRDocument {
   lsp::Hover
   buildHoverForBlockArgument(SMRange hoverRange, BlockArgument arg,
                              const AsmParserState::BlockDefinition &block);
-
-  lsp::Hover buildHoverForAttributeAlias(
-      SMRange hoverRange, const AsmParserState::AttributeAliasDefinition &attr);
-  lsp::Hover
-  buildHoverForTypeAlias(SMRange hoverRange,
-                         const AsmParserState::TypeAliasDefinition &type);
 
   //===--------------------------------------------------------------------===//
   // Document Symbols
@@ -410,18 +394,6 @@ void MLIRDocument::getLocationsOf(const lsp::URIForFile &uri,
       if (containsPosition(arg))
         return;
   }
-
-  // Check all alias definitions.
-  for (const AsmParserState::AttributeAliasDefinition &attr :
-       asmState.getAttributeAliasDefs()) {
-    if (containsPosition(attr.definition))
-      return;
-  }
-  for (const AsmParserState::TypeAliasDefinition &type :
-       asmState.getTypeAliasDefs()) {
-    if (containsPosition(type.definition))
-      return;
-  }
 }
 
 void MLIRDocument::findReferencesOf(const lsp::URIForFile &uri,
@@ -468,27 +440,14 @@ void MLIRDocument::findReferencesOf(const lsp::URIForFile &uri,
       if (isDefOrUse(arg, posLoc))
         return appendSMDef(arg);
   }
-
-  // Check all alias definitions.
-  for (const AsmParserState::AttributeAliasDefinition &attr :
-       asmState.getAttributeAliasDefs()) {
-    if (isDefOrUse(attr.definition, posLoc))
-      return appendSMDef(attr.definition);
-  }
-  for (const AsmParserState::TypeAliasDefinition &type :
-       asmState.getTypeAliasDefs()) {
-    if (isDefOrUse(type.definition, posLoc))
-      return appendSMDef(type.definition);
-  }
 }
 
 //===----------------------------------------------------------------------===//
 // MLIRDocument: Hover
 //===----------------------------------------------------------------------===//
 
-std::optional<lsp::Hover>
-MLIRDocument::findHover(const lsp::URIForFile &uri,
-                        const lsp::Position &hoverPos) {
+Optional<lsp::Hover> MLIRDocument::findHover(const lsp::URIForFile &uri,
+                                             const lsp::Position &hoverPos) {
   SMLoc posLoc = hoverPos.getAsSMLoc(sourceMgr);
   SMRange hoverRange;
 
@@ -531,23 +490,10 @@ MLIRDocument::findHover(const lsp::URIForFile &uri,
           hoverRange, block.block->getArgument(arg.index()), block);
     }
   }
-
-  // Check to see if the hover is over an alias.
-  for (const AsmParserState::AttributeAliasDefinition &attr :
-       asmState.getAttributeAliasDefs()) {
-    if (isDefOrUse(attr.definition, posLoc, &hoverRange))
-      return buildHoverForAttributeAlias(hoverRange, attr);
-  }
-  for (const AsmParserState::TypeAliasDefinition &type :
-       asmState.getTypeAliasDefs()) {
-    if (isDefOrUse(type.definition, posLoc, &hoverRange))
-      return buildHoverForTypeAlias(hoverRange, type);
-  }
-
-  return std::nullopt;
+  return llvm::None;
 }
 
-std::optional<lsp::Hover> MLIRDocument::buildHoverForOperation(
+Optional<lsp::Hover> MLIRDocument::buildHoverForOperation(
     SMRange hoverRange, const AsmParserState::OperationDefinition &op) {
   lsp::Hover hover(lsp::Range(sourceMgr, hoverRange));
   llvm::raw_string_ostream os(hover.contents.value);
@@ -560,11 +506,22 @@ std::optional<lsp::Hover> MLIRDocument::buildHoverForOperation(
 
   os << "Generic Form:\n\n```mlir\n";
 
-  op.op->print(os, OpPrintingFlags()
-                       .printGenericOpForm()
-                       .elideLargeElementsAttrs()
-                       .skipRegions());
+  // Temporary drop the regions of this operation so that they don't get
+  // printed in the output. This helps keeps the size of the output hover
+  // small.
+  SmallVector<std::unique_ptr<Region>> regions;
+  for (Region &region : op.op->getRegions()) {
+    regions.emplace_back(std::make_unique<Region>());
+    regions.back()->takeBody(region);
+  }
+
+  op.op->print(
+      os, OpPrintingFlags().printGenericOpForm().elideLargeElementsAttrs());
   os << "\n```\n";
+
+  // Move the regions back to the current operation.
+  for (Region &region : op.op->getRegions())
+    region.takeBody(*regions.back());
 
   return hover;
 }
@@ -582,7 +539,7 @@ lsp::Hover MLIRDocument::buildHoverForOperationResult(SMRange hoverRange,
 
   // Check to see if the location points to a specific result within the
   // group.
-  if (std::optional<unsigned> resultNumber = getResultNumberFromLoc(posLoc)) {
+  if (Optional<unsigned> resultNumber = getResultNumberFromLoc(posLoc)) {
     if ((resultStart + *resultNumber) < resultEnd) {
       resultStart += *resultNumber;
       resultEnd = resultStart + 1;
@@ -648,28 +605,6 @@ lsp::Hover MLIRDocument::buildHoverForBlockArgument(
   printDefBlockName(os, block);
   os << "\n\nArgument #" << arg.getArgNumber() << "\n\n"
      << "Type: `" << arg.getType() << "`\n\n";
-
-  return hover;
-}
-
-lsp::Hover MLIRDocument::buildHoverForAttributeAlias(
-    SMRange hoverRange, const AsmParserState::AttributeAliasDefinition &attr) {
-  lsp::Hover hover(lsp::Range(sourceMgr, hoverRange));
-  llvm::raw_string_ostream os(hover.contents.value);
-
-  os << "Attribute Alias: \"" << attr.name << "\n\n";
-  os << "Value: ```mlir\n" << attr.value << "\n```\n\n";
-
-  return hover;
-}
-
-lsp::Hover MLIRDocument::buildHoverForTypeAlias(
-    SMRange hoverRange, const AsmParserState::TypeAliasDefinition &type) {
-  lsp::Hover hover(lsp::Range(sourceMgr, hoverRange));
-  llvm::raw_string_ostream os(hover.contents.value);
-
-  os << "Type Alias: \"" << type.name << "\n\n";
-  os << "Value: ```mlir\n" << type.value << "\n```\n\n";
 
   return hover;
 }
@@ -900,7 +835,7 @@ void MLIRDocument::getCodeActionForDiagnostic(
   // Ignore diagnostics that print the current operation. These are always
   // enabled for the language server, but not generally during normal
   // parsing/verification.
-  if (message.starts_with("see current operation: "))
+  if (message.startswith("see current operation: "))
     return;
 
   // Get the start of the line containing the diagnostic.
@@ -951,8 +886,7 @@ MLIRDocument::convertToBytecode() {
 
     std::string rawBytecodeBuffer;
     llvm::raw_string_ostream os(rawBytecodeBuffer);
-    // No desired bytecode version set, so no need to check for error.
-    (void)writeBytecodeToFile(&parsedIR.front(), os, writerConfig);
+    writeBytecodeToFile(&parsedIR.front(), os, writerConfig);
     result.output = llvm::encodeBase64(rawBytecodeBuffer);
   }
   return result;
@@ -1010,8 +944,8 @@ public:
                       std::vector<lsp::Location> &locations);
   void findReferencesOf(const lsp::URIForFile &uri, lsp::Position pos,
                         std::vector<lsp::Location> &references);
-  std::optional<lsp::Hover> findHover(const lsp::URIForFile &uri,
-                                      lsp::Position hoverPos);
+  Optional<lsp::Hover> findHover(const lsp::URIForFile &uri,
+                                 lsp::Position hoverPos);
   void findDocumentSymbols(std::vector<lsp::DocumentSymbol> &symbols);
   lsp::CompletionList getCodeCompletion(const lsp::URIForFile &uri,
                                         lsp::Position completePos);
@@ -1112,10 +1046,10 @@ void MLIRTextFile::findReferencesOf(const lsp::URIForFile &uri,
       chunk.adjustLocForChunkOffset(loc.range);
 }
 
-std::optional<lsp::Hover> MLIRTextFile::findHover(const lsp::URIForFile &uri,
-                                                  lsp::Position hoverPos) {
+Optional<lsp::Hover> MLIRTextFile::findHover(const lsp::URIForFile &uri,
+                                             lsp::Position hoverPos) {
   MLIRTextFileChunk &chunk = getChunkFor(hoverPos);
-  std::optional<lsp::Hover> hoverInfo = chunk.document.findHover(uri, hoverPos);
+  Optional<lsp::Hover> hoverInfo = chunk.document.findHover(uri, hoverPos);
 
   // Adjust any locations within this file for the offset of this chunk.
   if (chunk.lineOffset != 0 && hoverInfo && hoverInfo->range)
@@ -1290,10 +1224,10 @@ void lsp::MLIRServer::addOrUpdateDocument(
       uri, contents, version, impl->registry, diagnostics);
 }
 
-std::optional<int64_t> lsp::MLIRServer::removeDocument(const URIForFile &uri) {
+Optional<int64_t> lsp::MLIRServer::removeDocument(const URIForFile &uri) {
   auto it = impl->files.find(uri.file());
   if (it == impl->files.end())
-    return std::nullopt;
+    return llvm::None;
 
   int64_t version = it->second->getVersion();
   impl->files.erase(it);
@@ -1316,12 +1250,12 @@ void lsp::MLIRServer::findReferencesOf(const URIForFile &uri,
     fileIt->second->findReferencesOf(uri, pos, references);
 }
 
-std::optional<lsp::Hover> lsp::MLIRServer::findHover(const URIForFile &uri,
-                                                     const Position &hoverPos) {
+Optional<lsp::Hover> lsp::MLIRServer::findHover(const URIForFile &uri,
+                                                const Position &hoverPos) {
   auto fileIt = impl->files.find(uri.file());
   if (fileIt != impl->files.end())
     return fileIt->second->findHover(uri, hoverPos);
-  return std::nullopt;
+  return llvm::None;
 }
 
 void lsp::MLIRServer::findDocumentSymbols(
@@ -1388,13 +1322,13 @@ lsp::MLIRServer::convertFromBytecode(const URIForFile &uri) {
     // Extract the top-level op so that aliases get printed.
     // FIXME: We should be able to enable aliases without having to do this!
     OwningOpRef<Operation *> topOp = &parsedBlock.front();
-    topOp->remove();
+    (*topOp)->remove();
 
     AsmState state(*topOp, OpPrintingFlags().enableDebugInfo().assumeVerified(),
                    /*locationMap=*/nullptr, &fallbackResourceMap);
 
     llvm::raw_string_ostream os(result.output);
-    topOp->print(os, state);
+    (*topOp)->print(os, state);
   }
   return std::move(result);
 }

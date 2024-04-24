@@ -28,6 +28,7 @@ class Module;
 
 template <typename T> class ArrayRef;
 template <typename T> class MutableArrayRef;
+class Function;
 class GlobalVariable;
 class ModuleSummaryIndex;
 struct ValueInfo;
@@ -117,14 +118,14 @@ struct TypeMemberInfo {
 
 // A virtual call target, i.e. an entry in a particular vtable.
 struct VirtualCallTarget {
-  VirtualCallTarget(GlobalValue *Fn, const TypeMemberInfo *TM);
+  VirtualCallTarget(Function *Fn, const TypeMemberInfo *TM);
 
   // For testing only.
   VirtualCallTarget(const TypeMemberInfo *TM, bool IsBigEndian)
       : Fn(nullptr), TM(TM), IsBigEndian(IsBigEndian), WasDevirt(false) {}
 
-  // The function (or an alias to a function) stored in the vtable.
-  GlobalValue *Fn;
+  // The function stored in the vtable.
+  Function *Fn;
 
   // A pointer to the type identifier member through which the pointer to Fn is
   // accessed.
@@ -243,18 +244,10 @@ void updatePublicTypeTestCalls(Module &M,
                                bool WholeProgramVisibilityEnabledInLTO);
 void updateVCallVisibilityInModule(
     Module &M, bool WholeProgramVisibilityEnabledInLTO,
-    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols,
-    bool ValidateAllVtablesHaveTypeInfos,
-    function_ref<bool(StringRef)> IsVisibleToRegularObj);
+    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols);
 void updateVCallVisibilityInIndex(
     ModuleSummaryIndex &Index, bool WholeProgramVisibilityEnabledInLTO,
-    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols,
-    const DenseSet<GlobalValue::GUID> &VisibleToRegularObjSymbols);
-
-void getVisibleToRegularObjVtableGUIDs(
-    ModuleSummaryIndex &Index,
-    DenseSet<GlobalValue::GUID> &VisibleToRegularObjSymbols,
-    function_ref<bool(StringRef)> IsVisibleToRegularObj);
+    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols);
 
 /// Perform index-based whole program devirtualization on the \p Summary
 /// index. Any devirtualized targets used by a type test in another module

@@ -10,7 +10,6 @@
 #include "Plugins/Process/Utility/MemoryTagManagerAArch64MTE.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <optional>
 
 using namespace lldb_private;
 using namespace lldb;
@@ -29,7 +28,7 @@ TEST(MemoryTagMapTest, EmptyTagMap) {
 }
 
 TEST(MemoryTagMapTest, GetTags) {
-  using TagsVec = std::vector<std::optional<lldb::addr_t>>;
+  using TagsVec = std::vector<llvm::Optional<lldb::addr_t>>;
 
   MemoryTagManagerAArch64MTE manager;
   MemoryTagMap tag_map(&manager);
@@ -48,10 +47,10 @@ TEST(MemoryTagMapTest, GetTags) {
 
   // Last granule of the range is not tagged
   EXPECT_THAT(tag_map.GetTags(0, 48),
-              ::testing::ContainerEq(TagsVec{0, 1, std::nullopt}));
+              ::testing::ContainerEq(TagsVec{0, 1, llvm::None}));
 
   EXPECT_THAT(tag_map.GetTags(16, 32),
-              ::testing::ContainerEq(TagsVec{1, std::nullopt}));
+              ::testing::ContainerEq(TagsVec{1, llvm::None}));
 
   // Reading beyond that address gives you no tags at all
   EXPECT_THAT(tag_map.GetTags(32, 16), ::testing::ContainerEq(TagsVec{}));
@@ -66,7 +65,7 @@ TEST(MemoryTagMapTest, GetTags) {
   // Here the length pushes the range into the next granule. When aligned
   // this produces 2 granules.
   EXPECT_THAT(tag_map.GetTags(30, 4),
-              ::testing::ContainerEq(TagsVec{1, std::nullopt}));
+              ::testing::ContainerEq(TagsVec{1, llvm::None}));
 
   // A range can also have gaps at the beginning or in the middle.
   // Add more tags, 1 granule away from the first range.
@@ -74,9 +73,9 @@ TEST(MemoryTagMapTest, GetTags) {
 
   // Untagged first granule
   EXPECT_THAT(tag_map.GetTags(32, 32),
-              ::testing::ContainerEq(TagsVec{std::nullopt, 3}));
+              ::testing::ContainerEq(TagsVec{llvm::None, 3}));
 
   // Untagged middle granule
   EXPECT_THAT(tag_map.GetTags(16, 48),
-              ::testing::ContainerEq(TagsVec{1, std::nullopt, 3}));
+              ::testing::ContainerEq(TagsVec{1, llvm::None, 3}));
 }

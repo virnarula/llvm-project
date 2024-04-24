@@ -10,7 +10,6 @@
 #define MLIR_TOOLS_PDLL_AST_DIAGNOSTIC_H
 
 #include <string>
-#include <optional>
 
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
@@ -45,7 +44,7 @@ public:
 
   /// Attach a note to this diagnostic.
   Diagnostic &attachNote(const Twine &msg,
-                         std::optional<SMRange> noteLoc = std::nullopt) {
+                         Optional<SMRange> noteLoc = llvm::None) {
     assert(getSeverity() != Severity::DK_Note &&
            "cannot attach a Note to a Note");
     notes.emplace_back(
@@ -129,7 +128,7 @@ private:
   DiagnosticEngine *owner = nullptr;
 
   /// The raw diagnostic that is inflight to be reported.
-  std::optional<Diagnostic> impl;
+  Optional<Diagnostic> impl;
 };
 
 //===----------------------------------------------------------------------===//

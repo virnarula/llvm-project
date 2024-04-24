@@ -5,6 +5,7 @@ add_entrypoint_object(
   HDRS
     ../creat.h
   DEPENDS
+    libc.include.errno
     libc.include.fcntl
     libc.src.__support.OSUtil.osutil
     libc.src.errno.errno
@@ -17,6 +18,7 @@ add_entrypoint_object(
   HDRS
     ../open.h
   DEPENDS
+    libc.include.errno
     libc.include.fcntl
     libc.src.__support.OSUtil.osutil
     libc.src.errno.errno
@@ -29,6 +31,7 @@ add_entrypoint_object(
   HDRS
     ../openat.h
   DEPENDS
+    libc.include.errno
     libc.include.fcntl
     libc.src.__support.OSUtil.osutil
     libc.src.errno.errno

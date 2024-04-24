@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __clang__ // 16.0.3 lacks <charconv>
-
 #include "gtest/gtest.h"
 #include "flang/Runtime/time-intrinsic.h"
 #include <algorithm>
@@ -168,4 +166,4 @@ TEST(TimeIntrinsics, DateAndTime) {
     EXPECT_LE(minutes, 59);
   }
 }
-#endif // __clang__
+

@@ -11,7 +11,6 @@
 
 #include "ARMAsmBackend.h"
 #include "llvm/BinaryFormat/MachO.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCObjectWriter.h"
 
 namespace llvm {
@@ -22,8 +21,7 @@ public:
   const MachO::CPUSubTypeARM Subtype;
   ARMAsmBackendDarwin(const Target &T, const MCSubtargetInfo &STI,
                       const MCRegisterInfo &MRI)
-      : ARMAsmBackend(T, STI.getTargetTriple().isThumb(),
-                      llvm::endianness::little),
+      : ARMAsmBackend(T, STI.getTargetTriple().isThumb(), support::little),
         MRI(MRI), TT(STI.getTargetTriple()),
         Subtype((MachO::CPUSubTypeARM)cantFail(
             MachO::getCPUSubType(STI.getTargetTriple()))) {}
@@ -34,8 +32,8 @@ public:
         /*Is64Bit=*/false, cantFail(MachO::getCPUType(TT)), Subtype);
   }
 
-  uint32_t generateCompactUnwindEncoding(const MCDwarfFrameInfo *FI,
-                                         const MCContext *Ctxt) const override;
+  uint32_t generateCompactUnwindEncoding(
+      ArrayRef<MCCFIInstruction> Instrs) const override;
 };
 } // end namespace llvm
 

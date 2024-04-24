@@ -30,7 +30,8 @@
 using namespace llvm;
 using namespace llvm::wasm;
 
-namespace lld::wasm {
+namespace lld {
+namespace wasm {
 
 namespace {
 
@@ -97,7 +98,7 @@ void MarkLive::run() {
     enqueue(WasmSym::callDtors);
 
   // Enqueue constructors in objects explicitly live from the command-line.
-  for (const ObjFile *obj : ctx.objectFiles)
+  for (const ObjFile *obj : symtab->objectFiles)
     if (obj->isLive())
       enqueueInitFunctions(obj);
 
@@ -151,7 +152,7 @@ void markLive() {
 
   // Report garbage-collected sections.
   if (config->printGcSections) {
-    for (const ObjFile *obj : ctx.objectFiles) {
+    for (const ObjFile *obj : symtab->objectFiles) {
       for (InputChunk *c : obj->functions)
         if (!c->live)
           message("removing unused section " + toString(c));
@@ -168,13 +169,13 @@ void markLive() {
         if (!t->live)
           message("removing unused section " + toString(t));
     }
-    for (InputChunk *c : ctx.syntheticFunctions)
+    for (InputChunk *c : symtab->syntheticFunctions)
       if (!c->live)
         message("removing unused section " + toString(c));
-    for (InputGlobal *g : ctx.syntheticGlobals)
+    for (InputGlobal *g : symtab->syntheticGlobals)
       if (!g->live)
         message("removing unused section " + toString(g));
-    for (InputTable *t : ctx.syntheticTables)
+    for (InputTable *t : symtab->syntheticTables)
       if (!t->live)
         message("removing unused section " + toString(t));
   }
@@ -187,12 +188,12 @@ bool MarkLive::isCallCtorsLive() {
 
   // In Emscripten-style PIC, we call `__wasm_call_ctors` which calls
   // `__wasm_apply_data_relocs`.
-  if (ctx.isPic)
+  if (config->isPic)
     return true;
 
   // If there are any init functions, mark `__wasm_call_ctors` live so that
   // it can call them.
-  for (const ObjFile *file : ctx.objectFiles) {
+  for (const ObjFile *file : symtab->objectFiles) {
     const WasmLinkingData &l = file->getWasmObj()->linkingData();
     for (const WasmInitFunc &f : l.InitFunctions) {
       auto *sym = file->getFunctionSymbol(f.Symbol);
@@ -204,4 +205,5 @@ bool MarkLive::isCallCtorsLive() {
   return false;
 }
 
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld

@@ -18,9 +18,9 @@
 #include "src/math/nextafterl.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-  TwoInputSingleOutputDiff<float, float>(&LIBC_NAMESPACE::nextafterf,
+  TwoInputSingleOutputDiff<float, float>(&__llvm_libc::nextafterf,
                                          &::nextafterf, data, size);
-  TwoInputSingleOutputDiff<double, double>(&LIBC_NAMESPACE::nextafter,
+  TwoInputSingleOutputDiff<double, double>(&__llvm_libc::nextafter,
                                            &::nextafter, data, size);
   return 0;
 }

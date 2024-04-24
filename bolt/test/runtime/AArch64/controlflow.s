@@ -48,7 +48,6 @@ test_cond_branch:
   .global test_branch_reg
   .type test_branch_reg, %function
 test_branch_reg:
-  nop
   adr x0, test_branch_zero
   br x0
   panic
@@ -98,7 +97,6 @@ test_call:
   .global test_call_reg
   .type test_call_reg, %function
 test_call_reg:
-  nop
   adr x0, test_call_foo
   blr x0
   panic

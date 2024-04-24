@@ -48,8 +48,7 @@ protected:
 
 public:
   VLIWResourceModel(const TargetSubtargetInfo &STI, const TargetSchedModel *SM);
-  VLIWResourceModel &operator=(const VLIWResourceModel &other) = delete;
-  VLIWResourceModel(const VLIWResourceModel &other) = delete;
+
   virtual ~VLIWResourceModel();
 
   virtual void reset();
@@ -152,8 +151,6 @@ protected:
           Pending(ID << ConvergingVLIWScheduler::LogMaxQID, Name + ".P") {}
 
     ~VLIWSchedBoundary();
-    VLIWSchedBoundary &operator=(const VLIWSchedBoundary &other) = delete;
-    VLIWSchedBoundary(const VLIWSchedBoundary &other) = delete;
 
     void init(VLIWMachineScheduler *dag, const TargetSchedModel *smodel) {
       DAG = dag;
@@ -165,9 +162,8 @@ protected:
       // a slightly different heuristic for small and large functions. For small
       // functions, it's important to use the height/depth of the instruction.
       // For large functions, prioritizing by height or depth increases spills.
-      const auto BBSize = DAG->getBBSize();
-      CriticalPathLength = BBSize / SchedModel->getIssueWidth();
-      if (BBSize < 50)
+      CriticalPathLength = DAG->getBBSize() / SchedModel->getIssueWidth();
+      if (DAG->getBBSize() < 50)
         // We divide by two as a cheap and simple heuristic to reduce the
         // critcal path length, which increases the priority of using the graph
         // height/depth in the scheduler's cost computation.
@@ -264,6 +260,8 @@ protected:
                              SchedCandidate &Candidate, ReadyQueue &Q);
 #endif
 };
+
+ScheduleDAGMILive *createVLIWSched(MachineSchedContext *C);
 
 } // end namespace llvm
 

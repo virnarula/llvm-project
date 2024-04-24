@@ -1,9 +1,8 @@
 # Fortran Tests in the LLVM Test Suite
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 The [LLVM Test Suite](https://github.com/llvm/llvm-test-suite) is a

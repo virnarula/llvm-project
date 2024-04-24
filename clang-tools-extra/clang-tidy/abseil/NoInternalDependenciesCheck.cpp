@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 void NoInternalDependenciesCheck::registerMatchers(MatchFinder *Finder) {
   // TODO: refactor matcher to be configurable or just match on any internal
@@ -43,4 +45,6 @@ void NoInternalDependenciesCheck::check(const MatchFinder::MatchResult &Result) 
        "details are reserved to Abseil");
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

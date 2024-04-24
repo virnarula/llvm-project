@@ -17,7 +17,19 @@
 
 #pragma omp begin declare target device_type(nohost)
 
-using namespace ompx;
+using namespace _OMP;
+
+extern "C" __attribute__((weak)) int IsSPMDMode;
+
+/// Helper to keep code alive without introducing a performance penalty.
+extern "C" __attribute__((weak, optnone, cold, used, retain)) void
+__keep_alive() {
+  __kmpc_get_hardware_thread_id_in_block();
+  __kmpc_get_hardware_num_threads_in_block();
+  __kmpc_get_warp_size();
+  __kmpc_barrier_simple_spmd(nullptr, IsSPMDMode);
+  __kmpc_barrier_simple_generic(nullptr, IsSPMDMode);
+}
 
 namespace impl {
 
@@ -47,8 +59,7 @@ uint64_t Pack(uint32_t LowBits, uint32_t HighBits) {
 ///
 ///{
 #pragma omp begin declare variant match(                                       \
-        device = {arch(nvptx, nvptx64)},                                       \
-            implementation = {extension(match_any)})
+    device = {arch(nvptx, nvptx64)}, implementation = {extension(match_any)})
 
 void Unpack(uint64_t Val, uint32_t *LowBits, uint32_t *HighBits) {
   uint32_t LowBitsLocal, HighBitsLocal;
@@ -92,9 +103,8 @@ int32_t shuffleDown(uint64_t Mask, int32_t Var, uint32_t LaneDelta,
   return __builtin_amdgcn_ds_bpermute(Index << 2, Var);
 }
 
-bool isSharedMemPtr(const void *Ptr) {
-  return __builtin_amdgcn_is_shared(
-      (const __attribute__((address_space(0))) void *)Ptr);
+bool isSharedMemPtr(const void * Ptr) {
+  return __builtin_amdgcn_is_shared((const __attribute__((address_space(0))) void *)Ptr);
 }
 #pragma omp end declare variant
 ///}
@@ -103,8 +113,7 @@ bool isSharedMemPtr(const void *Ptr) {
 ///
 ///{
 #pragma omp begin declare variant match(                                       \
-        device = {arch(nvptx, nvptx64)},                                       \
-            implementation = {extension(match_any)})
+    device = {arch(nvptx, nvptx64)}, implementation = {extension(match_any)})
 
 int32_t shuffle(uint64_t Mask, int32_t Var, int32_t SrcLane) {
   return __nvvm_shfl_sync_idx_i32(Mask, Var, SrcLane, 0x1f);
@@ -142,10 +151,12 @@ bool utils::isSharedMemPtr(void *Ptr) { return impl::isSharedMemPtr(Ptr); }
 
 extern "C" {
 int32_t __kmpc_shuffle_int32(int32_t Val, int16_t Delta, int16_t SrcLane) {
+  FunctionTracingRAII();
   return impl::shuffleDown(lanes::All, Val, Delta, SrcLane);
 }
 
 int64_t __kmpc_shuffle_int64(int64_t Val, int16_t Delta, int16_t Width) {
+  FunctionTracingRAII();
   uint32_t lo, hi;
   utils::unpack(Val, lo, hi);
   hi = impl::shuffleDown(lanes::All, hi, Delta, Width);

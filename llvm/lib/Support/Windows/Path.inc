@@ -37,15 +37,15 @@ typedef int errno_t;
 #endif
 
 #ifdef _MSC_VER
-#pragma comment(lib, "advapi32.lib") // This provides CryptAcquireContextW.
-#pragma comment(lib, "ole32.lib")    // This provides CoTaskMemFree
+# pragma comment(lib, "advapi32.lib")  // This provides CryptAcquireContextW.
+# pragma comment(lib, "ole32.lib")     // This provides CoTaskMemFree
 #endif
 
 using namespace llvm;
 
+using llvm::sys::windows::UTF8ToUTF16;
 using llvm::sys::windows::CurCPToUTF16;
 using llvm::sys::windows::UTF16ToUTF8;
-using llvm::sys::windows::UTF8ToUTF16;
 using llvm::sys::windows::widenPath;
 
 static bool is_separator(const wchar_t value) {
@@ -59,7 +59,7 @@ static bool is_separator(const wchar_t value) {
 }
 
 namespace llvm {
-namespace sys {
+namespace sys  {
 namespace windows {
 
 // Convert a UTF-8 path to UTF-16. Also, if the absolute equivalent of the path
@@ -76,7 +76,7 @@ std::error_code widenPath(const Twine &Path8, SmallVectorImpl<wchar_t> &Path16,
 
   // If the path is a long path, mangled into forward slashes, normalize
   // back to backslashes here.
-  if (Path8Str.starts_with("//?/"))
+  if (Path8Str.startswith("//?/"))
     llvm::sys::path::native(Path8Str, path::Style::windows_backslash);
 
   if (std::error_code EC = UTF8ToUTF16(Path8Str, Path16))
@@ -96,7 +96,7 @@ std::error_code widenPath(const Twine &Path8, SmallVectorImpl<wchar_t> &Path16,
   const char *const LongPathPrefix = "\\\\?\\";
 
   if ((Path16.size() + CurPathLen) < MaxPathLen ||
-      Path8Str.starts_with(LongPathPrefix))
+      Path8Str.startswith(LongPathPrefix))
     return std::error_code();
 
   if (!IsAbsolute) {
@@ -130,7 +130,7 @@ namespace fs {
 
 const file_t kInvalidFile = INVALID_HANDLE_VALUE;
 
-std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
+std::string getMainExecutableImpl(const char *argv0, void *MainExecAddr) {
   SmallVector<wchar_t, MAX_PATH> PathName;
   PathName.resize_for_overwrite(PathName.capacity());
   DWORD Size = ::GetModuleFileNameW(NULL, PathName.data(), PathName.size());
@@ -154,14 +154,16 @@ std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
     return "";
 
   llvm::sys::path::make_preferred(PathNameUTF8);
-
-  SmallString<256> RealPath;
-  sys::fs::real_path(PathNameUTF8, RealPath);
-  return std::string(RealPath);
+  return std::string(PathNameUTF8.data());
 }
 
 UniqueID file_status::getUniqueID() const {
-  return UniqueID(VolumeSerialNumber, PathHash);
+  // The file is uniquely identified by the volume serial number along
+  // with the 64-bit file identifier.
+  uint64_t FileID = (static_cast<uint64_t>(FileIndexHigh) << 32ULL) |
+                    static_cast<uint64_t>(FileIndexLow);
+
+  return UniqueID(VolumeSerialNumber, FileID);
 }
 
 ErrorOr<space_info> disk_space(const Twine &Path) {
@@ -191,7 +193,9 @@ TimePoint<> basic_file_status::getLastModificationTime() const {
   return toTimePoint(Time);
 }
 
-uint32_t file_status::getLinkCount() const { return NumLinks; }
+uint32_t file_status::getLinkCount() const {
+  return NumLinks;
+}
 
 std::error_code current_path(SmallVectorImpl<char> &result) {
   SmallVector<wchar_t, MAX_PATH> cur_path;
@@ -360,17 +364,16 @@ std::error_code is_local(const Twine &path, bool &result) {
 }
 
 static std::error_code realPathFromHandle(HANDLE H,
-                                          SmallVectorImpl<wchar_t> &Buffer,
-                                          DWORD flags = VOLUME_NAME_DOS) {
+                                          SmallVectorImpl<wchar_t> &Buffer) {
   Buffer.resize_for_overwrite(Buffer.capacity());
   DWORD CountChars = ::GetFinalPathNameByHandleW(
-      H, Buffer.begin(), Buffer.capacity(), FILE_NAME_NORMALIZED | flags);
+      H, Buffer.begin(), Buffer.capacity(), FILE_NAME_NORMALIZED);
   if (CountChars && CountChars >= Buffer.capacity()) {
     // The buffer wasn't big enough, try again.  In this case the return value
     // *does* indicate the size of the null terminator.
     Buffer.resize_for_overwrite(CountChars);
-    CountChars = ::GetFinalPathNameByHandleW(H, Buffer.begin(), Buffer.size(),
-                                             FILE_NAME_NORMALIZED | flags);
+    CountChars = ::GetFinalPathNameByHandleW(
+        H, Buffer.begin(), Buffer.size(), FILE_NAME_NORMALIZED);
   }
   Buffer.truncate(CountChars);
   if (CountChars == 0)
@@ -625,7 +628,8 @@ std::error_code access(const Twine &Path, AccessMode Mode) {
   if (Attributes == INVALID_FILE_ATTRIBUTES) {
     // See if the file didn't actually exist.
     DWORD LastError = ::GetLastError();
-    if (LastError != ERROR_FILE_NOT_FOUND && LastError != ERROR_PATH_NOT_FOUND)
+    if (LastError != ERROR_FILE_NOT_FOUND &&
+        LastError != ERROR_PATH_NOT_FOUND)
       return mapWindowsError(LastError);
     return errc::no_such_file_or_directory;
   }
@@ -646,7 +650,15 @@ bool can_execute(const Twine &Path) {
 
 bool equivalent(file_status A, file_status B) {
   assert(status_known(A) && status_known(B));
-  return A.getUniqueID() == B.getUniqueID();
+  return A.FileIndexHigh         == B.FileIndexHigh &&
+         A.FileIndexLow          == B.FileIndexLow &&
+         A.FileSizeHigh          == B.FileSizeHigh &&
+         A.FileSizeLow           == B.FileSizeLow &&
+         A.LastAccessedTimeHigh  == B.LastAccessedTimeHigh &&
+         A.LastAccessedTimeLow   == B.LastAccessedTimeLow &&
+         A.LastWriteTimeHigh     == B.LastWriteTimeHigh &&
+         A.LastWriteTimeLow      == B.LastWriteTimeLow &&
+         A.VolumeSerialNumber    == B.VolumeSerialNumber;
 }
 
 std::error_code equivalent(const Twine &A, const Twine &B, bool &result) {
@@ -662,14 +674,16 @@ std::error_code equivalent(const Twine &A, const Twine &B, bool &result) {
 static bool isReservedName(StringRef path) {
   // This list of reserved names comes from MSDN, at:
   // http://msdn.microsoft.com/en-us/library/aa365247%28v=vs.85%29.aspx
-  static const char *const sReservedNames[] = {
-      "nul",  "con",  "prn",  "aux",  "com1", "com2", "com3", "com4",
-      "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", "lpt3",
-      "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"};
+  static const char *const sReservedNames[] = { "nul", "con", "prn", "aux",
+                                                "com1", "com2", "com3", "com4",
+                                                "com5", "com6", "com7", "com8",
+                                                "com9", "lpt1", "lpt2", "lpt3",
+                                                "lpt4", "lpt5", "lpt6", "lpt7",
+                                                "lpt8", "lpt9" };
 
   // First, check to see if this is a device namespace, which always
   // starts with \\.\, since device namespaces are not legal file paths.
-  if (path.starts_with("\\\\.\\"))
+  if (path.startswith("\\\\.\\"))
     return true;
 
   // Then compare against the list of ancient reserved names.
@@ -692,7 +706,6 @@ static perms perms_from_attrs(DWORD Attrs) {
 }
 
 static std::error_code getStatus(HANDLE FileHandle, file_status &Result) {
-  SmallVector<wchar_t, MAX_PATH> ntPath;
   if (FileHandle == INVALID_HANDLE_VALUE)
     goto handle_status_error;
 
@@ -720,42 +733,19 @@ static std::error_code getStatus(HANDLE FileHandle, file_status &Result) {
   if (!::GetFileInformationByHandle(FileHandle, &Info))
     goto handle_status_error;
 
-  // File indices aren't necessarily stable after closing the file handle;
-  // instead hash a canonicalized path.
-  //
-  // For getting a canonical path to the file, call GetFinalPathNameByHandleW
-  // with VOLUME_NAME_NT. We don't really care exactly what the path looks
-  // like here, as long as it is canonical (e.g. doesn't differentiate between
-  // whether a file was referred to with upper/lower case names originally).
-  // The default format with VOLUME_NAME_DOS doesn't work with all file system
-  // drivers, such as ImDisk. (See
-  // https://github.com/rust-lang/rust/pull/86447.)
-  uint64_t PathHash;
-  if (std::error_code EC =
-          realPathFromHandle(FileHandle, ntPath, VOLUME_NAME_NT)) {
-    // If realPathFromHandle failed, fall back on the fields
-    // nFileIndex{High,Low} instead. They're not necessarily stable on all file
-    // systems as they're only documented as being unique/stable as long as the
-    // file handle is open - but they're a decent fallback if we couldn't get
-    // the canonical path.
-    PathHash = (static_cast<uint64_t>(Info.nFileIndexHigh) << 32ULL) |
-               static_cast<uint64_t>(Info.nFileIndexLow);
-  } else {
-    PathHash = hash_combine_range(ntPath.begin(), ntPath.end());
-  }
-
   Result = file_status(
       file_type_from_attrs(Info.dwFileAttributes),
       perms_from_attrs(Info.dwFileAttributes), Info.nNumberOfLinks,
       Info.ftLastAccessTime.dwHighDateTime, Info.ftLastAccessTime.dwLowDateTime,
       Info.ftLastWriteTime.dwHighDateTime, Info.ftLastWriteTime.dwLowDateTime,
       Info.dwVolumeSerialNumber, Info.nFileSizeHigh, Info.nFileSizeLow,
-      PathHash);
+      Info.nFileIndexHigh, Info.nFileIndexLow);
   return std::error_code();
 
 handle_status_error:
   DWORD LastError = ::GetLastError();
-  if (LastError == ERROR_FILE_NOT_FOUND || LastError == ERROR_PATH_NOT_FOUND)
+  if (LastError == ERROR_FILE_NOT_FOUND ||
+      LastError == ERROR_PATH_NOT_FOUND)
     Result = file_status(file_type::file_not_found);
   else if (LastError == ERROR_SHARING_VIOLATION)
     Result = file_status(file_type::type_unknown);
@@ -777,16 +767,14 @@ std::error_code status(const Twine &path, file_status &result, bool Follow) {
   if (std::error_code ec = widenPath(path8, path_utf16))
     return ec;
 
-  DWORD Flags = FILE_FLAG_BACKUP_SEMANTICS;
-  if (!Follow) {
-    DWORD attr = ::GetFileAttributesW(path_utf16.begin());
-    if (attr == INVALID_FILE_ATTRIBUTES)
-      return getStatus(INVALID_HANDLE_VALUE, result);
+  DWORD attr = ::GetFileAttributesW(path_utf16.begin());
+  if (attr == INVALID_FILE_ATTRIBUTES)
+    return getStatus(INVALID_HANDLE_VALUE, result);
 
-    // Handle reparse points.
-    if (attr & FILE_ATTRIBUTE_REPARSE_POINT)
-      Flags |= FILE_FLAG_OPEN_REPARSE_POINT;
-  }
+  DWORD Flags = FILE_FLAG_BACKUP_SEMANTICS;
+  // Handle reparse points.
+  if (!Follow && (attr & FILE_ATTRIBUTE_REPARSE_POINT))
+    Flags |= FILE_FLAG_OPEN_REPARSE_POINT;
 
   ScopedFileHandle h(
       ::CreateFileW(path_utf16.begin(), 0, // Attributes only.
@@ -807,7 +795,9 @@ std::error_code status(file_t FileHandle, file_status &Result) {
   return getStatus(FileHandle, Result);
 }
 
-unsigned getUmask() { return 0; }
+unsigned getUmask() {
+  return 0;
+}
 
 std::error_code setPermissions(const Twine &Path, perms Permissions) {
   SmallVector<wchar_t, 128> PathUTF16;
@@ -826,7 +816,8 @@ std::error_code setPermissions(const Twine &Path, perms Permissions) {
     if (Attributes == 0)
       // FILE_ATTRIBUTE_NORMAL indicates no other attributes are set.
       Attributes |= FILE_ATTRIBUTE_NORMAL;
-  } else {
+  }
+  else {
     Attributes |= FILE_ATTRIBUTE_READONLY;
     // FILE_ATTRIBUTE_NORMAL is not compatible with any other attributes, so
     // remove it, if it is present.
@@ -862,19 +853,16 @@ std::error_code mapped_file_region::init(sys::fs::file_t OrigFileHandle,
 
   DWORD flprotect;
   switch (Mode) {
-  case readonly:
-    flprotect = PAGE_READONLY;
-    break;
-  case readwrite:
-    flprotect = PAGE_READWRITE;
-    break;
-  case priv:
-    flprotect = PAGE_WRITECOPY;
-    break;
+  case readonly:  flprotect = PAGE_READONLY; break;
+  case readwrite: flprotect = PAGE_READWRITE; break;
+  case priv:      flprotect = PAGE_WRITECOPY; break;
   }
 
-  HANDLE FileMappingHandle = ::CreateFileMappingW(OrigFileHandle, 0, flprotect,
-                                                  Hi_32(Size), Lo_32(Size), 0);
+  HANDLE FileMappingHandle =
+      ::CreateFileMappingW(OrigFileHandle, 0, flprotect,
+                           Hi_32(Size),
+                           Lo_32(Size),
+                           0);
   if (FileMappingHandle == NULL) {
     std::error_code ec = mapWindowsError(GetLastError());
     return ec;
@@ -882,18 +870,15 @@ std::error_code mapped_file_region::init(sys::fs::file_t OrigFileHandle,
 
   DWORD dwDesiredAccess;
   switch (Mode) {
-  case readonly:
-    dwDesiredAccess = FILE_MAP_READ;
-    break;
-  case readwrite:
-    dwDesiredAccess = FILE_MAP_WRITE;
-    break;
-  case priv:
-    dwDesiredAccess = FILE_MAP_COPY;
-    break;
+  case readonly:  dwDesiredAccess = FILE_MAP_READ; break;
+  case readwrite: dwDesiredAccess = FILE_MAP_WRITE; break;
+  case priv:      dwDesiredAccess = FILE_MAP_COPY; break;
   }
-  Mapping = ::MapViewOfFile(FileMappingHandle, dwDesiredAccess, Offset >> 32,
-                            Offset & 0xffffffff, Size);
+  Mapping = ::MapViewOfFile(FileMappingHandle,
+                            dwDesiredAccess,
+                            Offset >> 32,
+                            Offset & 0xffffffff,
+                            Size);
   if (Mapping == NULL) {
     std::error_code ec = mapWindowsError(GetLastError());
     ::CloseHandle(FileMappingHandle);
@@ -945,10 +930,10 @@ static bool hasFlushBufferKernelBug() {
 
 static bool isEXE(StringRef Magic) {
   static const char PEMagic[] = {'P', 'E', '\0', '\0'};
-  if (Magic.starts_with(StringRef("MZ")) && Magic.size() >= 0x3c + 4) {
+  if (Magic.startswith(StringRef("MZ")) && Magic.size() >= 0x3c + 4) {
     uint32_t off = read32le(Magic.data() + 0x3c);
     // PE/COFF file, either EXE or DLL.
-    if (Magic.substr(off).starts_with(StringRef(PEMagic, sizeof(PEMagic))))
+    if (Magic.substr(off).startswith(StringRef(PEMagic, sizeof(PEMagic))))
       return true;
   }
   return false;
@@ -961,8 +946,7 @@ void mapped_file_region::unmapImpl() {
 
     ::UnmapViewOfFile(Mapping);
 
-    if (Mode == mapmode::readwrite) {
-      bool DoFlush = Exe && hasFlushBufferKernelBug();
+    if (Mode == mapmode::readwrite && Exe && hasFlushBufferKernelBug()) {
       // There is a Windows kernel bug, the exact trigger conditions of which
       // are not well understood.  When triggered, dirty pages are not properly
       // flushed and subsequent process's attempts to read a file can return
@@ -970,27 +954,7 @@ void mapped_file_region::unmapImpl() {
       // sufficient to ensure that this bug is not triggered.
       // The bug only occurs when writing an executable and executing it right
       // after, under high I/O pressure.
-      if (!DoFlush) {
-        // Separately, on VirtualBox Shared Folder mounts, writes via memory
-        // maps always end up unflushed (regardless of version of Windows),
-        // unless flushed with this explicit call, if they are renamed with
-        // SetFileInformationByHandle(FileRenameInfo) before closing the output
-        // handle.
-        //
-        // As the flushing is quite expensive, use a heuristic to limit the
-        // cases where we do the flushing. Only do the flushing if we aren't
-        // sure we are on a local file system.
-        bool IsLocal = false;
-        SmallVector<wchar_t, 128> FinalPath;
-        if (!realPathFromHandle(FileHandle, FinalPath)) {
-          // Not checking the return value here - if the check fails, assume the
-          // file isn't local.
-          is_local_internal(FinalPath, IsLocal);
-        }
-        DoFlush = !IsLocal;
-      }
-      if (DoFlush)
-        ::FlushFileBuffers(FileHandle);
+      ::FlushFileBuffers(FileHandle);
     }
 
     ::CloseHandle(FileHandle);
@@ -1044,7 +1008,7 @@ std::error_code detail::directory_iterator_construct(detail::DirIterState &IT,
   size_t FilenameLen = ::wcslen(FirstFind.cFileName);
   while ((FilenameLen == 1 && FirstFind.cFileName[0] == L'.') ||
          (FilenameLen == 2 && FirstFind.cFileName[0] == L'.' &&
-          FirstFind.cFileName[1] == L'.'))
+                              FirstFind.cFileName[1] == L'.'))
     if (!::FindNextFileW(FindHandle, &FirstFind)) {
       DWORD LastError = ::GetLastError();
       // Check for end.
@@ -1094,7 +1058,7 @@ std::error_code detail::directory_iterator_increment(detail::DirIterState &IT) {
   size_t FilenameLen = ::wcslen(FindData.cFileName);
   if ((FilenameLen == 1 && FindData.cFileName[0] == L'.') ||
       (FilenameLen == 2 && FindData.cFileName[0] == L'.' &&
-       FindData.cFileName[1] == L'.'))
+                           FindData.cFileName[1] == L'.'))
     return directory_iterator_increment(IT);
 
   SmallString<128> DirectoryEntryPathUTF8;
@@ -1110,7 +1074,9 @@ std::error_code detail::directory_iterator_increment(detail::DirIterState &IT) {
   return std::error_code();
 }
 
-ErrorOr<basic_file_status> directory_entry::status() const { return Status; }
+ErrorOr<basic_file_status> directory_entry::status() const {
+  return Status;
+}
 
 static std::error_code nativeFileToFd(Expected<HANDLE> H, int &ResultFD,
                                       OpenFlags Flags) {
@@ -1399,8 +1365,7 @@ static void expandTildeExpr(SmallVectorImpl<char> &Path) {
 
   StringRef PathStr(Path.begin(), Path.size());
   PathStr = PathStr.drop_front();
-  StringRef Expr =
-      PathStr.take_until([](char c) { return path::is_separator(c); });
+  StringRef Expr = PathStr.take_until([](char c) { return path::is_separator(c); });
 
   if (!Expr.empty()) {
     // This is probably a ~username/ expression.  Don't support this on Windows.
@@ -1531,12 +1496,12 @@ void system_temp_directory(bool ErasedOnReboot, SmallVectorImpl<char> &Result) {
 } // end namespace path
 
 namespace windows {
-std::error_code CodePageToUTF16(unsigned codepage, llvm::StringRef original,
+std::error_code CodePageToUTF16(unsigned codepage,
+                                llvm::StringRef original,
                                 llvm::SmallVectorImpl<wchar_t> &utf16) {
   if (!original.empty()) {
-    int len =
-        ::MultiByteToWideChar(codepage, MB_ERR_INVALID_CHARS, original.begin(),
-                              original.size(), utf16.begin(), 0);
+    int len = ::MultiByteToWideChar(codepage, MB_ERR_INVALID_CHARS, original.begin(),
+                                    original.size(), utf16.begin(), 0);
 
     if (len == 0) {
       return mapWindowsError(::GetLastError());
@@ -1545,9 +1510,8 @@ std::error_code CodePageToUTF16(unsigned codepage, llvm::StringRef original,
     utf16.reserve(len + 1);
     utf16.resize_for_overwrite(len);
 
-    len =
-        ::MultiByteToWideChar(codepage, MB_ERR_INVALID_CHARS, original.begin(),
-                              original.size(), utf16.begin(), utf16.size());
+    len = ::MultiByteToWideChar(codepage, MB_ERR_INVALID_CHARS, original.begin(),
+                                original.size(), utf16.begin(), utf16.size());
 
     if (len == 0) {
       return mapWindowsError(::GetLastError());
@@ -1567,17 +1531,18 @@ std::error_code UTF8ToUTF16(llvm::StringRef utf8,
 }
 
 std::error_code CurCPToUTF16(llvm::StringRef curcp,
-                             llvm::SmallVectorImpl<wchar_t> &utf16) {
+                            llvm::SmallVectorImpl<wchar_t> &utf16) {
   return CodePageToUTF16(CP_ACP, curcp, utf16);
 }
 
-static std::error_code UTF16ToCodePage(unsigned codepage, const wchar_t *utf16,
-                                       size_t utf16_len,
-                                       llvm::SmallVectorImpl<char> &converted) {
+static
+std::error_code UTF16ToCodePage(unsigned codepage, const wchar_t *utf16,
+                                size_t utf16_len,
+                                llvm::SmallVectorImpl<char> &converted) {
   if (utf16_len) {
     // Get length.
-    int len = ::WideCharToMultiByte(codepage, 0, utf16, utf16_len,
-                                    converted.begin(), 0, NULL, NULL);
+    int len = ::WideCharToMultiByte(codepage, 0, utf16, utf16_len, converted.begin(),
+                                    0, NULL, NULL);
 
     if (len == 0) {
       return mapWindowsError(::GetLastError());

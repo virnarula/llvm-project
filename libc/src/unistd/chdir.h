@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_UNISTD_CHDIR_H
 #define LLVM_LIBC_SRC_UNISTD_CHDIR_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int chdir(const char *path);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_CHDIR_H

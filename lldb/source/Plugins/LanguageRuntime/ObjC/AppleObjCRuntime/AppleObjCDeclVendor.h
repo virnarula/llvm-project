@@ -37,7 +37,7 @@ private:
   bool FinishDecl(clang::ObjCInterfaceDecl *decl);
 
   ObjCLanguageRuntime &m_runtime;
-  std::shared_ptr<TypeSystemClang> m_ast_ctx;
+  TypeSystemClang m_ast_ctx;
   ObjCLanguageRuntime::EncodingToTypeSP m_type_realizer_sp;
   AppleObjCExternalASTSource *m_external_source;
 

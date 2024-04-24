@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -triple i386 -target-feature +mmx %s -o - | FileCheck %s
+// RUN: %clang -mmmx -target i386-unknown-unknown -emit-llvm -S %s -o - | FileCheck %s
+// <rdar://problem/9091220>
 #include <mmintrin.h>
 
 // CHECK: { x86_mmx, x86_mmx, x86_mmx, x86_mmx, x86_mmx, x86_mmx, x86_mmx }

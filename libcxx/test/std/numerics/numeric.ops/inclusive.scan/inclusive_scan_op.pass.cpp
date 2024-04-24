@@ -62,38 +62,38 @@ test()
     }
 }
 
-constexpr std::size_t triangle(size_t n) { return n*(n+1)/2; }
+constexpr size_t triangle(size_t n) { return n*(n+1)/2; }
 
 //  Basic sanity
 TEST_CONSTEXPR_CXX20 void
 basic_tests()
 {
     {
-    std::array<std::size_t, 10> v;
+    std::array<size_t, 10> v;
     std::fill(v.begin(), v.end(), 3);
     std::inclusive_scan(v.begin(), v.end(), v.begin(), std::plus<>());
-    for (std::size_t i = 0; i < v.size(); ++i)
+    for (size_t i = 0; i < v.size(); ++i)
         assert(v[i] == (i+1) * 3);
     }
 
     {
-    std::array<std::size_t, 10> v;
+    std::array<size_t, 10> v;
     std::iota(v.begin(), v.end(), 0);
     std::inclusive_scan(v.begin(), v.end(), v.begin(), std::plus<>());
-    for (std::size_t i = 0; i < v.size(); ++i)
+    for (size_t i = 0; i < v.size(); ++i)
         assert(v[i] == triangle(i));
     }
 
     {
-    std::array<std::size_t, 10> v;
+    std::array<size_t, 10> v;
     std::iota(v.begin(), v.end(), 1);
     std::inclusive_scan(v.begin(), v.end(), v.begin(), std::plus<>());
-    for (std::size_t i = 0; i < v.size(); ++i)
+    for (size_t i = 0; i < v.size(); ++i)
         assert(v[i] == triangle(i + 1));
     }
 
     {
-    std::array<std::size_t, 0> v, res;
+    std::array<size_t, 0> v, res;
     std::inclusive_scan(v.begin(), v.end(), res.begin(), std::plus<>());
     assert(res.empty());
     }

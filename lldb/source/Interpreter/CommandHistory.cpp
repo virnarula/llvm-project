@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <cinttypes>
-#include <optional>
 
 #include "lldb/Interpreter/CommandHistory.h"
 
@@ -24,18 +23,18 @@ bool CommandHistory::IsEmpty() const {
   return m_history.empty();
 }
 
-std::optional<llvm::StringRef>
+llvm::Optional<llvm::StringRef>
 CommandHistory::FindString(llvm::StringRef input_str) const {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
   if (input_str.size() < 2)
-    return std::nullopt;
+    return llvm::None;
 
   if (input_str[0] != g_repeat_char)
-    return std::nullopt;
+    return llvm::None;
 
   if (input_str[1] == g_repeat_char) {
     if (m_history.empty())
-      return std::nullopt;
+      return llvm::None;
     return llvm::StringRef(m_history.back());
   }
 
@@ -44,15 +43,15 @@ CommandHistory::FindString(llvm::StringRef input_str) const {
   size_t idx = 0;
   if (input_str.front() == '-') {
     if (input_str.drop_front(1).getAsInteger(0, idx))
-      return std::nullopt;
+      return llvm::None;
     if (idx >= m_history.size())
-      return std::nullopt;
+      return llvm::None;
     idx = m_history.size() - idx;
   } else {
     if (input_str.getAsInteger(0, idx))
-      return std::nullopt;
+      return llvm::None;
     if (idx >= m_history.size())
-      return std::nullopt;
+      return llvm::None;
   }
 
   return llvm::StringRef(m_history[idx]);

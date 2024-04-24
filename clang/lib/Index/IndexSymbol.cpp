@@ -36,7 +36,7 @@ static bool isUnitTest(const ObjCMethodDecl *D) {
     return false;
   if (!D->getReturnType()->isVoidType())
     return false;
-  if (!D->getSelector().getNameForSlot(0).starts_with("test"))
+  if (!D->getSelector().getNameForSlot(0).startswith("test"))
     return false;
   return isUnitTestCase(D->getClassInterface());
 }
@@ -66,17 +66,16 @@ bool index::isFunctionLocalSymbol(const Decl *D) {
 
   if (const NamedDecl *ND = dyn_cast<NamedDecl>(D)) {
     switch (ND->getFormalLinkage()) {
-    case Linkage::Invalid:
-      llvm_unreachable("Linkage hasn't been computed!");
-    case Linkage::None:
-    case Linkage::Internal:
-      return true;
-    case Linkage::VisibleNone:
-    case Linkage::UniqueExternal:
-      llvm_unreachable("Not a sema linkage");
-    case Linkage::Module:
-    case Linkage::External:
-      return false;
+      case NoLinkage:
+      case InternalLinkage:
+        return true;
+      case VisibleNoLinkage:
+      case UniqueExternalLinkage:
+      case ModuleInternalLinkage:
+        llvm_unreachable("Not a sema linkage");
+      case ModuleLinkage:
+      case ExternalLinkage:
+        return false;
     }
   }
 
@@ -107,19 +106,19 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
 
   if (const TagDecl *TD = dyn_cast<TagDecl>(D)) {
     switch (TD->getTagKind()) {
-    case TagTypeKind::Struct:
+    case TTK_Struct:
       Info.Kind = SymbolKind::Struct; break;
-    case TagTypeKind::Union:
+    case TTK_Union:
       Info.Kind = SymbolKind::Union; break;
-    case TagTypeKind::Class:
+    case TTK_Class:
       Info.Kind = SymbolKind::Class;
       Info.Lang = SymbolLanguage::CXX;
       break;
-    case TagTypeKind::Interface:
+    case TTK_Interface:
       Info.Kind = SymbolKind::Protocol;
       Info.Lang = SymbolLanguage::CXX;
       break;
-    case TagTypeKind::Enum:
+    case TTK_Enum:
       Info.Kind = SymbolKind::Enum; break;
     }
 
@@ -348,6 +347,7 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
       }
       break;
     case Decl::ClassTemplatePartialSpecialization:
+    case Decl::ClassScopeFunctionSpecialization:
     case Decl::ClassTemplateSpecialization:
     case Decl::CXXRecord:
     case Decl::Enum:

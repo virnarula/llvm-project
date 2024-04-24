@@ -57,7 +57,7 @@ public:
 
   void EnableCategory(ConstString category_name,
                       TypeCategoryMap::Position pos, lldb::LanguageType lang) {
-    lldb::TypeCategoryImplSP category_sp;
+    TypeCategoryMap::ValueSP category_sp;
     if (m_categories_map.Get(category_name, category_sp) && category_sp) {
       m_categories_map.Enable(category_sp, pos);
       category_sp->AddLanguage(lang);

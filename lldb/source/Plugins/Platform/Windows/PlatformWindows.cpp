@@ -9,7 +9,6 @@
 #include "PlatformWindows.h"
 
 #include <cstdio>
-#include <optional>
 #if defined(_WIN32)
 #include "lldb/Host/windows/windows.h"
 #include <winsock2.h>
@@ -226,7 +225,7 @@ uint32_t PlatformWindows::DoLoadImage(Process *process,
 
   /* Inject paths parameter into inferior */
   lldb::addr_t injected_paths{0x0};
-  std::optional<llvm::detail::scope_exit<std::function<void()>>> paths_cleanup;
+  llvm::Optional<llvm::detail::scope_exit<std::function<void()>>> paths_cleanup;
   if (paths) {
     llvm::SmallVector<llvm::UTF16, 261> search_paths;
 
@@ -336,21 +335,19 @@ uint32_t PlatformWindows::DoLoadImage(Process *process,
     return LLDB_INVALID_IMAGE_TOKEN;
   }
 
-  auto parameter_cleanup =
-      llvm::make_scope_exit([invocation, &context, injected_parameters]() {
-        invocation->DeallocateFunctionResults(context, injected_parameters);
-      });
+  auto parameter_cleanup = llvm::make_scope_exit([invocation, &context, injected_parameters]() {
+    invocation->DeallocateFunctionResults(context, injected_parameters);
+  });
 
-  TypeSystemClangSP scratch_ts_sp =
+  TypeSystemClang *ast =
       ScratchTypeSystemClang::GetForTarget(process->GetTarget());
-  if (!scratch_ts_sp) {
+  if (!ast) {
     error.SetErrorString("LoadLibrary error: unable to get (clang) type system");
     return LLDB_INVALID_IMAGE_TOKEN;
   }
 
   /* Setup Return Type */
-  CompilerType VoidPtrTy =
-      scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
+  CompilerType VoidPtrTy = ast->GetBasicType(eBasicTypeVoid).GetPointerType();
 
   Value value;
   value.SetCompilerType(VoidPtrTy);
@@ -415,7 +412,7 @@ uint32_t PlatformWindows::DoLoadImage(Process *process,
 
 Status PlatformWindows::UnloadImage(Process *process, uint32_t image_token) {
   const addr_t address = process->GetImagePtrFromToken(image_token);
-  if (address == LLDB_INVALID_IMAGE_TOKEN)
+  if (address == LLDB_INVALID_ADDRESS)
     return Status("invalid image token");
 
   StreamString expression;
@@ -467,7 +464,7 @@ ProcessSP PlatformWindows::DebugProcess(ProcessLaunchInfo &launch_info,
   // mechanisms to do it for us, because it doesn't have the special knowledge
   // required for setting up the background thread or passing the right flags.
   //
-  // Another problem is that LLDB's standard model for debugging a process
+  // Another problem is that that LLDB's standard model for debugging a process
   // is to first launch it, have it stop at the entry point, and then attach to
   // it.  In Windows this doesn't quite work, you have to specify as an
   // argument to CreateProcess() that you're going to debug the process.  So we
@@ -533,9 +530,9 @@ lldb::ProcessSP PlatformWindows::Attach(ProcessAttachInfo &attach_info,
   if (!target || error.Fail())
     return process_sp;
 
-  process_sp =
-      target->CreateProcess(attach_info.GetListenerForProcess(debugger),
-                            attach_info.GetProcessPluginName(), nullptr, false);
+  const char *plugin_name = attach_info.GetProcessPluginName();
+  process_sp = target->CreateProcess(
+      attach_info.GetListenerForProcess(debugger), plugin_name, nullptr, false);
 
   process_sp->HijackProcessEvents(attach_info.GetHijackListener());
   if (process_sp)
@@ -685,15 +682,12 @@ void * __lldb_LoadLibraryHelper(const wchar_t *name, const wchar_t *paths,
     return nullptr;
   }
 
-  TypeSystemClangSP scratch_ts_sp =
-      ScratchTypeSystemClang::GetForTarget(target);
-  if (!scratch_ts_sp)
+  TypeSystemClang *ast = ScratchTypeSystemClang::GetForTarget(target);
+  if (!ast)
     return nullptr;
 
-  CompilerType VoidPtrTy =
-      scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
-  CompilerType WCharPtrTy =
-      scratch_ts_sp->GetBasicType(eBasicTypeWChar).GetPointerType();
+  CompilerType VoidPtrTy = ast->GetBasicType(eBasicTypeVoid).GetPointerType();
+  CompilerType WCharPtrTy = ast->GetBasicType(eBasicTypeWChar).GetPointerType();
 
   ValueList parameters;
 

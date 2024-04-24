@@ -15,25 +15,21 @@
 #define LLVM_TRANSFORMS_UTILS_VALUEMAPPER_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/simple_ilist.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/ValueMap.h"
 
 namespace llvm {
 
 class Constant;
-class DPValue;
 class Function;
 class GlobalVariable;
 class Instruction;
 class MDNode;
 class Metadata;
-class Module;
 class Type;
 class Value;
 
 using ValueToValueMapTy = ValueMap<const Value *, WeakTrackingVH>;
-using DPValueIterator = simple_ilist<DPValue>::iterator;
 
 /// This is a class that can be implemented by clients to remap types when
 /// cloning constants and instructions.
@@ -94,7 +90,7 @@ enum RemapFlags {
 
   /// Instruct the remapper to reuse and mutate distinct metadata (remapping
   /// them in place) instead of cloning remapped copies. This flag has no
-  /// effect when RF_NoModuleLevelChanges, since that implies an identity
+  /// effect when when RF_NoModuleLevelChanges, since that implies an identity
   /// mapping.
   RF_ReuseAndMutateDistinctMDs = 4,
 
@@ -116,9 +112,8 @@ inline RemapFlags operator|(RemapFlags LHS, RemapFlags RHS) {
 /// There are a number of top-level entry points:
 /// - \a mapValue() (and \a mapConstant());
 /// - \a mapMetadata() (and \a mapMDNode());
-/// - \a remapInstruction();
-/// - \a remapFunction(); and
-/// - \a remapGlobalObjectMetadata().
+/// - \a remapInstruction(); and
+/// - \a remapFunction().
 ///
 /// The \a ValueMaterializer can be used as a callback, but cannot invoke any
 /// of these top-level functions recursively.  Instead, callbacks should use
@@ -179,10 +174,7 @@ public:
   Constant *mapConstant(const Constant &C);
 
   void remapInstruction(Instruction &I);
-  void remapDPValue(Module *M, DPValue &V);
-  void remapDPValueRange(Module *M, iterator_range<DPValueIterator> Range);
   void remapFunction(Function &F);
-  void remapGlobalObjectMetadata(GlobalObject &GO);
 
   void scheduleMapGlobalInitializer(GlobalVariable &GV, Constant &Init,
                                     unsigned MappingContextID = 0);
@@ -264,22 +256,6 @@ inline void RemapInstruction(Instruction *I, ValueToValueMapTy &VM,
                              ValueMapTypeRemapper *TypeMapper = nullptr,
                              ValueMaterializer *Materializer = nullptr) {
   ValueMapper(VM, Flags, TypeMapper, Materializer).remapInstruction(*I);
-}
-
-/// Remap the Values used in the DPValue \a V using the value map \a VM.
-inline void RemapDPValue(Module *M, DPValue *V, ValueToValueMapTy &VM,
-                         RemapFlags Flags = RF_None,
-                         ValueMapTypeRemapper *TypeMapper = nullptr,
-                         ValueMaterializer *Materializer = nullptr) {
-  ValueMapper(VM, Flags, TypeMapper, Materializer).remapDPValue(M, *V);
-}
-
-/// Remap the Values used in the DPValue \a V using the value map \a VM.
-inline void RemapDPValueRange(Module *M, iterator_range<DPValueIterator> Range,
-                              ValueToValueMapTy &VM, RemapFlags Flags = RF_None,
-                              ValueMapTypeRemapper *TypeMapper = nullptr,
-                              ValueMaterializer *Materializer = nullptr) {
-  ValueMapper(VM, Flags, TypeMapper, Materializer).remapDPValueRange(M, Range);
 }
 
 /// Remap the operands, metadata, arguments, and instructions of a function.

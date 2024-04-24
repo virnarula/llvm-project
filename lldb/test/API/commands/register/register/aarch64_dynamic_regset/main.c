@@ -1,13 +1,5 @@
 #include <sys/auxv.h>
 
-// If this program receives 0 arguments, it will use non-streaming SVE
-// registers. If the number of arguments is >= 1, it will use streaming SVE
-// registers.
-
-#ifndef HWCAP2_SME
-#define HWCAP2_SME (1 << 23)
-#endif
-
 void set_sve_registers() {
   // AArch64 SVE extension ISA adds a new set of vector and predicate registers:
   // 32 Z registers, 16 P registers, and 1 FFR register.
@@ -72,14 +64,8 @@ void set_sve_registers() {
   asm volatile("cpy  z31.b, p15/z, #32\n\t");
 }
 
-int main(int argc, char *argv[]) {
-  if (argc > 1) {
-    // Enable streaming mode SVE and the ZA array storage.
-    asm volatile("msr  s0_3_c4_c7_3, xzr" /*smstart*/);
-  }
-
-  // If we have SVE or SME, set the SVE registers.
-  if ((getauxval(AT_HWCAP) & HWCAP_SVE) || (getauxval(AT_HWCAP2) & HWCAP2_SME))
+int main() {
+  if (getauxval(AT_HWCAP) & HWCAP_SVE) // check if SVE is present
     set_sve_registers();
 
   return 0; // Set a break point here.

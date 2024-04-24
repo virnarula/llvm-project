@@ -7,11 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: no-filesystem
 
-// UNSUPPORTED: availability-filesystem-missing
-
-// qemu: Unsupported SemiHosting SWI 0x30
-// UNSUPPORTED: LIBCXX-PICOLIBC-FIXME
+// Filesystem is supported on Apple platforms starting with macosx10.15.
+// UNSUPPORTED: use_system_cxx_lib && target={{.+}}-apple-macosx10.{{9|10|11|12|13|14}}
 
 // <chrono>
 

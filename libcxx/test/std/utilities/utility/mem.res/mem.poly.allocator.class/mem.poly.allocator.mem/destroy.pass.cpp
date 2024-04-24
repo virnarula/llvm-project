@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
-// TODO: Change to XFAIL once https://github.com/llvm/llvm-project/issues/40340 is fixed
-// UNSUPPORTED: availability-pmr-missing
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx10.{{9|10|11|12|13|14|15}}
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx{{11.0|12.0}}
 
 // <memory_resource>
 
@@ -19,6 +19,7 @@
 
 #include <memory_resource>
 #include <cassert>
+#include <cstdlib>
 #include <new>
 #include <type_traits>
 
@@ -38,11 +39,11 @@ int main(int, char**) {
     ASSERT_SAME_TYPE(decltype(a.destroy((destroyable*)nullptr)), void);
   }
   {
-    alignas(destroyable) char buffer[sizeof(destroyable)];
-    destroyable* ptr = ::new (buffer) destroyable();
+    destroyable* ptr = ::new (std::malloc(sizeof(destroyable))) destroyable();
     assert(count == 1);
     A{}.destroy(ptr);
     assert(count == 0);
+    std::free(ptr);
   }
 
   return 0;

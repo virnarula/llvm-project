@@ -4,6 +4,8 @@
 
 // UNSUPPORTED: android
 
+// REQUIRES: stable-runtime
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -14,7 +16,7 @@ int main() {
   // CHECK: ERROR: HWAddressSanitizer: invalid alignment requested in aligned_alloc: 17
   // CHECK: {{#0 0x.* in .*}}{{aligned_alloc|memalign}}
   // CHECK: {{#1 0x.* in main .*aligned_alloc-alignment.cpp:}}[[@LINE-3]]
-  // CHECK: SUMMARY: HWAddressSanitizer: invalid-aligned-alloc-alignment {{.*}} in main
+  // CHECK: SUMMARY: HWAddressSanitizer: invalid-aligned-alloc-alignment
 
   printf("pointer after failed aligned_alloc: %zd\n", (size_t)p);
   // CHECK-NULL: pointer after failed aligned_alloc: 0

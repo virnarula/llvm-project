@@ -15,7 +15,6 @@
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "Plugins/Language/ObjCPlusPlus/ObjCPlusPlusLanguage.h"
 #include "TestingSupport/SubsystemRAII.h"
-#include <optional>
 
 using namespace lldb_private;
 
@@ -79,14 +78,14 @@ TEST_F(HighlighterTest, FallbackHighlighter) {
   style.semicolons.Set("<", ">");
 
   const char *code = "program Hello;";
-  std::string output = h.Highlight(style, code, std::optional<size_t>());
+  std::string output = h.Highlight(style, code, llvm::Optional<size_t>());
 
   EXPECT_STREQ(output.c_str(), code);
 }
 
 static std::string
 highlightDefault(llvm::StringRef code, HighlightStyle style,
-                 std::optional<size_t> cursor = std::optional<size_t>()) {
+                 llvm::Optional<size_t> cursor = llvm::Optional<size_t>()) {
   HighlighterManager mgr;
   return mgr.getDefaultHighlighter().Highlight(style, code, cursor);
 }
@@ -116,7 +115,7 @@ TEST_F(HighlighterTest, DefaultHighlighterWithCursorOutOfBounds) {
 
 static std::string
 highlightC(llvm::StringRef code, HighlightStyle style,
-           std::optional<size_t> cursor = std::optional<size_t>()) {
+           llvm::Optional<size_t> cursor = llvm::Optional<size_t>()) {
   HighlighterManager mgr;
   const Highlighter &h = mgr.getHighlighterFor(lldb::eLanguageTypeC, "main.c");
   return h.Highlight(style, code, cursor);
@@ -160,7 +159,7 @@ TEST_F(HighlighterTest, Colons) {
   HighlightStyle s;
   s.colon.Set("<c>", "</c>");
 
-  EXPECT_EQ("foo<c>::</c>bar<c>:</c>", highlightC("foo::bar:", s));
+  EXPECT_EQ("foo<c>:</c><c>:</c>bar<c>:</c>", highlightC("foo::bar:", s));
 }
 
 TEST_F(HighlighterTest, ClangBraces) {

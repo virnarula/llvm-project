@@ -6,6 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: libcpp-has-no-incomplete-format
 
 // <format>
 
@@ -23,7 +24,6 @@
 // using wformat_context = basic_format_context<unspecified, wchar_t>;
 
 #include <format>
-#include <iterator>
 #include <string_view>
 #include <type_traits>
 

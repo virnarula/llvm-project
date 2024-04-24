@@ -37,9 +37,11 @@ declare void @bar(...)
 ; V8-NEXT:  mov %g1, %o7
 
 ; V9-LABEL: test_tail_call_with_return
-; V9:       mov %o7, %g1
-; V9-NEXT:  call foo
-; V9-NEXT:  mov %g1, %o7
+; V9:       save %sp
+; V9:       call foo
+; V9-NEXT:  nop
+; V9:       ret
+; V9-NEXT:  restore %g0, %o0, %o0
 
 define i32 @test_tail_call_with_return() nounwind {
 entry:

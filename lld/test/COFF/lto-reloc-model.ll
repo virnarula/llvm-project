@@ -11,10 +11,10 @@ target triple = "i686-pc-windows-msvc"
 module asm "__tls_index = 1"
 module asm "__tls_array = 2"
 
-define ptr @main() {
+define i8* @main() {
   ; CHECK: movl 1, %eax
   ; CHECK: movl %fs:2, %ecx
   ; CHECK: movl (%ecx,%eax,4), %eax
   ; CHECK: leal (%eax), %eax
-  ret ptr @foo
+  ret i8* @foo
 }

@@ -18,7 +18,6 @@
 #define TESTING_CXA_GUARD
 #include "../src/cxa_guard_impl.h"
 #include <cassert>
-#include <type_traits>
 
 #if defined(__clang__)
 #  pragma clang diagnostic ignored "-Wtautological-pointer-compare"

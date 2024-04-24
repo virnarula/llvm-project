@@ -1,5 +1,3 @@
-// UNSUPPORTED:  target={{.*}}-aix{{.*}}
-
 // RUN: rm -rf %t.dir
 // RUN: rm -rf %t.cdb
 // RUN: mkdir -p %t.dir

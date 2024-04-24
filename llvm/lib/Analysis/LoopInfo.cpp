@@ -17,6 +17,7 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/IVDescriptors.h"
+#include "llvm/Analysis/LoopInfoImpl.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopNestAnalysis.h"
 #include "llvm/Analysis/MemorySSA.h"
@@ -35,7 +36,6 @@
 #include "llvm/IR/PrintPasses.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/GenericLoopInfoImpl.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
@@ -198,17 +198,17 @@ static Value *findFinalIVValue(const Loop &L, const PHINode &IndVar,
   return nullptr;
 }
 
-std::optional<Loop::LoopBounds>
-Loop::LoopBounds::getBounds(const Loop &L, PHINode &IndVar,
-                            ScalarEvolution &SE) {
+Optional<Loop::LoopBounds> Loop::LoopBounds::getBounds(const Loop &L,
+                                                       PHINode &IndVar,
+                                                       ScalarEvolution &SE) {
   InductionDescriptor IndDesc;
   if (!InductionDescriptor::isInductionPHI(&IndVar, &L, &SE, IndDesc))
-    return std::nullopt;
+    return None;
 
   Value *InitialIVValue = IndDesc.getStartValue();
   Instruction *StepInst = IndDesc.getInductionBinOp();
   if (!InitialIVValue || !StepInst)
-    return std::nullopt;
+    return None;
 
   const SCEV *Step = IndDesc.getStep();
   Value *StepInstOp1 = StepInst->getOperand(1);
@@ -221,7 +221,7 @@ Loop::LoopBounds::getBounds(const Loop &L, PHINode &IndVar,
 
   Value *FinalIVValue = findFinalIVValue(L, IndVar, *StepInst);
   if (!FinalIVValue)
-    return std::nullopt;
+    return None;
 
   return LoopBounds(L, *InitialIVValue, *StepInst, StepValue, *FinalIVValue,
                     SE);
@@ -284,11 +284,11 @@ Direction Loop::LoopBounds::getDirection() const {
   return Direction::Unknown;
 }
 
-std::optional<Loop::LoopBounds> Loop::getBounds(ScalarEvolution &SE) const {
+Optional<Loop::LoopBounds> Loop::getBounds(ScalarEvolution &SE) const {
   if (PHINode *IndVar = getInductionVariable(SE))
     return LoopBounds::getBounds(*this, *IndVar, SE);
 
-  return std::nullopt;
+  return None;
 }
 
 PHINode *Loop::getInductionVariable(ScalarEvolution &SE) const {
@@ -737,7 +737,7 @@ void UnloopUpdater::updateBlockParents() {
   bool Changed = FoundIB;
   for (unsigned NIters = 0; Changed; ++NIters) {
     assert(NIters < Unloop.getNumBlocks() && "runaway iterative algorithm");
-    (void)NIters;
+    (void) NIters;
 
     // Iterate over the postorder list of blocks, propagating the nearest loop
     // from successors to predecessors as before.
@@ -929,8 +929,9 @@ void LoopInfo::erase(Loop *Unloop) {
   }
 }
 
-bool LoopInfo::wouldBeOutOfLoopUseRequiringLCSSA(
-    const Value *V, const BasicBlock *ExitBB) const {
+bool
+LoopInfo::wouldBeOutOfLoopUseRequiringLCSSA(const Value *V,
+                                            const BasicBlock *ExitBB) const {
   if (V->getType()->isTokenTy())
     // We can't form PHIs of token type, so the definition of LCSSA excludes
     // values of that type.
@@ -969,9 +970,7 @@ LoopInfo LoopAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
 
 PreservedAnalyses LoopPrinterPass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
-  auto &LI = AM.getResult<LoopAnalysis>(F);
-  OS << "Loop info for function '" << F.getName() << "':\n";
-  LI.print(OS);
+  AM.getResult<LoopAnalysis>(F).print(OS);
   return PreservedAnalyses::all();
 }
 
@@ -1050,11 +1049,11 @@ MDNode *llvm::findOptionMDForLoop(const Loop *TheLoop, StringRef Name) {
 /// If it has a value (e.g. {"llvm.distribute", 1} return the value as an
 /// operand or null otherwise.  If the string metadata is not found return
 /// Optional's not-a-value.
-std::optional<const MDOperand *>
-llvm::findStringMetadataForLoop(const Loop *TheLoop, StringRef Name) {
+Optional<const MDOperand *> llvm::findStringMetadataForLoop(const Loop *TheLoop,
+                                                            StringRef Name) {
   MDNode *MD = findOptionMDForLoop(TheLoop, Name);
   if (!MD)
-    return std::nullopt;
+    return None;
   switch (MD->getNumOperands()) {
   case 1:
     return nullptr;
@@ -1065,11 +1064,11 @@ llvm::findStringMetadataForLoop(const Loop *TheLoop, StringRef Name) {
   }
 }
 
-std::optional<bool> llvm::getOptionalBoolLoopAttribute(const Loop *TheLoop,
-                                                       StringRef Name) {
+Optional<bool> llvm::getOptionalBoolLoopAttribute(const Loop *TheLoop,
+                                                  StringRef Name) {
   MDNode *MD = findOptionMDForLoop(TheLoop, Name);
   if (!MD)
-    return std::nullopt;
+    return None;
   switch (MD->getNumOperands()) {
   case 1:
     // When the value is absent it is interpreted as 'attribute set'.
@@ -1087,16 +1086,16 @@ bool llvm::getBooleanLoopAttribute(const Loop *TheLoop, StringRef Name) {
   return getOptionalBoolLoopAttribute(TheLoop, Name).value_or(false);
 }
 
-std::optional<int> llvm::getOptionalIntLoopAttribute(const Loop *TheLoop,
-                                                     StringRef Name) {
+llvm::Optional<int> llvm::getOptionalIntLoopAttribute(const Loop *TheLoop,
+                                                      StringRef Name) {
   const MDOperand *AttrMD =
       findStringMetadataForLoop(TheLoop, Name).value_or(nullptr);
   if (!AttrMD)
-    return std::nullopt;
+    return None;
 
   ConstantInt *IntMD = mdconst::extract_or_null<ConstantInt>(AttrMD->get());
   if (!IntMD)
-    return std::nullopt;
+    return None;
 
   return IntMD->getSExtValue();
 }
@@ -1145,7 +1144,7 @@ MDNode *llvm::makePostTransformationMetadata(LLVMContext &Context,
         if (S)
           IsVectorMetadata =
               llvm::any_of(RemovePrefixes, [S](StringRef Prefix) -> bool {
-                return S->getString().starts_with(Prefix);
+                return S->getString().startswith(Prefix);
               });
       }
       if (!IsVectorMetadata)
@@ -1220,7 +1219,7 @@ PreservedAnalyses LoopVerifierPass::run(Function &F,
 /// Traverse the loop blocks and store the DFS result.
 /// Useful for clients that just want the final DFS result and don't need to
 /// visit blocks during the initial traversal.
-void LoopBlocksDFS::perform(const LoopInfo *LI) {
+void LoopBlocksDFS::perform(LoopInfo *LI) {
   LoopBlocksTraversal Traversal(*this, LI);
   for (LoopBlocksTraversal::POTIterator POI = Traversal.begin(),
                                         POE = Traversal.end();

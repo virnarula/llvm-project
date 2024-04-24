@@ -9,6 +9,8 @@
 #ifndef LLDB_UTILITY_DATAENCODER_H
 #define LLDB_UTILITY_DATAENCODER_H
 
+#if defined(__cplusplus)
+
 #include "lldb/lldb-defines.h"
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-forward.h"
@@ -299,4 +301,5 @@ private:
 
 } // namespace lldb_private
 
+#endif // #if defined (__cplusplus)
 #endif // LLDB_UTILITY_DATAENCODER_H

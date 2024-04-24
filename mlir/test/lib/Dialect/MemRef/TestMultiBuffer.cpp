@@ -8,7 +8,6 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
-#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Pass/Pass.h"
@@ -24,7 +23,7 @@ struct TestMultiBufferingPass
   TestMultiBufferingPass(const TestMultiBufferingPass &pass)
       : PassWrapper(pass) {}
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<affine::AffineDialect>();
+    registry.insert<AffineDialect>();
   }
   StringRef getArgument() const final { return "test-multi-buffering"; }
   StringRef getDescription() const final {

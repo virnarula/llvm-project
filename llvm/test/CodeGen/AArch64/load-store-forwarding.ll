@@ -2,7 +2,7 @@
 ; RUN: llc -mtriple=aarch64_be -o - %s | FileCheck %s --check-prefix CHECK-BE
 ; RUN: llc -mtriple=aarch64 -o - %s | FileCheck %s --check-prefix CHECK-LE
 
-define i8 @test1(i32 %a, ptr %pa) {
+define i8 @test1(i32 %a, i8* %pa) {
 ; CHECK-BE-LABEL: test1:
 ; CHECK-BE:       // %bb.0:
 ; CHECK-BE-NEXT:    mov w8, w0
@@ -14,12 +14,14 @@ define i8 @test1(i32 %a, ptr %pa) {
 ; CHECK-LE:       // %bb.0:
 ; CHECK-LE-NEXT:    str w0, [x1]
 ; CHECK-LE-NEXT:    ret
-  store i32 %a, ptr %pa
-  %res = load i8, ptr %pa
+  %p32 = bitcast i8* %pa to i32*
+  %p8 = getelementptr i8, i8* %pa, i32 0
+  store i32 %a, i32* %p32
+  %res = load i8, i8* %p8
   ret i8 %res
 }
 
-define i8 @test2(i32 %a, ptr %pa) {
+define i8 @test2(i32 %a, i8* %pa) {
 ; CHECK-BE-LABEL: test2:
 ; CHECK-BE:       // %bb.0:
 ; CHECK-BE-NEXT:    str w0, [x1]
@@ -31,13 +33,14 @@ define i8 @test2(i32 %a, ptr %pa) {
 ; CHECK-LE-NEXT:    str w0, [x1]
 ; CHECK-LE-NEXT:    ubfx w0, w0, #8, #8
 ; CHECK-LE-NEXT:    ret
-  %p8 = getelementptr i8, ptr %pa, i32 1
-  store i32 %a, ptr %pa
-  %res = load i8, ptr %p8
+  %p32 = bitcast i8* %pa to i32*
+  %p8 = getelementptr i8, i8* %pa, i32 1
+  store i32 %a, i32* %p32
+  %res = load i8, i8* %p8
   ret i8 %res
 }
 
-define i8 @test3(i32 %a, ptr %pa) {
+define i8 @test3(i32 %a, i8* %pa) {
 ; CHECK-BE-LABEL: test3:
 ; CHECK-BE:       // %bb.0:
 ; CHECK-BE-NEXT:    str w0, [x1]
@@ -49,13 +52,14 @@ define i8 @test3(i32 %a, ptr %pa) {
 ; CHECK-LE-NEXT:    str w0, [x1]
 ; CHECK-LE-NEXT:    ubfx w0, w0, #16, #8
 ; CHECK-LE-NEXT:    ret
-  %p8 = getelementptr i8, ptr %pa, i32 2
-  store i32 %a, ptr %pa
-  %res = load i8, ptr %p8
+  %p32 = bitcast i8* %pa to i32*
+  %p8 = getelementptr i8, i8* %pa, i32 2
+  store i32 %a, i32* %p32
+  %res = load i8, i8* %p8
   ret i8 %res
 }
 
-define i8 @test4(i32 %a, ptr %pa) {
+define i8 @test4(i32 %a, i8* %pa) {
 ; CHECK-BE-LABEL: test4:
 ; CHECK-BE:       // %bb.0:
 ; CHECK-BE-NEXT:    str w0, [x1]
@@ -66,8 +70,9 @@ define i8 @test4(i32 %a, ptr %pa) {
 ; CHECK-LE-NEXT:    str w0, [x1]
 ; CHECK-LE-NEXT:    lsr w0, w0, #24
 ; CHECK-LE-NEXT:    ret
-  %p8 = getelementptr i8, ptr %pa, i32 3
-  store i32 %a, ptr %pa
-  %res = load i8, ptr %p8
+  %p32 = bitcast i8* %pa to i32*
+  %p8 = getelementptr i8, i8* %pa, i32 3
+  store i32 %a, i32* %p32
+  %res = load i8, i8* %p8
   ret i8 %res
 }

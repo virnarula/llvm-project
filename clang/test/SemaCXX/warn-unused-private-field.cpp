@@ -284,14 +284,3 @@ public:
 private:
   int n; // expected-warning{{private field 'n' is not used}}
 };
-
-namespace pr61334 {
-class [[maybe_unused]] MaybeUnusedClass {};
-enum [[maybe_unused]] MaybeUnusedEnum {};
-typedef int MaybeUnusedTypedef [[maybe_unused]];
-class C {
-  MaybeUnusedClass c; // no-warning
-  MaybeUnusedEnum e; // no-warning
-  MaybeUnusedTypedef t; // no-warning
-};
-}

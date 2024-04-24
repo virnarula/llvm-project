@@ -151,11 +151,11 @@ without any syntax highlighting like this:
 
 If you need to do fancier things than what has been shown in this document,
 you can mail the list or check the [Common Mark spec].  Sphinx specific
-integration documentation can be found in the [myst-parser docs].
+integration documentation can be found in the [recommonmark docs].
 
 [Common Mark spec]: http://spec.commonmark.org/0.28/
-[myst-parser docs]: https://myst-parser.readthedocs.io/en/latest/
+[recommonmark docs]: http://recommonmark.readthedocs.io/en/latest/index.html
 
 ## Generating the documentation
 
-see [Sphinx Quickstart Template](project:SphinxQuickstartTemplate.rst#Generating the documentation)
+see [Sphinx Quickstart Template](SphinxQuickstartTemplate.html#generating-the-documentation)

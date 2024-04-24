@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_REMAINDERF_H
 #define LLVM_LIBC_SRC_MATH_REMAINDERF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 float remainderf(float x, float y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_REMAINDERF_H

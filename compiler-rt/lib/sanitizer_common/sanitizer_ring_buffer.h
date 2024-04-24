@@ -47,9 +47,7 @@ class RingBuffer {
   void push(T t) {
     *next_ = t;
     next_--;
-    static_assert((sizeof(T) % sizeof(T *)) == 0,
-                  "The condition below works only if sizeof(T) is divisible by "
-                  "sizeof(T*).");
+    // The condition below works only if sizeof(T) is divisible by sizeof(T*).
     if (next_ <= reinterpret_cast<T*>(&next_))
       next_ = last_;
   }

@@ -31,7 +31,6 @@
 #include "lldb/lldb-types.h"
 
 #include <memory>
-#include <optional>
 #include <string>
 
 #include <cinttypes>
@@ -98,9 +97,7 @@ void Value::AppendBytes(const void *bytes, int len) {
 }
 
 void Value::Dump(Stream *strm) {
-  if (!strm)
-    return;
-  m_value.GetValue(*strm, true);
+  m_value.GetValue(strm, true);
   strm->Printf(", value_type = %s, context = %p, context_type = %s",
                Value::GetValueTypeAsCString(m_value_type), m_context,
                Value::GetContextTypeAsCString(m_context_type));
@@ -121,20 +118,6 @@ AddressType Value::GetValueAddressType() const {
     return eAddressTypeHost;
   }
   return eAddressTypeInvalid;
-}
-
-Value::ValueType Value::GetValueTypeFromAddressType(AddressType address_type) {
-  switch (address_type) {
-    case eAddressTypeFile:
-      return Value::ValueType::FileAddress;
-    case eAddressTypeLoad:
-      return Value::ValueType::LoadAddress;
-    case eAddressTypeHost:
-      return Value::ValueType::HostAddress;
-    case eAddressTypeInvalid:
-      return Value::ValueType::Invalid;
-  }
-  llvm_unreachable("Unexpected address type!");
 }
 
 RegisterInfo *Value::GetRegisterInfo() const {
@@ -223,7 +206,7 @@ uint64_t Value::GetValueByteSize(Status *error_ptr, ExecutionContext *exe_ctx) {
   case ContextType::Variable: // Variable *
   {
     auto *scope = exe_ctx ? exe_ctx->GetBestExecutionContextScope() : nullptr;
-    if (std::optional<uint64_t> size = GetCompilerType().GetByteSize(scope)) {
+    if (llvm::Optional<uint64_t> size = GetCompilerType().GetByteSize(scope)) {
       if (error_ptr)
         error_ptr->Clear();
       return *size;
@@ -321,7 +304,7 @@ Status Value::GetValueAsData(ExecutionContext *exe_ctx, DataExtractor &data,
   AddressType address_type = eAddressTypeFile;
   Address file_so_addr;
   const CompilerType &ast_type = GetCompilerType();
-  std::optional<uint64_t> type_size = ast_type.GetByteSize(
+  llvm::Optional<uint64_t> type_size = ast_type.GetByteSize(
       exe_ctx ? exe_ctx->GetBestExecutionContextScope() : nullptr);
   // Nothing to be done for a zero-sized type.
   if (type_size && *type_size == 0)
@@ -574,7 +557,7 @@ Status Value::GetValueAsData(ExecutionContext *exe_ctx, DataExtractor &data,
   return error;
 }
 
-Scalar &Value::ResolveValue(ExecutionContext *exe_ctx, Module *module) {
+Scalar &Value::ResolveValue(ExecutionContext *exe_ctx) {
   const CompilerType &compiler_type = GetCompilerType();
   if (compiler_type.IsValid()) {
     switch (m_value_type) {
@@ -589,7 +572,7 @@ Scalar &Value::ResolveValue(ExecutionContext *exe_ctx, Module *module) {
     {
       DataExtractor data;
       lldb::addr_t addr = m_value.ULongLong(LLDB_INVALID_ADDRESS);
-      Status error(GetValueAsData(exe_ctx, data, module));
+      Status error(GetValueAsData(exe_ctx, data, nullptr));
       if (error.Success()) {
         Scalar scalar;
         if (compiler_type.GetValueAsScalar(

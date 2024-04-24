@@ -19,27 +19,33 @@
 
 #include "test_macros.h"
 
-using year = std::chrono::year;
-
-constexpr bool test() {
-  for (int i = 10000; i <= 10020; ++i) {
-    year yr(i);
-    assert(static_cast<int>(+yr) == i);
-    assert(static_cast<int>(-yr) == -i);
-  }
-
-  return true;
+template <typename Y>
+constexpr bool testConstexpr()
+{
+    Y y1{1};
+    if (static_cast<int>(+y1) !=  1) return false;
+    if (static_cast<int>(-y1) != -1) return false;
+    return true;
 }
 
-int main(int, char**) {
-  ASSERT_NOEXCEPT(+std::declval<year>());
-  ASSERT_NOEXCEPT(-std::declval<year>());
+int main(int, char**)
+{
+    using year  = std::chrono::year;
 
-  ASSERT_SAME_TYPE(year, decltype(+std::declval<year>()));
-  ASSERT_SAME_TYPE(year, decltype(-std::declval<year>()));
+    ASSERT_NOEXCEPT(+std::declval<year>());
+    ASSERT_NOEXCEPT(-std::declval<year>());
 
-  test();
-  static_assert(test());
+    ASSERT_SAME_TYPE(year, decltype(+std::declval<year>()));
+    ASSERT_SAME_TYPE(year, decltype(-std::declval<year>()));
+
+    static_assert(testConstexpr<year>(), "");
+
+    for (int i = 10000; i <= 10020; ++i)
+    {
+        year yr(i);
+        assert(static_cast<int>(+yr) ==  i);
+        assert(static_cast<int>(-yr) == -i);
+    }
 
   return 0;
 }

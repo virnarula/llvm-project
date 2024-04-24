@@ -10,7 +10,6 @@
 
 #include <cstdio>
 #include <cstring>
-#include <optional>
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -20,30 +19,26 @@ using namespace lldb_private;
 llvm::VersionTuple HostInfoOpenBSD::GetOSVersion() {
   struct utsname un;
 
-  ::memset(&un, 0, sizeof(un));
-  if (::uname(&un) < 0)
+  ::memset(&un, 0, sizeof(utsname));
+  if (uname(&un) < 0)
     return llvm::VersionTuple();
 
-  uint32_t major, minor;
-  int status = ::sscanf(un.release, "%" PRIu32 ".%" PRIu32, &major, &minor);
-  switch (status) {
-  case 1:
-    return llvm::VersionTuple(major);
-  case 2:
+  unsigned major, minor;
+  if (2 == sscanf(un.release, "%u.%u", &major, &minor))
     return llvm::VersionTuple(major, minor);
-  }
   return llvm::VersionTuple();
 }
 
-std::optional<std::string> HostInfoOpenBSD::GetOSBuildString() {
+llvm::Optional<std::string> HostInfoOpenBSD::GetOSBuildString() {
   int mib[2] = {CTL_KERN, KERN_OSREV};
+  char osrev_str[12];
   uint32_t osrev = 0;
   size_t osrev_len = sizeof(osrev);
 
   if (::sysctl(mib, 2, &osrev, &osrev_len, NULL, 0) == 0)
     return llvm::formatv("{0,8:8}", osrev).str();
 
-  return std::nullopt;
+  return llvm::None;
 }
 
 FileSpec HostInfoOpenBSD::GetProgramFileSpec() {

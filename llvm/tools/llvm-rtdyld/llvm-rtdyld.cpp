@@ -892,8 +892,6 @@ static int linkAndVerify() {
         StringRef SecContent = Dyld.getSectionContent(SectionID);
         uint64_t SymSize = SecContent.size() - (CSymAddr - SecContent.data());
         SymInfo.setContent(ArrayRef<char>(CSymAddr, SymSize));
-        SymInfo.setTargetFlags(
-            Dyld.getSymbol(Symbol).getFlags().getTargetFlags());
       }
     }
     return SymInfo;
@@ -926,8 +924,7 @@ static int linkAndVerify() {
   };
 
   auto GetStubInfo = [&Dyld, &StubMap](StringRef StubContainer,
-                                       StringRef SymbolName,
-                                       StringRef KindNameFilter)
+                                       StringRef SymbolName)
       -> Expected<RuntimeDyldChecker::MemoryRegionInfo> {
     if (!StubMap.count(StubContainer))
       return make_error<StringError>("Stub container not found: " +
@@ -946,11 +943,6 @@ static int linkAndVerify() {
     StubMemInfo.setContent(
         ArrayRef<char>(SecContent.data(), SecContent.size()));
     return StubMemInfo;
-  };
-
-  auto GetGOTInfo = [&GetStubInfo](StringRef StubContainer,
-                                   StringRef SymbolName) {
-    return GetStubInfo(StubContainer, SymbolName, "");
   };
 
   // We will initialize this below once we have the first object file and can
@@ -983,10 +975,9 @@ static int linkAndVerify() {
 
     if (!Checker)
       Checker = std::make_unique<RuntimeDyldChecker>(
-          IsSymbolValid, GetSymbolInfo, GetSectionInfo, GetStubInfo, GetGOTInfo,
-          Obj.isLittleEndian() ? llvm::endianness::little
-                               : llvm::endianness::big,
-          TheTriple, MCPU, SubtargetFeatures(), dbgs());
+          IsSymbolValid, GetSymbolInfo, GetSectionInfo, GetStubInfo,
+          GetStubInfo, Obj.isLittleEndian() ? support::little : support::big,
+          Disassembler.get(), InstPrinter.get(), dbgs());
 
     auto FileName = sys::path::filename(InputFile);
     MemMgr.setSectionIDsMap(&FileToSecIDMap[FileName]);

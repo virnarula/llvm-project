@@ -11,10 +11,12 @@
 
 #include <time.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 double difftime(time_t end, time_t beginning);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_TIME_DIFFTIME_H
+
+#include "include/time.h"

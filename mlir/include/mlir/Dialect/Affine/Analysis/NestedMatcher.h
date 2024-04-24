@@ -14,10 +14,9 @@
 #include "llvm/Support/Allocator.h"
 
 namespace mlir {
-class Operation;
 
-namespace affine {
 class NestedPattern;
+class Operation;
 
 /// An NestedPattern captures nested patterns in the IR.
 /// It is used in conjunction with a scoped NestedPatternContext which is an
@@ -192,7 +191,6 @@ bool isReductionLoop(Operation &op);
 bool isLoadOrStore(Operation &op);
 
 } // namespace matcher
-} // namespace affine
 } // namespace mlir
 
 #endif // MLIR_DIALECT_AFFINE_ANALYSIS_NESTEDMATCHER_H

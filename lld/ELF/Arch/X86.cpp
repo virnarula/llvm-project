@@ -346,20 +346,18 @@ void X86::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
 
 static void relaxTlsGdToLe(uint8_t *loc, const Relocation &rel, uint64_t val) {
   if (rel.type == R_386_TLS_GD) {
-    // Convert (loc[-2] == 0x04)
+    // Convert
     //   leal x@tlsgd(, %ebx, 1), %eax
-    //   call ___tls_get_addr@plt
-    // or
-    //   leal x@tlsgd(%reg), %eax
-    //   call *___tls_get_addr@got(%reg)
+    //   call __tls_get_addr@plt
     // to
+    //   movl %gs:0, %eax
+    //   subl $x@tpoff, %eax
     const uint8_t inst[] = {
         0x65, 0xa1, 0x00, 0x00, 0x00, 0x00, // movl %gs:0, %eax
-        0x81, 0xe8, 0,    0,    0,    0,    // subl x@ntpoff(%ebx), %eax
+        0x81, 0xe8, 0,    0,    0,    0,    // subl val(%ebx), %eax
     };
-    uint8_t *w = loc[-2] == 0x04 ? loc - 3 : loc - 2;
-    memcpy(w, inst, sizeof(inst));
-    write32le(w + 8, val);
+    memcpy(loc - 3, inst, sizeof(inst));
+    write32le(loc + 5, val);
   } else if (rel.type == R_386_TLS_GOTDESC) {
     // Convert leal x@tlsdesc(%ebx), %eax to leal x@ntpoff, %eax.
     //
@@ -381,19 +379,18 @@ static void relaxTlsGdToLe(uint8_t *loc, const Relocation &rel, uint64_t val) {
 
 static void relaxTlsGdToIe(uint8_t *loc, const Relocation &rel, uint64_t val) {
   if (rel.type == R_386_TLS_GD) {
-    // Convert (loc[-2] == 0x04)
+    // Convert
     //   leal x@tlsgd(, %ebx, 1), %eax
-    //   call ___tls_get_addr@plt
-    // or
-    //   leal x@tlsgd(%reg), %eax
-    //   call *___tls_get_addr@got(%reg)
+    //   call __tls_get_addr@plt
+    // to
+    //   movl %gs:0, %eax
+    //   addl x@gotntpoff(%ebx), %eax
     const uint8_t inst[] = {
         0x65, 0xa1, 0x00, 0x00, 0x00, 0x00, // movl %gs:0, %eax
-        0x03, 0x83, 0,    0,    0,    0,    // addl x@gottpoff(%ebx), %eax
+        0x03, 0x83, 0,    0,    0,    0,    // addl val(%ebx), %eax
     };
-    uint8_t *w = loc[-2] == 0x04 ? loc - 3 : loc - 2;
-    memcpy(w, inst, sizeof(inst));
-    write32le(w + 8, val);
+    memcpy(loc - 3, inst, sizeof(inst));
+    write32le(loc + 5, val);
   } else if (rel.type == R_386_TLS_GOTDESC) {
     // Convert leal x@tlsdesc(%ebx), %eax to movl x@gotntpoff(%ebx), %eax.
     if (memcmp(loc - 2, "\x8d\x83", 2)) {
@@ -456,27 +453,17 @@ static void relaxTlsLdToLe(uint8_t *loc, const Relocation &rel, uint64_t val) {
     return;
   }
 
-  if (loc[4] == 0xe8) {
-    // Convert
-    //   leal x(%reg),%eax
-    //   call ___tls_get_addr@plt
-    // to
-    const uint8_t inst[] = {
-        0x65, 0xa1, 0x00, 0x00, 0x00, 0x00, // movl %gs:0,%eax
-        0x90,                               // nop
-        0x8d, 0x74, 0x26, 0x00,             // leal 0(%esi,1),%esi
-    };
-    memcpy(loc - 2, inst, sizeof(inst));
-    return;
-  }
-
   // Convert
-  //   leal x(%reg),%eax
-  //   call *___tls_get_addr@got(%reg)
+  //   leal foo(%reg),%eax
+  //   call ___tls_get_addr
   // to
+  //   movl %gs:0,%eax
+  //   nop
+  //   leal 0(%esi,1),%esi
   const uint8_t inst[] = {
       0x65, 0xa1, 0x00, 0x00, 0x00, 0x00, // movl %gs:0,%eax
-      0x8d, 0xb6, 0x00, 0x00, 0x00, 0x00, // leal (%esi),%esi
+      0x90,                               // nop
+      0x8d, 0x74, 0x26, 0x00,             // leal 0(%esi,1),%esi
   };
   memcpy(loc - 2, inst, sizeof(inst));
 }
@@ -485,7 +472,7 @@ void X86::relocateAlloc(InputSectionBase &sec, uint8_t *buf) const {
   uint64_t secAddr = sec.getOutputSection()->addr;
   if (auto *s = dyn_cast<InputSection>(&sec))
     secAddr += s->outSecOff;
-  for (const Relocation &rel : sec.relocs()) {
+  for (const Relocation &rel : sec.relocations) {
     uint8_t *loc = buf + rel.offset;
     const uint64_t val = SignExtend64(
         sec.getRelocTargetVA(sec.file, rel.type, rel.addend,

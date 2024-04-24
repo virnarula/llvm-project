@@ -132,9 +132,6 @@ class LLVM_LIBRARY_VISIBILITY AggressiveAntiDepState {
     AggressiveAntiDepBreaker(MachineFunction &MFi,
                           const RegisterClassInfo &RCI,
                           TargetSubtargetInfo::RegClassVector& CriticalPathRCs);
-    AggressiveAntiDepBreaker &
-    operator=(const AggressiveAntiDepBreaker &other) = delete;
-    AggressiveAntiDepBreaker(const AggressiveAntiDepBreaker &other) = delete;
     ~AggressiveAntiDepBreaker() override;
 
     /// Initialize anti-dep breaking for a new basic block.
@@ -176,9 +173,8 @@ class LLVM_LIBRARY_VISIBILITY AggressiveAntiDepState {
                             std::set<unsigned> &PassthruRegs);
     void ScanInstruction(MachineInstr &MI, unsigned Count);
     BitVector GetRenameRegisters(unsigned Reg);
-    bool FindSuitableFreeRegisters(unsigned SuperReg,
-                                   unsigned AntiDepGroupIndex,
-                                   RenameOrderType &RenameOrder,
+    bool FindSuitableFreeRegisters(unsigned AntiDepGroupIndex,
+                                   RenameOrderType& RenameOrder,
                                    std::map<unsigned, unsigned> &RenameMap);
   };
 

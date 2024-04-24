@@ -7,19 +7,15 @@ set(LLVM_LINK_COMPONENTS
   AllTargetsDescs
   AllTargetsInfos
   AsmPrinter
-  CodeGen
-  CodeGenTypes
-  DWARFLinker
-  DWARFLinkerClassic
-  DWARFLinkerParallel
   DebugInfoDWARF
+  DWARFLinker
   MC
   Object
+  CodeGen
   Option
   Remarks
   Support
   Target
-  TargetParser
   )
 
 add_llvm_tool(dsymutil
@@ -31,7 +27,6 @@ add_llvm_tool(dsymutil
   MachODebugMapParser.cpp
   MachOUtils.cpp
   Reproducer.cpp
-  RelocationMap.cpp
   SymbolMap.cpp
 
   DEPENDS
@@ -41,8 +36,10 @@ add_llvm_tool(dsymutil
   GENERATE_DRIVER
   )
 
-if(APPLE AND NOT LLVM_TOOL_LLVM_DRIVER_BUILD)
+if(APPLE)
   target_link_libraries(dsymutil PRIVATE "-framework CoreFoundation")
-endif(APPLE AND NOT LLVM_TOOL_LLVM_DRIVER_BUILD)
+endif(APPLE)
 
-# target_link_libraries(dsymutil PRIVATE ${LLVM_ATOMIC_LIB})
+if(HAVE_CXX_ATOMICS_WITH_LIB OR HAVE_CXX_ATOMICS64_WITH_LIB)
+  target_link_libraries(dsymutil PRIVATE atomic)
+endif()

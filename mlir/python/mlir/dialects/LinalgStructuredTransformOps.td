@@ -15,6 +15,7 @@
 #ifndef PYTHON_BINDINGS_LINALG_STRUCTURED_TRANSFORM_OPS
 #define PYTHON_BINDINGS_LINALG_STRUCTURED_TRANSFORM_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.td"
 
 #endif // PYTHON_BINDINGS_LINALG_STRUCTURED_TRANSFORM_OPS

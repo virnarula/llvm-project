@@ -7,14 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/signal/sigaction.h"
-#include "src/errno/libc_errno.h"
 #include "src/signal/linux/signal_utils.h"
 
 #include "src/__support/common.h"
 
+#include <errno.h>
 #include <signal.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // TOOD: Some architectures will have their signal trampoline functions in the
 // vdso, use those when available.
@@ -34,11 +34,11 @@ LLVM_LIBC_FUNCTION(int, sigaction,
   }
 
   KernelSigaction kernel_old;
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(
+  int ret = __llvm_libc::syscall_impl(
       SYS_rt_sigaction, signal, libc_new ? &kernel_new : nullptr,
       libc_old ? &kernel_old : nullptr, sizeof(sigset_t));
   if (ret) {
-    libc_errno = -ret;
+    errno = -ret;
     return -1;
   }
 
@@ -47,4 +47,4 @@ LLVM_LIBC_FUNCTION(int, sigaction,
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

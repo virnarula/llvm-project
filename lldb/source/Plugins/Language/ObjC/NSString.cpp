@@ -33,7 +33,7 @@ NSString_Additionals::GetAdditionalSummaries() {
 bool lldb_private::formatters::NSStringSummaryProvider(
     ValueObject &valobj, Stream &stream,
     const TypeSummaryOptions &summary_options) {
-  static constexpr llvm::StringLiteral g_TypeHint("NSString");
+  static ConstString g_TypeHint("NSString");
 
   ProcessSP process_sp = valobj.GetProcessSP();
   if (!process_sp)
@@ -126,13 +126,19 @@ bool lldb_private::formatters::NSStringSummaryProvider(
     return true;
   }
 
-  llvm::StringRef prefix, suffix;
-  if (Language *language = Language::FindPlugin(summary_options.GetLanguage()))
-    std::tie(prefix, suffix) = language->GetFormatterPrefixSuffix(g_TypeHint);
+  std::string prefix, suffix;
+  if (Language *language =
+          Language::FindPlugin(summary_options.GetLanguage())) {
+    if (!language->GetFormatterPrefixSuffix(valobj, g_TypeHint, prefix,
+                                            suffix)) {
+      prefix.clear();
+      suffix.clear();
+    }
+  }
 
   StringPrinter::ReadStringAndDumpToStreamOptions options(valobj);
-  options.SetPrefixToken(prefix.str());
-  options.SetSuffixToken(suffix.str());
+  options.SetPrefixToken(prefix);
+  options.SetSuffixToken(suffix);
 
   if (is_mutable) {
     uint64_t location = 2 * ptr_size + valobj_addr;
@@ -312,7 +318,7 @@ bool lldb_private::formatters::NSMutableAttributedStringSummaryProvider(
 bool lldb_private::formatters::NSTaggedString_SummaryProvider(
     ValueObject &valobj, ObjCLanguageRuntime::ClassDescriptorSP descriptor,
     Stream &stream, const TypeSummaryOptions &summary_options) {
-  static constexpr llvm::StringLiteral g_TypeHint("NSString");
+  static ConstString g_TypeHint("NSString");
 
   if (!descriptor)
     return false;
@@ -330,17 +336,23 @@ bool lldb_private::formatters::NSTaggedString_SummaryProvider(
   if (len_bits > g_fiveBitMaxLen)
     return false;
 
-  llvm::StringRef prefix, suffix;
-  if (Language *language = Language::FindPlugin(summary_options.GetLanguage()))
-    std::tie(prefix, suffix) = language->GetFormatterPrefixSuffix(g_TypeHint);
+  std::string prefix, suffix;
+  if (Language *language =
+          Language::FindPlugin(summary_options.GetLanguage())) {
+    if (!language->GetFormatterPrefixSuffix(valobj, g_TypeHint, prefix,
+                                            suffix)) {
+      prefix.clear();
+      suffix.clear();
+    }
+  }
 
   // this is a fairly ugly trick - pretend that the numeric value is actually a
   // char* this works under a few assumptions: little endian architecture
   // sizeof(uint64_t) > g_MaxNonBitmaskedLen
   if (len_bits <= g_MaxNonBitmaskedLen) {
-    stream << prefix;
+    stream.Printf("%s", prefix.c_str());
     stream.Printf("\"%s\"", (const char *)&data_bits);
-    stream << suffix;
+    stream.Printf("%s", suffix.c_str());
     return true;
   }
 
@@ -363,8 +375,8 @@ bool lldb_private::formatters::NSTaggedString_SummaryProvider(
     bytes.insert(bytes.begin(), sixBitToCharLookup[packed]);
   }
 
-  stream << prefix;
+  stream.Printf("%s", prefix.c_str());
   stream.Printf("\"%s\"", &bytes[0]);
-  stream << suffix;
+  stream.Printf("%s", suffix.c_str());
   return true;
 }

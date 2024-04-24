@@ -12,18 +12,14 @@
 #include "SymbolFileDWARF.h"
 #include "llvm/ADT/SmallVector.h"
 
-#include "DWARFAttribute.h"
+#include "DWARFAbbreviationDeclaration.h"
 #include "DWARFBaseDIE.h"
+#include "DWARFDebugAbbrev.h"
 #include "DWARFDebugRanges.h"
 #include <map>
-#include <optional>
 #include <set>
 #include <vector>
 
-#include "llvm/DebugInfo/DWARF/DWARFAbbreviationDeclaration.h"
-
-namespace lldb_private::plugin {
-namespace dwarf {
 class DWARFDeclContext;
 
 #define DIE_SIBLING_IDX_BITSIZE 31
@@ -39,8 +35,7 @@ public:
   typedef collection::const_iterator const_iterator;
 
   DWARFDebugInfoEntry()
-      : m_offset(DW_INVALID_OFFSET), m_parent_idx(0), m_sibling_idx(0),
-        m_has_children(false) {}
+      : m_offset(DW_INVALID_OFFSET), m_sibling_idx(0), m_has_children(false) {}
 
   explicit operator bool() const { return m_offset != DW_INVALID_OFFSET; }
   bool operator==(const DWARFDebugInfoEntry &rhs) const;
@@ -49,15 +44,13 @@ public:
   void BuildFunctionAddressRangeTable(DWARFUnit *cu,
                                       DWARFDebugAranges *debug_aranges) const;
 
-  bool Extract(const DWARFDataExtractor &data, const DWARFUnit *cu,
-               lldb::offset_t *offset_ptr);
+  bool Extract(const lldb_private::DWARFDataExtractor &data,
+               const DWARFUnit *cu, lldb::offset_t *offset_ptr);
 
   using Recurse = DWARFBaseDIE::Recurse;
-  DWARFAttributes GetAttributes(DWARFUnit *cu,
-                                Recurse recurse = Recurse::yes) const {
-    DWARFAttributes attrs;
-    GetAttributes(cu, attrs, recurse, 0 /* curr_depth */);
-    return attrs;
+  size_t GetAttributes(DWARFUnit *cu, DWARFAttributes &attrs,
+                       Recurse recurse = Recurse::yes) const {
+    return GetAttributes(cu, attrs, recurse, 0 /* curr_depth */);
   }
 
   dw_offset_t
@@ -74,7 +67,7 @@ public:
       const DWARFUnit *cu, const dw_attr_t attr, uint64_t fail_value,
       bool check_specification_or_abstract_origin = false) const;
 
-  std::optional<uint64_t> GetAttributeValueAsOptionalUnsigned(
+  llvm::Optional<uint64_t> GetAttributeValueAsOptionalUnsigned(
       const DWARFUnit *cu, const dw_attr_t attr,
       bool check_specification_or_abstract_origin = false) const;
 
@@ -95,8 +88,8 @@ public:
       uint64_t fail_value,
       bool check_specification_or_abstract_origin = false) const;
 
-  DWARFRangeList GetAttributeAddressRanges(
-      DWARFUnit *cu, bool check_hi_lo_pc,
+  size_t GetAttributeAddressRanges(
+      DWARFUnit *cu, DWARFRangeList &ranges, bool check_hi_lo_pc,
       bool check_specification_or_abstract_origin = false) const;
 
   const char *GetName(const DWARFUnit *cu) const;
@@ -106,17 +99,13 @@ public:
 
   const char *GetPubname(const DWARFUnit *cu) const;
 
-  bool GetDIENamesAndRanges(DWARFUnit *cu, const char *&name,
-                            const char *&mangled, DWARFRangeList &rangeList,
-                            std::optional<int> &decl_file,
-                            std::optional<int> &decl_line,
-                            std::optional<int> &decl_column,
-                            std::optional<int> &call_file,
-                            std::optional<int> &call_line,
-                            std::optional<int> &call_column,
-                            DWARFExpressionList *frame_base = nullptr) const;
+  bool GetDIENamesAndRanges(
+      DWARFUnit *cu, const char *&name, const char *&mangled,
+      DWARFRangeList &rangeList, int &decl_file, int &decl_line,
+      int &decl_column, int &call_file, int &call_line, int &call_column,
+      lldb_private::DWARFExpressionList *frame_base = nullptr) const;
 
-  const llvm::DWARFAbbreviationDeclaration *
+  const DWARFAbbreviationDeclaration *
   GetAbbreviationDeclarationPtr(const DWARFUnit *cu) const;
 
   lldb::offset_t GetFirstAttributeOffset() const;
@@ -175,26 +164,22 @@ protected:
   static DWARFDeclContext
   GetDWARFDeclContextStatic(const DWARFDebugInfoEntry *die, DWARFUnit *cu);
 
-  // Up to 2TB offset within the .debug_info/.debug_types
-  dw_offset_t m_offset : DW_DIE_OFFSET_MAX_BITSIZE;
-  // How many to subtract from "this" to get the parent. If zero this die has no
-  // parent
-  dw_offset_t m_parent_idx : 64 - DW_DIE_OFFSET_MAX_BITSIZE;
-  // How many to add to "this" to get the sibling.
-  // If it is zero, then the DIE doesn't have children,
-  // or the DWARF claimed it had children but the DIE
-  // only contained a single NULL terminating child.
-  uint32_t m_sibling_idx : 31, m_has_children : 1;
+  dw_offset_t m_offset; // Offset within the .debug_info/.debug_types
+  uint32_t m_parent_idx = 0;   // How many to subtract from "this" to get the
+                               // parent. If zero this die has no parent
+  uint32_t m_sibling_idx : 31, // How many to add to "this" to get the sibling.
+      // If it is zero, then the DIE doesn't have children, or the
+      // DWARF claimed it had children but the DIE only contained
+      // a single NULL terminating child.
+      m_has_children : 1;
   uint16_t m_abbr_idx = 0;
   /// A copy of the DW_TAG value so we don't have to go through the compile
   /// unit abbrev table
   dw_tag_t m_tag = llvm::dwarf::DW_TAG_null;
 
 private:
-  void GetAttributes(DWARFUnit *cu, DWARFAttributes &attrs, Recurse recurse,
-                     uint32_t curr_depth) const;
+  size_t GetAttributes(DWARFUnit *cu, DWARFAttributes &attrs, Recurse recurse,
+                       uint32_t curr_depth) const;
 };
-} // namespace dwarf
-} // namespace lldb_private::plugin
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFDEBUGINFOENTRY_H

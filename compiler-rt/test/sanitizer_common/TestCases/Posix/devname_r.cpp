@@ -1,5 +1,5 @@
 // RUN: %clangxx -O0 -g %s -o %t && %run %t 2>&1 | FileCheck %s
-// UNSUPPORTED: target={{.*(linux|solaris).*}}
+// UNSUPPORTED: linux, solaris
 
 #include <sys/cdefs.h>
 #include <sys/stat.h>

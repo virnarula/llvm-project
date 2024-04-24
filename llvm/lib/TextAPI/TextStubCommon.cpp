@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Implements common Text Stub YAML mappings.
+// Implememts common Text Stub YAML mappings.
 //
 //===----------------------------------------------------------------------===//
 
@@ -82,7 +82,7 @@ void ScalarTraits<PlatformSet>::output(const PlatformSet &Values, void *IO,
     OS << "bridgeos";
     break;
   case PLATFORM_MACCATALYST:
-    OS << "maccatalyst";
+    OS << "iosmac";
     break;
   case PLATFORM_DRIVERKIT:
     OS << "driverkit";
@@ -112,7 +112,6 @@ StringRef ScalarTraits<PlatformSet>::input(StringRef Scalar, void *IO,
                       .Case("tvos", PLATFORM_TVOS)
                       .Case("bridgeos", PLATFORM_BRIDGEOS)
                       .Case("iosmac", PLATFORM_MACCATALYST)
-                      .Case("maccatalyst", PLATFORM_MACCATALYST)
                       .Case("driverkit", PLATFORM_DRIVERKIT)
                       .Default(PLATFORM_UNKNOWN);
 
@@ -217,10 +216,17 @@ QuotingType ScalarTraits<SwiftVersion>::mustQuote(StringRef) {
   return QuotingType::None;
 }
 
-void ScalarTraits<UUID>::output(const UUID &Value, void *, raw_ostream &OS) {}
-
+void ScalarTraits<UUID>::output(const UUID &Value, void *, raw_ostream &OS) {
+  OS << Value.first << ": " << Value.second;
+}
 StringRef ScalarTraits<UUID>::input(StringRef Scalar, void *, UUID &Value) {
-  Value = {};
+  auto Split = Scalar.split(':');
+  auto Arch = Split.first.trim();
+  auto UUID = Split.second.trim();
+  if (UUID.empty())
+    return "invalid uuid string pair";
+  Value.second = std::string(UUID);
+  Value.first = Target{getArchitectureFromName(Arch), PLATFORM_UNKNOWN};
   return {};
 }
 

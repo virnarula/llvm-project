@@ -20,14 +20,15 @@ define i64 @test1(i32 %i, ...) nounwind optsize {
 ; CHECK-NEXT:    add sp, sp, #16
 ; CHECK-NEXT:    bx lr
 entry:
-  %g = alloca ptr, align 4
-  call void @llvm.va_start(ptr %g)
-  %0 = va_arg ptr %g, i64
-  call void @llvm.va_end(ptr %g)
+  %g = alloca i8*, align 4
+  %g1 = bitcast i8** %g to i8*
+  call void @llvm.va_start(i8* %g1)
+  %0 = va_arg i8** %g, i64
+  call void @llvm.va_end(i8* %g1)
   ret i64 %0
 }
 
-define double @test2(i32 %a, ptr %b, ...) nounwind optsize {
+define double @test2(i32 %a, i32* %b, ...) nounwind optsize {
 ; CHECK-LABEL: test2:
 ; CHECK:       @ %bb.0: @ %entry
 ; CHECK-NEXT:    .pad #12
@@ -44,16 +45,17 @@ define double @test2(i32 %a, ptr %b, ...) nounwind optsize {
 ; CHECK-NEXT:    add sp, sp, #12
 ; CHECK-NEXT:    bx lr
 entry:
-  %ap = alloca ptr, align 4                       ; <ptr> [#uses=3]
-  call void @llvm.va_start(ptr %ap)
-  %0 = va_arg ptr %ap, i32                       ; <i32> [#uses=0]
-  store i32 %0, ptr %b
-  %1 = va_arg ptr %ap, double                    ; <double> [#uses=1]
-  call void @llvm.va_end(ptr %ap)
+  %ap = alloca i8*, align 4                       ; <i8**> [#uses=3]
+  %ap1 = bitcast i8** %ap to i8*                  ; <i8*> [#uses=2]
+  call void @llvm.va_start(i8* %ap1)
+  %0 = va_arg i8** %ap, i32                       ; <i32> [#uses=0]
+  store i32 %0, i32* %b
+  %1 = va_arg i8** %ap, double                    ; <double> [#uses=1]
+  call void @llvm.va_end(i8* %ap1)
   ret double %1
 }
 
 
-declare void @llvm.va_start(ptr) nounwind
+declare void @llvm.va_start(i8*) nounwind
 
-declare void @llvm.va_end(ptr) nounwind
+declare void @llvm.va_end(i8*) nounwind

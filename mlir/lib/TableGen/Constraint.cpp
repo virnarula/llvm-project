@@ -30,9 +30,8 @@ Constraint::Constraint(const llvm::Record *record)
     kind = CK_Region;
   } else if (def->isSubClassOf("SuccessorConstraint")) {
     kind = CK_Successor;
-  } else if(!def->isSubClassOf("Constraint")) {
-    llvm::errs() << "Expected a constraint but got: \n" << *def << "\n";
-    llvm::report_fatal_error("Abort");
+  } else {
+    assert(def->isSubClassOf("Constraint"));
   }
 }
 
@@ -53,8 +52,7 @@ std::string Constraint::getConditionTemplate() const {
 }
 
 StringRef Constraint::getSummary() const {
-  if (std::optional<StringRef> summary =
-          def->getValueAsOptionalString("summary"))
+  if (Optional<StringRef> summary = def->getValueAsOptionalString("summary"))
     return *summary;
   return def->getName();
 }
@@ -64,7 +62,7 @@ StringRef Constraint::getDescription() const {
 }
 
 StringRef Constraint::getDefName() const {
-  if (std::optional<StringRef> baseDefName = getBaseDefName())
+  if (Optional<StringRef> baseDefName = getBaseDefName())
     return *baseDefName;
   return def->getName();
 }
@@ -79,33 +77,33 @@ std::string Constraint::getUniqueDefName() const {
   // Otherwise, this is an anonymous class. In these cases we still use the def
   // name, but we also try attach the name of the base def when present to make
   // the name more obvious.
-  if (std::optional<StringRef> baseDefName = getBaseDefName())
+  if (Optional<StringRef> baseDefName = getBaseDefName())
     return (*baseDefName + "(" + defName + ")").str();
   return defName;
 }
 
-std::optional<StringRef> Constraint::getBaseDefName() const {
+Optional<StringRef> Constraint::getBaseDefName() const {
   // Functor used to check a base def in the case where the current def is
   // anonymous.
-  auto checkBaseDefFn = [&](StringRef baseName) -> std::optional<StringRef> {
+  auto checkBaseDefFn = [&](StringRef baseName) -> Optional<StringRef> {
     if (const auto *defValue = def->getValue(baseName)) {
       if (const auto *defInit = dyn_cast<llvm::DefInit>(defValue->getValue()))
         return Constraint(defInit->getDef(), kind).getDefName();
     }
-    return std::nullopt;
+    return llvm::None;
   };
 
   switch (kind) {
   case CK_Attr:
     if (def->isAnonymous())
       return checkBaseDefFn("baseAttr");
-    return std::nullopt;
+    return llvm::None;
   case CK_Type:
     if (def->isAnonymous())
       return checkBaseDefFn("baseType");
-    return std::nullopt;
+    return llvm::None;
   default:
-    return std::nullopt;
+    return llvm::None;
   }
 }
 

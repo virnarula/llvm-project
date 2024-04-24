@@ -26,6 +26,7 @@ class GlobalValueSummary;
 class ModuleSummaryIndex;
 class Function;
 class Module;
+class Pass;
 
 /// Returns the memory access properties of this copy of the function.
 MemoryEffects computeFunctionBodyMemoryAccess(Function &F, AAResults &AAR);
@@ -47,17 +48,13 @@ bool thinLTOPropagateFunctionAttrs(
 /// attribute. It also discovers function arguments that are not captured by
 /// the function and marks them with the nocapture attribute.
 struct PostOrderFunctionAttrsPass : PassInfoMixin<PostOrderFunctionAttrsPass> {
-  PostOrderFunctionAttrsPass(bool SkipNonRecursive = false)
-      : SkipNonRecursive(SkipNonRecursive) {}
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
-
-  void printPipeline(raw_ostream &OS,
-                     function_ref<StringRef(StringRef)> MapClassName2PassName);
-
-private:
-  bool SkipNonRecursive;
 };
+
+/// Create a legacy pass manager instance of a pass to compute function attrs
+/// in post-order.
+Pass *createPostOrderFunctionAttrsLegacyPass();
 
 /// A pass to do RPO deduction and propagation of function attributes.
 ///

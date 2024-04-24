@@ -174,14 +174,6 @@ void test_algorithms() {
   std::lexicographical_compare(std::begin(arr), std::end(arr), std::begin(arr),
                                std::end(arr), std::greater<int>());
 
-#if TEST_STD_VER >= 20
-  // expected-warning@+1 {{ignoring return value of function declared with 'nodiscard' attribute}}
-  std::lexicographical_compare_three_way(std::begin(arr), std::end(arr), std::begin(arr), std::end(arr));
-
-  // expected-warning@+1 {{ignoring return value of function declared with 'nodiscard' attribute}}
-  std::lexicographical_compare_three_way(std::begin(arr), std::end(arr), std::begin(arr), std::end(arr), std::compare_three_way());
-#endif
-
   // expected-warning@+1 {{ignoring return value of function declared with 'nodiscard' attribute}}
   std::lower_bound(std::begin(arr), std::end(arr), 1);
 
@@ -337,6 +329,11 @@ void test_nontemplate_cast_wrappers()
   std::to_integer<int>(b);
 #endif
 
+#if TEST_STD_VER > 17
+  // expected-warning@+1 {{ignoring return value of function declared with 'nodiscard' attribute}}
+  std::bit_cast<unsigned int>(42);
+#endif
+
 #if TEST_STD_VER > 20
   enum E { Apple, Orange } e = Apple;
   // expected-warning@+1 {{ignoring return value of function declared with 'nodiscard' attribute}}
@@ -344,10 +341,12 @@ void test_nontemplate_cast_wrappers()
 #endif
 }
 
-void f() {
+int main(int, char**) {
   test_algorithms();
 
   int i = 42;
   test_template_cast_wrappers(i, std::move(i));
   test_nontemplate_cast_wrappers();
+
+  return 0;
 }

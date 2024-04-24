@@ -1,8 +1,5 @@
-# RUN: llvm-mc --triple=loongarch64 --filetype=obj %s -o %t
-# RUN: llvm-objdump -d %t | FileCheck %s
-
-# CHECK:      01 00 00 00   <unknown>
-# CHECK-NEXT: 00 00 40 03   nop
+# RUN: not --crash llvm-mc --filetype=obj --triple=loongarch64 %s -o %t
 .byte 1
-.p2align 3
+# CHECK: LLVM ERROR: unable to write nop sequence of 3 bytes
+.p2align 2
 foo:

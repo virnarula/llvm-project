@@ -21,7 +21,9 @@
 
 namespace llvm {
 
-AIXException::AIXException(AsmPrinter *A) : EHStreamer(A) {}
+AIXException::AIXException(AsmPrinter *A) : DwarfCFIExceptionBase(A) {}
+
+void AIXException::markFunctionEnd() { endFragment(); }
 
 void AIXException::emitExceptionInfoTable(const MCSymbol *LSDA,
                                           const MCSymbol *PerSym) {
@@ -60,7 +62,7 @@ void AIXException::emitExceptionInfoTable(const MCSymbol *LSDA,
   const unsigned PointerSize = DL.getPointerSize();
 
   // Add necessary paddings in 64 bit mode.
-  Asm->OutStreamer->emitValueToAlignment(Align(PointerSize));
+  Asm->OutStreamer->emitValueToAlignment(PointerSize);
 
   // LSDA location.
   Asm->OutStreamer->emitValue(MCSymbolRefExpr::create(LSDA, Asm->OutContext),

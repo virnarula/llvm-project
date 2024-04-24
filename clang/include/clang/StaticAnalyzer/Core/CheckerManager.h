@@ -488,11 +488,13 @@ public:
   using CheckCallFunc =
       CheckerFn<void (const CallEvent &, CheckerContext &)>;
 
-  using CheckLocationFunc = CheckerFn<void(SVal location, bool isLoad,
-                                           const Stmt *S, CheckerContext &)>;
+  using CheckLocationFunc =
+      CheckerFn<void (const SVal &location, bool isLoad, const Stmt *S,
+                      CheckerContext &)>;
 
   using CheckBindFunc =
-      CheckerFn<void(SVal location, SVal val, const Stmt *S, CheckerContext &)>;
+      CheckerFn<void (const SVal &location, const SVal &val, const Stmt *S,
+                      CheckerContext &)>;
 
   using CheckEndAnalysisFunc =
       CheckerFn<void (ExplodedGraph &, BugReporter &, ExprEngine &)>;
@@ -528,7 +530,8 @@ public:
                                  RegionAndSymbolInvalidationTraits *ITraits)>;
 
   using EvalAssumeFunc =
-      CheckerFn<ProgramStateRef(ProgramStateRef, SVal cond, bool assumption)>;
+      CheckerFn<ProgramStateRef (ProgramStateRef, const SVal &cond,
+                                 bool assumption)>;
 
   using EvalCallFunc = CheckerFn<bool (const CallEvent &, CheckerContext &)>;
 

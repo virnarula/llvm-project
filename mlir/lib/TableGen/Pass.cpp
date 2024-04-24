@@ -26,18 +26,18 @@ StringRef PassOption::getArgument() const {
 
 StringRef PassOption::getType() const { return def->getValueAsString("type"); }
 
-std::optional<StringRef> PassOption::getDefaultValue() const {
+Optional<StringRef> PassOption::getDefaultValue() const {
   StringRef defaultVal = def->getValueAsString("defaultValue");
-  return defaultVal.empty() ? std::optional<StringRef>() : defaultVal;
+  return defaultVal.empty() ? Optional<StringRef>() : defaultVal;
 }
 
 StringRef PassOption::getDescription() const {
   return def->getValueAsString("description");
 }
 
-std::optional<StringRef> PassOption::getAdditionalFlags() const {
+Optional<StringRef> PassOption::getAdditionalFlags() const {
   StringRef additionalFlags = def->getValueAsString("additionalOptFlags");
-  return additionalFlags.empty() ? std::optional<StringRef>() : additionalFlags;
+  return additionalFlags.empty() ? Optional<StringRef>() : additionalFlags;
 }
 
 bool PassOption::isListOption() const {

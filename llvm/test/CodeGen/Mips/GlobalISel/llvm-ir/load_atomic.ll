@@ -5,41 +5,41 @@
 ; unordered
 ; --------------------------------------------------------------------
 
-define i8 @atomic_load_unordered_i8(ptr %ptr) {
+define i8 @atomic_load_unordered_i8(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $2, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   ret i8 %load
 }
 
-define i32 @atomic_load_unordered_i8_sext_i32(ptr %ptr) {
+define i32 @atomic_load_unordered_i8_sext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   %sext = sext i8 %load to i32
   ret i32 %sext
 }
 
-define i16 @atomic_load_unordered_i8_sext_i16(ptr %ptr) {
+define i16 @atomic_load_unordered_i8_sext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8_sext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   %sext = sext i8 %load to i16
   ret i16 %sext
 }
 
-define i64 @atomic_load_unordered_i8_sext_i64(ptr %ptr) {
+define i64 @atomic_load_unordered_i8_sext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -47,68 +47,68 @@ define i64 @atomic_load_unordered_i8_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   %sext = sext i8 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_unordered_i8_zext_i32(ptr %ptr) {
+define i32 @atomic_load_unordered_i8_zext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   %zext = zext i8 %load to i32
   ret i32 %zext
 }
 
-define i16 @atomic_load_unordered_i8_zext_i16(ptr %ptr) {
+define i16 @atomic_load_unordered_i8_zext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8_zext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   %zext = zext i8 %load to i16
   ret i16 %zext
 }
 
-define i64 @atomic_load_unordered_i8_zext_i64(ptr %ptr) {
+define i64 @atomic_load_unordered_i8_zext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i8_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    andi $2, $1, 255
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i8, ptr %ptr unordered, align 1
+  %load = load atomic i8, i8* %ptr unordered, align 1
   %zext = zext i8 %load to i64
   ret i64 %zext
 }
 
-define i16 @atomic_load_unordered_i16(ptr %ptr) {
+define i16 @atomic_load_unordered_i16(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $2, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i16, ptr %ptr unordered, align 2
+  %load = load atomic i16, i16* %ptr unordered, align 2
   ret i16 %load
 }
 
-define i32 @atomic_load_unordered_i16_sext_i32(ptr %ptr) {
+define i32 @atomic_load_unordered_i16_sext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i16_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    sll $1, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 16
-  %load = load atomic i16, ptr %ptr unordered, align 2
+  %load = load atomic i16, i16* %ptr unordered, align 2
   %sext = sext i16 %load to i32
   ret i32 %sext
 }
 
-define i64 @atomic_load_unordered_i16_sext_i64(ptr %ptr) {
+define i64 @atomic_load_unordered_i16_sext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i16_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -116,142 +116,127 @@ define i64 @atomic_load_unordered_i16_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i16, ptr %ptr unordered, align 2
+  %load = load atomic i16, i16* %ptr unordered, align 2
   %sext = sext i16 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_unordered_i16_zext_i32(ptr %ptr) {
+define i32 @atomic_load_unordered_i16_zext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i16_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 65535
-  %load = load atomic i16, ptr %ptr unordered, align 2
+  %load = load atomic i16, i16* %ptr unordered, align 2
   %zext = zext i16 %load to i32
   ret i32 %zext
 }
 
-define i64 @atomic_load_unordered_i16_zext_i64(ptr %ptr) {
+define i64 @atomic_load_unordered_i16_zext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i16_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    andi $2, $1, 65535
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i16, ptr %ptr unordered, align 2
+  %load = load atomic i16, i16* %ptr unordered, align 2
   %zext = zext i16 %load to i64
   ret i64 %zext
 }
 
-define i32 @atomic_load_unordered_i32(ptr %ptr) {
+define i32 @atomic_load_unordered_i32(i32* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i32, ptr %ptr unordered, align 4
+  %load = load atomic i32, i32* %ptr unordered, align 4
   ret i32 %load
 }
 
-define i64 @atomic_load_unordered_i64(ptr %ptr) {
+define i64 @atomic_load_unordered_i64(i64* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_i64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    ori $5, $zero, 0
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 0($4)
+; MIPS32-NEXT:    mfc1 $2, $f0
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %load = load atomic i64, ptr %ptr unordered, align 8
+; MIPS32-NEXT:    mfc1 $3, $f1
+  %load = load atomic i64, i64* %ptr unordered, align 8
   ret i64 %load
 }
 
-define float @atomic_load_unordered_f32(ptr %ptr) {
+define float @atomic_load_unordered_f32(float* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_f32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lwc1 $f0, 64($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds float, ptr %ptr, i32 16
-  %load = load atomic float, ptr %gep unordered, align 4
+  %gep = getelementptr inbounds float, float* %ptr, i32 16
+  %load = load atomic float, float* %gep unordered, align 4
   ret float %load
 }
 
-define double @atomic_load_unordered_f64(ptr %ptr) {
+define double @atomic_load_unordered_f64(double* %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_f64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    ori $5, $zero, 0
-; MIPS32-NEXT:    ori $1, $zero, 128
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    addu $4, $4, $1
-; MIPS32-NEXT:    mtc1 $2, $f0
-; MIPS32-NEXT:    mtc1 $3, $f1
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 128($4)
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %gep = getelementptr inbounds double, ptr %ptr, i32 16
-  %load = load atomic double, ptr %gep unordered, align 8
+; MIPS32-NEXT:    nop
+  %gep = getelementptr inbounds double, double* %ptr, i32 16
+  %load = load atomic double, double* %gep unordered, align 8
   ret double %load
 }
 
-define ptr @atomic_load_unordered_p0i8(ptr %ptr) {
+define i8* @atomic_load_unordered_p0i8(i8** %ptr) {
 ; MIPS32-LABEL: atomic_load_unordered_p0i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 64($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds ptr, ptr %ptr, i32 16
-  %load = load atomic ptr, ptr %gep unordered, align 4
-  ret ptr %load
+  %gep = getelementptr inbounds i8*, i8** %ptr, i32 16
+  %load = load atomic i8*, i8** %gep unordered, align 4
+  ret i8* %load
 }
 
 ; --------------------------------------------------------------------
 ; monotonic
 ; --------------------------------------------------------------------
 
-define i8 @atomic_load_monotonic_i8(ptr %ptr) {
+define i8 @atomic_load_monotonic_i8(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $2, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   ret i8 %load
 }
 
-define i32 @atomic_load_monotonic_i8_sext_i32(ptr %ptr) {
+define i32 @atomic_load_monotonic_i8_sext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   %sext = sext i8 %load to i32
   ret i32 %sext
 }
 
-define i16 @atomic_load_monotonic_i8_sext_i16(ptr %ptr) {
+define i16 @atomic_load_monotonic_i8_sext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8_sext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   %sext = sext i8 %load to i16
   ret i16 %sext
 }
 
-define i64 @atomic_load_monotonic_i8_sext_i64(ptr %ptr) {
+define i64 @atomic_load_monotonic_i8_sext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -259,68 +244,68 @@ define i64 @atomic_load_monotonic_i8_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   %sext = sext i8 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_monotonic_i8_zext_i32(ptr %ptr) {
+define i32 @atomic_load_monotonic_i8_zext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   %zext = zext i8 %load to i32
   ret i32 %zext
 }
 
-define i16 @atomic_load_monotonic_i8_zext_i16(ptr %ptr) {
+define i16 @atomic_load_monotonic_i8_zext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8_zext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   %zext = zext i8 %load to i16
   ret i16 %zext
 }
 
-define i64 @atomic_load_monotonic_i8_zext_i64(ptr %ptr) {
+define i64 @atomic_load_monotonic_i8_zext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i8_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    andi $2, $1, 255
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i8, ptr %ptr monotonic, align 1
+  %load = load atomic i8, i8* %ptr monotonic, align 1
   %zext = zext i8 %load to i64
   ret i64 %zext
 }
 
-define i16 @atomic_load_monotonic_i16(ptr %ptr) {
+define i16 @atomic_load_monotonic_i16(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $2, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i16, ptr %ptr monotonic, align 2
+  %load = load atomic i16, i16* %ptr monotonic, align 2
   ret i16 %load
 }
 
-define i32 @atomic_load_monotonic_i16_sext_i32(ptr %ptr) {
+define i32 @atomic_load_monotonic_i16_sext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i16_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    sll $1, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 16
-  %load = load atomic i16, ptr %ptr monotonic, align 2
+  %load = load atomic i16, i16* %ptr monotonic, align 2
   %sext = sext i16 %load to i32
   ret i32 %sext
 }
 
-define i64 @atomic_load_monotonic_i16_sext_i64(ptr %ptr) {
+define i64 @atomic_load_monotonic_i16_sext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i16_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -328,119 +313,104 @@ define i64 @atomic_load_monotonic_i16_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i16, ptr %ptr monotonic, align 2
+  %load = load atomic i16, i16* %ptr monotonic, align 2
   %sext = sext i16 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_monotonic_i16_zext_i32(ptr %ptr) {
+define i32 @atomic_load_monotonic_i16_zext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i16_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 65535
-  %load = load atomic i16, ptr %ptr monotonic, align 2
+  %load = load atomic i16, i16* %ptr monotonic, align 2
   %zext = zext i16 %load to i32
   ret i32 %zext
 }
 
-define i64 @atomic_load_monotonic_i16_zext_i64(ptr %ptr) {
+define i64 @atomic_load_monotonic_i16_zext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i16_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    andi $2, $1, 65535
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i16, ptr %ptr monotonic, align 2
+  %load = load atomic i16, i16* %ptr monotonic, align 2
   %zext = zext i16 %load to i64
   ret i64 %zext
 }
 
-define i32 @atomic_load_monotonic_i32(ptr %ptr) {
+define i32 @atomic_load_monotonic_i32(i32* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 0($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i32, ptr %ptr monotonic, align 4
+  %load = load atomic i32, i32* %ptr monotonic, align 4
   ret i32 %load
 }
 
-define i64 @atomic_load_monotonic_i64(ptr %ptr) {
+define i64 @atomic_load_monotonic_i64(i64* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_i64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    ori $5, $zero, 0
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 0($4)
+; MIPS32-NEXT:    mfc1 $2, $f0
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %load = load atomic i64, ptr %ptr monotonic, align 8
+; MIPS32-NEXT:    mfc1 $3, $f1
+  %load = load atomic i64, i64* %ptr monotonic, align 8
   ret i64 %load
 }
 
-define float @atomic_load_monotonic_f32(ptr %ptr) {
+define float @atomic_load_monotonic_f32(float* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_f32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lwc1 $f0, 64($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds float, ptr %ptr, i32 16
-  %load = load atomic float, ptr %gep monotonic, align 4
+  %gep = getelementptr inbounds float, float* %ptr, i32 16
+  %load = load atomic float, float* %gep monotonic, align 4
   ret float %load
 }
 
-define double @atomic_load_monotonic_f64(ptr %ptr) {
+define double @atomic_load_monotonic_f64(double* %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_f64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    ori $5, $zero, 0
-; MIPS32-NEXT:    ori $1, $zero, 128
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    addu $4, $4, $1
-; MIPS32-NEXT:    mtc1 $2, $f0
-; MIPS32-NEXT:    mtc1 $3, $f1
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 128($4)
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %gep = getelementptr inbounds double, ptr %ptr, i32 16
-  %load = load atomic double, ptr %gep monotonic, align 8
+; MIPS32-NEXT:    nop
+  %gep = getelementptr inbounds double, double* %ptr, i32 16
+  %load = load atomic double, double* %gep monotonic, align 8
   ret double %load
 }
 
-define ptr @atomic_load_monotonic_p0i8(ptr %ptr) {
+define i8* @atomic_load_monotonic_p0i8(i8** %ptr) {
 ; MIPS32-LABEL: atomic_load_monotonic_p0i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 64($4)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds ptr, ptr %ptr, i32 16
-  %load = load atomic ptr, ptr %gep monotonic, align 4
-  ret ptr %load
+  %gep = getelementptr inbounds i8*, i8** %ptr, i32 16
+  %load = load atomic i8*, i8** %gep monotonic, align 4
+  ret i8* %load
 }
 
 ; --------------------------------------------------------------------
 ; acquire
 ; --------------------------------------------------------------------
 
-define i8 @atomic_load_acquire_i8(ptr %ptr) {
+define i8 @atomic_load_acquire_i8(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $2, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   ret i8 %load
 }
 
-define i32 @atomic_load_acquire_i8_sext_i32(ptr %ptr) {
+define i32 @atomic_load_acquire_i8_sext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -448,12 +418,12 @@ define i32 @atomic_load_acquire_i8_sext_i32(ptr %ptr) {
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   %sext = sext i8 %load to i32
   ret i32 %sext
 }
 
-define i16 @atomic_load_acquire_i8_sext_i16(ptr %ptr) {
+define i16 @atomic_load_acquire_i8_sext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8_sext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -461,12 +431,12 @@ define i16 @atomic_load_acquire_i8_sext_i16(ptr %ptr) {
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   %sext = sext i8 %load to i16
   ret i16 %sext
 }
 
-define i64 @atomic_load_acquire_i8_sext_i64(ptr %ptr) {
+define i64 @atomic_load_acquire_i8_sext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -475,36 +445,36 @@ define i64 @atomic_load_acquire_i8_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   %sext = sext i8 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_acquire_i8_zext_i32(ptr %ptr) {
+define i32 @atomic_load_acquire_i8_zext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   %zext = zext i8 %load to i32
   ret i32 %zext
 }
 
-define i16 @atomic_load_acquire_i8_zext_i16(ptr %ptr) {
+define i16 @atomic_load_acquire_i8_zext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8_zext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   %zext = zext i8 %load to i16
   ret i16 %zext
 }
 
-define i64 @atomic_load_acquire_i8_zext_i64(ptr %ptr) {
+define i64 @atomic_load_acquire_i8_zext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i8_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -512,23 +482,23 @@ define i64 @atomic_load_acquire_i8_zext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    andi $2, $1, 255
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i8, ptr %ptr acquire, align 1
+  %load = load atomic i8, i8* %ptr acquire, align 1
   %zext = zext i8 %load to i64
   ret i64 %zext
 }
 
-define i16 @atomic_load_acquire_i16(ptr %ptr) {
+define i16 @atomic_load_acquire_i16(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $2, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i16, ptr %ptr acquire, align 2
+  %load = load atomic i16, i16* %ptr acquire, align 2
   ret i16 %load
 }
 
-define i32 @atomic_load_acquire_i16_sext_i32(ptr %ptr) {
+define i32 @atomic_load_acquire_i16_sext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i16_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -536,12 +506,12 @@ define i32 @atomic_load_acquire_i16_sext_i32(ptr %ptr) {
 ; MIPS32-NEXT:    sll $1, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 16
-  %load = load atomic i16, ptr %ptr acquire, align 2
+  %load = load atomic i16, i16* %ptr acquire, align 2
   %sext = sext i16 %load to i32
   ret i32 %sext
 }
 
-define i64 @atomic_load_acquire_i16_sext_i64(ptr %ptr) {
+define i64 @atomic_load_acquire_i16_sext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i16_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -550,24 +520,24 @@ define i64 @atomic_load_acquire_i16_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i16, ptr %ptr acquire, align 2
+  %load = load atomic i16, i16* %ptr acquire, align 2
   %sext = sext i16 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_acquire_i16_zext_i32(ptr %ptr) {
+define i32 @atomic_load_acquire_i16_zext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i16_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 65535
-  %load = load atomic i16, ptr %ptr acquire, align 2
+  %load = load atomic i16, i16* %ptr acquire, align 2
   %zext = zext i16 %load to i32
   ret i32 %zext
 }
 
-define i64 @atomic_load_acquire_i16_zext_i64(ptr %ptr) {
+define i64 @atomic_load_acquire_i16_zext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i16_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -575,99 +545,86 @@ define i64 @atomic_load_acquire_i16_zext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    andi $2, $1, 65535
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i16, ptr %ptr acquire, align 2
+  %load = load atomic i16, i16* %ptr acquire, align 2
   %zext = zext i16 %load to i64
   ret i64 %zext
 }
 
-define i32 @atomic_load_acquire_i32(ptr %ptr) {
+define i32 @atomic_load_acquire_i32(i32* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i32, ptr %ptr acquire, align 4
+  %load = load atomic i32, i32* %ptr acquire, align 4
   ret i32 %load
 }
 
-define i64 @atomic_load_acquire_i64(ptr %ptr) {
+define i64 @atomic_load_acquire_i64(i64* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_i64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    ori $5, $zero, 2
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 0($4)
+; MIPS32-NEXT:    sync
+; MIPS32-NEXT:    mfc1 $2, $f0
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %load = load atomic i64, ptr %ptr acquire, align 8
+; MIPS32-NEXT:    mfc1 $3, $f1
+  %load = load atomic i64, i64* %ptr acquire, align 8
   ret i64 %load
 }
 
-define float @atomic_load_acquire_f32(ptr %ptr) {
+define float @atomic_load_acquire_f32(float* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_f32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lwc1 $f0, 64($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds float, ptr %ptr, i32 16
-  %load = load atomic float, ptr %gep acquire, align 4
+  %gep = getelementptr inbounds float, float* %ptr, i32 16
+  %load = load atomic float, float* %gep acquire, align 4
   ret float %load
 }
 
-define double @atomic_load_acquire_f64(ptr %ptr) {
+define double @atomic_load_acquire_f64(double* %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_f64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    ori $5, $zero, 2
-; MIPS32-NEXT:    ori $1, $zero, 128
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    addu $4, $4, $1
-; MIPS32-NEXT:    mtc1 $2, $f0
-; MIPS32-NEXT:    mtc1 $3, $f1
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 128($4)
+; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %gep = getelementptr inbounds double, ptr %ptr, i32 16
-  %load = load atomic double, ptr %gep acquire, align 8
+; MIPS32-NEXT:    nop
+  %gep = getelementptr inbounds double, double* %ptr, i32 16
+  %load = load atomic double, double* %gep acquire, align 8
   ret double %load
 }
 
-define ptr @atomic_load_acquire_p0i8(ptr %ptr) {
+define i8* @atomic_load_acquire_p0i8(i8** %ptr) {
 ; MIPS32-LABEL: atomic_load_acquire_p0i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 64($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds ptr, ptr %ptr, i32 16
-  %load = load atomic ptr, ptr %gep acquire, align 4
-  ret ptr %load
+  %gep = getelementptr inbounds i8*, i8** %ptr, i32 16
+  %load = load atomic i8*, i8** %gep acquire, align 4
+  ret i8* %load
 }
 
 ; --------------------------------------------------------------------
 ; seq_cst
 ; --------------------------------------------------------------------
 
-define i8 @atomic_load_seq_cst_i8(ptr %ptr) {
+define i8 @atomic_load_seq_cst_i8(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $2, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   ret i8 %load
 }
 
-define i32 @atomic_load_seq_cst_i8_sext_i32(ptr %ptr) {
+define i32 @atomic_load_seq_cst_i8_sext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -675,12 +632,12 @@ define i32 @atomic_load_seq_cst_i8_sext_i32(ptr %ptr) {
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   %sext = sext i8 %load to i32
   ret i32 %sext
 }
 
-define i16 @atomic_load_seq_cst_i8_sext_i16(ptr %ptr) {
+define i16 @atomic_load_seq_cst_i8_sext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8_sext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -688,12 +645,12 @@ define i16 @atomic_load_seq_cst_i8_sext_i16(ptr %ptr) {
 ; MIPS32-NEXT:    sll $1, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 24
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   %sext = sext i8 %load to i16
   ret i16 %sext
 }
 
-define i64 @atomic_load_seq_cst_i8_sext_i64(ptr %ptr) {
+define i64 @atomic_load_seq_cst_i8_sext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -702,36 +659,36 @@ define i64 @atomic_load_seq_cst_i8_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 24
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   %sext = sext i8 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_seq_cst_i8_zext_i32(ptr %ptr) {
+define i32 @atomic_load_seq_cst_i8_zext_i32(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   %zext = zext i8 %load to i32
   ret i32 %zext
 }
 
-define i16 @atomic_load_seq_cst_i8_zext_i16(ptr %ptr) {
+define i16 @atomic_load_seq_cst_i8_zext_i16(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8_zext_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 255
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   %zext = zext i8 %load to i16
   ret i16 %zext
 }
 
-define i64 @atomic_load_seq_cst_i8_zext_i64(ptr %ptr) {
+define i64 @atomic_load_seq_cst_i8_zext_i64(i8* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i8_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lbu $1, 0($4)
@@ -739,23 +696,23 @@ define i64 @atomic_load_seq_cst_i8_zext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    andi $2, $1, 255
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i8, ptr %ptr seq_cst, align 1
+  %load = load atomic i8, i8* %ptr seq_cst, align 1
   %zext = zext i8 %load to i64
   ret i64 %zext
 }
 
-define i16 @atomic_load_seq_cst_i16(ptr %ptr) {
+define i16 @atomic_load_seq_cst_i16(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i16:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $2, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i16, ptr %ptr seq_cst, align 2
+  %load = load atomic i16, i16* %ptr seq_cst, align 2
   ret i16 %load
 }
 
-define i32 @atomic_load_seq_cst_i16_sext_i32(ptr %ptr) {
+define i32 @atomic_load_seq_cst_i16_sext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i16_sext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -763,12 +720,12 @@ define i32 @atomic_load_seq_cst_i16_sext_i32(ptr %ptr) {
 ; MIPS32-NEXT:    sll $1, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $2, $1, 16
-  %load = load atomic i16, ptr %ptr seq_cst, align 2
+  %load = load atomic i16, i16* %ptr seq_cst, align 2
   %sext = sext i16 %load to i32
   ret i32 %sext
 }
 
-define i64 @atomic_load_seq_cst_i16_sext_i64(ptr %ptr) {
+define i64 @atomic_load_seq_cst_i16_sext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i16_sext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -777,24 +734,24 @@ define i64 @atomic_load_seq_cst_i16_sext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    sra $2, $1, 16
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    sra $3, $1, 31
-  %load = load atomic i16, ptr %ptr seq_cst, align 2
+  %load = load atomic i16, i16* %ptr seq_cst, align 2
   %sext = sext i16 %load to i64
   ret i64 %sext
 }
 
-define i32 @atomic_load_seq_cst_i16_zext_i32(ptr %ptr) {
+define i32 @atomic_load_seq_cst_i16_zext_i32(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i16_zext_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $2, $1, 65535
-  %load = load atomic i16, ptr %ptr seq_cst, align 2
+  %load = load atomic i16, i16* %ptr seq_cst, align 2
   %zext = zext i16 %load to i32
   ret i32 %zext
 }
 
-define i64 @atomic_load_seq_cst_i16_zext_i64(ptr %ptr) {
+define i64 @atomic_load_seq_cst_i16_zext_i64(i16* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i16_zext_i64:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lhu $1, 0($4)
@@ -802,79 +759,66 @@ define i64 @atomic_load_seq_cst_i16_zext_i64(ptr %ptr) {
 ; MIPS32-NEXT:    andi $2, $1, 65535
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    andi $3, $1, 0
-  %load = load atomic i16, ptr %ptr seq_cst, align 2
+  %load = load atomic i16, i16* %ptr seq_cst, align 2
   %zext = zext i16 %load to i64
   ret i64 %zext
 }
 
-define i32 @atomic_load_seq_cst_i32(ptr %ptr) {
+define i32 @atomic_load_seq_cst_i32(i32* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 0($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %load = load atomic i32, ptr %ptr seq_cst, align 4
+  %load = load atomic i32, i32* %ptr seq_cst, align 4
   ret i32 %load
 }
 
-define i64 @atomic_load_seq_cst_i64(ptr %ptr) {
+define i64 @atomic_load_seq_cst_i64(i64* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_i64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    ori $5, $zero, 5
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 0($4)
+; MIPS32-NEXT:    sync
+; MIPS32-NEXT:    mfc1 $2, $f0
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %load = load atomic i64, ptr %ptr seq_cst, align 8
+; MIPS32-NEXT:    mfc1 $3, $f1
+  %load = load atomic i64, i64* %ptr seq_cst, align 8
   ret i64 %load
 }
 
-define float @atomic_load_seq_cst_f32(ptr %ptr) {
+define float @atomic_load_seq_cst_f32(float* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_f32:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lwc1 $f0, 64($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds float, ptr %ptr, i32 16
-  %load = load atomic float, ptr %gep seq_cst, align 4
+  %gep = getelementptr inbounds float, float* %ptr, i32 16
+  %load = load atomic float, float* %gep seq_cst, align 4
   ret float %load
 }
 
-define double @atomic_load_seq_cst_f64(ptr %ptr) {
+define double @atomic_load_seq_cst_f64(double* %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_f64:
 ; MIPS32:       # %bb.0:
-; MIPS32-NEXT:    addiu $sp, $sp, -24
-; MIPS32-NEXT:    .cfi_def_cfa_offset 24
-; MIPS32-NEXT:    sw $ra, 20($sp) # 4-byte Folded Spill
-; MIPS32-NEXT:    .cfi_offset 31, -4
-; MIPS32-NEXT:    ori $5, $zero, 5
-; MIPS32-NEXT:    ori $1, $zero, 128
-; MIPS32-NEXT:    jal __atomic_load_8
-; MIPS32-NEXT:    addu $4, $4, $1
-; MIPS32-NEXT:    mtc1 $2, $f0
-; MIPS32-NEXT:    mtc1 $3, $f1
-; MIPS32-NEXT:    lw $ra, 20($sp) # 4-byte Folded Reload
+; MIPS32-NEXT:    ldc1 $f0, 128($4)
+; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
-; MIPS32-NEXT:    addiu $sp, $sp, 24
-  %gep = getelementptr inbounds double, ptr %ptr, i32 16
-  %load = load atomic double, ptr %gep seq_cst, align 8
+; MIPS32-NEXT:    nop
+  %gep = getelementptr inbounds double, double* %ptr, i32 16
+  %load = load atomic double, double* %gep seq_cst, align 8
   ret double %load
 }
 
-define ptr @atomic_load_seq_cst_p0i8(ptr %ptr) {
+define i8* @atomic_load_seq_cst_p0i8(i8** %ptr) {
 ; MIPS32-LABEL: atomic_load_seq_cst_p0i8:
 ; MIPS32:       # %bb.0:
 ; MIPS32-NEXT:    lw $2, 64($4)
 ; MIPS32-NEXT:    sync
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
-  %gep = getelementptr inbounds ptr, ptr %ptr, i32 16
-  %load = load atomic ptr, ptr %gep seq_cst, align 4
-  ret ptr %load
+  %gep = getelementptr inbounds i8*, i8** %ptr, i32 16
+  %load = load atomic i8*, i8** %gep seq_cst, align 4
+  ret i8* %load
 }

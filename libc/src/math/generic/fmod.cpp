@@ -10,10 +10,10 @@
 #include "src/__support/FPUtil/generic/FMod.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(double, fmod, (double x, double y)) {
   return fputil::generic::FMod<double>::eval(x, y);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

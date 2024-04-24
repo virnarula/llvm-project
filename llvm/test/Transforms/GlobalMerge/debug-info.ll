@@ -1,5 +1,4 @@
 ; RUN: opt -global-merge -global-merge-max-offset=100 -S -o - %s | FileCheck %s
-; RUN: opt -passes='global-merge<max-offset=100>' -S -o - %s | FileCheck %s
 
 source_filename = "test/Transforms/GlobalMerge/debug-info.ll"
 target datalayout = "e-p:64:64"
@@ -10,8 +9,8 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = internal global i32 2, !dbg !2
 
 define void @use1() {
-  %x = load i32, ptr @a
-  %y = load i32, ptr @b
+  %x = load i32, i32* @a
+  %y = load i32, i32* @b
   ret void
 }
 ; CHECK: [[A]] = !DIGlobalVariableExpression(var: [[AVAR:![0-9]+]], expr: !DIExpression())

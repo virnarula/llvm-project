@@ -18,8 +18,7 @@ using namespace mlir::tblgen;
 /// Returns space to be emitted after the given C++ `type`. return "" if the
 /// ends with '&' or '*', or is empty, else returns " ".
 static StringRef getSpaceAfterType(StringRef type) {
-  return (type.empty() || type.ends_with("&") || type.ends_with("*")) ? ""
-                                                                      : " ";
+  return (type.empty() || type.endswith("&") || type.endswith("*")) ? "" : " ";
 }
 
 //===----------------------------------------------------------------------===//
@@ -94,17 +93,6 @@ void MethodSignature::writeDefTo(raw_indented_ostream &os,
   os << ")";
 }
 
-void MethodSignature::writeTemplateParamsTo(
-    mlir::raw_indented_ostream &os) const {
-  if (templateParams.empty())
-    return;
-
-  os << "template <";
-  llvm::interleaveComma(templateParams, os,
-                        [&](StringRef param) { os << "typename " << param; });
-  os << ">\n";
-}
-
 //===----------------------------------------------------------------------===//
 // MethodBody definitions
 //===----------------------------------------------------------------------===//
@@ -113,7 +101,7 @@ MethodBody::MethodBody(bool declOnly)
     : declOnly(declOnly), stringOs(body), os(stringOs) {}
 
 void MethodBody::writeTo(raw_indented_ostream &os) const {
-  auto bodyRef = StringRef(body).ltrim('\n');
+  auto bodyRef = StringRef(body).drop_while([](char c) { return c == '\n'; });
   os << bodyRef;
   if (bodyRef.empty())
     return;
@@ -126,12 +114,6 @@ void MethodBody::writeTo(raw_indented_ostream &os) const {
 //===----------------------------------------------------------------------===//
 
 void Method::writeDeclTo(raw_indented_ostream &os) const {
-  methodSignature.writeTemplateParamsTo(os);
-  if (deprecationMessage) {
-    os << "[[deprecated(\"";
-    os.write_escaped(*deprecationMessage);
-    os << "\")]]\n";
-  }
   if (isStatic())
     os << "static ";
   if (properties & ConstexprValue)
@@ -166,7 +148,6 @@ void Method::writeDefTo(raw_indented_ostream &os, StringRef namePrefix) const {
 //===----------------------------------------------------------------------===//
 
 void Constructor::writeDeclTo(raw_indented_ostream &os) const {
-  methodSignature.writeTemplateParamsTo(os);
   if (properties & ConstexprValue)
     os << "constexpr ";
   methodSignature.writeDeclTo(os);
@@ -247,13 +228,6 @@ void ParentClass::writeTo(raw_indented_ostream &os) const {
 //===----------------------------------------------------------------------===//
 
 void UsingDeclaration::writeDeclTo(raw_indented_ostream &os) const {
-  if (!templateParams.empty()) {
-    os << "template <";
-    llvm::interleaveComma(templateParams, os, [&](StringRef paramName) {
-      os << "typename " << paramName;
-    });
-    os << ">\n";
-  }
   os << "using " << name;
   if (!value.empty())
     os << " = " << value;
@@ -301,13 +275,6 @@ ParentClass &Class::addParent(ParentClass parent) {
 }
 
 void Class::writeDeclTo(raw_indented_ostream &os) const {
-  if (!templateParams.empty()) {
-    os << "template <";
-    llvm::interleaveComma(templateParams, os,
-                          [&](StringRef param) { os << "typename " << param; });
-    os << ">\n";
-  }
-
   // Declare the class.
   os << (isStruct ? "struct" : "class") << ' ' << className << ' ';
 
@@ -374,7 +341,7 @@ Visibility Class::getLastVisibilityDecl() const {
   });
   return it == reverseDecls.end()
              ? (isStruct ? Visibility::Public : Visibility::Private)
-             : cast<VisibilityDeclaration>(**it).getVisibility();
+             : cast<VisibilityDeclaration>(*it).getVisibility();
 }
 
 Method *insertAndPruneMethods(std::vector<std::unique_ptr<Method>> &methods,

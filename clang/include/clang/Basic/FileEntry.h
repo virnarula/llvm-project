@@ -14,7 +14,6 @@
 #ifndef LLVM_CLANG_BASIC_FILEENTRY_H
 #define LLVM_CLANG_BASIC_FILEENTRY_H
 
-#include "clang/Basic/CustomizableOptional.h"
 #include "clang/Basic/DirectoryEntry.h"
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -25,7 +24,6 @@
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/FileSystem/UniqueID.h"
 
-#include <optional>
 #include <utility>
 
 namespace llvm {
@@ -43,12 +41,19 @@ namespace clang {
 
 class FileEntryRef;
 
+} // namespace clang
+
+namespace llvm {
 namespace optional_detail {
 
 /// Forward declare a template specialization for OptionalStorage.
-template <> class OptionalStorage<clang::FileEntryRef>;
+template <>
+class OptionalStorage<clang::FileEntryRef, /*is_trivially_copyable*/ true>;
 
 } // namespace optional_detail
+} // namespace llvm
+
+namespace clang {
 
 class FileEntry;
 
@@ -70,7 +75,7 @@ public:
   const FileEntry &getFileEntry() const {
     return *getBaseMapEntry().second->V.get<FileEntry *>();
   }
-  DirectoryEntryRef getDir() const { return ME->second->Dir; }
+  DirectoryEntryRef getDir() const { return *getBaseMapEntry().second->Dir; }
 
   inline off_t getSize() const;
   inline unsigned getUID() const;
@@ -118,14 +123,17 @@ public:
     /// VFSs that use external names. In that case, the \c FileEntryRef
     /// returned by the \c FileManager will have the external name, and not the
     /// name that was used to lookup the file.
-    llvm::PointerUnion<FileEntry *, const MapEntry *> V;
+    ///
+    /// The second type is really a `const MapEntry *`, but that confuses
+    /// gcc5.3.  Once that's no longer supported, change this back.
+    llvm::PointerUnion<FileEntry *, const void *> V;
 
-    /// Directory the file was found in.
-    DirectoryEntryRef Dir;
+    /// Directory the file was found in. Set if and only if V is a FileEntry.
+    Optional<DirectoryEntryRef> Dir;
 
     MapValue() = delete;
     MapValue(FileEntry &FE, DirectoryEntryRef Dir) : V(&FE), Dir(Dir) {}
-    MapValue(MapEntry &ME, DirectoryEntryRef Dir) : V(&ME), Dir(Dir) {}
+    MapValue(MapEntry &ME) : V(&ME) {}
   };
 
   /// Check if RHS referenced the file in exactly the same way.
@@ -162,10 +170,10 @@ public:
 
   /// Retrieve the base MapEntry after redirects.
   const MapEntry &getBaseMapEntry() const {
-    const MapEntry *Base = ME;
-    while (const auto *Next = Base->second->V.dyn_cast<const MapEntry *>())
-      Base = Next;
-    return *Base;
+    const MapEntry *ME = this->ME;
+    while (const void *Next = ME->second->V.dyn_cast<const void *>())
+      ME = static_cast<const MapEntry *>(Next);
+    return *ME;
   }
 
 private:
@@ -199,8 +207,9 @@ static_assert(sizeof(FileEntryRef) == sizeof(const FileEntry *),
 static_assert(std::is_trivially_copyable<FileEntryRef>::value,
               "FileEntryRef must be trivially copyable");
 
-using OptionalFileEntryRef = CustomizableOptional<FileEntryRef>;
+} // end namespace clang
 
+namespace llvm {
 namespace optional_detail {
 
 /// Customize OptionalStorage<FileEntryRef> to use FileEntryRef and its
@@ -224,16 +233,14 @@ public:
   }
 };
 
-static_assert(sizeof(OptionalFileEntryRef) == sizeof(FileEntryRef),
-              "OptionalFileEntryRef must avoid size overhead");
+static_assert(sizeof(Optional<clang::FileEntryRef>) ==
+                  sizeof(clang::FileEntryRef),
+              "Optional<FileEntryRef> must avoid size overhead");
 
-static_assert(std::is_trivially_copyable<OptionalFileEntryRef>::value,
-              "OptionalFileEntryRef should be trivially copyable");
+static_assert(std::is_trivially_copyable<Optional<clang::FileEntryRef>>::value,
+              "Optional<FileEntryRef> should be trivially copyable");
 
 } // end namespace optional_detail
-} // namespace clang
-
-namespace llvm {
 
 /// Specialisation of DenseMapInfo for FileEntryRef.
 template <> struct DenseMapInfo<clang::FileEntryRef> {
@@ -261,34 +268,93 @@ template <> struct DenseMapInfo<clang::FileEntryRef> {
     // It's safe to use operator==.
     return LHS == RHS;
   }
-
-  /// Support for finding `const FileEntry *` in a `DenseMap<FileEntryRef, T>`.
-  /// @{
-  static unsigned getHashValue(const clang::FileEntry *Val) {
-    return llvm::hash_value(Val);
-  }
-  static bool isEqual(const clang::FileEntry *LHS, clang::FileEntryRef RHS) {
-    if (RHS.isSpecialDenseMapKey())
-      return false;
-    return LHS == RHS;
-  }
-  /// @}
 };
 
 } // end namespace llvm
 
 namespace clang {
 
-inline bool operator==(const FileEntry *LHS, const OptionalFileEntryRef &RHS) {
+/// Wrapper around Optional<FileEntryRef> that degrades to 'const FileEntry*',
+/// facilitating incremental patches to propagate FileEntryRef.
+///
+/// This class can be used as return value or field where it's convenient for
+/// an Optional<FileEntryRef> to degrade to a 'const FileEntry*'. The purpose
+/// is to avoid code churn due to dances like the following:
+/// \code
+/// // Old code.
+/// lvalue = rvalue;
+///
+/// // Temporary code from an incremental patch.
+/// Optional<FileEntryRef> MaybeF = rvalue;
+/// lvalue = MaybeF ? &MaybeF.getFileEntry() : nullptr;
+///
+/// // Final code.
+/// lvalue = rvalue;
+/// \endcode
+///
+/// FIXME: Once FileEntryRef is "everywhere" and FileEntry::LastRef and
+/// FileEntry::getName have been deleted, delete this class and replace
+/// instances with Optional<FileEntryRef>.
+class OptionalFileEntryRefDegradesToFileEntryPtr
+    : public Optional<FileEntryRef> {
+public:
+  OptionalFileEntryRefDegradesToFileEntryPtr() = default;
+  OptionalFileEntryRefDegradesToFileEntryPtr(
+      OptionalFileEntryRefDegradesToFileEntryPtr &&) = default;
+  OptionalFileEntryRefDegradesToFileEntryPtr(
+      const OptionalFileEntryRefDegradesToFileEntryPtr &) = default;
+  OptionalFileEntryRefDegradesToFileEntryPtr &
+  operator=(OptionalFileEntryRefDegradesToFileEntryPtr &&) = default;
+  OptionalFileEntryRefDegradesToFileEntryPtr &
+  operator=(const OptionalFileEntryRefDegradesToFileEntryPtr &) = default;
+
+  OptionalFileEntryRefDegradesToFileEntryPtr(llvm::NoneType) {}
+  OptionalFileEntryRefDegradesToFileEntryPtr(FileEntryRef Ref)
+      : Optional<FileEntryRef>(Ref) {}
+  OptionalFileEntryRefDegradesToFileEntryPtr(Optional<FileEntryRef> MaybeRef)
+      : Optional<FileEntryRef>(MaybeRef) {}
+
+  OptionalFileEntryRefDegradesToFileEntryPtr &operator=(llvm::NoneType) {
+    Optional<FileEntryRef>::operator=(None);
+    return *this;
+  }
+  OptionalFileEntryRefDegradesToFileEntryPtr &operator=(FileEntryRef Ref) {
+    Optional<FileEntryRef>::operator=(Ref);
+    return *this;
+  }
+  OptionalFileEntryRefDegradesToFileEntryPtr &
+  operator=(Optional<FileEntryRef> MaybeRef) {
+    Optional<FileEntryRef>::operator=(MaybeRef);
+    return *this;
+  }
+
+  /// Degrade to 'const FileEntry *' to allow  FileEntry::LastRef and
+  /// FileEntry::getName have been deleted, delete this class and replace
+  /// instances with Optional<FileEntryRef>
+  operator const FileEntry *() const {
+    return has_value() ? &value().getFileEntry() : nullptr;
+  }
+};
+
+static_assert(
+    std::is_trivially_copyable<
+        OptionalFileEntryRefDegradesToFileEntryPtr>::value,
+    "OptionalFileEntryRefDegradesToFileEntryPtr should be trivially copyable");
+
+inline bool operator==(const FileEntry *LHS,
+                       const Optional<FileEntryRef> &RHS) {
   return LHS == (RHS ? &RHS->getFileEntry() : nullptr);
 }
-inline bool operator==(const OptionalFileEntryRef &LHS, const FileEntry *RHS) {
+inline bool operator==(const Optional<FileEntryRef> &LHS,
+                       const FileEntry *RHS) {
   return (LHS ? &LHS->getFileEntry() : nullptr) == RHS;
 }
-inline bool operator!=(const FileEntry *LHS, const OptionalFileEntryRef &RHS) {
+inline bool operator!=(const FileEntry *LHS,
+                       const Optional<FileEntryRef> &RHS) {
   return !(LHS == RHS);
 }
-inline bool operator!=(const OptionalFileEntryRef &LHS, const FileEntry *RHS) {
+inline bool operator!=(const Optional<FileEntryRef> &LHS,
+                       const FileEntry *RHS) {
   return !(LHS == RHS);
 }
 
@@ -324,12 +390,12 @@ class FileEntry {
   // default constructor). It should always have a value in practice.
   //
   // TODO: remove this once everyone that needs a name uses FileEntryRef.
-  OptionalFileEntryRef LastRef;
+  Optional<FileEntryRef> LastRef;
 
 public:
   ~FileEntry();
-  LLVM_DEPRECATED("Use FileEntryRef::getName() instead.", "")
   StringRef getName() const { return LastRef->getName(); }
+  FileEntryRef getLastRef() const { return *LastRef; }
 
   StringRef tryGetRealPathName() const { return RealPathName; }
   off_t getSize() const { return Size; }

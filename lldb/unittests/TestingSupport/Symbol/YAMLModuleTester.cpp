@@ -13,7 +13,6 @@
 #include "llvm/ObjectYAML/DWARFEmitter.h"
 
 using namespace lldb_private;
-using namespace lldb_private::plugin::dwarf;
 
 YAMLModuleTester::YAMLModuleTester(llvm::StringRef yaml_data, size_t cu_index) {
   llvm::Expected<TestFile> File = TestFile::fromYaml(yaml_data);

@@ -1,4 +1,4 @@
-%t = type { ptr }
+%t = type { i8* }
 declare %t @f()
 
 define %t @g() {

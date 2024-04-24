@@ -42,20 +42,20 @@ ConvertTosaNegateOp::matchAndRewrite(Operation *op,
   auto tosaNegateOp = cast<tosa::NegateOp>(op);
 
   auto inputType =
-      dyn_cast<mlir::RankedTensorType>(tosaNegateOp.getInput1().getType());
+      tosaNegateOp.getInput1().getType().dyn_cast<mlir::RankedTensorType>();
   // skip if input is not ranked tensor type
   if (!inputType)
     return failure();
 
   // skip if it's not ranked tensor type.
   auto outputType =
-      dyn_cast<mlir::RankedTensorType>(tosaNegateOp.getResult().getType());
+      tosaNegateOp.getResult().getType().dyn_cast<mlir::RankedTensorType>();
   if (!outputType)
     return failure();
 
   // skip if output is not per-tensor quantized type.
   auto outputElementType =
-      dyn_cast<mlir::quant::UniformQuantizedType>(outputType.getElementType());
+      outputType.getElementType().dyn_cast<mlir::quant::UniformQuantizedType>();
   if (!outputElementType)
     return failure();
 
@@ -112,14 +112,14 @@ ConvertTosaConv2DOp::matchAndRewrite(Operation *op,
   auto tosaConv2DOp = cast<tosa::Conv2DOp>(op);
 
   auto inputType =
-      dyn_cast<mlir::RankedTensorType>(tosaConv2DOp.getInput().getType());
+      tosaConv2DOp.getInput().getType().dyn_cast<mlir::RankedTensorType>();
 
   // skip if input is not ranked tensor type
   if (!inputType)
     return failure();
 
   auto weightType =
-      dyn_cast<mlir::RankedTensorType>(tosaConv2DOp.getWeight().getType());
+      tosaConv2DOp.getWeight().getType().dyn_cast<mlir::RankedTensorType>();
 
   // skip if wt is not ranked tensor type
   if (!weightType)
@@ -127,16 +127,16 @@ ConvertTosaConv2DOp::matchAndRewrite(Operation *op,
 
   // skip if it's not ranked tensor type.
   auto outputType =
-      dyn_cast<mlir::RankedTensorType>(tosaConv2DOp.getResult().getType());
+      tosaConv2DOp.getResult().getType().dyn_cast<mlir::RankedTensorType>();
   if (!outputType)
     return failure();
 
   auto inputQType =
-      dyn_cast<mlir::quant::UniformQuantizedType>(inputType.getElementType());
+      inputType.getElementType().dyn_cast<mlir::quant::UniformQuantizedType>();
   auto weightQType =
-      dyn_cast<mlir::quant::UniformQuantizedType>(weightType.getElementType());
+      weightType.getElementType().dyn_cast<mlir::quant::UniformQuantizedType>();
   auto outputQType =
-      dyn_cast<mlir::quant::UniformQuantizedType>(outputType.getElementType());
+      outputType.getElementType().dyn_cast<mlir::quant::UniformQuantizedType>();
 
   // Works on quantized type only.
   if (!(inputQType && weightQType && outputQType))
@@ -147,9 +147,8 @@ ConvertTosaConv2DOp::matchAndRewrite(Operation *op,
 
   auto newTosaConv2DOp = rewriter.create<tosa::Conv2DOp>(
       op->getLoc(), newTosaConv2DOpType, tosaConv2DOp.getInput(),
-      tosaConv2DOp.getWeight(), tosaConv2DOp.getBias(),
-      tosaConv2DOp.getPadAttr(), tosaConv2DOp.getStrideAttr(),
-      tosaConv2DOp.getDilationAttr());
+      tosaConv2DOp.getWeight(), tosaConv2DOp.getBias(), tosaConv2DOp.getPad(),
+      tosaConv2DOp.getStride(), tosaConv2DOp.getDilation());
 
   // Create rescale to quantized type
   double inputScale = inputQType.getScale();
@@ -168,8 +167,7 @@ ConvertTosaConv2DOp::matchAndRewrite(Operation *op,
   auto newTosaRescaleOp = rewriter.create<tosa::RescaleOp>(
       op->getLoc(), outputType, newTosaConv2DOp.getResult(),
       rewriter.getI32IntegerAttr(0), rewriter.getI32IntegerAttr(outputZp),
-      rewriter.getDenseI32ArrayAttr({multiplier}),
-      rewriter.getDenseI8ArrayAttr({static_cast<int8_t>(shift)}),
+      rewriter.getI32ArrayAttr({multiplier}), rewriter.getI32ArrayAttr({shift}),
       rewriter.getBoolAttr(true), rewriter.getBoolAttr(true),
       rewriter.getBoolAttr(false));
 

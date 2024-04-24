@@ -37,11 +37,11 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Host.h"
 #include <algorithm>
 #include <cassert>
 #include <cstring>
@@ -156,7 +156,6 @@ private:
     bool CollectChildren = Collect;
     switch (A->getKind()) {
     case driver::Action::CompileJobClass:
-    case driver::Action::PrecompileJobClass:
       CollectChildren = true;
       break;
 
@@ -205,7 +204,7 @@ public:
 // which don't support these options.
 struct FilterUnusedFlags {
   bool operator() (StringRef S) {
-    return (S == "-no-integrated-as") || S.starts_with("-Wa,");
+    return (S == "-no-integrated-as") || S.startswith("-Wa,");
   }
 };
 
@@ -216,7 +215,7 @@ std::string GetClangToolCommand() {
   SmallString<128> ClangToolPath;
   ClangToolPath = llvm::sys::path::parent_path(ClangExecutable);
   llvm::sys::path::append(ClangToolPath, "clang-tool");
-  return std::string(ClangToolPath);
+  return std::string(ClangToolPath.str());
 }
 
 } // namespace
@@ -294,8 +293,7 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
     // -flto* flags make the BackendJobClass, which still needs analyzer.
     if (Cmd.getSource().getKind() == driver::Action::AssembleJobClass ||
         Cmd.getSource().getKind() == driver::Action::BackendJobClass ||
-        Cmd.getSource().getKind() == driver::Action::CompileJobClass ||
-        Cmd.getSource().getKind() == driver::Action::PrecompileJobClass) {
+        Cmd.getSource().getKind() == driver::Action::CompileJobClass) {
       CompileAnalyzer.run(&Cmd.getSource());
     }
   }

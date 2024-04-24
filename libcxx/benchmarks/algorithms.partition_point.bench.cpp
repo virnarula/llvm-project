@@ -1,5 +1,5 @@
-#include <algorithm>
 #include <array>
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <tuple>
@@ -29,7 +29,8 @@ template <class IntT>
 struct TestIntBase {
   static std::vector<IntT> generateInput(size_t size) {
     std::vector<IntT> Res(size);
-    std::generate(Res.begin(), Res.end(), [] { return getRandomInteger<IntT>(0, std::numeric_limits<IntT>::max()); });
+    std::generate(Res.begin(), Res.end(),
+                  [] { return getRandomInteger<IntT>(0, std::numeric_limits<IntT>::max()); });
     return Res;
   }
 };
@@ -47,7 +48,7 @@ struct TestUint32 : TestIntBase<std::uint32_t> {
 };
 
 struct TestMediumString {
-  static constexpr const char* Name  = "TestMediumString";
+  static constexpr const char* Name = "TestMediumString";
   static constexpr size_t StringSize = 32;
 
   static std::vector<std::string> generateInput(size_t size) {
@@ -93,7 +94,8 @@ struct PartitionPointBench {
   size_t Quantity;
 
   std::string name() const {
-    return std::string("PartitionPointBench_") + Alg::Name + "_" + TestType::Name + '/' + std::to_string(Quantity);
+    return std::string("PartitionPointBench_") + Alg::Name + "_" +
+           TestType::Name + '/' + std::to_string(Quantity);
   }
 
   void run(benchmark::State& state) const {
@@ -116,6 +118,7 @@ int main(int argc, char** argv) {
     return 1;
 
   const std::vector<size_t> Quantities = {1 << 8, 1 << 10, 1 << 20};
-  makeCartesianProductBenchmark<PartitionPointBench, AllAlgs, AllTestTypes>(Quantities);
+  makeCartesianProductBenchmark<PartitionPointBench, AllAlgs, AllTestTypes>(
+      Quantities);
   benchmark::RunSpecifiedBenchmarks();
 }

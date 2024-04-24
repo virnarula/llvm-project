@@ -15,12 +15,10 @@
 
 // template<class _URNG> result_type operator()(_URNG& g);
 
-#include <cassert>
-#include <cstdint>
-#include <numeric>
 #include <random>
-#include <type_traits>
+#include <numeric>
 #include <vector>
+#include <cassert>
 
 #include "test_macros.h"
 
@@ -529,8 +527,8 @@ int main(int, char**) {
     tests<unsigned long long>();
 
 #if defined(_LIBCPP_VERSION) // extension
-    tests<std::int8_t>();
-    tests<std::uint8_t>();
+    tests<int8_t>();
+    tests<uint8_t>();
 #if !defined(TEST_HAS_NO_INT128)
     tests<__int128_t>();
     tests<__uint128_t>();

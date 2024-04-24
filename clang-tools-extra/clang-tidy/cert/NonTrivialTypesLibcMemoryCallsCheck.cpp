@@ -19,7 +19,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 namespace {
 AST_MATCHER(CXXRecordDecl, isTriviallyDefaultConstructible) {
@@ -72,8 +74,8 @@ void NonTrivialTypesLibcMemoryCallsCheck::registerMatchers(
     return expr(unaryOperator(
         hasOperatorName("&"),
         hasUnaryOperand(declRefExpr(
-            hasType(cxxRecordDecl(Constraint)),
-            hasType(Bind ? qualType().bind("Record") : qualType())))));
+            allOf(hasType(cxxRecordDecl(Constraint)),
+                  hasType(Bind ? qualType().bind("Record") : qualType()))))));
   };
   auto IsRecordSizeOf =
       expr(sizeOfExpr(hasArgumentOfType(equalsBoundNode("Record"))));
@@ -124,4 +126,6 @@ void NonTrivialTypesLibcMemoryCallsCheck::check(
   }
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

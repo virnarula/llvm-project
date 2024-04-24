@@ -11,7 +11,6 @@
 // ===---------------------------------------------------------------------===//
 
 #include "AArch64InstrInfo.h"
-#include "AArch64Subtarget.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -76,7 +75,7 @@ FunctionPass *llvm::createAArch64StorePairSuppressPass() {
 /// oversaturate the vector units.
 bool AArch64StorePairSuppress::shouldAddSTPToBlock(const MachineBasicBlock *BB) {
   if (!MinInstr)
-    MinInstr = Traces->getEnsemble(MachineTraceStrategy::TS_MinInstrCount);
+    MinInstr = Traces->getEnsemble(MachineTraceMetrics::TS_MinInstrCount);
 
   MachineTraceMetrics::Trace BBTrace = MinInstr->getTrace(BB);
   unsigned ResLength = BBTrace.getResourceLength();
@@ -89,7 +88,7 @@ bool AArch64StorePairSuppress::shouldAddSTPToBlock(const MachineBasicBlock *BB) 
 
   // If a subtarget does not define resources for STPQi, bail here.
   if (SCDesc->isValid() && !SCDesc->isVariant()) {
-    unsigned ResLenWithSTP = BBTrace.getResourceLength(std::nullopt, SCDesc);
+    unsigned ResLenWithSTP = BBTrace.getResourceLength(None, SCDesc);
     if (ResLenWithSTP > ResLength) {
       LLVM_DEBUG(dbgs() << "  Suppress STP in BB: " << BB->getNumber()
                         << " resources " << ResLength << " -> " << ResLenWithSTP
@@ -123,10 +122,7 @@ bool AArch64StorePairSuppress::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()) || MF.getFunction().hasOptSize())
     return false;
 
-  const AArch64Subtarget &ST = MF.getSubtarget<AArch64Subtarget>();
-  if (!ST.enableStorePairSuppress())
-    return false;
-
+  const TargetSubtargetInfo &ST = MF.getSubtarget();
   TII = static_cast<const AArch64InstrInfo *>(ST.getInstrInfo());
   TRI = ST.getRegisterInfo();
   MRI = &MF.getRegInfo();

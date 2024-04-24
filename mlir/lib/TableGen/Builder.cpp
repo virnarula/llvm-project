@@ -34,13 +34,12 @@ StringRef Builder::Parameter::getCppType() const {
 
 /// Return an optional string containing the default value to use for this
 /// parameter.
-std::optional<StringRef> Builder::Parameter::getDefaultValue() const {
+Optional<StringRef> Builder::Parameter::getDefaultValue() const {
   if (isa<llvm::StringInit>(def))
-    return std::nullopt;
+    return llvm::None;
   const llvm::Record *record = cast<llvm::DefInit>(def)->getDef();
-  std::optional<StringRef> value =
-      record->getValueAsOptionalString("defaultValue");
-  return value && !value->empty() ? value : std::nullopt;
+  Optional<StringRef> value = record->getValueAsOptionalString("defaultValue");
+  return value && !value->empty() ? value : llvm::None;
 }
 
 //===----------------------------------------------------------------------===//
@@ -59,8 +58,7 @@ Builder::Builder(const llvm::Record *record, ArrayRef<SMLoc> loc)
   for (unsigned i = 0, e = dag->getNumArgs(); i < e; ++i) {
     const llvm::StringInit *paramName = dag->getArgName(i);
     const llvm::Init *paramValue = dag->getArg(i);
-    Parameter param(paramName ? paramName->getValue()
-                              : std::optional<StringRef>(),
+    Parameter param(paramName ? paramName->getValue() : Optional<StringRef>(),
                     paramValue);
 
     // Similarly to C++, once an argument with a default value is detected, the
@@ -77,13 +75,7 @@ Builder::Builder(const llvm::Record *record, ArrayRef<SMLoc> loc)
 }
 
 /// Return an optional string containing the body of the builder.
-std::optional<StringRef> Builder::getBody() const {
-  std::optional<StringRef> body = def->getValueAsOptionalString("body");
-  return body && !body->empty() ? body : std::nullopt;
-}
-
-std::optional<StringRef> Builder::getDeprecatedMessage() const {
-  std::optional<StringRef> message =
-      def->getValueAsOptionalString("odsCppDeprecated");
-  return message && !message->empty() ? message : std::nullopt;
+Optional<StringRef> Builder::getBody() const {
+  Optional<StringRef> body = def->getValueAsOptionalString("body");
+  return body && !body->empty() ? body : llvm::None;
 }

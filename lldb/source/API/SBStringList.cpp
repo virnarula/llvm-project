@@ -37,13 +37,6 @@ const SBStringList &SBStringList::operator=(const SBStringList &rhs) {
 
 SBStringList::~SBStringList() = default;
 
-lldb_private::StringList *SBStringList::operator->() {
-  if (!IsValid())
-    m_opaque_up = std::make_unique<lldb_private::StringList>();
-
-  return m_opaque_up.get();
-}
-
 const lldb_private::StringList *SBStringList::operator->() const {
   return m_opaque_up.get();
 }
@@ -113,7 +106,7 @@ const char *SBStringList::GetStringAtIndex(size_t idx) {
   LLDB_INSTRUMENT_VA(this, idx);
 
   if (IsValid()) {
-    return ConstString(m_opaque_up->GetStringAtIndex(idx)).GetCString();
+    return m_opaque_up->GetStringAtIndex(idx);
   }
   return nullptr;
 }
@@ -122,7 +115,7 @@ const char *SBStringList::GetStringAtIndex(size_t idx) const {
   LLDB_INSTRUMENT_VA(this, idx);
 
   if (IsValid()) {
-    return ConstString(m_opaque_up->GetStringAtIndex(idx)).GetCString();
+    return m_opaque_up->GetStringAtIndex(idx);
   }
   return nullptr;
 }

@@ -1,7 +1,7 @@
 // RUN: %clang_asan -O2 %s -o %t && %run %t
 
 // FIXME: printf is not intercepted on Windows yet.
-// UNSUPPORTED: target={{.*windows-msvc.*}}
+// UNSUPPORTED: windows-msvc
 
 #include <stdio.h>
 

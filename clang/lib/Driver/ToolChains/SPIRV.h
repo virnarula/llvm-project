@@ -17,6 +17,9 @@ namespace driver {
 namespace tools {
 namespace SPIRV {
 
+void addTranslatorArgs(const llvm::opt::ArgList &InArgs,
+                       llvm::opt::ArgStringList &OutArgs);
+
 void constructTranslateCommand(Compilation &C, const Tool &T,
                                const JobAction &JA, const InputInfo &Output,
                                const InputInfo &Input,
@@ -36,7 +39,7 @@ public:
                     const char *LinkingOutput) const override;
 };
 
-class LLVM_LIBRARY_VISIBILITY Linker final : public Tool {
+class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
 public:
   Linker(const ToolChain &TC) : Tool("SPIRV::Linker", "spirv-link", TC) {}
   bool hasIntegratedCPP() const override { return false; }

@@ -144,7 +144,7 @@ program test_prog
   deallocate(x)
 end
 
-! CHECK: Module test
+! CHECK: ModuleLike
 module test
   !! When derived type processing is implemented, remove all instances of:
   !!  - !![disable]
@@ -155,13 +155,6 @@ module test
   !![disable]type, extends(a_type) :: b_type
   !![disable]  integer :: y
   !![disable]end type
-  interface
-     subroutine ss(aa)
-       ! CHECK: CompilerDirective
-       !DIR$ IGNORE_TKR aa
-       integer :: aa
-     end subroutine ss
-  end interface
 contains
   ! CHECK: Function foo
   function foo(x)
@@ -219,7 +212,7 @@ contains
   ! CHECK: Subroutine sub
   subroutine sub(a)
     real(4):: a
-    ! CHECK: CompilerDirective
+    ! CompilerDirective:
     !DIR$ IGNORE_TKR a
   end subroutine
 

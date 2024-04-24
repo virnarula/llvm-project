@@ -19,10 +19,9 @@
 
 // Can't invoke without arguments.
 static_assert(!std::is_invocable_v<decltype((std::views::single))>);
-#if _LIBCPP_STD_VER >= 23
-// Can invoke with a move-only type.
-static_assert(std::is_invocable_v<decltype((std::views::single)), MoveOnly>);
-#endif
+// Can't invoke with a move-only type.
+static_assert(!std::is_invocable_v<decltype((std::views::single)), MoveOnly>);
+
 constexpr bool test() {
   // Lvalue.
   {

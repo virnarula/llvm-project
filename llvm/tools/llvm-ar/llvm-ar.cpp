@@ -13,11 +13,20 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/BinaryFormat/Magic.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
+#include "llvm/Object/COFFImportFile.h"
+#include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Object/IRObjectFile.h"
+#include "llvm/Object/MachO.h"
+#include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/SymbolicFile.h"
+#include "llvm/Object/TapiFile.h"
+#include "llvm/Object/Wasm.h"
+#include "llvm/Object/XCOFFObjectFile.h"
 #include "llvm/Support/Chrono.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ConvertUTF.h"
@@ -25,7 +34,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/LLVMDriver.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -35,8 +45,6 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/ToolDrivers/llvm-dlltool/DlltoolDriver.h"
 #include "llvm/ToolDrivers/llvm-lib/LibDriver.h"
 
@@ -68,9 +76,7 @@ static void printRanLibHelp(StringRef ToolName) {
          << "  -v --version          - Display the version of this program\n"
          << "  -D                    - Use zero for timestamps and uids/gids "
             "(default)\n"
-         << "  -U                    - Use actual timestamps and uids/gids\n"
-         << "  -X{32|64|32_64|any}   - Specify which archive symbol tables "
-            "should be generated if they do not already exist (AIX OS only)\n";
+         << "  -U                    - Use actual timestamps and uids/gids\n";
 }
 
 static void printArHelp(StringRef ToolName) {
@@ -226,8 +232,7 @@ static bool DisplayMemberOffsets = false; ///< 'O' modifier
 static bool CompareFullPath = false;      ///< 'P' modifier
 static bool OnlyUpdate = false;           ///< 'u' modifier
 static bool Verbose = false;              ///< 'v' modifier
-static SymtabWritingMode Symtab =
-    SymtabWritingMode::NormalSymtab;      ///< 's' modifier
+static bool Symtab = true;                ///< 's' modifier
 static bool Deterministic = true;         ///< 'D' and 'U' modifiers
 static bool Thin = false;                 ///< 'T' modifier
 static bool AddLibrary = false;           ///< 'L' modifier
@@ -373,11 +378,11 @@ static ArchiveOperation parseCommandLine() {
       CompareFullPath = true;
       break;
     case 's':
-      Symtab = SymtabWritingMode::NormalSymtab;
+      Symtab = true;
       MaybeJustCreateSymTab = true;
       break;
     case 'S':
-      Symtab = SymtabWritingMode::NoSymtab;
+      Symtab = false;
       break;
     case 'u':
       OnlyUpdate = true;
@@ -641,12 +646,31 @@ static bool shouldCreateArchive(ArchiveOperation Op) {
   llvm_unreachable("Missing entry in covered switch.");
 }
 
+static bool is64BitSymbolicFile(SymbolicFile &Obj) {
+  if (auto *IRObj = dyn_cast<IRObjectFile>(&Obj))
+    return Triple(IRObj->getTargetTriple()).isArch64Bit();
+  if (isa<COFFObjectFile>(Obj) || isa<COFFImportFile>(Obj))
+    return false;
+  if (XCOFFObjectFile *XCOFFObj = dyn_cast<XCOFFObjectFile>(&Obj))
+    return XCOFFObj->is64Bit();
+  if (isa<WasmObjectFile>(Obj))
+    return false;
+  if (TapiFile *Tapi = dyn_cast<TapiFile>(&Obj))
+    return Tapi->is64Bit();
+  if (MachOObjectFile *MachO = dyn_cast<MachOObjectFile>(&Obj))
+    return MachO->is64Bit();
+  if (ELFObjectFileBase *ElfO = dyn_cast<ELFObjectFileBase>(&Obj))
+    return ElfO->getBytesInAddress() == 8;
+
+  fail("unsupported file format");
+}
+
 static bool isValidInBitMode(Binary &Bin) {
   if (BitMode == BitModeTy::Bit32_64 || BitMode == BitModeTy::Any)
     return true;
 
   if (SymbolicFile *SymFile = dyn_cast<SymbolicFile>(&Bin)) {
-    bool Is64Bit = SymFile->is64Bit();
+    bool Is64Bit = is64BitSymbolicFile(*SymFile);
     if ((Is64Bit && (BitMode == BitModeTy::Bit32)) ||
         (!Is64Bit && (BitMode == BitModeTy::Bit64)))
       return false;
@@ -851,16 +875,8 @@ static InsertAction computeInsertAction(ArchiveOperation Operation,
 
   if (Operation == QuickAppend || Members.empty())
     return IA_AddOldMember;
-
-  auto MI = find_if(Members, [Name](StringRef Path) {
-    if (Thin && !sys::path::is_absolute(Path)) {
-      Expected<std::string> PathOrErr =
-          computeArchiveRelativePath(ArchiveName, Path);
-      return comparePaths(Name, PathOrErr ? *PathOrErr : Path);
-    } else {
-      return comparePaths(Name, Path);
-    }
-  });
+  auto MI = find_if(
+      Members, [Name](StringRef Path) { return comparePaths(Name, Path); });
 
   if (MI == Members.end())
     return IA_AddOldMember;
@@ -1076,31 +1092,9 @@ static void createSymbolTable(object::Archive *OldArchive) {
   // In summary, we only need to update the symbol table if we have none.
   // This is actually very common because of broken build systems that think
   // they have to run ranlib.
-  if (OldArchive->hasSymbolTable()) {
-    if (OldArchive->kind() != object::Archive::K_AIXBIG)
-      return;
+  if (OldArchive->hasSymbolTable())
+    return;
 
-    // For archives in the Big Archive format, the bit mode option specifies
-    // which symbol table to generate. The presence of a symbol table that does
-    // not match the specified bit mode does not prevent creation of the symbol
-    // table that has been requested.
-    if (OldArchive->kind() == object::Archive::K_AIXBIG) {
-      BigArchive *BigArc = dyn_cast<BigArchive>(OldArchive);
-      if (BigArc->has32BitGlobalSymtab() &&
-          Symtab == SymtabWritingMode::BigArchive32)
-        return;
-
-      if (BigArc->has64BitGlobalSymtab() &&
-          Symtab == SymtabWritingMode::BigArchive64)
-        return;
-
-      if (BigArc->has32BitGlobalSymtab() && BigArc->has64BitGlobalSymtab() &&
-          Symtab == SymtabWritingMode::NormalSymtab)
-        return;
-
-      Symtab = SymtabWritingMode::NormalSymtab;
-    }
-  }
   if (OldArchive->isThin())
     Thin = true;
   performWriteOperation(CreateSymTab, OldArchive, nullptr, nullptr);
@@ -1286,7 +1280,8 @@ static const char *matchFlagWithArg(StringRef Expected,
                                     ArrayRef<const char *> Args) {
   StringRef Arg = *ArgIt;
 
-  Arg.consume_front("--");
+  if (Arg.startswith("--"))
+    Arg = Arg.substr(2);
 
   size_t len = Expected.size();
   if (Arg == Expected) {
@@ -1295,7 +1290,7 @@ static const char *matchFlagWithArg(StringRef Expected,
 
     return *ArgIt;
   }
-  if (Arg.starts_with(Expected) && Arg.size() > len && Arg[len] == '=')
+  if (Arg.startswith(Expected) && Arg.size() > len && Arg[len] == '=')
     return Arg.data() + len + 1;
 
   return nullptr;
@@ -1327,7 +1322,7 @@ static int ar_main(int argc, char **argv) {
   SmallVector<const char *, 0> Argv(argv + 1, argv + argc);
   StringSaver Saver(Alloc);
 
-  cl::ExpandResponseFiles(Saver, getRspQuoting(ArrayRef(argv, argc)), Argv);
+  cl::ExpandResponseFiles(Saver, getRspQuoting(makeArrayRef(argv, argc)), Argv);
 
   // Get BitMode from enviorment variable "OBJECT_MODE" for AIX OS, if
   // specified.
@@ -1412,8 +1407,6 @@ static int ar_main(int argc, char **argv) {
 
 static int ranlib_main(int argc, char **argv) {
   std::vector<StringRef> Archives;
-  bool HasAIXXOption = false;
-
   for (int i = 1; i < argc; ++i) {
     StringRef arg(argv[i]);
     if (handleGenericOption(arg)) {
@@ -1431,28 +1424,6 @@ static int ranlib_main(int argc, char **argv) {
         } else if (arg.front() == 'v') {
           cl::PrintVersionMessage();
           return 0;
-        } else if (arg.front() == 'X') {
-          if (object::Archive::getDefaultKindForHost() ==
-              object::Archive::K_AIXBIG) {
-            HasAIXXOption = true;
-            arg.consume_front("X");
-            const char *Xarg = arg.data();
-            if (Xarg[0] == '\0') {
-              if (argv[i + 1][0] != '-')
-                BitMode = getBitMode(argv[++i]);
-              else
-                BitMode = BitModeTy::Unknown;
-            } else
-              BitMode = getBitMode(arg.data());
-
-            if (BitMode == BitModeTy::Unknown)
-              fail("the specified object mode is not valid. Specify -X32, "
-                   "-X64, -X32_64, or -Xany");
-          } else {
-            fail(Twine("-") + Twine(arg) +
-                 " option not supported on non AIX OS");
-          }
-          break;
         } else {
           // TODO: GNU ranlib also supports a -t flag
           fail("Invalid option: '-" + arg + "'");
@@ -1461,31 +1432,6 @@ static int ranlib_main(int argc, char **argv) {
       }
     } else {
       Archives.push_back(arg);
-    }
-  }
-
-  if (object::Archive::getDefaultKindForHost() == object::Archive::K_AIXBIG) {
-    // If not specify -X option, get BitMode from enviorment variable
-    // "OBJECT_MODE" for AIX OS if specify.
-    if (!HasAIXXOption) {
-      if (char *EnvObjectMode = getenv("OBJECT_MODE")) {
-        BitMode = getBitMode(EnvObjectMode);
-        if (BitMode == BitModeTy::Unknown)
-          fail("the OBJECT_MODE environment variable has an invalid value. "
-               "OBJECT_MODE must be 32, 64, 32_64, or any");
-      }
-    }
-
-    switch (BitMode) {
-    case BitModeTy::Bit32:
-      Symtab = SymtabWritingMode::BigArchive32;
-      break;
-    case BitModeTy::Bit64:
-      Symtab = SymtabWritingMode::BigArchive64;
-      break;
-    default:
-      Symtab = SymtabWritingMode::NormalSymtab;
-      break;
     }
   }
 
@@ -1498,7 +1444,8 @@ static int ranlib_main(int argc, char **argv) {
   return 0;
 }
 
-int llvm_ar_main(int argc, char **argv, const llvm::ToolContext &) {
+int llvm_ar_main(int argc, char **argv) {
+  InitLLVM X(argc, argv);
   ToolName = argv[0];
 
   llvm::InitializeAllTargetInfos();
@@ -1518,11 +1465,11 @@ int llvm_ar_main(int argc, char **argv, const llvm::ToolContext &) {
   };
 
   if (Is("dlltool"))
-    return dlltoolDriverMain(ArrayRef(argv, argc));
+    return dlltoolDriverMain(makeArrayRef(argv, argc));
   if (Is("ranlib"))
     return ranlib_main(argc, argv);
   if (Is("lib"))
-    return libDriverMain(ArrayRef(argv, argc));
+    return libDriverMain(makeArrayRef(argv, argc));
   if (Is("ar"))
     return ar_main(argc, argv);
 

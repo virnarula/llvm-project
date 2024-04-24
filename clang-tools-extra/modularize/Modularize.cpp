@@ -51,20 +51,20 @@
 //          to the header list file directory.  Use -prefix to specify a
 //          different directory.
 //    -module-map-path=(module map)
-//          Skip the checks, and instead act as a module.modulemap generation
+//          Skip the checks, and instead act as a module.map generation
 //          assistant, generating a module map file based on the header list.
 //          An optional "-root-module=(rootName)" argument can specify a root
-//          module to be created in the generated module.modulemap file.  Note
-//          that you will likely need to edit this file to suit the needs of
-//          your headers.
+//          module to be created in the generated module.map file.  Note that
+//          you will likely need to edit this file to suit the needs of your
+//          headers.
 //    -problem-files-list=(problem files list file name)
 //          For use only with module map assistant.  Input list of files that
 //          have problems with respect to modules.  These will still be
 //          included in the generated module map, but will be marked as
 //          "excluded" headers.
 //    -root-module=(root module name)
-//          Specifies a root module to be created in the generated
-//          module.modulemap file.
+//          Specifies a root module to be created in the generated module.map
+//          file.
 //    -block-check-header-list-only
 //          Only warn if #include directives are inside extern or namespace
 //          blocks if the included header is in the header list.
@@ -248,7 +248,6 @@
 #include "llvm/Support/Path.h"
 #include <algorithm>
 #include <iterator>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -336,13 +335,13 @@ std::string CommandLine;
 
 // Helper function for finding the input file in an arguments list.
 static std::string findInputFile(const CommandLineArguments &CLArgs) {
-  llvm::opt::Visibility VisibilityMask(options::CC1Option);
+  const unsigned IncludedFlagsBitmask = options::CC1Option;
   unsigned MissingArgIndex, MissingArgCount;
   SmallVector<const char *, 256> Argv;
   for (auto I = CLArgs.begin(), E = CLArgs.end(); I != E; ++I)
     Argv.push_back(I->c_str());
   InputArgList Args = getDriverOptTable().ParseArgs(
-      Argv, MissingArgIndex, MissingArgCount, VisibilityMask);
+      Argv, MissingArgIndex, MissingArgCount, IncludedFlagsBitmask);
   std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
   return ModularizeUtilities::getCanonicalPath(Inputs.back());
 }
@@ -380,7 +379,7 @@ getModularizeArgumentsAdjuster(DependencyMap &Dependencies) {
 // want to design to be applicable to a wider range of tools, and stick it
 // somewhere into Tooling/ in mainline
 struct Location {
-  OptionalFileEntryRef File;
+  const FileEntry *File;
   unsigned Line, Column;
 
   Location() : File(), Line(), Column() {}
@@ -391,7 +390,7 @@ struct Location {
       return;
 
     std::pair<FileID, unsigned> Decomposed = SM.getDecomposedLoc(Loc);
-    File = SM.getFileEntryRefForID(Decomposed.first);
+    File = SM.getFileEntryForID(Decomposed.first);
     if (!File)
       return;
 
@@ -481,14 +480,14 @@ struct HeaderEntry {
 
 typedef std::vector<HeaderEntry> HeaderContents;
 
-class EntityMap : public std::map<std::string, SmallVector<Entry, 2>> {
+class EntityMap : public StringMap<SmallVector<Entry, 2> > {
 public:
-  DenseMap<FileEntryRef, HeaderContents> HeaderContentMismatches;
+  DenseMap<const FileEntry *, HeaderContents> HeaderContentMismatches;
 
   void add(const std::string &Name, enum Entry::EntryKind Kind, Location Loc) {
     // Record this entity in its header.
     HeaderEntry HE = { Name, Loc };
-    CurHeaderContents[*Loc.File].push_back(HE);
+    CurHeaderContents[Loc.File].push_back(HE);
 
     // Check whether we've seen this entry before.
     SmallVector<Entry, 2> &Entries = (*this)[Name];
@@ -503,13 +502,16 @@ public:
   }
 
   void mergeCurHeaderContents() {
-    for (auto H = CurHeaderContents.begin(), HEnd = CurHeaderContents.end();
+    for (DenseMap<const FileEntry *, HeaderContents>::iterator
+             H = CurHeaderContents.begin(),
+             HEnd = CurHeaderContents.end();
          H != HEnd; ++H) {
       // Sort contents.
       llvm::sort(H->second);
 
       // Check whether we've seen this header before.
-      auto KnownH = AllHeaderContents.find(H->first);
+      DenseMap<const FileEntry *, HeaderContents>::iterator KnownH =
+          AllHeaderContents.find(H->first);
       if (KnownH == AllHeaderContents.end()) {
         // We haven't seen this header before; record its contents.
         AllHeaderContents.insert(*H);
@@ -531,8 +533,8 @@ public:
   }
 
 private:
-  DenseMap<FileEntryRef, HeaderContents> CurHeaderContents;
-  DenseMap<FileEntryRef, HeaderContents> AllHeaderContents;
+  DenseMap<const FileEntry *, HeaderContents> CurHeaderContents;
+  DenseMap<const FileEntry *, HeaderContents> AllHeaderContents;
 };
 
 class CollectEntitiesVisitor
@@ -574,10 +576,10 @@ public:
     SourceRange BlockRange = D->getSourceRange();
     const char *LinkageLabel;
     switch (D->getLanguage()) {
-    case LinkageSpecLanguageIDs::C:
+    case LinkageSpecDecl::lang_c:
       LinkageLabel = "extern \"C\" {}";
       break;
-    case LinkageSpecLanguageIDs::CXX:
+    case LinkageSpecDecl::lang_cxx:
       LinkageLabel = "extern \"C++\" {}";
       break;
     }
@@ -933,7 +935,7 @@ int main(int Argc, const char **Argv) {
         continue;
       LocationArray::iterator FI = DI->begin();
       StringRef kindName = Entry::getKindName((Entry::EntryKind)KindIndex);
-      errs() << "error: " << kindName << " '" << E->first
+      errs() << "error: " << kindName << " '" << E->first()
              << "' defined at multiple locations:\n";
       for (LocationArray::iterator FE = DI->end(); FI != FE; ++FI) {
         errs() << "    " << FI->File->getName() << ":" << FI->Line << ":"
@@ -958,8 +960,9 @@ int main(int Argc, const char **Argv) {
   // they are included.
   // FIXME: Could we provide information about which preprocessor conditionals
   // are involved?
-  for (auto H = Entities.HeaderContentMismatches.begin(),
-            HEnd = Entities.HeaderContentMismatches.end();
+  for (DenseMap<const FileEntry *, HeaderContents>::iterator
+           H = Entities.HeaderContentMismatches.begin(),
+           HEnd = Entities.HeaderContentMismatches.end();
        H != HEnd; ++H) {
     if (H->second.empty()) {
       errs() << "internal error: phantom header content mismatch\n";
@@ -967,8 +970,8 @@ int main(int Argc, const char **Argv) {
     }
 
     HadErrors = 1;
-    ModUtil->addUniqueProblemFile(std::string(H->first.getName()));
-    errs() << "error: header '" << H->first.getName()
+    ModUtil->addUniqueProblemFile(std::string(H->first->getName()));
+    errs() << "error: header '" << H->first->getName()
            << "' has different contents depending on how it was included.\n";
     for (unsigned I = 0, N = H->second.size(); I != N; ++I) {
       errs() << "note: '" << H->second[I].Name << "' in "

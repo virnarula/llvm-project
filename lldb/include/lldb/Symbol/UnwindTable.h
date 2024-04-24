@@ -11,7 +11,6 @@
 
 #include <map>
 #include <mutex>
-#include <optional>
 
 #include "lldb/lldb-private.h"
 
@@ -53,7 +52,7 @@ public:
   // problem.
   lldb::FuncUnwindersSP
   GetUncachedFuncUnwindersContainingAddress(const Address &addr,
-                                            const SymbolContext &sc);
+                                            SymbolContext &sc);
 
   ArchSpec GetArchitecture();
 
@@ -61,8 +60,8 @@ private:
   void Dump(Stream &s);
 
   void Initialize();
-  std::optional<AddressRange> GetAddressRange(const Address &addr,
-                                              const SymbolContext &sc);
+  llvm::Optional<AddressRange> GetAddressRange(const Address &addr,
+                                               SymbolContext &sc);
 
   typedef std::map<lldb::addr_t, lldb::FuncUnwindersSP> collection;
   typedef collection::iterator iterator;

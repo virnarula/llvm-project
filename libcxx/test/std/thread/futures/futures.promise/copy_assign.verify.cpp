@@ -16,7 +16,10 @@
 
 #include <future>
 
-void f() {
+#include "test_macros.h"
+
+int main(int, char**)
+{
     {
         std::promise<int> p0, p;
         p = p0; // expected-error {{overload resolution selected deleted operator '='}}
@@ -29,4 +32,6 @@ void f() {
         std::promise<void> p0, p;
         p = p0; // expected-error {{overload resolution selected deleted operator '='}}
     }
+
+    return 0;
 }

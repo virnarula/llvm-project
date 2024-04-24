@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: libcpp-no-coroutines
 
 #include <cassert>
 #include <coroutine>
@@ -29,9 +30,6 @@ struct goroutine
     rh = nullptr;
   }
 
-  goroutine() = default;
-  goroutine(const goroutine&) = default;
-  goroutine& operator=(const goroutine&) = default;
   ~goroutine() {}
 
   static void run_one()

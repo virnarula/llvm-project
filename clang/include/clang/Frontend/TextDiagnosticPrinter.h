@@ -34,7 +34,6 @@ class TextDiagnosticPrinter : public DiagnosticConsumer {
   /// A string to prefix to error messages.
   std::string Prefix;
 
-  LLVM_PREFERRED_TYPE(bool)
   unsigned OwnsOutputStream : 1;
 
 public:

@@ -44,8 +44,6 @@ StringRef Twine::toNullTerminatedStringRef(SmallVectorImpl<char> &Out) const {
       const std::string *str = LHS.stdString;
       return StringRef(str->c_str(), str->size());
     }
-    case StringLiteralKind:
-      return StringRef(LHS.ptrAndLength.ptr, LHS.ptrAndLength.length);
     default:
       break;
     }
@@ -71,7 +69,6 @@ void Twine::printOneChild(raw_ostream &OS, Child Ptr,
     OS << *Ptr.stdString;
     break;
   case Twine::PtrAndLengthKind:
-  case Twine::StringLiteralKind:
     OS << StringRef(Ptr.ptrAndLength.ptr, Ptr.ptrAndLength.length);
     break;
   case Twine::FormatvObjectKind:
@@ -125,10 +122,6 @@ void Twine::printOneChildRepr(raw_ostream &OS, Child Ptr,
     break;
   case Twine::PtrAndLengthKind:
     OS << "ptrAndLength:\""
-       << StringRef(Ptr.ptrAndLength.ptr, Ptr.ptrAndLength.length) << "\"";
-    break;
-  case Twine::StringLiteralKind:
-    OS << "constexprPtrAndLength:\""
        << StringRef(Ptr.ptrAndLength.ptr, Ptr.ptrAndLength.length) << "\"";
     break;
   case Twine::FormatvObjectKind:

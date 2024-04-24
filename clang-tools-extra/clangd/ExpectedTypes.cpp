@@ -12,7 +12,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Index/USRGeneration.h"
 #include "clang/Sema/CodeCompleteConsumer.h"
-#include <optional>
+#include "llvm/ADT/None.h"
 
 namespace clang {
 namespace clangd {
@@ -40,17 +40,18 @@ static const Type *toEquivClass(ASTContext &Ctx, QualType T) {
   return T.getTypePtr();
 }
 
-static std::optional<QualType> typeOfCompletion(const CodeCompletionResult &R) {
+static llvm::Optional<QualType>
+typeOfCompletion(const CodeCompletionResult &R) {
   const NamedDecl *D = R.Declaration;
   // Templates do not have a type on their own, look at the templated decl.
   if (auto *Template = dyn_cast_or_null<TemplateDecl>(D))
     D = Template->getTemplatedDecl();
   auto *VD = dyn_cast_or_null<ValueDecl>(D);
   if (!VD)
-    return std::nullopt; // We handle only variables and functions below.
+    return llvm::None; // We handle only variables and functions below.
   auto T = VD->getType();
   if (T.isNull())
-    return std::nullopt;
+    return llvm::None;
   if (auto *FuncT = T->getAs<FunctionType>()) {
     // Functions are a special case. They are completed as 'foo()' and we want
     // to match their return type rather than the function type itself.
@@ -62,30 +63,31 @@ static std::optional<QualType> typeOfCompletion(const CodeCompletionResult &R) {
 }
 } // namespace
 
-std::optional<OpaqueType> OpaqueType::encode(ASTContext &Ctx, QualType T) {
+llvm::Optional<OpaqueType> OpaqueType::encode(ASTContext &Ctx, QualType T) {
   if (T.isNull())
-    return std::nullopt;
+    return None;
   const Type *C = toEquivClass(Ctx, T);
   if (!C)
-    return std::nullopt;
+    return None;
   llvm::SmallString<128> Encoded;
   if (index::generateUSRForType(QualType(C, 0), Ctx, Encoded))
-    return std::nullopt;
+    return None;
   return OpaqueType(std::string(Encoded.str()));
 }
 
 OpaqueType::OpaqueType(std::string Data) : Data(std::move(Data)) {}
 
-std::optional<OpaqueType> OpaqueType::fromType(ASTContext &Ctx, QualType Type) {
+llvm::Optional<OpaqueType> OpaqueType::fromType(ASTContext &Ctx,
+                                                QualType Type) {
   return encode(Ctx, Type);
 }
 
-std::optional<OpaqueType>
+llvm::Optional<OpaqueType>
 OpaqueType::fromCompletionResult(ASTContext &Ctx,
                                  const CodeCompletionResult &R) {
   auto T = typeOfCompletion(R);
   if (!T)
-    return std::nullopt;
+    return None;
   return encode(Ctx, *T);
 }
 

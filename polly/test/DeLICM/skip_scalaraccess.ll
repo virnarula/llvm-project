@@ -9,7 +9,7 @@
 ;      }
 ;    }
 ;
-define void @func(ptr noalias nonnull %A) {
+define void @func(double* noalias nonnull %A) {
 entry:
   br label %outer.preheader
 
@@ -44,7 +44,7 @@ outer.for:
       br label %reduction.for
 
     reduction.exit:
-      store double %phi, ptr %A
+      store double %phi, double* %A
       br label %outer.inc
 
 

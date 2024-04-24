@@ -6,12 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // This test requires the dylib support introduced in http://llvm.org/D92769.
-// XFAIL: stdlib=apple-libc++ && target={{.+}}-apple-macosx{{10.15|11.0}}
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx{{10.15|11.0}}
 
 // <filesystem>
 
@@ -20,16 +18,17 @@
 // bool create_directory(const path& p, const path& attr);
 // bool create_directory(const path& p, const path& attr, error_code& ec) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
-namespace fs = std::filesystem;
+
 using namespace fs;
 
 fs::perms read_umask() {
@@ -38,7 +37,9 @@ fs::perms read_umask() {
     return static_cast<fs::perms>(old_mask);
 }
 
-static void test_signatures()
+TEST_SUITE(filesystem_create_directory_test_suite)
+
+TEST_CASE(test_signatures)
 {
     const path p; ((void)p);
     std::error_code ec; ((void)ec);
@@ -53,95 +54,84 @@ static void test_signatures()
 }
 
 
-static void create_existing_directory()
+TEST_CASE(create_existing_directory)
 {
     scoped_test_env env;
     const path dir = env.create_dir("dir1");
     std::error_code ec;
-    assert(fs::create_directory(dir, ec) == false);
-    assert(!ec);
-    assert(is_directory(dir));
+    TEST_CHECK(fs::create_directory(dir, ec) == false);
+    TEST_CHECK(!ec);
+    TEST_CHECK(is_directory(dir));
     // Test throwing version
-    assert(fs::create_directory(dir) == false);
+    TEST_CHECK(fs::create_directory(dir) == false);
 }
 
-static void create_directory_one_level()
+TEST_CASE(create_directory_one_level)
 {
     scoped_test_env env;
     const path dir = env.make_env_path("dir1");
     std::error_code ec;
-    assert(fs::create_directory(dir, ec) == true);
-    assert(!ec);
-    assert(is_directory(dir));
+    TEST_CHECK(fs::create_directory(dir, ec) == true);
+    TEST_CHECK(!ec);
+    TEST_CHECK(is_directory(dir));
 
     auto st = status(dir);
     const perms expect_perms = perms::all & ~(read_umask());
-    assert((st.permissions() & perms::all) == expect_perms);
+    TEST_CHECK((st.permissions() & perms::all) == expect_perms);
 }
 
-static void create_directory_multi_level()
+TEST_CASE(create_directory_multi_level)
 {
     scoped_test_env env;
     const path dir = env.make_env_path("dir1/dir2");
     const path dir1 = env.make_env_path("dir1");
     std::error_code ec;
-    assert(fs::create_directory(dir, ec) == false);
-    assert(ec);
-    assert(!is_directory(dir));
-    assert(!is_directory(dir1));
+    TEST_CHECK(fs::create_directory(dir, ec) == false);
+    TEST_CHECK(ec);
+    TEST_CHECK(!is_directory(dir));
+    TEST_CHECK(!is_directory(dir1));
 }
 
-static void dest_is_file()
+TEST_CASE(dest_is_file)
 {
     scoped_test_env env;
     const path file = env.create_file("file", 42);
     std::error_code ec = GetTestEC();
-    assert(fs::create_directory(file, ec) == false);
-    assert(ec);
-    assert(is_regular_file(file));
+    TEST_CHECK(fs::create_directory(file, ec) == false);
+    TEST_CHECK(ec);
+    TEST_CHECK(is_regular_file(file));
 }
 
-static void dest_part_is_file()
+TEST_CASE(dest_part_is_file)
 {
     scoped_test_env env;
     const path file = env.create_file("file");
     const path dir = env.make_env_path("file/dir1");
     std::error_code ec = GetTestEC();
-    assert(fs::create_directory(dir, ec) == false);
-    assert(ec);
-    assert(is_regular_file(file));
-    assert(!exists(dir));
+    TEST_CHECK(fs::create_directory(dir, ec) == false);
+    TEST_CHECK(ec);
+    TEST_CHECK(is_regular_file(file));
+    TEST_CHECK(!exists(dir));
 }
 
-static void dest_is_symlink_to_dir()
+TEST_CASE(dest_is_symlink_to_dir)
 {
     scoped_test_env env;
     const path dir = env.create_dir("dir");
     const path sym = env.create_directory_symlink(dir, "sym_name");
     std::error_code ec = GetTestEC();
-    assert(create_directory(sym, ec) == false);
-    assert(!ec);
+    TEST_CHECK(create_directory(sym, ec) == false);
+    TEST_CHECK(!ec);
 }
 
-static void dest_is_symlink_to_file()
+TEST_CASE(dest_is_symlink_to_file)
 {
     scoped_test_env env;
     const path file = env.create_file("file");
     const path sym = env.create_symlink(file, "sym_name");
     std::error_code ec = GetTestEC();
-    assert(create_directory(sym, ec) == false);
-    assert(ec);
+    TEST_CHECK(create_directory(sym, ec) == false);
+    TEST_CHECK(ec);
 }
 
-int main(int, char**) {
-    test_signatures();
-    create_existing_directory();
-    create_directory_one_level();
-    create_directory_multi_level();
-    dest_is_file();
-    dest_part_is_file();
-    dest_is_symlink_to_dir();
-    dest_is_symlink_to_file();
-
-    return 0;
-}
+TEST_SUITE_END()

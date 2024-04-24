@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -fsyntax-only %s
+// RUN: %clang_cc1 -verify -fsyntax-only -fdouble-square-bracket-attributes %s
 
 struct [[clang::objc_bridge_related(NSParagraphStyle,,)]] TestBridgedRef;
 

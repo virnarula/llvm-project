@@ -17,7 +17,6 @@
 #include "lldb/Utility/Log.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFExpression.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -69,13 +68,13 @@ void UnwindPlan::Row::RegisterLocation::SetIsDWARFExpression(
   m_location.expr.length = len;
 }
 
-static std::optional<std::pair<lldb::ByteOrder, uint32_t>>
+static llvm::Optional<std::pair<lldb::ByteOrder, uint32_t>>
 GetByteOrderAndAddrSize(Thread *thread) {
   if (!thread)
-    return std::nullopt;
+    return llvm::None;
   ProcessSP process_sp = thread->GetProcess();
   if (!process_sp)
-    return std::nullopt;
+    return llvm::None;
   ArchSpec arch = process_sp->GetTarget().GetArchitecture();
   return std::make_pair(arch.GetByteOrder(), arch.GetAddressByteSize());
 }
@@ -85,7 +84,7 @@ static void DumpDWARFExpr(Stream &s, llvm::ArrayRef<uint8_t> expr, Thread *threa
     llvm::DataExtractor data(expr, order_and_width->first == eByteOrderLittle,
                              order_and_width->second);
     llvm::DWARFExpression(data, order_and_width->second, llvm::dwarf::DWARF32)
-        .print(s.AsRawOstream(), llvm::DIDumpOptions(), nullptr);
+        .print(s.AsRawOstream(), llvm::DIDumpOptions(), nullptr, nullptr);
   } else
     s.PutCString("dwarf-expr");
 }
@@ -148,7 +147,7 @@ void UnwindPlan::Row::RegisterLocation::Dump(Stream &s,
     if (m_type == atDWARFExpression)
       s.PutChar('[');
     DumpDWARFExpr(
-        s, llvm::ArrayRef(m_location.expr.opcodes, m_location.expr.length),
+        s, llvm::makeArrayRef(m_location.expr.opcodes, m_location.expr.length),
         thread);
     if (m_type == atDWARFExpression)
       s.PutChar(']');
@@ -202,7 +201,8 @@ void UnwindPlan::Row::FAValue::Dump(Stream &s, const UnwindPlan *unwind_plan,
     s.PutChar(']');
     break;
   case isDWARFExpression:
-    DumpDWARFExpr(s, llvm::ArrayRef(m_value.expr.opcodes, m_value.expr.length),
+    DumpDWARFExpr(s,
+                  llvm::makeArrayRef(m_value.expr.opcodes, m_value.expr.length),
                   thread);
     break;
   case unspecified:

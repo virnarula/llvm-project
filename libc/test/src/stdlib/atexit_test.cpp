@@ -10,7 +10,7 @@
 #include "src/__support/CPP/utility.h"
 #include "src/stdlib/atexit.h"
 #include "src/stdlib/exit.h"
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
 static int a;
 TEST(LlvmLibcAtExit, Basic) {
@@ -18,39 +18,38 @@ TEST(LlvmLibcAtExit, Basic) {
   a = 0;
 
   auto test = [] {
-    int status = LIBC_NAMESPACE::atexit(+[] {
+    int status = __llvm_libc::atexit(+[] {
       if (a != 1)
         __builtin_trap();
     });
-    status |= LIBC_NAMESPACE::atexit(+[] { a++; });
+    status |= __llvm_libc::atexit(+[] { a++; });
     if (status)
       __builtin_trap();
 
-    LIBC_NAMESPACE::exit(0);
+    __llvm_libc::exit(0);
   };
   EXPECT_EXITS(test, 0);
 }
 
 TEST(LlvmLibcAtExit, AtExitCallsSysExit) {
   auto test = [] {
-    LIBC_NAMESPACE::atexit(+[] { _Exit(1); });
-    LIBC_NAMESPACE::exit(0);
+    __llvm_libc::atexit(+[] { _Exit(1); });
+    __llvm_libc::exit(0);
   };
   EXPECT_EXITS(test, 1);
 }
 
 static int size;
-static LIBC_NAMESPACE::cpp::array<int, 256> arr;
+static __llvm_libc::cpp::array<int, 256> arr;
 
 template <int... Ts>
-void register_atexit_handlers(
-    LIBC_NAMESPACE::cpp::integer_sequence<int, Ts...>) {
-  (LIBC_NAMESPACE::atexit(+[] { arr[size++] = Ts; }), ...);
+void register_atexit_handlers(__llvm_libc::cpp::integer_sequence<int, Ts...>) {
+  (__llvm_libc::atexit(+[] { arr[size++] = Ts; }), ...);
 }
 
 template <int count> constexpr auto getTest() {
   return [] {
-    LIBC_NAMESPACE::atexit(+[] {
+    __llvm_libc::atexit(+[] {
       if (size != count)
         __builtin_trap();
       for (int i = 0; i < count; i++)
@@ -58,8 +57,8 @@ template <int count> constexpr auto getTest() {
           __builtin_trap();
     });
     register_atexit_handlers(
-        LIBC_NAMESPACE::cpp::make_integer_sequence<int, count>{});
-    LIBC_NAMESPACE::exit(0);
+        __llvm_libc::cpp::make_integer_sequence<int, count>{});
+    __llvm_libc::exit(0);
   };
 }
 
@@ -81,9 +80,9 @@ TEST(LlvmLibcAtExit, Many) {
 
 TEST(LlvmLibcAtExit, HandlerCallsAtExit) {
   auto test = [] {
-    LIBC_NAMESPACE::atexit(
-        +[] { LIBC_NAMESPACE::atexit(+[] { LIBC_NAMESPACE::exit(1); }); });
-    LIBC_NAMESPACE::exit(0);
+    __llvm_libc::atexit(
+        +[] { __llvm_libc::atexit(+[] { __llvm_libc::exit(1); }); });
+    __llvm_libc::exit(0);
   };
   EXPECT_EXITS(test, 1);
 }

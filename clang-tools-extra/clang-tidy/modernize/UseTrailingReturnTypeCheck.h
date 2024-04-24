@@ -11,9 +11,10 @@
 
 #include "../ClangTidyCheck.h"
 #include "clang/Lex/Token.h"
-#include <optional>
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 struct ClassifiedToken {
   Token T;
@@ -24,7 +25,7 @@ struct ClassifiedToken {
 /// Rewrites function signatures to use a trailing return type.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/modernize/use-trailing-return-type.html
+/// http://clang.llvm.org/extra/clang-tidy/checks/modernize/use-trailing-type-return.html
 class UseTrailingReturnTypeCheck : public ClangTidyCheck {
 public:
   UseTrailingReturnTypeCheck(StringRef Name, ClangTidyContext *Context)
@@ -43,7 +44,7 @@ private:
   SourceLocation findTrailingReturnTypeSourceLocation(
       const FunctionDecl &F, const FunctionTypeLoc &FTL, const ASTContext &Ctx,
       const SourceManager &SM, const LangOptions &LangOpts);
-  std::optional<SmallVector<ClassifiedToken, 8>>
+  llvm::Optional<SmallVector<ClassifiedToken, 8>>
   classifyTokensBeforeFunctionName(const FunctionDecl &F, const ASTContext &Ctx,
                                    const SourceManager &SM,
                                    const LangOptions &LangOpts);
@@ -58,6 +59,8 @@ private:
                       const SourceManager &SM, const LangOptions &LangOpts);
 };
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_USETRAILINGRETURNTYPECHECK_H

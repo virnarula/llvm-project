@@ -17,33 +17,22 @@ if(MLIR_INCLUDE_TESTS)
     MLIRSPIRVTestPasses
     MLIRTestAnalysis
     MLIRTestDialect
-    MLIRTestDynDialect
     MLIRTestIR
     MLIRTestPass
     MLIRTestReducer
-    )
-  set(test_libs
-    ${test_libs}
+    MLIRTestRewrite
     MLIRTestTransformDialect
-    MLIRTestTransforms)
-
-  if (MLIR_ENABLE_PDL_IN_PATTERNMATCH)
-    set(test_libs
-      ${test_libs}
-      MLIRTestRewrite)
-  endif()
+    MLIRTestTransforms
+    )
 endif()
 
 set(LIBS
-  ${conversion_libs}
   ${dialect_libs}
-  ${extension_libs}
+  ${conversion_libs}
   ${test_libs}
-
   MLIRAffineAnalysis
   MLIRAnalysis
   MLIRDialect
-  MLIRFuncAllExtensions
   MLIRLspServerLib
   MLIRParser
   MLIRPass

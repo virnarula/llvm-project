@@ -6,25 +6,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
 // path absolute(const path& p, const path& base=current_path());
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-#include "../../class.path/path_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void absolute_signature_test()
+TEST_SUITE(filesystem_absolute_path_test_suite)
+
+TEST_CASE(absolute_signature_test)
 {
     const path p; ((void)p);
     std::error_code ec;
@@ -33,7 +33,7 @@ static void absolute_signature_test()
 }
 
 
-static void basic_test()
+TEST_CASE(basic_test)
 {
     const fs::path cwd = fs::current_path();
     const struct {
@@ -48,16 +48,11 @@ static void basic_test()
     for (auto& TC : TestCases) {
         std::error_code ec = GetTestEC();
         const path ret = absolute(TC.input, ec);
-        assert(!ec);
-        assert(ret.is_absolute());
-        assert(PathEqIgnoreSep(ret, TC.expect));
-        LIBCPP_ASSERT(PathEq(ret, TC.expect));
+        TEST_CHECK(!ec);
+        TEST_CHECK(ret.is_absolute());
+        TEST_CHECK(PathEqIgnoreSep(ret, TC.expect));
+        LIBCPP_ONLY(TEST_CHECK(PathEq(ret, TC.expect)));
     }
 }
 
-int main(int, char**) {
-    absolute_signature_test();
-    basic_test();
-
-    return 0;
-}
+TEST_SUITE_END()

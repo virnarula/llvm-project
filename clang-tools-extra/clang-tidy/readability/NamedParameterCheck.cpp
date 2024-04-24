@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 void NamedParameterCheck::registerMatchers(ast_matchers::MatchFinder *Finder) {
   Finder->addMatcher(functionDecl().bind("decl"), this);
@@ -28,7 +30,7 @@ void NamedParameterCheck::check(const MatchFinder::MatchResult &Result) {
   // overriden method.
   const FunctionDecl *Definition = nullptr;
   if ((!Function->isDefined(Definition) || Function->isDefaulted() ||
-       Definition->isDefaulted() || Function->isDeleted()) &&
+       Function->isDeleted()) &&
       (!isa<CXXMethodDecl>(Function) ||
        cast<CXXMethodDecl>(Function)->size_overridden_methods() == 0))
     return;
@@ -115,4 +117,6 @@ void NamedParameterCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

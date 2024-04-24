@@ -2,12 +2,12 @@
 ; RUN: llc -mtriple thumbv7-elf -filetype asm -o - %s | FileCheck %s -check-prefix CHECK-OTHER
 ; RUN: llc -mtriple thumbv7-macho -filetype asm -o - %s | FileCheck %s -check-prefix CHECK-OTHER
 
-declare ptr @f()
-declare extern_weak ptr @g(ptr)
+declare i8* @f()
+declare extern_weak i8* @g(i8*)
 
 define void @test() {
-  %call = tail call ptr @f()
-  %call1 = tail call ptr @g(ptr %call)
+  %call = tail call i8* @f()
+  %call1 = tail call i8* @g(i8* %call)
   ret void
 }
 

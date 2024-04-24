@@ -12,10 +12,10 @@
 
 #include <termios.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(speed_t, cfgetispeed, (const struct termios *t)) {
   return t->c_cflag & CBAUD;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

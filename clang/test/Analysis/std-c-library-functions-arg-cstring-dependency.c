@@ -5,9 +5,10 @@
 
 // RUN: %clang_analyze_cc1 %s \
 // RUN:   -analyzer-checker=core \
-// RUN:   -analyzer-checker=unix.StdCLibraryFunctions \
+// RUN:   -analyzer-checker=apiModeling.StdCLibraryFunctions \
 // RUN:   -analyzer-checker=unix.cstring.NullArg \
-// RUN:   -analyzer-config unix.StdCLibraryFunctions:ModelPOSIX=true \
+// RUN:   -analyzer-config apiModeling.StdCLibraryFunctions:ModelPOSIX=true \
+// RUN:   -analyzer-checker=alpha.unix.StdCLibraryFunctionArgs \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   -verify
 

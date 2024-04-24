@@ -10,12 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Func/Extensions/AllExtensions.h"
-#include "mlir/IR/Diagnostics.h"
-#include "mlir/Support/LogicalResult.h"
-#include "toy/AST.h"
 #include "toy/Dialect.h"
-#include "toy/Lexer.h"
 #include "toy/MLIRGen.h"
 #include "toy/Parser.h"
 #include "toy/Passes.h"
@@ -27,6 +22,7 @@
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
@@ -36,10 +32,6 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include <memory>
-#include <string>
-#include <system_error>
-#include <utility>
 
 using namespace toy;
 namespace cl = llvm::cl;
@@ -88,7 +80,7 @@ int loadMLIR(llvm::SourceMgr &sourceMgr, mlir::MLIRContext &context,
              mlir::OwningOpRef<mlir::ModuleOp> &module) {
   // Handle '.toy' input to the compiler.
   if (inputType != InputType::MLIR &&
-      !llvm::StringRef(inputFilename).ends_with(".mlir")) {
+      !llvm::StringRef(inputFilename).endswith(".mlir")) {
     auto moduleAST = parseInputFile(inputFilename);
     if (!moduleAST)
       return 6;
@@ -115,10 +107,7 @@ int loadMLIR(llvm::SourceMgr &sourceMgr, mlir::MLIRContext &context,
 }
 
 int dumpMLIR() {
-  mlir::DialectRegistry registry;
-  mlir::func::registerAllExtensions(registry);
-
-  mlir::MLIRContext context(registry);
+  mlir::MLIRContext context;
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::toy::ToyDialect>();
 
@@ -128,10 +117,9 @@ int dumpMLIR() {
   if (int error = loadMLIR(sourceMgr, context, module))
     return error;
 
-  mlir::PassManager pm(module.get()->getName());
+  mlir::PassManager pm(&context);
   // Apply any generic pass manager command line options and run the pipeline.
-  if (mlir::failed(mlir::applyPassManagerCLOptions(pm)))
-    return 4;
+  applyPassManagerCLOptions(pm);
 
   // Check to see what granularity of MLIR we are compiling to.
   bool isLoweringToAffine = emitAction >= Action::DumpMLIRAffine;
@@ -159,8 +147,8 @@ int dumpMLIR() {
 
     // Add optimizations if enabled.
     if (enableOpt) {
-      optPM.addPass(mlir::affine::createLoopFusionPass());
-      optPM.addPass(mlir::affine::createAffineScalarReplacementPass());
+      optPM.addPass(mlir::createLoopFusionPass());
+      optPM.addPass(mlir::createAffineScalarReplacementPass());
     }
   }
 

@@ -32,7 +32,7 @@ struct TestMemRefStrideCalculation
 void TestMemRefStrideCalculation::runOnOperation() {
   llvm::outs() << "Testing: " << getOperation().getName() << "\n";
   getOperation().walk([&](memref::AllocOp allocOp) {
-    auto memrefType = cast<MemRefType>(allocOp.getResult().getType());
+    auto memrefType = allocOp.getResult().getType().cast<MemRefType>();
     int64_t offset;
     SmallVector<int64_t, 4> strides;
     if (failed(getStridesAndOffset(memrefType, strides, offset))) {
@@ -41,13 +41,13 @@ void TestMemRefStrideCalculation::runOnOperation() {
       return;
     }
     llvm::outs() << "MemRefType offset: ";
-    if (ShapedType::isDynamic(offset))
+    if (offset == MemRefType::getDynamicStrideOrOffset())
       llvm::outs() << "?";
     else
       llvm::outs() << offset;
     llvm::outs() << " strides: ";
     llvm::interleaveComma(strides, llvm::outs(), [&](int64_t v) {
-      if (ShapedType::isDynamic(v))
+      if (v == MemRefType::getDynamicStrideOrOffset())
         llvm::outs() << "?";
       else
         llvm::outs() << v;

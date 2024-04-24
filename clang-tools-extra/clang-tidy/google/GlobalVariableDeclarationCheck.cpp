@@ -16,7 +16,10 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::google::objc {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace objc {
 
 namespace {
 
@@ -26,7 +29,7 @@ FixItHint generateFixItHint(const VarDecl *Decl, bool IsConst) {
   if (IsConst && (Decl->getStorageClass() != SC_Static)) {
     // No fix available if it is not a static constant, since it is difficult
     // to determine the proper fix in this case.
-    return {};
+    return FixItHint();
   }
 
   char FC = Decl->getName()[0];
@@ -35,14 +38,14 @@ FixItHint generateFixItHint(const VarDecl *Decl, bool IsConst) {
     // is a single-character variable, since it is difficult to determine the
     // proper fix in this case. Users should create a proper variable name by
     // their own.
-    return {};
+    return FixItHint();
   }
   char SC = Decl->getName()[1];
   if ((FC == 'k' || FC == 'g') && !llvm::isAlpha(SC)) {
     // No fix available if the prefix is correct but the second character is
     // not alphabetical, since it is difficult to determine the proper fix in
     // this case.
-    return {};
+    return FixItHint();
   }
 
   auto NewName = (IsConst ? "k" : "g") +
@@ -95,4 +98,7 @@ void GlobalVariableDeclarationCheck::check(
   }
 }
 
-} // namespace clang::tidy::google::objc
+}  // namespace objc
+}  // namespace google
+}  // namespace tidy
+}  // namespace clang

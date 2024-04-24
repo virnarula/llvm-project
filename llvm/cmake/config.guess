@@ -816,9 +816,6 @@ EOF
     i*:PW*:*)
 	echo ${UNAME_MACHINE}-pc-pw32
 	exit ;;
-    *:SerenityOS:*:*)
-	echo ${UNAME_MACHINE}-pc-serenity
-	exit ;;
     *:Interix*:*)
 	case ${UNAME_MACHINE} in
 	    x86)

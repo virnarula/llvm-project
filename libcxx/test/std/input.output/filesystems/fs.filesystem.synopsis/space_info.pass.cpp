@@ -11,11 +11,11 @@
 
 // friend bool operator==(const space_info&, const space_info&);
 
-#include <filesystem>
+#include "filesystem_include.h"
 
 #include "test_macros.h"
 #include "test_comparisons.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
 constexpr bool test() {

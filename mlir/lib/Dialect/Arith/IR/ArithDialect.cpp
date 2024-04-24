@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/UB/IR/UBOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/Transforms/InliningUtils.h"
@@ -29,7 +27,8 @@ struct ArithInlinerInterface : public DialectInlinerInterface {
   using DialectInlinerInterface::DialectInlinerInterface;
 
   /// All arithmetic dialect ops can be inlined.
-  bool isLegalToInline(Operation *, Region *, bool, IRMapping &) const final {
+  bool isLegalToInline(Operation *, Region *, bool,
+                       BlockAndValueMapping &) const final {
     return true;
   }
 };
@@ -45,15 +44,11 @@ void arith::ArithDialect::initialize() {
 #include "mlir/Dialect/Arith/IR/ArithOpsAttributes.cpp.inc"
       >();
   addInterfaces<ArithInlinerInterface>();
-  declarePromisedInterface<ArithDialect, ConvertToLLVMPatternInterface>();
 }
 
 /// Materialize an integer or floating point constant.
 Operation *arith::ArithDialect::materializeConstant(OpBuilder &builder,
                                                     Attribute value, Type type,
                                                     Location loc) {
-  if (auto poison = dyn_cast<ub::PoisonAttr>(value))
-    return builder.create<ub::PoisonOp>(loc, type, poison);
-
-  return ConstantOp::materialize(builder, value, type, loc);
+  return builder.create<arith::ConstantOp>(loc, value, type);
 }

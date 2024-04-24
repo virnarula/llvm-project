@@ -18,7 +18,6 @@
 #include "test_macros.h"
 
 template <class T>
-TEST_CONSTEXPR_CXX20
 void
 test_constexpr()
 {
@@ -47,8 +46,7 @@ test_constexpr()
 }
 
 template <class T>
-TEST_CONSTEXPR_CXX20
-bool
+void
 test()
 {
     {
@@ -73,20 +71,14 @@ test()
     }
 
     test_constexpr<T> ();
-    return true;
-}
+    }
 
 int main(int, char**)
 {
     test<float>();
     test<double>();
     test<long double>();
-
-#if TEST_STD_VER > 17
-    static_assert(test<float>());
-    static_assert(test<double>());
-    static_assert(test<long double>());
-#endif
+//     test_constexpr<int>();
 
   return 0;
 }

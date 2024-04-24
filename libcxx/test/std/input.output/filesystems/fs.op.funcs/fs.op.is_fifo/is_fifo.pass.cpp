@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -16,17 +14,19 @@
 // bool is_fifo(path const& p);
 // bool is_fifo(path const& p, std::error_code& ec) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
-#include "assert_macros.h"
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void signature_test()
+TEST_SUITE(is_fifo_test_suite)
+
+TEST_CASE(signature_test)
 {
     file_status s; ((void)s);
     const path p; ((void)p);
@@ -36,7 +36,7 @@ static void signature_test()
     ASSERT_NOT_NOEXCEPT(is_fifo(p));
 }
 
-static void is_fifo_status_test()
+TEST_CASE(is_fifo_status_test)
 {
     struct TestCase {
         file_type type;
@@ -56,18 +56,18 @@ static void is_fifo_status_test()
     };
     for (auto& TC : testCases) {
         file_status s(TC.type);
-        assert(is_fifo(s) == TC.expect);
+        TEST_CHECK(is_fifo(s) == TC.expect);
     }
 }
 
-static void test_exist_not_found()
+TEST_CASE(test_exist_not_found)
 {
     static_test_env static_env;
     const path p = static_env.DNE;
-    assert(is_fifo(p) == false);
+    TEST_CHECK(is_fifo(p) == false);
 }
 
-static void test_is_fifo_fails()
+TEST_CASE(test_is_fifo_fails)
 {
     scoped_test_env env;
 #ifdef _WIN32
@@ -76,7 +76,7 @@ static void test_is_fifo_fails()
     // instead.
     const path p = GetWindowsInaccessibleDir();
     if (p.empty())
-        return;
+        TEST_UNSUPPORTED();
 #else
     const path dir = env.create_dir("dir");
     const path p = env.create_file("dir/file", 42);
@@ -84,17 +84,10 @@ static void test_is_fifo_fails()
 #endif
 
     std::error_code ec;
-    assert(is_fifo(p, ec) == false);
-    assert(ec);
+    TEST_CHECK(is_fifo(p, ec) == false);
+    TEST_CHECK(ec);
 
-    TEST_THROWS_TYPE(filesystem_error, is_fifo(p));
+    TEST_CHECK_THROW(filesystem_error, is_fifo(p));
 }
 
-int main(int, char**) {
-    signature_test();
-    is_fifo_status_test();
-    test_exist_not_found();
-    test_is_fifo_fails();
-
-    return 0;
-}
+TEST_SUITE_END()

@@ -6,13 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC_MATH_LDEXPL_H
-#define LLVM_LIBC_SRC_MATH_LDEXPL_H
+#ifndef LLVM_LIBC_SRC_MATH_ldexpl_H
+#define LLVM_LIBC_SRC_MATH_ldexpl_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 long double ldexpl(long double x, int exp);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC_MATH_LDEXPL_H
+#endif // LLVM_LIBC_SRC_MATH_ldexpl_H

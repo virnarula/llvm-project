@@ -37,12 +37,10 @@ end select
 
 select type ( y => (fun(1)) )
   type is (t1)
-    !ERROR: Left-hand side of assignment is not definable
-    !BECAUSE: 'y' is construct associated with an expression
+    !ERROR: Left-hand side of assignment is not modifiable
     y%i = 1 !VDC
   type is (t2)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'z=' is not definable
-    !BECAUSE: 'y' is construct associated with an expression
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'z=' must be definable
     call sub_with_in_and_inout_param(y,y) !VDC
 end select
 
@@ -60,22 +58,18 @@ end select
 !C)Associate with  with vector subscript
 select type (b => array1(V,2))
   type is (t1)
-    !ERROR: Left-hand side of assignment is not definable
-    !BECAUSE: Construct association 'b' has a vector subscript
+    !ERROR: Left-hand side of assignment is not modifiable
     b%i  = 1 !VDC
   type is (t2)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'z=' is not definable
-    !BECAUSE: Variable 'b' has a vector subscript
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'z=' must be definable
     call sub_with_in_and_inout_param_vector(b,b) !VDC
 end select
 select type(b =>  foo(1) )
   type is (t1)
-    !ERROR: Left-hand side of assignment is not definable
-    !BECAUSE: 'b' is construct associated with an expression
+    !ERROR: Left-hand side of assignment is not modifiable
     b%i = 1 !VDC
   type is (t2)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'z=' is not definable
-    !BECAUSE: 'b' is construct associated with an expression
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'z=' must be definable
     call sub_with_in_and_inout_param_vector(b,b) !VDC
 end select
 

@@ -18,7 +18,6 @@
 //   bad_function_call();
 // };
 
-#include <exception>
 #include <functional>
 #include <type_traits>
 

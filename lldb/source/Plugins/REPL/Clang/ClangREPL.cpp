@@ -15,10 +15,8 @@ using namespace lldb_private;
 
 LLDB_PLUGIN_DEFINE(ClangREPL)
 
-char ClangREPL::ID;
-
 ClangREPL::ClangREPL(lldb::LanguageType language, Target &target)
-    : llvm::RTTIExtends<ClangREPL, REPL>(target), m_language(language),
+    : REPL(eKindClang, target), m_language(language),
       m_implicit_expr_result_regex("\\$[0-9]+") {}
 
 ClangREPL::~ClangREPL() = default;
@@ -62,9 +60,8 @@ lldb::REPLSP ClangREPL::CreateInstance(Status &error,
 
 Status ClangREPL::DoInitialization() { return Status(); }
 
-llvm::StringRef ClangREPL::GetSourceFileBasename() {
-  static constexpr llvm::StringLiteral g_repl("repl.c");
-  return g_repl;
+ConstString ClangREPL::GetSourceFileBasename() {
+  return ConstString("repl.c");
 }
 
 const char *ClangREPL::GetAutoIndentCharacters() { return "  "; }

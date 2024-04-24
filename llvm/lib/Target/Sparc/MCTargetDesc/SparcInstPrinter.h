@@ -13,7 +13,6 @@
 #ifndef LLVM_LIB_TARGET_SPARC_MCTARGETDESC_SPARCINSTPRINTER_H
 #define LLVM_LIB_TARGET_SPARC_MCTARGETDESC_SPARCINSTPRINTER_H
 
-#include "SparcMCTargetDesc.h"
 #include "llvm/MC/MCInstPrinter.h"
 
 namespace llvm {
@@ -24,8 +23,7 @@ public:
                    const MCRegisterInfo &MRI)
       : MCInstPrinter(MAI, MII, MRI) {}
 
-  void printRegName(raw_ostream &OS, MCRegister Reg) const override;
-  void printRegName(raw_ostream &OS, MCRegister Reg, unsigned AltIdx) const;
+  void printRegName(raw_ostream &OS, unsigned RegNo) const override;
   void printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
                  const MCSubtargetInfo &STI, raw_ostream &O) override;
   bool printSparcAliasInstr(const MCInst *MI, const MCSubtargetInfo &STI,
@@ -41,21 +39,18 @@ public:
   void printCustomAliasOperand(const MCInst *MI, uint64_t Address,
                                unsigned OpIdx, unsigned PrintMethodIdx,
                                const MCSubtargetInfo &STI, raw_ostream &O);
-  static const char *getRegisterName(MCRegister Reg,
-                                     unsigned AltIdx = SP::NoRegAltName);
+  static const char *getRegisterName(unsigned RegNo);
 
   void printOperand(const MCInst *MI, int opNum, const MCSubtargetInfo &STI,
                     raw_ostream &OS);
   void printMemOperand(const MCInst *MI, int opNum, const MCSubtargetInfo &STI,
-                       raw_ostream &OS);
+                       raw_ostream &OS, const char *Modifier = nullptr);
   void printCCOperand(const MCInst *MI, int opNum, const MCSubtargetInfo &STI,
                       raw_ostream &OS);
   bool printGetPCX(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
                    raw_ostream &OS);
   void printMembarTag(const MCInst *MI, int opNum, const MCSubtargetInfo &STI,
                       raw_ostream &O);
-  void printASITag(const MCInst *MI, int opNum, const MCSubtargetInfo &STI,
-                   raw_ostream &O);
 };
 } // end namespace llvm
 

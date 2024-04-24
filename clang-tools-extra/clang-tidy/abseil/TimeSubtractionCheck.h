@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 /// Finds and fixes `absl::Time` subtraction expressions to do subtraction
 /// in the time domain instead of the numeric domain.
@@ -29,6 +31,8 @@ private:
   void emitDiagnostic(const Expr* Node, llvm::StringRef Replacement);
 };
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ABSEIL_TIMESUBTRACTIONCHECK_H

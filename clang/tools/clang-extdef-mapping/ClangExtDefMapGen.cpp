@@ -23,8 +23,6 @@
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/TargetSelect.h"
-#include <optional>
 #include <sstream>
 #include <string>
 
@@ -84,7 +82,7 @@ void MapExtDefNamesConsumer::handleDecl(const Decl *D) {
 
 void MapExtDefNamesConsumer::addIfInMain(const DeclaratorDecl *DD,
                                          SourceLocation defStart) {
-  std::optional<std::string> LookupName =
+  llvm::Optional<std::string> LookupName =
       CrossTranslationUnitContext::getLookupName(DD);
   if (!LookupName)
     return;
@@ -98,14 +96,12 @@ void MapExtDefNamesConsumer::addIfInMain(const DeclaratorDecl *DD,
   }
 
   switch (DD->getLinkageInternal()) {
-  case Linkage::External:
-  case Linkage::VisibleNone:
-  case Linkage::UniqueExternal:
+  case ExternalLinkage:
+  case VisibleNoLinkage:
+  case UniqueExternalLinkage:
     if (SM.isInMainFile(defStart))
       Index[*LookupName] = CurrentFileName;
     break;
-  case Linkage::Invalid:
-    llvm_unreachable("Linkage has not been computed!");
   default:
     break;
   }
@@ -156,8 +152,7 @@ static bool HandleAST(StringRef AstPath) {
 
   std::unique_ptr<ASTUnit> Unit = ASTUnit::LoadFromASTFile(
       AstPath.str(), CI->getPCHContainerOperations()->getRawReader(),
-      ASTUnit::LoadASTOnly, DiagEngine, CI->getFileSystemOpts(),
-      CI->getHeaderSearchOptsPtr());
+      ASTUnit::LoadASTOnly, DiagEngine, CI->getFileSystemOpts());
 
   if (!Unit)
     return false;
@@ -181,7 +176,7 @@ static int HandleFiles(ArrayRef<std::string> SourceFiles,
   // process them directly in HandleAST, otherwise put them
   // on a list for ClangTool to handle.
   for (StringRef Src : SourceFiles) {
-    if (Src.ends_with(".ast")) {
+    if (Src.endswith(".ast")) {
       if (!HandleAST(Src)) {
         return 1;
       }
@@ -216,10 +211,6 @@ int main(int argc, const char **argv) {
     return 1;
   }
   CommonOptionsParser &OptionsParser = ExpectedParser.get();
-
-  llvm::InitializeAllTargetInfos();
-  llvm::InitializeAllTargetMCs();
-  llvm::InitializeAllAsmParsers();
 
   return HandleFiles(OptionsParser.getSourcePathList(),
                      OptionsParser.getCompilations());

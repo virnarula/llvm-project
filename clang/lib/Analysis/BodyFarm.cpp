@@ -24,7 +24,6 @@
 #include "clang/Basic/OperatorKinds.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Debug.h"
-#include <optional>
 
 #define DEBUG_TYPE "body-farm"
 
@@ -542,7 +541,7 @@ static Stmt *create_dispatch_once(ASTContext &C, const FunctionDecl *D) {
   CallExpr *CE = CallExpr::Create(
       /*ASTContext=*/C,
       /*StmtClass=*/M.makeLvalueToRvalue(/*Expr=*/Block),
-      /*Args=*/std::nullopt,
+      /*Args=*/None,
       /*QualType=*/C.VoidTy,
       /*ExprValueType=*/VK_PRValue,
       /*SourceLocation=*/SourceLocation(), FPOptionsOverride());
@@ -610,7 +609,7 @@ static Stmt *create_dispatch_sync(ASTContext &C, const FunctionDecl *D) {
   ASTMaker M(C);
   DeclRefExpr *DR = M.makeDeclRefExpr(PV);
   ImplicitCastExpr *ICE = M.makeLvalueToRvalue(DR, Ty);
-  CallExpr *CE = CallExpr::Create(C, ICE, std::nullopt, C.VoidTy, VK_PRValue,
+  CallExpr *CE = CallExpr::Create(C, ICE, None, C.VoidTy, VK_PRValue,
                                   SourceLocation(), FPOptionsOverride());
   return CE;
 }
@@ -698,9 +697,9 @@ static Stmt *create_OSAtomicCompareAndSwap(ASTContext &C, const FunctionDecl *D)
 }
 
 Stmt *BodyFarm::getBody(const FunctionDecl *D) {
-  std::optional<Stmt *> &Val = Bodies[D];
+  Optional<Stmt *> &Val = Bodies[D];
   if (Val)
-    return *Val;
+    return Val.value();
 
   Val = nullptr;
 
@@ -717,7 +716,6 @@ Stmt *BodyFarm::getBody(const FunctionDecl *D) {
     switch (BuiltinID) {
     case Builtin::BIas_const:
     case Builtin::BIforward:
-    case Builtin::BIforward_like:
     case Builtin::BImove:
     case Builtin::BImove_if_noexcept:
       FF = create_std_move_forward;
@@ -726,8 +724,8 @@ Stmt *BodyFarm::getBody(const FunctionDecl *D) {
       FF = nullptr;
       break;
     }
-  } else if (Name.starts_with("OSAtomicCompareAndSwap") ||
-             Name.starts_with("objc_atomicCompareAndSwap")) {
+  } else if (Name.startswith("OSAtomicCompareAndSwap") ||
+             Name.startswith("objc_atomicCompareAndSwap")) {
     FF = create_OSAtomicCompareAndSwap;
   } else if (Name == "call_once" && D->getDeclContext()->isStdNamespace()) {
     FF = create_call_once;
@@ -806,7 +804,7 @@ static Stmt *createObjCPropertyGetter(ASTContext &Ctx,
 
   if (!IVar) {
     Prop = MD->findPropertyDecl();
-    IVar = Prop ? findBackingIvar(Prop) : nullptr;
+    IVar = findBackingIvar(Prop);
   }
 
   if (!IVar || !Prop)
@@ -874,9 +872,9 @@ Stmt *BodyFarm::getBody(const ObjCMethodDecl *D) {
   if (!D->isImplicit())
     return nullptr;
 
-  std::optional<Stmt *> &Val = Bodies[D];
+  Optional<Stmt *> &Val = Bodies[D];
   if (Val)
-    return *Val;
+    return Val.value();
   Val = nullptr;
 
   // For now, we only synthesize getters.

@@ -32,16 +32,11 @@ namespace MCPlus {
 /// pad and the uint64_t represents the action.
 using MCLandingPad = std::pair<const MCSymbol *, uint64_t>;
 
-/// An extension to MCInst is provided via extra operands, i.e. operands that
-/// are not used in the instruction assembly. Any kind of metadata can be
-/// attached to MCInst with this "annotation" extension using MCPlusBuilder
-/// interface.
-//
-/// The first extra operand must be of type kInst with an empty (nullptr)
-/// value. The kInst operand type is unused on most non-VLIW architectures.
-/// We use it to mark the beginning of annotations operands. The rest of the
-/// operands are of Immediate type with annotation info encoded into the value
-/// of the immediate.
+/// An extension to MCInst is provided via an extra operand of type MCInst with
+/// ANNOTATION_LABEL opcode (i.e. we are tying an annotation instruction to an
+/// existing one). The annotation instruction contains a list of Immediate
+/// operands. Each operand either contains a value, or is a pointer to
+/// an instance of class MCAnnotation.
 ///
 /// There are 2 distinct groups of annotations. The first group is a first-class
 /// annotation that affects semantics of the instruction, such as an
@@ -60,7 +55,7 @@ using MCLandingPad = std::pair<const MCSymbol *, uint64_t>;
 /// of their corresponding operand.
 ///
 /// Annotations in the second group could be addressed either by name, or by
-/// by index which could be queried by providing the name.
+/// by and index which could be queried by providing a name.
 class MCAnnotation {
 public:
   enum Kind {
@@ -71,8 +66,6 @@ public:
     kTailCall,            /// Tail call.
     kConditionalTailCall, /// CTC.
     kOffset,              /// Offset in the function.
-    kLabel,               /// MCSymbol pointing to this instruction.
-    kSize,                /// Size of the instruction.
     kGeneric              /// First generic annotation.
   };
 
@@ -112,11 +105,10 @@ private:
 /// Return a number of operands in \Inst excluding operands representing
 /// annotations.
 inline unsigned getNumPrimeOperands(const MCInst &Inst) {
-  for (signed I = Inst.getNumOperands() - 1; I >= 0; --I) {
-    if (Inst.getOperand(I).isInst())
-      return I;
-    if (!Inst.getOperand(I).isImm())
-      return Inst.getNumOperands();
+  if (Inst.getNumOperands() > 0 && std::prev(Inst.end())->isInst()) {
+    assert(std::prev(Inst.end())->getInst()->getOpcode() ==
+           TargetOpcode::ANNOTATION_LABEL);
+    return Inst.getNumOperands() - 1;
   }
   return Inst.getNumOperands();
 }

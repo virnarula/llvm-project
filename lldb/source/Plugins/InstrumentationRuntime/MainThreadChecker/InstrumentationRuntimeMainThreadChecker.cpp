@@ -81,8 +81,7 @@ InstrumentationRuntimeMainThreadChecker::RetrieveReportData(
     return StructuredData::ObjectSP();
 
   ThreadSP thread_sp = exe_ctx_ref.GetThreadSP();
-  StackFrameSP frame_sp =
-      thread_sp->GetSelectedFrame(DoNoSelectMostRelevantFrame);
+  StackFrameSP frame_sp = thread_sp->GetSelectedFrame();
   ModuleSP runtime_module_sp = GetRuntimeModuleSP();
   Target &target = process_sp->GetTarget();
 
@@ -132,7 +131,7 @@ InstrumentationRuntimeMainThreadChecker::RetrieveReportData(
       responsible_frame = frame;
 
     lldb::addr_t PC = addr.GetLoadAddress(&target);
-    trace->AddIntegerItem(PC);
+    trace->AddItem(StructuredData::ObjectSP(new StructuredData::Integer(PC)));
   }
 
   auto *d = new StructuredData::Dictionary();
@@ -252,7 +251,7 @@ InstrumentationRuntimeMainThreadChecker::GetBacktracesFromExtendedStopInfo(
   std::vector<lldb::addr_t> PCs;
   auto trace = info->GetObjectForDotSeparatedPath("trace")->GetAsArray();
   trace->ForEach([&PCs](StructuredData::Object *PC) -> bool {
-    PCs.push_back(PC->GetUnsignedIntegerValue());
+    PCs.push_back(PC->GetAsInteger()->GetValue());
     return true;
   });
 
@@ -261,7 +260,7 @@ InstrumentationRuntimeMainThreadChecker::GetBacktracesFromExtendedStopInfo(
 
   StructuredData::ObjectSP thread_id_obj =
       info->GetObjectForDotSeparatedPath("tid");
-  tid_t tid = thread_id_obj ? thread_id_obj->GetUnsignedIntegerValue() : 0;
+  tid_t tid = thread_id_obj ? thread_id_obj->GetIntegerValue() : 0;
 
   // We gather symbolication addresses above, so no need for HistoryThread to
   // try to infer the call addresses.

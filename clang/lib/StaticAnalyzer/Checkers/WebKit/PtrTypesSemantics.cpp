@@ -12,21 +12,31 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
-#include <optional>
+#include "llvm/ADT/Optional.h"
 
+using llvm::Optional;
 using namespace clang;
 
 namespace {
 
-bool hasPublicMethodInBaseClass(const CXXRecordDecl *R,
-                                const char *NameToMatch) {
+bool hasPublicRefAndDeref(const CXXRecordDecl *R) {
   assert(R);
   assert(R->hasDefinition());
 
+  bool hasRef = false;
+  bool hasDeref = false;
   for (const CXXMethodDecl *MD : R->methods()) {
     const auto MethodName = safeGetName(MD);
-    if (MethodName == NameToMatch && MD->getAccess() == AS_public)
-      return true;
+
+    if (MethodName == "ref" && MD->getAccess() == AS_public) {
+      if (hasDeref)
+        return true;
+      hasRef = true;
+    } else if (MethodName == "deref" && MD->getAccess() == AS_public) {
+      if (hasRef)
+        return true;
+      hasDeref = true;
+    }
   }
   return false;
 }
@@ -35,70 +45,54 @@ bool hasPublicMethodInBaseClass(const CXXRecordDecl *R,
 
 namespace clang {
 
-std::optional<const clang::CXXRecordDecl *>
-hasPublicMethodInBase(const CXXBaseSpecifier *Base, const char *NameToMatch) {
+llvm::Optional<const clang::CXXRecordDecl *>
+isRefCountable(const CXXBaseSpecifier *Base) {
   assert(Base);
 
   const Type *T = Base->getType().getTypePtrOrNull();
   if (!T)
-    return std::nullopt;
+    return llvm::None;
 
   const CXXRecordDecl *R = T->getAsCXXRecordDecl();
   if (!R)
-    return std::nullopt;
+    return llvm::None;
   if (!R->hasDefinition())
-    return std::nullopt;
+    return llvm::None;
 
-  return hasPublicMethodInBaseClass(R, NameToMatch) ? R : nullptr;
+  return hasPublicRefAndDeref(R) ? R : nullptr;
 }
 
-std::optional<bool> isRefCountable(const CXXRecordDecl* R)
-{
+llvm::Optional<bool> isRefCountable(const CXXRecordDecl *R) {
   assert(R);
 
   R = R->getDefinition();
   if (!R)
-    return std::nullopt;
+    return llvm::None;
 
-  bool hasRef = hasPublicMethodInBaseClass(R, "ref");
-  bool hasDeref = hasPublicMethodInBaseClass(R, "deref");
-  if (hasRef && hasDeref)
+  if (hasPublicRefAndDeref(R))
     return true;
 
   CXXBasePaths Paths;
   Paths.setOrigin(const_cast<CXXRecordDecl *>(R));
 
   bool AnyInconclusiveBase = false;
-  const auto hasPublicRefInBase =
+  const auto isRefCountableBase =
       [&AnyInconclusiveBase](const CXXBaseSpecifier *Base, CXXBasePath &) {
-        auto hasRefInBase = clang::hasPublicMethodInBase(Base, "ref");
-        if (!hasRefInBase) {
+        Optional<const clang::CXXRecordDecl *> IsRefCountable =
+            clang::isRefCountable(Base);
+        if (!IsRefCountable) {
           AnyInconclusiveBase = true;
           return false;
         }
-        return (*hasRefInBase) != nullptr;
+        return (*IsRefCountable) != nullptr;
       };
 
-  hasRef = hasRef || R->lookupInBases(hasPublicRefInBase, Paths,
+  bool BasesResult = R->lookupInBases(isRefCountableBase, Paths,
                                       /*LookupInDependent =*/true);
   if (AnyInconclusiveBase)
-    return std::nullopt;
+    return llvm::None;
 
-  const auto hasPublicDerefInBase =
-      [&AnyInconclusiveBase](const CXXBaseSpecifier *Base, CXXBasePath &) {
-        auto hasDerefInBase = clang::hasPublicMethodInBase(Base, "deref");
-        if (!hasDerefInBase) {
-          AnyInconclusiveBase = true;
-          return false;
-        }
-        return (*hasDerefInBase) != nullptr;
-      };
-  hasDeref = hasDeref || R->lookupInBases(hasPublicDerefInBase, Paths,
-                                          /*LookupInDependent =*/true);
-  if (AnyInconclusiveBase)
-    return std::nullopt;
-
-  return hasRef && hasDeref;
+  return BasesResult;
 }
 
 bool isCtorOfRefCounted(const clang::FunctionDecl *F) {
@@ -118,21 +112,19 @@ bool isCtorOfRefCounted(const clang::FunctionDecl *F) {
          || FunctionName == "Identifier";
 }
 
-std::optional<bool> isUncounted(const CXXRecordDecl* Class)
-{
+llvm::Optional<bool> isUncounted(const CXXRecordDecl *Class) {
   // Keep isRefCounted first as it's cheaper.
   if (isRefCounted(Class))
     return false;
 
-  std::optional<bool> IsRefCountable = isRefCountable(Class);
+  llvm::Optional<bool> IsRefCountable = isRefCountable(Class);
   if (!IsRefCountable)
-    return std::nullopt;
+    return llvm::None;
 
   return (*IsRefCountable);
 }
 
-std::optional<bool> isUncountedPtr(const Type* T)
-{
+llvm::Optional<bool> isUncountedPtr(const Type *T) {
   assert(T);
 
   if (T->isPointerType() || T->isReferenceType()) {
@@ -143,8 +135,7 @@ std::optional<bool> isUncountedPtr(const Type* T)
   return false;
 }
 
-std::optional<bool> isGetterOfRefCounted(const CXXMethodDecl* M)
-{
+Optional<bool> isGetterOfRefCounted(const CXXMethodDecl *M) {
   assert(M);
 
   if (isa<CXXMethodDecl>(M)) {
@@ -192,7 +183,8 @@ bool isPtrConversion(const FunctionDecl *F) {
   // FIXME: check # of params == 1
   const auto FunctionName = safeGetName(F);
   if (FunctionName == "getPtr" || FunctionName == "WeakPtr" ||
-      FunctionName == "dynamicDowncast"
+      FunctionName == "makeWeakPtr"
+
       || FunctionName == "downcast" || FunctionName == "bitwise_cast")
     return true;
 

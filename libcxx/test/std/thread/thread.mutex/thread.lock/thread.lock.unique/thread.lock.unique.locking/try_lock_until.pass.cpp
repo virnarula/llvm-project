@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 //
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: c++03
 
 // <mutex>
 
@@ -16,9 +15,8 @@
 // template <class Clock, class Duration>
 //   bool try_lock_until(const chrono::time_point<Clock, Duration>& abs_time);
 
-#include <cassert>
 #include <mutex>
-#include <system_error>
+#include <cassert>
 
 #include "test_macros.h"
 

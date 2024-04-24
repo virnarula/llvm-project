@@ -10,6 +10,7 @@
 #include "llvm-c/Disassembler.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
@@ -28,7 +29,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstring>
 
@@ -180,13 +180,12 @@ static int getItineraryLatency(LLVMDisasmContext *DC, const MCInst &Inst) {
   const MCInstrDesc& Desc = DC->getInstrInfo()->get(Inst.getOpcode());
   unsigned SCClass = Desc.getSchedClass();
 
-  unsigned Latency = 0;
+  int Latency = 0;
+  for (unsigned OpIdx = 0, OpIdxEnd = Inst.getNumOperands(); OpIdx != OpIdxEnd;
+       ++OpIdx)
+    Latency = std::max(Latency, IID.getOperandCycle(SCClass, OpIdx));
 
-  for (unsigned Idx = 0, IdxEnd = Inst.getNumOperands(); Idx != IdxEnd; ++Idx)
-    if (std::optional<unsigned> OperCycle = IID.getOperandCycle(SCClass, Idx))
-      Latency = std::max(Latency, *OperCycle);
-
-  return (int)Latency;
+  return Latency;
 }
 
 /// Gets latency information for \p Inst, based on \p DC information.

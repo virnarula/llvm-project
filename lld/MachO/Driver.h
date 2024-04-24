@@ -10,12 +10,12 @@
 #define LLD_MACHO_DRIVER_H
 
 #include "lld/Common/LLVM.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include <optional>
 
 #include <set>
 #include <type_traits>
@@ -25,7 +25,7 @@ namespace lld::macho {
 class DylibFile;
 class InputFile;
 
-class MachOOptTable : public llvm::opt::GenericOptTable {
+class MachOOptTable : public llvm::opt::OptTable {
 public:
   MachOOptTable();
   llvm::opt::InputArgList parse(ArrayRef<const char *> argv);
@@ -35,19 +35,17 @@ public:
 // Create enum with OPT_xxx values for each option in Options.td
 enum {
   OPT_INVALID = 0,
-#define OPTION(...) LLVM_MAKE_OPT_ID(__VA_ARGS__),
+#define OPTION(_1, _2, ID, _4, _5, _6, _7, _8, _9, _10, _11, _12) OPT_##ID,
 #include "Options.inc"
 #undef OPTION
 };
 
-void parseLCLinkerOption(llvm::SmallVectorImpl<StringRef> &LCLinkerOptions,
-                         InputFile *f, unsigned argc, StringRef data);
-void resolveLCLinkerOptions();
+void parseLCLinkerOption(InputFile *, unsigned argc, StringRef data);
 
 std::string createResponseFile(const llvm::opt::InputArgList &args);
 
 // Check for both libfoo.dylib and libfoo.tbd (in that order).
-std::optional<StringRef> resolveDylibPath(llvm::StringRef path);
+llvm::Optional<StringRef> resolveDylibPath(llvm::StringRef path);
 
 DylibFile *loadDylib(llvm::MemoryBufferRef mbref, DylibFile *umbrella = nullptr,
                      bool isBundleLoader = false,
@@ -56,7 +54,7 @@ void resetLoadedDylibs();
 
 // Search for all possible combinations of `{root}/{name}.{extension}`.
 // If \p extensions are not specified, then just search for `{root}/{name}`.
-std::optional<llvm::StringRef>
+llvm::Optional<llvm::StringRef>
 findPathCombination(const llvm::Twine &name,
                     const std::vector<llvm::StringRef> &roots,
                     ArrayRef<llvm::StringRef> extensions = {""});

@@ -10,10 +10,9 @@
 
 // constexpr auto size() const requires see below;
 
-#include <cassert>
-#include <concepts>
-#include <limits>
 #include <ranges>
+#include <cassert>
+#include <limits>
 
 #include "test_macros.h"
 #include "types.h"
@@ -88,15 +87,6 @@ constexpr bool test() {
   {
     const std::ranges::iota_view<SomeInt, SomeInt> io(SomeInt(10), SomeInt(10));
     assert(io.size() == 0);
-  }
-
-  // Make sure iota_view<short, short> works properly. For details,
-  // see https://github.com/llvm/llvm-project/issues/67551.
-  {
-    static_assert(std::ranges::sized_range<std::ranges::iota_view<short, short>>);
-    std::ranges::iota_view<short, short> io(10, 20);
-    std::same_as<unsigned int> auto sz = io.size();
-    assert(sz == 10);
   }
 
   return true;

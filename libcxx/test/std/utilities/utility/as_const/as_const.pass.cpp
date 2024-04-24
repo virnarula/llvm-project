@@ -11,9 +11,10 @@
 // template <class T> constexpr add_const<T>& as_const(T& t) noexcept;      // C++17
 // template <class T>           add_const<T>& as_const(const T&&) = delete; // C++17
 
-#include <cassert>
-#include <type_traits>
 #include <utility>
+#include <cassert>
+
+#include "test_macros.h"
 
 struct S {int i;};
 bool operator==(const S& x, const S& y) { return x.i == y.i; }

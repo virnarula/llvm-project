@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "test/UnitTest/FPMatcher.h"
-#include "test/UnitTest/Test.h"
 #include "utils/MPFRWrapper/MPFRUtils.h"
+#include "utils/UnitTest/FPMatcher.h"
+#include "utils/UnitTest/Test.h"
 
 #include <math.h>
 
-namespace mpfr = LIBC_NAMESPACE::testing::mpfr;
+namespace mpfr = __llvm_libc::testing::mpfr;
 
-template <typename T> class FMaxTest : public LIBC_NAMESPACE::testing::Test {
+template <typename T> class FMaxTest : public __llvm_libc::testing::Test {
 
   DECLARE_SPECIAL_CONSTANTS(T)
 
@@ -55,11 +55,11 @@ public:
   }
 
   void testRange(FMaxFunc func) {
-    constexpr StorageType COUNT = 100'001;
-    constexpr StorageType STEP = STORAGE_MAX / COUNT;
-    for (StorageType i = 0, v = 0, w = STORAGE_MAX; i <= COUNT;
+    constexpr UIntType COUNT = 10000001;
+    constexpr UIntType STEP = UIntType(-1) / COUNT;
+    for (UIntType i = 0, v = 0, w = UIntType(-1); i <= COUNT;
          ++i, v += STEP, w -= STEP) {
-      T x = FPBits(v).get_val(), y = FPBits(w).get_val();
+      T x = T(FPBits(v)), y = T(FPBits(w));
       if (isnan(x) || isinf(x))
         continue;
       if (isnan(y) || isinf(y))

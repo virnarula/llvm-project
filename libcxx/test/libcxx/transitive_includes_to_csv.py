@@ -7,7 +7,7 @@
 #
 # ===----------------------------------------------------------------------===##
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List  # Needed for python 3.8 compatibility.
 import argparse
 import pathlib
@@ -23,7 +23,7 @@ class header:
 
 def parse_line(line: str) -> header:
     """
-    Parse an output line from --trace-includes into a `header`.
+    Parse an output line from --trace-include into a `header`.
     """
     match = re.match(r"(\.+) (.+)", line)
     if not match:
@@ -41,7 +41,28 @@ def parse_line(line: str) -> header:
 # literal level.)
 LIBCXX_HEADER_REGEX = r".*c\+\+(?:/|\\\\)v[0-9]+(?:/|\\\\)(.+)"
 
-def is_libcxx_header(header: str) -> bool:
+def is_libcxx_public_header(header : str) -> bool:
+    """
+    Returns whether a header is a C++ public header file.
+    """
+    # Only keep files in the c++/vN directory.
+    match = re.match(LIBCXX_HEADER_REGEX, header)
+    if not match:
+        return False
+
+    # Skip C compatibility headers.
+    if header.endswith(".h"):
+        return False
+
+    # Skip all other detail headers (headers starting with __ or in a subdirectory starting with __).
+    relative = match.group(1)
+    if relative.startswith("__") or re.search(r"(/|\\\\)__", relative):
+        return False
+
+    return True
+
+
+def is_libcxx_header(header : str) -> bool:
     """
     Returns whether a header is a libc++ header, excluding the C-compatibility headers.
     """
@@ -52,9 +73,7 @@ def is_libcxx_header(header: str) -> bool:
 
     # Skip C compatibility headers (in particular, make sure not to skip libc++ detail headers).
     relative = match.group(1)
-    if relative.endswith(".h") and not (
-        relative.startswith("__") or re.search(r"(/|\\\\)__", relative)
-    ):
+    if relative.endswith(".h") and not (relative.startswith("__") or re.search(r"(/|\\\\)__", relative)):
         return False
 
     return True
@@ -103,17 +122,15 @@ def parse_file(file: pathlib.Path) -> List[str]:
     return result
 
 
-def create_include_graph(trace_includes: List[pathlib.Path]) -> List[str]:
+def create_include_graph(path: pathlib.Path) -> List[str]:
     result = list()
-    for file in trace_includes:
+    for file in sorted(path.glob("header.*")):
         headers = parse_file(file)
 
         # Get actual filenames relative to libc++'s installation directory instead of full paths
         relative = lambda h: re.match(LIBCXX_HEADER_REGEX, h).group(1)
 
-        top_level = relative(
-            next(h.name for h in headers if h.level == 1)
-        )  # There should be only one top-level header
+        top_level = relative(next(h.name for h in headers if h.level == 1)) # There should be only one top-level header
         includes = [relative(h.name) for h in headers if h.level != 1]
 
         # Remove duplicates in all includes.
@@ -136,16 +153,16 @@ def print_csv(graph: List[str]) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="""Produce a dependency graph of libc++ headers, in CSV format.
-This script is normally executed by libcxx/test/libcxx/transitive_includes.gen.py""",
+Typically this script is executed by libcxx/test/libcxx/transitive_includes.sh.cpp""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "inputs",
+        "input",
         default=None,
-        metavar="FILE",
-        nargs='+',
-        help="One or more files containing the result of --trace-includes on the headers one wishes to graph.",
+        metavar="DIR",
+        help="The directory containing the transitive includes of the headers.",
     )
     options = parser.parse_args()
 
-    print_csv(create_include_graph(map(pathlib.Path, options.inputs)))
+    root = pathlib.Path(options.input)
+    print_csv(create_include_graph(root))

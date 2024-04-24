@@ -13,29 +13,14 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 
-namespace clang::tidy::modernize {
-
-using NamespaceName = llvm::SmallString<40>;
-
-class NS : public llvm::SmallVector<const NamespaceDecl *, 6> {
-public:
-  std::optional<SourceRange>
-  getCleanedNamespaceFrontRange(const SourceManager &SM,
-                                const LangOptions &LangOpts) const;
-  SourceRange getReplacedNamespaceFrontRange() const;
-  SourceRange getNamespaceBackRange(const SourceManager &SM,
-                                    const LangOptions &LangOpts) const;
-  SourceRange getDefaultNamespaceBackRange() const;
-  void appendName(NamespaceName &Str) const;
-  void appendCloseComment(NamespaceName &Str) const;
-};
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 class ConcatNestedNamespacesCheck : public ClangTidyCheck {
 public:
   ConcatNestedNamespacesCheck(StringRef Name, ClangTidyContext *Context)
       : ClangTidyCheck(Name, Context) {}
-  bool unsupportedNamespace(const NamespaceDecl &ND, bool IsChild) const;
-  bool singleNamedNamespaceChild(const NamespaceDecl &ND) const;
   bool isLanguageVersionSupported(const LangOptions &LangOpts) const override {
     return LangOpts.CPlusPlus17;
   }
@@ -43,11 +28,16 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
 private:
-  using NamespaceContextVec = llvm::SmallVector<NS, 6>;
+  using NamespaceContextVec = llvm::SmallVector<const NamespaceDecl *, 6>;
+  using NamespaceString = llvm::SmallString<40>;
 
-  void reportDiagnostic(const SourceManager &SM, const LangOptions &LangOpts);
+  void reportDiagnostic(const SourceRange &FrontReplacement,
+                        const SourceRange &BackReplacement);
+  NamespaceString concatNamespaces();
   NamespaceContextVec Namespaces;
 };
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_CONCATNESTEDNAMESPACESCHECK_H

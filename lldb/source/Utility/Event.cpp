@@ -11,12 +11,9 @@
 #include "lldb/Utility/Broadcaster.h"
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/Endian.h"
-#include "lldb/Utility/Listener.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/lldb-enumerations.h"
-
-#include "llvm/ADT/StringExtras.h"
 
 #include <algorithm>
 
@@ -61,13 +58,13 @@ void Event::Dump(Stream *s) const {
       s->Printf("%p Event: broadcaster = %p (%s), type = 0x%8.8x (%s), data = ",
                 static_cast<const void *>(this),
                 static_cast<void *>(broadcaster),
-                broadcaster->GetBroadcasterName().c_str(), m_type,
+                broadcaster->GetBroadcasterName().GetCString(), m_type,
                 event_name.GetData());
     else
       s->Printf("%p Event: broadcaster = %p (%s), type = 0x%8.8x, data = ",
                 static_cast<const void *>(this),
                 static_cast<void *>(broadcaster),
-                broadcaster->GetBroadcasterName().c_str(), m_type);
+                broadcaster->GetBroadcasterName().GetCString(), m_type);
   } else
     s->Printf("%p Event: broadcaster = NULL, type = 0x%8.8x, data = ",
               static_cast<const void *>(this), m_type);
@@ -81,16 +78,8 @@ void Event::Dump(Stream *s) const {
 }
 
 void Event::DoOnRemoval() {
-  std::lock_guard<std::mutex> guard(m_listeners_mutex);
-
   if (m_data_sp)
     m_data_sp->DoOnRemoval(this);
-  // Now that the event has been handled by the primary event Listener, forward
-  // it to the other Listeners.
-  EventSP me_sp = shared_from_this();
-  for (auto listener_sp : m_pending_listeners)
-    listener_sp->AddEvent(me_sp);
-  m_pending_listeners.clear();
 }
 
 #pragma mark -
@@ -125,9 +114,12 @@ EventDataBytes::EventDataBytes(const void *src, size_t src_len) : m_bytes() {
 
 EventDataBytes::~EventDataBytes() = default;
 
-llvm::StringRef EventDataBytes::GetFlavorString() { return "EventDataBytes"; }
+ConstString EventDataBytes::GetFlavorString() {
+  static ConstString g_flavor("EventDataBytes");
+  return g_flavor;
+}
 
-llvm::StringRef EventDataBytes::GetFlavor() const {
+ConstString EventDataBytes::GetFlavor() const {
   return EventDataBytes::GetFlavorString();
 }
 
@@ -190,10 +182,6 @@ void EventDataBytes::SwapBytes(std::string &new_bytes) {
   m_bytes.swap(new_bytes);
 }
 
-llvm::StringRef EventDataReceipt::GetFlavorString() {
-  return "Process::ProcessEventData";
-}
-
 #pragma mark -
 #pragma mark EventStructuredData
 
@@ -212,7 +200,7 @@ EventDataStructuredData::~EventDataStructuredData() = default;
 
 // EventDataStructuredData member functions
 
-llvm::StringRef EventDataStructuredData::GetFlavor() const {
+ConstString EventDataStructuredData::GetFlavor() const {
   return EventDataStructuredData::GetFlavorString();
 }
 
@@ -292,6 +280,7 @@ EventDataStructuredData::GetPluginFromEvent(const Event *event_ptr) {
     return StructuredDataPluginSP();
 }
 
-llvm::StringRef EventDataStructuredData::GetFlavorString() {
-  return "EventDataStructuredData";
+ConstString EventDataStructuredData::GetFlavorString() {
+  static ConstString s_flavor("EventDataStructuredData");
+  return s_flavor;
 }

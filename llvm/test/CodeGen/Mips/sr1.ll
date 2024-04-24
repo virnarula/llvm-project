@@ -8,8 +8,10 @@
 define void @foo1() #0 {
 entry:
   %c = alloca [10 x i8], align 1
-  call void @x(ptr %c)
-  call void @x(ptr %c)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %c, i32 0, i32 0
+  call void @x(i8* %arraydecay)
+  %arraydecay1 = getelementptr inbounds [10 x i8], [10 x i8]* %c, i32 0, i32 0
+  call void @x(i8* %arraydecay1)
   ret void
 ; CHECK: 	.ent	foo1
 ; CHECK: 	save	$16, $17, $ra, [[FS:[0-9]+]]  # 16 bit inst
@@ -17,14 +19,16 @@ entry:
 ; CHECK: 	.end	foo1
 }
 
-declare void @x(ptr) #1
+declare void @x(i8*) #1
 
 ; Function Attrs: nounwind
 define void @foo2() #0 {
 entry:
   %c = alloca [150 x i8], align 1
-  call void @x(ptr %c)
-  call void @x(ptr %c)
+  %arraydecay = getelementptr inbounds [150 x i8], [150 x i8]* %c, i32 0, i32 0
+  call void @x(i8* %arraydecay)
+  %arraydecay1 = getelementptr inbounds [150 x i8], [150 x i8]* %c, i32 0, i32 0
+  call void @x(i8* %arraydecay1)
   ret void
 ; CHECK: 	.ent	foo2
 ; CHECK: 	save	$16, $17, $ra, [[FS:[0-9]+]] 
@@ -36,7 +40,7 @@ entry:
 define void @foo3() #0 {
 entry:
   %call = call float @xf()
-  store float %call, ptr @f, align 4
+  store float %call, float* @f, align 4
   ret void
 ; CHECK: 	.ent	foo3
 ; CHECK: 	save	$16, $17, $ra, $18, [[FS:[0-9]+]]

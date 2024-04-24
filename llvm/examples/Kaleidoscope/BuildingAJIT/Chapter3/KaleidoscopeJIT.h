@@ -14,6 +14,7 @@
 #define LLVM_EXECUTIONENGINE_ORC_KALEIDOSCOPEJIT_H
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
@@ -24,7 +25,6 @@
 #include "llvm/ExecutionEngine/Orc/IRTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#include "llvm/ExecutionEngine/Orc/Shared/ExecutorSymbolDef.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
@@ -91,12 +91,12 @@ public:
 
     auto ES = std::make_unique<ExecutionSession>(std::move(*EPC));
 
-    auto EPCIU = EPCIndirectionUtils::Create(*ES);
+    auto EPCIU = EPCIndirectionUtils::Create(ES->getExecutorProcessControl());
     if (!EPCIU)
       return EPCIU.takeError();
 
     (*EPCIU)->createLazyCallThroughManager(
-        *ES, ExecutorAddr::fromPtr(&handleLazyCallThroughError));
+        *ES, pointerToJITTargetAddress(&handleLazyCallThroughError));
 
     if (auto Err = setUpInProcessLCTMReentryViaEPCIU(**EPCIU))
       return std::move(Err);
@@ -123,7 +123,7 @@ public:
     return CODLayer.add(RT, std::move(TSM));
   }
 
-  Expected<ExecutorSymbolDef> lookup(StringRef Name) {
+  Expected<JITEvaluatedSymbol> lookup(StringRef Name) {
     return ES->lookup({&MainJD}, Mangle(Name.str()));
   }
 

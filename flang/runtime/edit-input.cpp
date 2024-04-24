@@ -16,40 +16,6 @@
 
 namespace Fortran::runtime::io {
 
-// Checks that a list-directed input value has been entirely consumed and
-// doesn't contain unparsed characters before the next value separator.
-static inline bool IsCharValueSeparator(const DataEdit &edit, char32_t ch) {
-  char32_t comma{
-      edit.modes.editingFlags & decimalComma ? char32_t{';'} : char32_t{','}};
-  return ch == ' ' || ch == '\t' || ch == comma || ch == '/' ||
-      (edit.IsNamelist() && (ch == '&' || ch == '$'));
-}
-
-static bool CheckCompleteListDirectedField(
-    IoStatementState &io, const DataEdit &edit) {
-  if (edit.IsListDirected()) {
-    std::size_t byteCount;
-    if (auto ch{io.GetCurrentChar(byteCount)}) {
-      if (IsCharValueSeparator(edit, *ch)) {
-        return true;
-      } else {
-        const auto &connection{io.GetConnectionState()};
-        io.GetIoErrorHandler().SignalError(IostatBadListDirectedInputSeparator,
-            "invalid character (0x%x) after list-directed input value, "
-            "at column %d in record %d",
-            static_cast<unsigned>(*ch),
-            static_cast<int>(connection.positionInRecord + 1),
-            static_cast<int>(connection.currentRecordNumber));
-        return false;
-      }
-    } else {
-      return true; // end of record: ok
-    }
-  } else {
-    return true;
-  }
-}
-
 template <int LOG2_BASE>
 static bool EditBOZInput(
     IoStatementState &io, const DataEdit &edit, void *n, std::size_t bytes) {
@@ -65,44 +31,24 @@ static bool EditBOZInput(
   }
   // Count significant digits after any leading white space & zeroes
   int digits{0};
-  int significantBits{0};
   for (; next; next = io.NextInField(remaining, edit)) {
     char32_t ch{*next};
     if (ch == ' ' || ch == '\t') {
-      if (edit.modes.editingFlags & blankZero) {
-        ch = '0'; // BZ mode - treat blank as if it were zero
-      } else {
-        continue;
-      }
+      continue;
     }
     if (ch >= '0' && ch <= '1') {
     } else if (LOG2_BASE >= 3 && ch >= '2' && ch <= '7') {
     } else if (LOG2_BASE >= 4 && ch >= '8' && ch <= '9') {
     } else if (LOG2_BASE >= 4 && ch >= 'A' && ch <= 'F') {
     } else if (LOG2_BASE >= 4 && ch >= 'a' && ch <= 'f') {
-    } else if (ch == ',') {
-      break; // end non-list-directed field early
     } else {
       io.GetIoErrorHandler().SignalError(
           "Bad character '%lc' in B/O/Z input field", ch);
       return false;
     }
-    if (digits++ == 0) {
-      significantBits = 4;
-      if (ch >= '0' && ch <= '1') {
-        significantBits = 1;
-      } else if (ch >= '2' && ch <= '3') {
-        significantBits = 2;
-      } else if (ch >= '4' && ch <= '7') {
-        significantBits = 3;
-      } else {
-        significantBits = 4;
-      }
-    } else {
-      significantBits += LOG2_BASE;
-    }
+    ++digits;
   }
-  auto significantBytes{static_cast<std::size_t>(significantBits + 7) / 8};
+  auto significantBytes{static_cast<std::size_t>(digits * LOG2_BASE + 7) / 8};
   if (significantBytes > bytes) {
     io.GetIoErrorHandler().SignalError(IostatBOZInputOverflow,
         "B/O/Z input of %d digits overflows %zd-byte variable", digits, bytes);
@@ -117,17 +63,12 @@ static bool EditBOZInput(
   auto *data{reinterpret_cast<unsigned char *>(n) +
       (isHostLittleEndian ? significantBytes - 1 : 0)};
   int shift{((digits - 1) * LOG2_BASE) & 7};
+  if (shift + LOG2_BASE > 8) {
+    shift -= 8; // misaligned octal
+  }
   while (digits > 0) {
     char32_t ch{*io.NextInField(remaining, edit)};
     int digit{0};
-    if (ch == ' ' || ch == '\t') {
-      if (edit.modes.editingFlags & blankZero) {
-        ch = '0'; // BZ mode - treat blank as if it were zero
-      } else {
-        continue;
-      }
-    }
-    --digits;
     if (ch >= '0' && ch <= '9') {
       digit = ch - '0';
     } else if (ch >= 'A' && ch <= 'F') {
@@ -137,39 +78,39 @@ static bool EditBOZInput(
     } else {
       continue;
     }
+    --digits;
     if (shift < 0) {
-      if (shift + LOG2_BASE > 0) { // misaligned octal
-        *data |= digit >> -shift;
-      }
       shift += 8;
+      if (shift + LOG2_BASE > 8) { // misaligned octal
+        *data |= digit >> (8 - shift);
+      }
       data += increment;
     }
     *data |= digit << shift;
     shift -= LOG2_BASE;
   }
-  return CheckCompleteListDirectedField(io, edit);
+  return true;
 }
 
-static inline char32_t GetRadixPointChar(const DataEdit &edit) {
+static inline char32_t GetDecimalPoint(const DataEdit &edit) {
   return edit.modes.editingFlags & decimalComma ? char32_t{','} : char32_t{'.'};
 }
 
-// Prepares input from a field, and returns the sign, if any, else '\0'.
-static char ScanNumericPrefix(IoStatementState &io, const DataEdit &edit,
+// Prepares input from a field, and consumes the sign, if any.
+// Returns true if there's a '-' sign.
+static bool ScanNumericPrefix(IoStatementState &io, const DataEdit &edit,
     std::optional<char32_t> &next, std::optional<int> &remaining) {
   remaining = io.CueUpInput(edit);
   next = io.NextInField(remaining, edit);
-  char sign{'\0'};
+  bool negative{false};
   if (next) {
-    if (*next == '-' || *next == '+') {
-      sign = *next;
-      if (!edit.IsListDirected()) {
-        io.SkipSpaces(remaining);
-      }
+    negative = *next == '-';
+    if (negative || *next == '+') {
+      io.SkipSpaces(remaining);
       next = io.NextInField(remaining, edit);
     }
   }
-  return sign;
+  return negative;
 }
 
 bool EditIntegerInput(
@@ -200,9 +141,9 @@ bool EditIntegerInput(
   }
   std::optional<int> remaining;
   std::optional<char32_t> next;
-  char sign{ScanNumericPrefix(io, edit, next, remaining)};
+  bool negate{ScanNumericPrefix(io, edit, next, remaining)};
   common::UnsignedInt128 value{0};
-  bool any{!!sign};
+  bool any{negate};
   bool overflow{false};
   for (; next; next = io.NextInField(remaining, edit)) {
     char32_t ch{*next};
@@ -216,8 +157,6 @@ bool EditIntegerInput(
     int digit{0};
     if (ch >= '0' && ch <= '9') {
       digit = ch - '0';
-    } else if (ch == ',') {
-      break; // end non-list-directed field early
     } else {
       io.GetIoErrorHandler().SignalError(
           "Bad character '%lc' in INTEGER input field", ch);
@@ -239,76 +178,53 @@ bool EditIntegerInput(
     return false;
   }
   auto maxForKind{common::UnsignedInt128{1} << ((8 * kind) - 1)};
-  overflow |= value >= maxForKind && (value > maxForKind || sign != '-');
+  overflow |= value >= maxForKind && (value > maxForKind || !negate);
   if (overflow) {
     io.GetIoErrorHandler().SignalError(IostatIntegerInputOverflow,
         "Decimal input overflows INTEGER(%d) variable", kind);
     return false;
   }
-  if (sign == '-') {
+  if (negate) {
     value = -value;
   }
-  if (any || !io.GetIoErrorHandler().InError()) {
-    // The value is stored in the lower order bits on big endian platform.
-    // When memcpy, shift the value to the higher order bit.
-    auto shft{static_cast<int>(sizeof(value.low())) - kind};
-    // For kind==8 (i.e. shft==0), the value is stored in low_ in big endian.
-    if (!isHostLittleEndian && shft >= 0) {
-      auto l{value.low() << (8 * shft)};
-      std::memcpy(n, &l, kind);
-    } else {
-      std::memcpy(n, &value, kind); // a blank field means zero
-    }
-    return true;
-  } else {
-    return false;
+  if (any || !io.GetConnectionState().IsAtEOF()) {
+    std::memcpy(n, &value, kind); // a blank field means zero
   }
+  return any;
 }
 
 // Parses a REAL input number from the input source as a normalized
 // fraction into a supplied buffer -- there's an optional '-', a
-// decimal point when the input is not hexadecimal, and at least one
-// digit.  Replaces blanks with zeroes where appropriate.
-struct ScannedRealInput {
-  // Number of characters that (should) have been written to the
-  // buffer -- this can be larger than the buffer size, which
-  // indicates buffer overflow.  Zero indicates an error.
-  int got{0};
-  int exponent{0}; // adjusted as necessary; binary if isHexadecimal
-  bool isHexadecimal{false}; // 0X...
-};
-static ScannedRealInput ScanRealInput(
-    char *buffer, int bufferSize, IoStatementState &io, const DataEdit &edit) {
+// decimal point, and at least one digit.  The adjusted exponent value
+// is returned in a reference argument.  The returned value is the number
+// of characters that (should) have been written to the buffer -- this can
+// be larger than the buffer size and can indicate overflow.  Replaces
+// blanks with zeroes if appropriate.
+static int ScanRealInput(char *buffer, int bufferSize, IoStatementState &io,
+    const DataEdit &edit, int &exponent) {
   std::optional<int> remaining;
   std::optional<char32_t> next;
   int got{0};
-  std::optional<int> radixPointOffset;
+  std::optional<int> decimalPoint;
   auto Put{[&](char ch) -> void {
     if (got < bufferSize) {
       buffer[got] = ch;
     }
     ++got;
   }};
-  char sign{ScanNumericPrefix(io, edit, next, remaining)};
-  if (sign == '-') {
+  if (ScanNumericPrefix(io, edit, next, remaining)) {
     Put('-');
   }
   bool bzMode{(edit.modes.editingFlags & blankZero) != 0};
-  int exponent{0};
-  if (!next || (!bzMode && *next == ' ') ||
-      (!(edit.modes.editingFlags & decimalComma) && *next == ',')) {
-    if (!edit.IsListDirected() && !io.GetConnectionState().IsAtEOF()) {
-      // An empty/blank field means zero when not list-directed.
-      // A fixed-width field containing only a sign is also zero;
-      // this behavior isn't standard-conforming in F'2023 but it is
-      // required to pass FCVS.
+  if (!next || (!bzMode && *next == ' ')) { // empty/blank field means zero
+    remaining.reset();
+    if (!io.GetConnectionState().IsAtEOF()) {
       Put('0');
     }
-    return {got, exponent, false};
+    return got;
   }
-  char32_t radixPointChar{GetRadixPointChar(edit)};
+  char32_t decimal{GetDecimalPoint(edit)};
   char32_t first{*next >= 'a' && *next <= 'z' ? *next + 'A' - 'a' : *next};
-  bool isHexadecimal{false};
   if (first == 'N' || first == 'I') {
     // NaN or infinity - convert to upper case
     // Subtle: a blank field of digits could be followed by 'E' or 'D',
@@ -329,7 +245,7 @@ static ScannedRealInput ScanRealInput(
         if (depth == 0) {
           break;
         } else if (!next) {
-          return {}; // error
+          return 0; // error
         } else if (*next == '(') {
           ++depth;
         } else if (*next == ')') {
@@ -338,75 +254,49 @@ static ScannedRealInput ScanRealInput(
         Put(*next);
       }
     }
-  } else if (first == radixPointChar || (first >= '0' && first <= '9') ||
+    exponent = 0;
+  } else if (first == decimal || (first >= '0' && first <= '9') ||
       (bzMode && (first == ' ' || first == '\t')) || first == 'E' ||
       first == 'D' || first == 'Q') {
-    if (first == '0') {
-      next = io.NextInField(remaining, edit);
-      if (next && (*next == 'x' || *next == 'X')) { // 0X...
-        isHexadecimal = true;
-        next = io.NextInField(remaining, edit);
-      } else {
-        Put('0');
-      }
-    }
-    // input field is normalized to a fraction
-    if (!isHexadecimal) {
-      Put('.');
-    }
+    Put('.'); // input field is normalized to a fraction
     auto start{got};
     for (; next; next = io.NextInField(remaining, edit)) {
       char32_t ch{*next};
       if (ch == ' ' || ch == '\t') {
-        if (isHexadecimal) {
-          return {}; // error
-        } else if (bzMode) {
+        if (bzMode) {
           ch = '0'; // BZ mode - treat blank as if it were zero
         } else {
-          continue; // ignore blank in fixed field
+          continue;
         }
       }
-      if (ch == '0' && got == start && !radixPointOffset) {
-        // omit leading zeroes before the radix point
+      if (ch == '0' && got == start && !decimalPoint) {
+        // omit leading zeroes before the decimal
       } else if (ch >= '0' && ch <= '9') {
         Put(ch);
-      } else if (ch == radixPointChar && !radixPointOffset) {
-        // The radix point character is *not* copied to the buffer.
-        radixPointOffset = got - start; // # of digits before the radix point
-      } else if (isHexadecimal && ch >= 'A' && ch <= 'F') {
-        Put(ch);
-      } else if (isHexadecimal && ch >= 'a' && ch <= 'f') {
-        Put(ch - 'a' + 'A'); // normalize to capitals
+      } else if (ch == decimal && !decimalPoint) {
+        // the decimal point is *not* copied to the buffer
+        decimalPoint = got - start; // # of digits before the decimal point
       } else {
         break;
       }
     }
     if (got == start) {
-      // Nothing but zeroes and maybe a radix point.  F'2018 requires
+      // Nothing but zeroes and maybe a decimal point.  F'2018 requires
       // at least one digit, but F'77 did not, and a bare "." shows up in
       // the FCVS suite.
       Put('0'); // emit at least one digit
     }
-    // In list-directed input, a bad exponent is not consumed.
-    auto nextBeforeExponent{next};
-    auto startExponent{io.GetConnectionState().positionInRecord};
-    bool hasGoodExponent{false};
-    if (next) {
-      if (isHexadecimal) {
-        if (*next == 'p' || *next == 'P') {
-          next = io.NextInField(remaining, edit);
-        } else {
-          // The binary exponent is not optional in the standard.
-          return {}; // error
-        }
-      } else if (*next == 'e' || *next == 'E' || *next == 'd' || *next == 'D' ||
-          *next == 'q' || *next == 'Q') {
-        // Optional exponent letter.  Blanks are allowed between the
-        // optional exponent letter and the exponent value.
-        io.SkipSpaces(remaining);
-        next = io.NextInField(remaining, edit);
-      }
+    if (next &&
+        (*next == 'e' || *next == 'E' || *next == 'd' || *next == 'D' ||
+            *next == 'q' || *next == 'Q')) {
+      // Optional exponent letter.  Blanks are allowed between the
+      // optional exponent letter and the exponent value.
+      io.SkipSpaces(remaining);
+      next = io.NextInField(remaining, edit);
     }
+    // The default exponent is -kP, but the scale factor doesn't affect
+    // an explicit exponent.
+    exponent = -edit.modes.scale;
     if (next &&
         (*next == '-' || *next == '+' || (*next >= '0' && *next <= '9') ||
             *next == ' ' || *next == '\t')) {
@@ -414,17 +304,13 @@ static ScannedRealInput ScanRealInput(
       if (negExpo || *next == '+') {
         next = io.NextInField(remaining, edit);
       }
-      for (; next; next = io.NextInField(remaining, edit)) {
+      for (exponent = 0; next; next = io.NextInField(remaining, edit)) {
         if (*next >= '0' && *next <= '9') {
-          hasGoodExponent = true;
           if (exponent < 10000) {
             exponent = 10 * exponent + *next - '0';
           }
         } else if (*next == ' ' || *next == '\t') {
-          if (isHexadecimal) {
-            break;
-          } else if (bzMode) {
-            hasGoodExponent = true;
+          if (bzMode) {
             exponent = 10 * exponent;
           }
         } else {
@@ -435,36 +321,24 @@ static ScannedRealInput ScanRealInput(
         exponent = -exponent;
       }
     }
-    if (!hasGoodExponent) {
-      if (isHexadecimal) {
-        return {}; // error
-      }
-      // There isn't a good exponent; do not consume it.
-      next = nextBeforeExponent;
-      io.HandleAbsolutePosition(startExponent);
-      // The default exponent is -kP, but the scale factor doesn't affect
-      // an explicit exponent.
-      exponent = -edit.modes.scale;
-    }
-    // Adjust exponent by number of digits before the radix point.
-    if (isHexadecimal) {
-      // Exponents for hexadecimal input are binary.
-      exponent += radixPointOffset.value_or(got - start) * 4;
-    } else if (radixPointOffset) {
-      exponent += *radixPointOffset;
+    if (decimalPoint) {
+      exponent += *decimalPoint;
     } else {
-      // When no redix point (or comma) appears in the value, the 'd'
+      // When no decimal point (or comma) appears in the value, the 'd'
       // part of the edit descriptor must be interpreted as the number of
       // digits in the value to be interpreted as being to the *right* of
-      // the assumed radix point (13.7.2.3.2)
+      // the assumed decimal point (13.7.2.3.2)
       exponent += got - start - edit.digits.value_or(0);
     }
+  } else {
+    // TODO: hex FP input
+    exponent = 0;
+    return 0;
   }
   // Consume the trailing ')' of a list-directed or NAMELIST complex
   // input value.
   if (edit.descriptor == DataEdit::ListDirectedImaginaryPart) {
     if (next && (*next == ' ' || *next == '\t')) {
-      io.SkipSpaces(remaining);
       next = io.NextInField(remaining, edit);
     }
     if (!next) { // NextInField fails on separators like ')'
@@ -478,11 +352,11 @@ static ScannedRealInput ScanRealInput(
     while (next && (*next == ' ' || *next == '\t')) {
       next = io.NextInField(remaining, edit);
     }
-    if (next && (*next != ',' || (edit.modes.editingFlags & decimalComma))) {
-      return {}; // error: unused nonblank character in fixed-width field
+    if (next) {
+      return 0; // error: unused nonblank character in fixed-width field
     }
   }
-  return {got, exponent, isHexadecimal};
+  return got;
 }
 
 static void RaiseFPExceptions(decimal::ConversionResultFlags flags) {
@@ -494,9 +368,6 @@ static void RaiseFPExceptions(decimal::ConversionResultFlags flags) {
 #endif
   if (flags & decimal::ConversionResultFlags::Overflow) {
     RAISE(FE_OVERFLOW);
-  }
-  if (flags & decimal::ConversionResultFlags::Underflow) {
-    RAISE(FE_UNDERFLOW);
   }
   if (flags & decimal::ConversionResultFlags::Inexact) {
     RAISE(FE_INEXACT);
@@ -512,7 +383,7 @@ static void RaiseFPExceptions(decimal::ConversionResultFlags flags) {
 // converter without modification, this fast path for real input
 // saves time by avoiding memory copies and reformatting of the exponent.
 template <int PRECISION>
-static bool TryFastPathRealDecimalInput(
+static bool TryFastPathRealInput(
     IoStatementState &io, const DataEdit &edit, void *n) {
   if (edit.modes.editingFlags & (blankZero | decimalComma)) {
     return false;
@@ -552,25 +423,18 @@ static bool TryFastPathRealDecimalInput(
       return false;
     }
   }
+  for (; p < limit && (*p == ' ' || *p == '\t'); ++p) {
+  }
   if (edit.descriptor == DataEdit::ListDirectedImaginaryPart) {
-    // Need to consume a trailing ')', possibly with leading spaces
-    for (; p < limit && (*p == ' ' || *p == '\t'); ++p) {
-    }
-    if (p < limit && *p == ')') {
-      ++p;
-    } else {
+    // Need to consume a trailing ')' and any white space after
+    if (p >= limit || *p != ')') {
       return false;
     }
-  } else if (edit.IsListDirected()) {
-    if (p < limit && !IsCharValueSeparator(edit, *p)) {
-      return false;
+    for (++p; p < limit && (*p == ' ' || *p == '\t'); ++p) {
     }
-  } else {
-    for (; p < limit && (*p == ' ' || *p == '\t'); ++p) {
-    }
-    if (edit.width && p < str + *edit.width) {
-      return false; // unconverted characters remain in fixed width field
-    }
+  }
+  if (edit.width && p < str + *edit.width) {
+    return false; // unconverted characters remain in fixed width field
   }
   // Success on the fast path!
   *reinterpret_cast<decimal::BinaryFloatingPointNumber<PRECISION> *>(n) =
@@ -583,190 +447,72 @@ static bool TryFastPathRealDecimalInput(
   return true;
 }
 
-template <int binaryPrecision>
-decimal::ConversionToBinaryResult<binaryPrecision> ConvertHexadecimal(
-    const char *&p, enum decimal::FortranRounding rounding, int expo) {
-  using RealType = decimal::BinaryFloatingPointNumber<binaryPrecision>;
-  using RawType = typename RealType::RawType;
-  bool isNegative{*p == '-'};
-  constexpr RawType one{1};
-  RawType signBit{0};
-  if (isNegative) {
-    ++p;
-    signBit = one << (RealType::bits - 1);
-  }
-  RawType fraction{0};
-  // Adjust the incoming binary P+/- exponent to shift the radix point
-  // to below the LSB and add in the bias.
-  expo += binaryPrecision - 1 + RealType::exponentBias;
-  // Input the fraction.
-  int roundingBit{0};
-  int guardBit{0};
-  for (; *p; ++p) {
-    fraction <<= 4;
-    expo -= 4;
-    if (*p >= '0' && *p <= '9') {
-      fraction |= *p - '0';
-    } else if (*p >= 'A' && *p <= 'F') {
-      fraction |= *p - 'A' + 10; // data were normalized to capitals
-    } else {
-      break;
-    }
-    while (fraction >> binaryPrecision) {
-      guardBit |= roundingBit;
-      roundingBit = (int)fraction & 1;
-      fraction >>= 1;
-      ++expo;
-    }
-  }
-  if (fraction) {
-    // Boost biased expo if too small
-    while (expo < 1) {
-      guardBit |= roundingBit;
-      roundingBit = (int)fraction & 1;
-      fraction >>= 1;
-      ++expo;
-    }
-    // Normalize
-    while (expo > 1 && !(fraction >> (binaryPrecision - 1))) {
-      fraction <<= 1;
-      --expo;
-    }
-    // Rounding
-    bool increase{false};
-    switch (rounding) {
-    case decimal::RoundNearest: // RN & RP
-      increase = roundingBit && (guardBit | ((int)fraction & 1));
-      break;
-    case decimal::RoundUp: // RU
-      increase = !isNegative && (roundingBit | guardBit);
-      break;
-    case decimal::RoundDown: // RD
-      increase = isNegative && (roundingBit | guardBit);
-      break;
-    case decimal::RoundToZero: // RZ
-      break;
-    case decimal::RoundCompatible: // RC
-      increase = roundingBit != 0;
-      break;
-    }
-    if (increase) {
-      ++fraction;
-      if (fraction >> binaryPrecision) {
-        fraction >>= 1;
-        ++expo;
-      }
-    }
-  }
-  // Package & return result
-  constexpr RawType significandMask{(one << RealType::significandBits) - 1};
-  int flags{(roundingBit | guardBit) ? decimal::Inexact : decimal::Exact};
-  if (!fraction) {
-    expo = 0;
-  } else if (expo == 1 && !(fraction >> (binaryPrecision - 1))) {
-    expo = 0; // subnormal
-    flags |= decimal::Underflow;
-  } else if (expo >= RealType::maxExponent) {
-    if (rounding == decimal::RoundToZero ||
-        (rounding == decimal::RoundDown && !isNegative) ||
-        (rounding == decimal::RoundUp && isNegative)) {
-      expo = RealType::maxExponent - 1; // +/-HUGE()
-      fraction = significandMask;
-    } else {
-      expo = RealType::maxExponent; // +/-Inf
-      fraction = 0;
-      flags |= decimal::Overflow;
-    }
-  } else {
-    fraction &= significandMask; // remove explicit normalization unless x87
-  }
-  return decimal::ConversionToBinaryResult<binaryPrecision>{
-      RealType{static_cast<RawType>(signBit |
-          static_cast<RawType>(expo) << RealType::significandBits | fraction)},
-      static_cast<decimal::ConversionResultFlags>(flags)};
-}
-
 template <int KIND>
 bool EditCommonRealInput(IoStatementState &io, const DataEdit &edit, void *n) {
   constexpr int binaryPrecision{common::PrecisionOfRealKind(KIND)};
-  if (TryFastPathRealDecimalInput<binaryPrecision>(io, edit, n)) {
-    return CheckCompleteListDirectedField(io, edit);
+  if (TryFastPathRealInput<binaryPrecision>(io, edit, n)) {
+    return true;
   }
   // Fast path wasn't available or didn't work; go the more general route
   static constexpr int maxDigits{
       common::MaxDecimalConversionDigits(binaryPrecision)};
   static constexpr int bufferSize{maxDigits + 18};
   char buffer[bufferSize];
-  auto scanned{ScanRealInput(buffer, maxDigits + 2, io, edit)};
-  int got{scanned.got};
+  int exponent{0};
+  int got{ScanRealInput(buffer, maxDigits + 2, io, edit, exponent)};
   if (got >= maxDigits + 2) {
     io.GetIoErrorHandler().Crash("EditCommonRealInput: buffer was too small");
     return false;
   }
   if (got == 0) {
-    const auto &connection{io.GetConnectionState()};
-    io.GetIoErrorHandler().SignalError(IostatBadRealInput,
-        "Bad real input data at column %d of record %d",
-        static_cast<int>(connection.positionInRecord + 1),
-        static_cast<int>(connection.currentRecordNumber));
+    io.GetIoErrorHandler().SignalError(IostatBadRealInput);
     return false;
   }
-  decimal::ConversionToBinaryResult<binaryPrecision> converted;
-  const char *p{buffer};
-  if (scanned.isHexadecimal) {
-    buffer[got] = '\0';
-    converted = ConvertHexadecimal<binaryPrecision>(
-        p, edit.modes.round, scanned.exponent);
-  } else {
-    bool hadExtra{got > maxDigits};
-    int exponent{scanned.exponent};
-    if (exponent != 0) {
-      buffer[got++] = 'e';
-      if (exponent < 0) {
-        buffer[got++] = '-';
-        exponent = -exponent;
-      }
-      if (exponent > 9999) {
-        exponent = 9999; // will convert to +/-Inf
-      }
-      if (exponent > 999) {
-        int dig{exponent / 1000};
-        buffer[got++] = '0' + dig;
-        int rest{exponent - 1000 * dig};
-        dig = rest / 100;
-        buffer[got++] = '0' + dig;
-        rest -= 100 * dig;
-        dig = rest / 10;
-        buffer[got++] = '0' + dig;
-        buffer[got++] = '0' + (rest - 10 * dig);
-      } else if (exponent > 99) {
-        int dig{exponent / 100};
-        buffer[got++] = '0' + dig;
-        int rest{exponent - 100 * dig};
-        dig = rest / 10;
-        buffer[got++] = '0' + dig;
-        buffer[got++] = '0' + (rest - 10 * dig);
-      } else if (exponent > 9) {
-        int dig{exponent / 10};
-        buffer[got++] = '0' + dig;
-        buffer[got++] = '0' + (exponent - 10 * dig);
-      } else {
-        buffer[got++] = '0' + exponent;
-      }
+  bool hadExtra{got > maxDigits};
+  if (exponent != 0) {
+    buffer[got++] = 'e';
+    if (exponent < 0) {
+      buffer[got++] = '-';
+      exponent = -exponent;
     }
-    buffer[got] = '\0';
-    converted = decimal::ConvertToBinary<binaryPrecision>(p, edit.modes.round);
-    if (hadExtra) {
-      converted.flags = static_cast<enum decimal::ConversionResultFlags>(
-          converted.flags | decimal::Inexact);
+    if (exponent > 9999) {
+      exponent = 9999; // will convert to +/-Inf
+    }
+    if (exponent > 999) {
+      int dig{exponent / 1000};
+      buffer[got++] = '0' + dig;
+      int rest{exponent - 1000 * dig};
+      dig = rest / 100;
+      buffer[got++] = '0' + dig;
+      rest -= 100 * dig;
+      dig = rest / 10;
+      buffer[got++] = '0' + dig;
+      buffer[got++] = '0' + (rest - 10 * dig);
+    } else if (exponent > 99) {
+      int dig{exponent / 100};
+      buffer[got++] = '0' + dig;
+      int rest{exponent - 100 * dig};
+      dig = rest / 10;
+      buffer[got++] = '0' + dig;
+      buffer[got++] = '0' + (rest - 10 * dig);
+    } else if (exponent > 9) {
+      int dig{exponent / 10};
+      buffer[got++] = '0' + dig;
+      buffer[got++] = '0' + (exponent - 10 * dig);
+    } else {
+      buffer[got++] = '0' + exponent;
     }
   }
+  buffer[got] = '\0';
+  const char *p{buffer};
+  decimal::ConversionToBinaryResult<binaryPrecision> converted{
+      decimal::ConvertToBinary<binaryPrecision>(p, edit.modes.round)};
+  if (hadExtra) {
+    converted.flags = static_cast<enum decimal::ConversionResultFlags>(
+        converted.flags | decimal::Inexact);
+  }
   if (*p) { // unprocessed junk after value
-    const auto &connection{io.GetConnectionState()};
-    io.GetIoErrorHandler().SignalError(IostatBadRealInput,
-        "Trailing characters after real input data at column %d of record %d",
-        static_cast<int>(connection.positionInRecord + 1),
-        static_cast<int>(connection.currentRecordNumber));
+    io.GetIoErrorHandler().SignalError(IostatBadRealInput);
     return false;
   }
   *reinterpret_cast<decimal::BinaryFloatingPointNumber<binaryPrecision> *>(n) =
@@ -779,7 +525,7 @@ bool EditCommonRealInput(IoStatementState &io, const DataEdit &edit, void *n) {
     }
     RaiseFPExceptions(converted.flags);
   }
-  return CheckCompleteListDirectedField(io, edit);
+  return true;
 }
 
 template <int KIND>
@@ -856,13 +602,13 @@ bool EditLogicalInput(IoStatementState &io, const DataEdit &edit, bool &x) {
         "Bad character '%lc' in LOGICAL input field", *next);
     return false;
   }
-  if (remaining) { // ignore the rest of a fixed-width field
+  if (remaining) { // ignore the rest of the field
     io.HandleRelativePosition(*remaining);
   } else if (edit.descriptor == DataEdit::ListDirected) {
     while (io.NextInField(remaining, edit)) { // discard rest of field
     }
   }
-  return CheckCompleteListDirectedField(io, edit);
+  return true;
 }
 
 // See 13.10.3.1 paragraphs 7-9 in Fortran 2018
@@ -925,10 +671,6 @@ static bool EditListDirectedCharacterInput(
     case '/':
       isSep = true;
       break;
-    case '&':
-    case '$':
-      isSep = edit.IsNamelist();
-      break;
     case ',':
       isSep = !(edit.modes.editingFlags & decimalComma);
       break;
@@ -950,20 +692,20 @@ static bool EditListDirectedCharacterInput(
 }
 
 template <typename CHAR>
-bool EditCharacterInput(IoStatementState &io, const DataEdit &edit, CHAR *x,
-    std::size_t lengthChars) {
+bool EditCharacterInput(
+    IoStatementState &io, const DataEdit &edit, CHAR *x, std::size_t length) {
   switch (edit.descriptor) {
   case DataEdit::ListDirected:
-    return EditListDirectedCharacterInput(io, x, lengthChars, edit);
+    return EditListDirectedCharacterInput(io, x, length, edit);
   case 'A':
   case 'G':
     break;
   case 'B':
-    return EditBOZInput<1>(io, edit, x, lengthChars * sizeof *x);
+    return EditBOZInput<1>(io, edit, x, length * sizeof *x);
   case 'O':
-    return EditBOZInput<3>(io, edit, x, lengthChars * sizeof *x);
+    return EditBOZInput<3>(io, edit, x, length * sizeof *x);
   case 'Z':
-    return EditBOZInput<4>(io, edit, x, lengthChars * sizeof *x);
+    return EditBOZInput<4>(io, edit, x, length * sizeof *x);
   default:
     io.GetIoErrorHandler().SignalError(IostatErrorInFormat,
         "Data edit descriptor '%c' may not be used with a CHARACTER data item",
@@ -971,109 +713,87 @@ bool EditCharacterInput(IoStatementState &io, const DataEdit &edit, CHAR *x,
     return false;
   }
   const ConnectionState &connection{io.GetConnectionState()};
-  std::size_t remainingChars{lengthChars};
-  // Skip leading characters.
-  // Their bytes don't count towards INQUIRE(IOLENGTH=).
-  std::size_t skipChars{0};
+  std::size_t remaining{length};
   if (edit.width && *edit.width > 0) {
-    remainingChars = *edit.width;
-    if (remainingChars > lengthChars) {
-      skipChars = remainingChars - lengthChars;
-    }
+    remaining = *edit.width;
   }
   // When the field is wider than the variable, we drop the leading
   // characters.  When the variable is wider than the field, there can be
-  // trailing padding or an EOR condition.
+  // trailing padding.
   const char *input{nullptr};
-  std::size_t readyBytes{0};
+  std::size_t ready{0};
+  // Skip leading bytes.
+  // These bytes don't count towards INQUIRE(IOLENGTH=).
+  std::size_t skip{remaining > length ? remaining - length : 0};
   // Transfer payload bytes; these do count.
-  while (remainingChars > 0) {
-    if (readyBytes == 0) {
-      readyBytes = io.GetNextInputBytes(input);
-      if (readyBytes == 0 ||
-          (readyBytes < remainingChars && edit.modes.nonAdvancing)) {
-        if (io.CheckForEndOfRecord(readyBytes)) {
-          if (readyBytes == 0) {
-            // PAD='YES' and no more data
-            std::fill_n(x, lengthChars, ' ');
-            return !io.GetIoErrorHandler().InError();
-          } else {
-            // Do partial read(s) then pad on last iteration
-          }
-        } else {
-          return !io.GetIoErrorHandler().InError();
+  while (remaining > 0) {
+    if (ready == 0) {
+      ready = io.GetNextInputBytes(input);
+      if (ready == 0) {
+        if (io.CheckForEndOfRecord()) {
+          std::fill_n(x, length, ' '); // PAD='YES'
         }
+        return !io.GetIoErrorHandler().InError();
       }
     }
-    std::size_t chunkBytes;
-    std::size_t chunkChars{1};
-    bool skipping{skipChars > 0};
+    std::size_t chunk;
+    bool skipping{skip > 0};
     if (connection.isUTF8) {
-      chunkBytes = MeasureUTF8Bytes(*input);
+      chunk = MeasureUTF8Bytes(*input);
       if (skipping) {
-        --skipChars;
+        --skip;
       } else if (auto ucs{DecodeUTF8(input)}) {
-        if ((sizeof *x == 1 && *ucs > 0xff) ||
-            (sizeof *x == 2 && *ucs > 0xffff)) {
-          *x++ = '?';
-        } else {
-          *x++ = *ucs;
-        }
-        --lengthChars;
-      } else if (chunkBytes == 0) {
+        *x++ = *ucs;
+        --length;
+      } else if (chunk == 0) {
         // error recovery: skip bad encoding
-        chunkBytes = 1;
+        chunk = 1;
       }
+      --remaining;
     } else if (connection.internalIoCharKind > 1) {
       // Reading from non-default character internal unit
-      chunkBytes = connection.internalIoCharKind;
+      chunk = connection.internalIoCharKind;
       if (skipping) {
-        --skipChars;
+        --skip;
       } else {
         char32_t buffer{0};
-        std::memcpy(&buffer, input, chunkBytes);
-        if ((sizeof *x == 1 && buffer > 0xff) ||
-            (sizeof *x == 2 && buffer > 0xffff)) {
-          *x++ = '?';
-        } else {
-          *x++ = buffer;
-        }
-        --lengthChars;
+        std::memcpy(&buffer, input, chunk);
+        *x++ = buffer;
+        --length;
       }
+      --remaining;
     } else if constexpr (sizeof *x > 1) {
       // Read single byte with expansion into multi-byte CHARACTER
-      chunkBytes = 1;
+      chunk = 1;
       if (skipping) {
-        --skipChars;
+        --skip;
       } else {
         *x++ = static_cast<unsigned char>(*input);
-        --lengthChars;
+        --length;
       }
+      --remaining;
     } else { // single bytes -> default CHARACTER
       if (skipping) {
-        chunkBytes = std::min<std::size_t>(skipChars, readyBytes);
-        chunkChars = chunkBytes;
-        skipChars -= chunkChars;
+        chunk = std::min<std::size_t>(skip, ready);
+        skip -= chunk;
       } else {
-        chunkBytes = std::min<std::size_t>(remainingChars, readyBytes);
-        chunkBytes = std::min<std::size_t>(lengthChars, chunkBytes);
-        chunkChars = chunkBytes;
-        std::memcpy(x, input, chunkBytes);
-        x += chunkBytes;
-        lengthChars -= chunkChars;
+        chunk = std::min<std::size_t>(remaining, ready);
+        std::memcpy(x, input, chunk);
+        x += chunk;
+        length -= chunk;
       }
+      remaining -= chunk;
     }
-    input += chunkBytes;
-    remainingChars -= chunkChars;
+    input += chunk;
     if (!skipping) {
-      io.GotChar(chunkBytes);
+      io.GotChar(chunk);
     }
-    io.HandleRelativePosition(chunkBytes);
-    readyBytes -= chunkBytes;
+    io.HandleRelativePosition(chunk);
+    ready -= chunk;
   }
   // Pad the remainder of the input variable, if any.
-  std::fill_n(x, lengthChars, ' ');
-  return CheckCompleteListDirectedField(io, edit);
+  std::fill_n(x, length, ' ');
+  return true;
 }
 
 template bool EditRealInput<2>(IoStatementState &, const DataEdit &, void *);

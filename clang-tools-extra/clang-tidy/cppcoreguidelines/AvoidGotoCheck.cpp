@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 namespace {
 AST_MATCHER(GotoStmt, isForwardJumping) {
@@ -44,4 +46,6 @@ void AvoidGotoCheck::check(const MatchFinder::MatchResult &Result) {
   diag(Goto->getLabel()->getBeginLoc(), "label defined here",
        DiagnosticIDs::Note);
 }
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

@@ -9,11 +9,11 @@
 #ifndef LLVM_LIBC_CONFIG_LINUX_APP_H
 #define LLVM_LIBC_CONFIG_LINUX_APP_H
 
-#include "src/__support/macros/properties/architectures.h"
+#include "src/__support/architectures.h"
 
 #include <stdint.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // Data structure to capture properties of the linux/ELF TLS image.
 struct TLSImage {
@@ -35,34 +35,19 @@ struct TLSImage {
   uintptr_t align;
 };
 
-#if defined(LIBC_TARGET_ARCH_IS_X86_64) ||                                     \
-    defined(LIBC_TARGET_ARCH_IS_AARCH64) ||                                    \
-    defined(LIBC_TARGET_ARCH_IS_ANY_RISCV)
+#if defined(LLVM_LIBC_ARCH_X86_64) || defined(LLVM_LIBC_ARCH_AARCH64)
 // At the language level, argc is an int. But we use uint64_t as the x86_64
 // ABI specifies it as an 8 byte value. Likewise, in the ARM64 ABI, arguments
 // are usually passed in registers.  x0 is a doubleword register, so this is
 // 64 bit for aarch64 as well.
-typedef uintptr_t ArgcType;
+typedef uint64_t ArgcType;
 
 // At the language level, argv is a char** value. However, we use uint64_t as
 // ABIs specify the argv vector be an |argc| long array of 8-byte values.
-typedef uintptr_t ArgVEntryType;
-
-typedef uintptr_t EnvironType;
+typedef uint64_t ArgVEntryType;
 #else
 #error "argc and argv types are not defined for the target platform."
 #endif
-
-// Linux manpage on `proc(5)` says that the aux vector is an array of
-// unsigned long pairs.
-// (see: https://man7.org/linux/man-pages/man5/proc.5.html)
-using AuxEntryType = unsigned long;
-// Using the naming convention from `proc(5)`.
-// TODO: Would be nice to use the aux entry structure from elf.h when available.
-struct AuxEntry {
-  AuxEntryType id;
-  AuxEntryType value;
-};
 
 struct Args {
   ArgcType argc;
@@ -79,7 +64,7 @@ struct Args {
 // Data structure which captures properties of a linux application.
 struct AppProperties {
   // Page size used for the application.
-  uintptr_t page_size;
+  uintptr_t pageSize;
 
   Args *args;
 
@@ -87,13 +72,10 @@ struct AppProperties {
   TLSImage tls;
 
   // Environment data.
-  EnvironType *env_ptr;
-
-  // Auxiliary vector data.
-  AuxEntry *auxv_ptr;
+  uint64_t *envPtr;
 };
 
-[[gnu::weak]] extern AppProperties app;
+extern AppProperties app;
 
 // The descriptor of a thread's TLS area.
 struct TLSDescriptor {
@@ -119,9 +101,6 @@ void init_tls(TLSDescriptor &tls);
 // Cleanup the TLS area as described in |tls_descriptor|.
 void cleanup_tls(uintptr_t tls_addr, uintptr_t tls_size);
 
-// Set the thread pointer for the current thread.
-bool set_thread_ptr(uintptr_t val);
-
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_CONFIG_LINUX_APP_H

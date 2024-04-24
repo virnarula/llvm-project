@@ -262,7 +262,6 @@ bool guessPredEdgeCounts(BinaryBasicBlock *BB, ArcSet &GuessedArcs) {
       continue;
 
     Pred->getBranchInfo(*BB).Count = Guessed;
-    GuessedArcs.insert(std::make_pair(Pred, BB));
     return true;
   }
   llvm_unreachable("Expected unguessed arc");
@@ -449,10 +448,10 @@ void estimateEdgeCounts(BinaryFunction &BF) {
     computeEdgeWeights<BinaryBasicBlock *>(BF, SuccEdgeWeights);
   }
   if (opts::EqualizeBBCounts) {
-    LLVM_DEBUG(BF.print(dbgs(), "before equalize BB counts"));
+    LLVM_DEBUG(BF.print(dbgs(), "before equalize BB counts", true));
     auto Info = DataflowInfoManager(BF, nullptr, nullptr);
     equalizeBBCounts(Info, BF);
-    LLVM_DEBUG(BF.print(dbgs(), "after equalize BB counts"));
+    LLVM_DEBUG(BF.print(dbgs(), "after equalize BB counts", true));
   }
   if (opts::IterativeGuess)
     guessEdgeByIterativeApproach(BF);

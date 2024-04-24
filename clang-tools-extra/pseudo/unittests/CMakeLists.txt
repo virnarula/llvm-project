@@ -26,6 +26,5 @@ target_link_libraries(ClangPseudoTests
   clangPseudo
   clangPseudoCXX
   clangPseudoGrammar
-  LLVMTestingAnnotations
   LLVMTestingSupport
   )

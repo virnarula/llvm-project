@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "token-sequence.h"
-#include "prescan.h"
 #include "flang/Parser/characters.h"
 #include "flang/Parser/message.h"
 #include "llvm/Support/raw_ostream.h"
@@ -155,16 +154,7 @@ TokenSequence &TokenSequence::ToLowerCase() {
     std::size_t nextStart{atToken + 1 < tokens ? start_[++atToken] : chars};
     char *p{&char_[j]};
     char const *limit{char_.data() + nextStart};
-    const char *lastChar{limit - 1};
     j = nextStart;
-    // Skip leading whitespaces
-    while (p < limit - 1 && *p == ' ') {
-      ++p;
-    }
-    // Find last non-whitespace char
-    while (lastChar > p + 1 && *lastChar == ' ') {
-      --lastChar;
-    }
     if (IsDecimalDigit(*p)) {
       while (p < limit && IsDecimalDigit(*p)) {
         ++p;
@@ -181,17 +171,17 @@ TokenSequence &TokenSequence::ToLowerCase() {
           *p = ToLowerCaseLetter(*p);
         }
       }
-    } else if (*lastChar == '\'' || *lastChar == '"') {
-      if (*p == *lastChar) {
+    } else if (limit[-1] == '\'' || limit[-1] == '"') {
+      if (*p == limit[-1]) {
         // Character literal without prefix
-      } else if (p[1] == *lastChar) {
+      } else if (p[1] == limit[-1]) {
         // BOZX-prefixed constant
         for (; p < limit; ++p) {
           *p = ToLowerCaseLetter(*p);
         }
       } else {
         // Literal with kind-param prefix name (e.g., K_"ABC").
-        for (; *p != *lastChar; ++p) {
+        for (; *p != limit[-1]; ++p) {
           *p = ToLowerCaseLetter(*p);
         }
       }
@@ -254,31 +244,11 @@ TokenSequence &TokenSequence::RemoveRedundantBlanks(std::size_t firstChar) {
   return *this;
 }
 
-TokenSequence &TokenSequence::ClipComment(
-    const Prescanner &prescanner, bool skipFirst) {
+TokenSequence &TokenSequence::ClipComment(bool skipFirst) {
   std::size_t tokens{SizeInTokens()};
   for (std::size_t j{0}; j < tokens; ++j) {
-    CharBlock tok{TokenAt(j)};
-    if (std::size_t blanks{tok.CountLeadingBlanks()};
-        blanks < tok.size() && tok[blanks] == '!') {
-      // Retain active compiler directive sentinels (e.g. "!dir$")
-      for (std::size_t k{j + 1}; k < tokens && tok.size() < blanks + 5; ++k) {
-        if (tok.begin() + tok.size() == TokenAt(k).begin()) {
-          tok.ExtendToCover(TokenAt(k));
-        } else {
-          break;
-        }
-      }
-      bool isSentinel{false};
-      if (tok.size() == blanks + 5) {
-        char sentinel[4];
-        for (int k{0}; k < 4; ++k) {
-          sentinel[k] = ToLowerCaseLetter(tok[blanks + k + 1]);
-        }
-        isSentinel = prescanner.IsCompilerDirectiveSentinel(sentinel, 4);
-      }
-      if (isSentinel) {
-      } else if (skipFirst) {
+    if (TokenAt(j).FirstNonBlank() == '!') {
+      if (skipFirst) {
         skipFirst = false;
       } else {
         TokenSequence result;
@@ -294,10 +264,8 @@ TokenSequence &TokenSequence::ClipComment(
 }
 
 void TokenSequence::Emit(CookedSource &cooked) const {
-  if (auto n{char_.size()}) {
-    cooked.Put(&char_[0], n);
-    cooked.PutProvenanceMappings(provenances_);
-  }
+  cooked.Put(&char_[0], char_.size());
+  cooked.PutProvenanceMappings(provenances_);
 }
 
 llvm::raw_ostream &TokenSequence::Dump(llvm::raw_ostream &o) const {
@@ -343,23 +311,15 @@ ProvenanceRange TokenSequence::GetProvenanceRange() const {
 }
 
 const TokenSequence &TokenSequence::CheckBadFortranCharacters(
-    Messages &messages, const Prescanner &prescanner) const {
+    Messages &messages) const {
   std::size_t tokens{SizeInTokens()};
   for (std::size_t j{0}; j < tokens; ++j) {
     CharBlock token{TokenAt(j)};
     char ch{token.FirstNonBlank()};
     if (ch != ' ' && !IsValidFortranTokenCharacter(ch)) {
-      if (ch == '!') {
-        if (prescanner.IsCompilerDirectiveSentinel(token)) {
-          continue;
-        } else if (j + 1 < tokens &&
-            prescanner.IsCompilerDirectiveSentinel(
-                TokenAt(j + 1))) { // !dir$, &c.
-          ++j;
-          continue;
-        }
-      }
-      if (ch < ' ' || ch >= '\x7f') {
+      if (ch == '!' && j == 0) {
+        // allow in !dir$
+      } else if (ch < ' ' || ch >= '\x7f') {
         messages.Say(GetTokenProvenanceRange(j),
             "bad character (0x%02x) in Fortran token"_err_en_US, ch & 0xff);
       } else {
@@ -378,13 +338,11 @@ const TokenSequence &TokenSequence::CheckBadParentheses(
   std::size_t tokens{SizeInTokens()};
   for (std::size_t j{0}; j < tokens; ++j) {
     CharBlock token{TokenAt(j)};
-    char ch{token.OnlyNonBlank()};
+    char ch{token.FirstNonBlank()};
     if (ch == '(') {
       ++nesting;
     } else if (ch == ')') {
-      if (nesting-- == 0) {
-        break;
-      }
+      --nesting;
     }
   }
   if (nesting != 0) {
@@ -392,7 +350,7 @@ const TokenSequence &TokenSequence::CheckBadParentheses(
     std::vector<std::size_t> stack;
     for (std::size_t j{0}; j < tokens; ++j) {
       CharBlock token{TokenAt(j)};
-      char ch{token.OnlyNonBlank()};
+      char ch{token.FirstNonBlank()};
       if (ch == '(') {
         stack.push_back(j);
       } else if (ch == ')') {

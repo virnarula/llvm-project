@@ -840,20 +840,6 @@ TEST(RenameTest, WithinFileRename) {
           foo('x');
         }
       )cpp",
-
-      // ObjC class with a category.
-      R"cpp(
-        @interface [[Fo^o]]
-        @end
-        @implementation [[F^oo]]
-        @end
-        @interface [[Fo^o]] (Category)
-        @end
-        @implementation [[F^oo]] (Category)
-        @end
-
-        void func([[Fo^o]] *f) {}
-      )cpp",
   };
   llvm::StringRef NewName = "NewName";
   for (llvm::StringRef T : Tests) {
@@ -903,15 +889,6 @@ TEST(RenameTest, Renameable) {
         namespace n^s {}
       )cpp",
        "not a supported kind", HeaderFile},
-
-      {R"cpp(// disallow - category rename.
-        @interface Foo
-        @end
-        @interface Foo (Cate^gory)
-        @end
-      )cpp",
-       "Cannot rename symbol: there is no symbol at the given location",
-       HeaderFile},
 
       {
           R"cpp(
@@ -1086,19 +1063,6 @@ TEST(RenameTest, Renameable) {
        "conflict", !HeaderFile, "Conflict"},
 
       {R"cpp(
-        void func(int);
-        void [[o^therFunc]](double);
-      )cpp",
-       nullptr, !HeaderFile, "func"},
-      {R"cpp(
-        struct S {
-          void func(int);
-          void [[o^therFunc]](double);
-        };
-      )cpp",
-       nullptr, !HeaderFile, "func"},
-
-      {R"cpp(
         int V^ar;
       )cpp",
        "\"const\" is a keyword", !HeaderFile, "const"},
@@ -1129,15 +1093,6 @@ TEST(RenameTest, Renameable) {
         using ns::^foo;
       )cpp",
        "there are multiple symbols at the given location", !HeaderFile},
-
-      {R"cpp(
-        void test() {
-          // no crash
-          using namespace std;
-          int [[V^ar]];
-        }
-      )cpp",
-        nullptr, !HeaderFile},
   };
 
   for (const auto& Case : Cases) {
@@ -1166,7 +1121,9 @@ TEST(RenameTest, Renameable) {
     } else {
       EXPECT_TRUE(bool(Results)) << "rename returned an error: "
                                  << llvm::toString(Results.takeError());
-      EXPECT_EQ(Results->LocalChanges, T.ranges());
+      ASSERT_EQ(1u, Results->GlobalChanges.size());
+      EXPECT_EQ(applyEdits(std::move(Results->GlobalChanges)).front().second,
+                expectedResult(T, NewName));
     }
   }
 }
@@ -1322,7 +1279,7 @@ TEST(RenameTest, PrepareRename) {
   runAddDocument(Server, FooCCPath, FooCC.code());
 
   auto Results = runPrepareRename(Server, FooCCPath, FooCC.point(),
-                                  /*NewName=*/std::nullopt, {});
+                                  /*NewName=*/llvm::None, {});
   // Verify that for multi-file rename, we only return main-file occurrences.
   ASSERT_TRUE(bool(Results)) << Results.takeError();
   // We don't know the result is complete in prepareRename (passing a nullptr
@@ -1500,7 +1457,7 @@ TEST(CrossFileRenameTests, DeduplicateRefsFromIndex) {
 
 TEST(CrossFileRenameTests, WithUpToDateIndex) {
   MockCompilationDatabase CDB;
-  CDB.ExtraClangFlags = {"-xobjective-c++"};
+  CDB.ExtraClangFlags = {"-xc++"};
   // rename is runnning on all "^" points in FooH, and "[[]]" ranges are the
   // expected rename occurrences.
   struct Case {
@@ -1589,12 +1546,13 @@ TEST(CrossFileRenameTests, WithUpToDateIndex) {
         }
       )cpp",
       },
-      {// virtual templated method
-       R"cpp(
+      {
+          // virtual templated method
+          R"cpp(
         template <typename> class Foo { virtual void [[m]](); };
         class Bar : Foo<int> { void [[^m]]() override; };
       )cpp",
-       R"cpp(
+          R"cpp(
           #include "foo.h"
 
           template<typename T> void Foo<T>::[[m]]() {}
@@ -1602,7 +1560,8 @@ TEST(CrossFileRenameTests, WithUpToDateIndex) {
           // the canonical Foo<T>::m().
           // https://github.com/clangd/clangd/issues/1325
           class Baz : Foo<float> { void m() override; };
-        )cpp"},
+        )cpp"
+      },
       {
           // rename on constructor and destructor.
           R"cpp(
@@ -1705,20 +1664,6 @@ TEST(CrossFileRenameTests, WithUpToDateIndex) {
           FOO y;
           FooFoo z;
         }
-      )cpp",
-      },
-      {
-          // Objective-C classes.
-          R"cpp(
-        @interface [[Fo^o]]
-        @end
-      )cpp",
-          R"cpp(
-        #include "foo.h"
-        @implementation [[Foo]]
-        @end
-
-        void func([[Foo]] *f) {}
       )cpp",
       },
   };

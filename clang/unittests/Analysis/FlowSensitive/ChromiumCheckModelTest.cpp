@@ -113,11 +113,12 @@ class ModelAdaptorAnalysis
     : public DataflowAnalysis<ModelAdaptorAnalysis<Model>, NoopLattice> {
 public:
   explicit ModelAdaptorAnalysis(ASTContext &Context)
-      : DataflowAnalysis<ModelAdaptorAnalysis, NoopLattice>(Context) {}
+      : DataflowAnalysis<ModelAdaptorAnalysis, NoopLattice>(
+            Context, /*ApplyBuiltinTransfer=*/true) {}
 
   static NoopLattice initialElement() { return NoopLattice(); }
 
-  void transfer(const CFGElement &E, NoopLattice &, Environment &Env) {
+  void transfer(const CFGElement *E, NoopLattice &, Environment &Env) {
     M.transfer(E, Env);
   }
 
@@ -157,9 +158,9 @@ TEST(ChromiumCheckModelTest, CheckSuccessImpliesConditionHolds) {
         const ValueDecl *FooDecl = findValueDecl(ASTCtx, "Foo");
         ASSERT_THAT(FooDecl, NotNull());
 
-        auto *FooVal = cast<BoolValue>(Env.getValue(*FooDecl));
+        auto *FooVal = cast<BoolValue>(Env.getValue(*FooDecl, SkipPast::None));
 
-        EXPECT_TRUE(Env.proves(FooVal->formula()));
+        EXPECT_TRUE(Env.flowConditionImplies(*FooVal));
       };
 
   std::string Code = R"(
@@ -188,9 +189,9 @@ TEST(ChromiumCheckModelTest, UnrelatedCheckIgnored) {
         const ValueDecl *FooDecl = findValueDecl(ASTCtx, "Foo");
         ASSERT_THAT(FooDecl, NotNull());
 
-        auto *FooVal = cast<BoolValue>(Env.getValue(*FooDecl));
+        auto *FooVal = cast<BoolValue>(Env.getValue(*FooDecl, SkipPast::None));
 
-        EXPECT_FALSE(Env.proves(FooVal->formula()));
+        EXPECT_FALSE(Env.flowConditionImplies(*FooVal));
       };
 
   std::string Code = R"(

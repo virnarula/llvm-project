@@ -18,10 +18,6 @@ declare <8 x i32> @llvm.vp.sdiv.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
 declare <8 x i32> @llvm.vp.srem.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
 declare <8 x i32> @llvm.vp.udiv.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
 declare <8 x i32> @llvm.vp.urem.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
-declare <8 x i32> @llvm.vp.smax.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
-declare <8 x i32> @llvm.vp.smin.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
-declare <8 x i32> @llvm.vp.umax.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
-declare <8 x i32> @llvm.vp.umin.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
 ; Bit arith
 declare <8 x i32> @llvm.vp.and.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
 declare <8 x i32> @llvm.vp.xor.v8i32(<8 x i32>, <8 x i32>, <8 x i1>, i32)
@@ -56,16 +52,12 @@ define void @test_vp_int_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x i32> %i2, <8 x i3
   %r4 = call <8 x i32> @llvm.vp.srem.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
   %r5 = call <8 x i32> @llvm.vp.udiv.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
   %r6 = call <8 x i32> @llvm.vp.urem.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %r7 = call <8 x i32> @llvm.vp.smax.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %r8 = call <8 x i32> @llvm.vp.smin.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %r9 = call <8 x i32> @llvm.vp.umax.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %rA = call <8 x i32> @llvm.vp.umin.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %rB = call <8 x i32> @llvm.vp.and.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %rC = call <8 x i32> @llvm.vp.or.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %rD = call <8 x i32> @llvm.vp.xor.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %rE = call <8 x i32> @llvm.vp.ashr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %rF = call <8 x i32> @llvm.vp.lshr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-  %r10 = call <8 x i32> @llvm.vp.shl.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+  %r7 = call <8 x i32> @llvm.vp.and.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+  %r8 = call <8 x i32> @llvm.vp.or.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+  %r9 = call <8 x i32> @llvm.vp.xor.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+  %rA = call <8 x i32> @llvm.vp.ashr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+  %rB = call <8 x i32> @llvm.vp.lshr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+  %rC = call <8 x i32> @llvm.vp.shl.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
   ret void
 }
 
@@ -78,10 +70,6 @@ declare <vscale x 4 x i32> @llvm.vp.sdiv.nxv4i32(<vscale x 4 x i32>, <vscale x 4
 declare <vscale x 4 x i32> @llvm.vp.srem.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
 declare <vscale x 4 x i32> @llvm.vp.udiv.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
 declare <vscale x 4 x i32> @llvm.vp.urem.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
-declare <vscale x 4 x i32> @llvm.vp.smax.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
-declare <vscale x 4 x i32> @llvm.vp.smin.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
-declare <vscale x 4 x i32> @llvm.vp.umax.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
-declare <vscale x 4 x i32> @llvm.vp.umin.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
 ; Bit arith
 declare <vscale x 4 x i32> @llvm.vp.and.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
 declare <vscale x 4 x i32> @llvm.vp.xor.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i32>, <vscale x 4 x i1>, i32)
@@ -99,16 +87,12 @@ define void @test_vp_int_vscale(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, 
   %r4 = call <vscale x 4 x i32> @llvm.vp.srem.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
   %r5 = call <vscale x 4 x i32> @llvm.vp.udiv.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
   %r6 = call <vscale x 4 x i32> @llvm.vp.urem.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %r7 = call <vscale x 4 x i32> @llvm.vp.smax.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %r8 = call <vscale x 4 x i32> @llvm.vp.smin.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %r9 = call <vscale x 4 x i32> @llvm.vp.umax.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %rA = call <vscale x 4 x i32> @llvm.vp.umin.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %rB = call <vscale x 4 x i32> @llvm.vp.and.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %rC = call <vscale x 4 x i32> @llvm.vp.or.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %rD = call <vscale x 4 x i32> @llvm.vp.xor.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %rE = call <vscale x 4 x i32> @llvm.vp.ashr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %rF = call <vscale x 4 x i32> @llvm.vp.lshr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-  %r10 = call <vscale x 4 x i32> @llvm.vp.shl.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+  %r7 = call <vscale x 4 x i32> @llvm.vp.and.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+  %r8 = call <vscale x 4 x i32> @llvm.vp.or.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+  %r9 = call <vscale x 4 x i32> @llvm.vp.xor.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+  %rA = call <vscale x 4 x i32> @llvm.vp.ashr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+  %rB = call <vscale x 4 x i32> @llvm.vp.lshr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+  %rC = call <vscale x 4 x i32> @llvm.vp.shl.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
   ret void
 }
 
@@ -170,7 +154,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; ALL-CONVERT-NEXT:  %{{.*}} = add <8 x i32> %i0, %i1
 ; ALL-CONVERT-NEXT:  %{{.*}} = sub <8 x i32> %i0, %i1
 ; ALL-CONVERT-NEXT:  %{{.*}} = mul <8 x i32> %i0, %i1
-; ALL-CONVERT-NEXT:  [[NINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i64 0
+; ALL-CONVERT-NEXT:  [[NINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i32 0
 ; ALL-CONVERT-NEXT:  [[NSPLAT:%.+]] = shufflevector <8 x i32> [[NINS]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; ALL-CONVERT-NEXT:  [[EVLM:%.+]] = icmp ult <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>, [[NSPLAT]]
 ; ALL-CONVERT-NEXT:  [[NEWM:%.+]] = and <8 x i1> [[EVLM]], %m
@@ -182,10 +166,6 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; ALL-CONVERT:       %{{.+}} = udiv <8 x i32> %i0, %{{.+}}
 ; ALL-CONVERT-NOT:   %{{.+}} = urem <8 x i32> %i0, %i1
 ; ALL-CONVERT:       %{{.+}} = urem <8 x i32> %i0, %{{.+}}
-; ALL-CONVERT-NEXT:  %{{.+}} = call <8 x i32> @llvm.smax.v8i32(<8 x i32> %i0, <8 x i32> %i1)
-; ALL-CONVERT-NEXT:  %{{.+}} = call <8 x i32> @llvm.smin.v8i32(<8 x i32> %i0, <8 x i32> %i1)
-; ALL-CONVERT-NEXT:  %{{.+}} = call <8 x i32> @llvm.umax.v8i32(<8 x i32> %i0, <8 x i32> %i1)
-; ALL-CONVERT-NEXT:  %{{.+}} = call <8 x i32> @llvm.umin.v8i32(<8 x i32> %i0, <8 x i32> %i1)
 ; ALL-CONVERT-NEXT:  %{{.+}} = and <8 x i32> %i0, %i1
 ; ALL-CONVERT-NEXT:  %{{.+}} = or <8 x i32> %i0, %i1
 ; ALL-CONVERT-NEXT:  %{{.+}} = xor <8 x i32> %i0, %i1
@@ -197,7 +177,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 
 ; Check that reductions use the correct neutral element for masked-off elements
 ; ALL-CONVERT: define void @test_vp_reduce_int_v4(i32 %start, <4 x i32> %vi, <4 x i1> %m, i32 %n) {
-; ALL-CONVERT-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i64 0
+; ALL-CONVERT-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i32 0
 ; ALL-CONVERT-NEXT:  [[NSPLAT:%.+]] = shufflevector <4 x i32> [[NINS]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; ALL-CONVERT-NEXT:  [[EVLM:%.+]] = icmp ult <4 x i32> <i32 0, i32 1, i32 2, i32 3>, [[NSPLAT]]
 ; ALL-CONVERT-NEXT:  [[NEWM:%.+]] = and <4 x i1> [[EVLM]], %m
@@ -232,7 +212,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 
 ; Check that reductions use the correct neutral element for masked-off elements
 ; ALL-CONVERT: define void @test_vp_reduce_fp_v4(float %f, <4 x float> %vf, <4 x i1> %m, i32 %n) {
-; ALL-CONVERT-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i64 0
+; ALL-CONVERT-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i32 0
 ; ALL-CONVERT-NEXT:  [[NSPLAT:%.+]] = shufflevector <4 x i32> [[NINS]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; ALL-CONVERT-NEXT:  [[EVLM:%.+]] = icmp ult <4 x i32> <i32 0, i32 1, i32 2, i32 3>, [[NSPLAT]]
 ; ALL-CONVERT-NEXT:  [[NEWM:%.+]] = and <4 x i1> [[EVLM]], %m
@@ -283,16 +263,12 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; LEGAL_LEGAL-NEXT:   %r4 = call <8 x i32> @llvm.vp.srem.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
 ; LEGAL_LEGAL-NEXT:   %r5 = call <8 x i32> @llvm.vp.udiv.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
 ; LEGAL_LEGAL-NEXT:   %r6 = call <8 x i32> @llvm.vp.urem.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %r7 = call <8 x i32> @llvm.vp.smax.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %r8 = call <8 x i32> @llvm.vp.smin.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %r9 = call <8 x i32> @llvm.vp.umax.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %rA = call <8 x i32> @llvm.vp.umin.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %rB = call <8 x i32> @llvm.vp.and.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %rC = call <8 x i32> @llvm.vp.or.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %rD = call <8 x i32> @llvm.vp.xor.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %rE = call <8 x i32> @llvm.vp.ashr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %rF = call <8 x i32> @llvm.vp.lshr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:   %r10 = call <8 x i32> @llvm.vp.shl.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:   %r7 = call <8 x i32> @llvm.vp.and.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:   %r8 = call <8 x i32> @llvm.vp.or.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:   %r9 = call <8 x i32> @llvm.vp.xor.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:   %rA = call <8 x i32> @llvm.vp.ashr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:   %rB = call <8 x i32> @llvm.vp.lshr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:   %rC = call <8 x i32> @llvm.vp.shl.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 %n)
 ; LEGAL_LEGAL-NEXT:   ret void
 
 ; LEGAL_LEGAL:define void @test_vp_int_vscale(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i32> %i2, <vscale x 4 x i32> %f3, <vscale x 4 x i1> %m, i32 %n) {
@@ -303,16 +279,12 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; LEGAL_LEGAL-NEXT:  %r4 = call <vscale x 4 x i32> @llvm.vp.srem.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
 ; LEGAL_LEGAL-NEXT:  %r5 = call <vscale x 4 x i32> @llvm.vp.udiv.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
 ; LEGAL_LEGAL-NEXT:  %r6 = call <vscale x 4 x i32> @llvm.vp.urem.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %r7 = call <vscale x 4 x i32> @llvm.vp.smax.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %r8 = call <vscale x 4 x i32> @llvm.vp.smin.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %r9 = call <vscale x 4 x i32> @llvm.vp.umax.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %rA = call <vscale x 4 x i32> @llvm.vp.umin.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %rB = call <vscale x 4 x i32> @llvm.vp.and.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %rC = call <vscale x 4 x i32> @llvm.vp.or.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %rD = call <vscale x 4 x i32> @llvm.vp.xor.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %rE = call <vscale x 4 x i32> @llvm.vp.ashr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %rF = call <vscale x 4 x i32> @llvm.vp.lshr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
-; LEGAL_LEGAL-NEXT:  %r10 = call <vscale x 4 x i32> @llvm.vp.shl.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:  %r7 = call <vscale x 4 x i32> @llvm.vp.and.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:  %r8 = call <vscale x 4 x i32> @llvm.vp.or.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:  %r9 = call <vscale x 4 x i32> @llvm.vp.xor.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:  %rA = call <vscale x 4 x i32> @llvm.vp.ashr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:  %rB = call <vscale x 4 x i32> @llvm.vp.lshr.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
+; LEGAL_LEGAL-NEXT:  %rC = call <vscale x 4 x i32> @llvm.vp.shl.nxv4i32(<vscale x 4 x i32> %i0, <vscale x 4 x i32> %i1, <vscale x 4 x i1> %m, i32 %n)
 ; LEGAL_LEGAL-NEXT:  ret void
 
 ; LEGAL_LEGAL: define void @test_vp_reduce_int_v4(i32 %start, <4 x i32> %vi, <4 x i1> %m, i32 %n) {
@@ -362,7 +334,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; DISCARD_LEGAL-NEXT:   %r0 = call <8 x i32> @llvm.vp.add.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
 ; DISCARD_LEGAL-NEXT:   %r1 = call <8 x i32> @llvm.vp.sub.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
 ; DISCARD_LEGAL-NEXT:   %r2 = call <8 x i32> @llvm.vp.mul.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   [[NSPLATINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i64 0
+; DISCARD_LEGAL-NEXT:   [[NSPLATINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i32 0
 ; DISCARD_LEGAL-NEXT:   [[NSPLAT:%.+]] = shufflevector <8 x i32> [[NSPLATINS]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; DISCARD_LEGAL-NEXT:   [[EVLMASK:%.+]] = icmp ult <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>, [[NSPLAT]]
 ; DISCARD_LEGAL-NEXT:   [[NEWMASK:%.+]] = and <8 x i1> [[EVLMASK]], %m
@@ -370,16 +342,12 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; DISCARD_LEGAL-NOT:    %r4 = call <8 x i32> @llvm.vp.srem.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
 ; DISCARD_LEGAL-NOT:    %r5 = call <8 x i32> @llvm.vp.udiv.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
 ; DISCARD_LEGAL-NOT:    %r6 = call <8 x i32> @llvm.vp.urem.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL:        %r7 = call <8 x i32> @llvm.vp.smax.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL:        %r8 = call <8 x i32> @llvm.vp.smin.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL:        %r9 = call <8 x i32> @llvm.vp.umax.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL:        %rA = call <8 x i32> @llvm.vp.umin.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   %rB = call <8 x i32> @llvm.vp.and.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   %rC = call <8 x i32> @llvm.vp.or.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   %rD = call <8 x i32> @llvm.vp.xor.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   %rE = call <8 x i32> @llvm.vp.ashr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   %rF = call <8 x i32> @llvm.vp.lshr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
-; DISCARD_LEGAL-NEXT:   %r10 = call <8 x i32> @llvm.vp.shl.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
+; DISCARD_LEGAL:        %r7 = call <8 x i32> @llvm.vp.and.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
+; DISCARD_LEGAL-NEXT:   %r8 = call <8 x i32> @llvm.vp.or.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
+; DISCARD_LEGAL-NEXT:   %r9 = call <8 x i32> @llvm.vp.xor.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
+; DISCARD_LEGAL-NEXT:   %rA = call <8 x i32> @llvm.vp.ashr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
+; DISCARD_LEGAL-NEXT:   %rB = call <8 x i32> @llvm.vp.lshr.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
+; DISCARD_LEGAL-NEXT:   %rC = call <8 x i32> @llvm.vp.shl.v8i32(<8 x i32> %i0, <8 x i32> %i1, <8 x i1> %m, i32 8)
 ; DISCARD_LEGAL-NEXT:   ret void
 
 ; TODO compute vscale only once and use caching.
@@ -399,7 +367,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; DISCARD_LEGAL:      ret void
 
 ; DISCARD_LEGAL: define void @test_vp_reduce_int_v4(i32 %start, <4 x i32> %vi, <4 x i1> %m, i32 %n) {
-; DISCARD_LEGAL-NEXT:  [[NSPLATINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i64 0
+; DISCARD_LEGAL-NEXT:  [[NSPLATINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i32 0
 ; DISCARD_LEGAL-NEXT:  [[NSPLAT:%.+]] = shufflevector <4 x i32> [[NSPLATINS]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; DISCARD_LEGAL-NEXT:  [[EVLMASK:%.+]] = icmp ult <4 x i32> <i32 0, i32 1, i32 2, i32 3>, [[NSPLAT]]
 ; DISCARD_LEGAL-NEXT:  [[NEWMASK:%.+]] = and <4 x i1> [[EVLMASK]], %m
@@ -415,7 +383,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; DISCARD_LEGAL:      ret void
 
 ; DISCARD_LEGAL: define void @test_vp_reduce_fp_v4(float %f, <4 x float> %vf, <4 x i1> %m, i32 %n) {
-; DISCARD_LEGAL-NEXT:  [[NSPLATINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i64 0
+; DISCARD_LEGAL-NEXT:  [[NSPLATINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i32 0
 ; DISCARD_LEGAL-NEXT:  [[NSPLAT:%.+]] = shufflevector <4 x i32> [[NSPLATINS]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; DISCARD_LEGAL-NEXT:  [[EVLMASK:%.+]] = icmp ult <4 x i32> <i32 0, i32 1, i32 2, i32 3>, [[NSPLAT]]
 ; DISCARD_LEGAL-NEXT:  [[NEWMASK:%.+]] = and <4 x i1> [[EVLMASK]], %m
@@ -445,7 +413,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; (3) All VP intrinsics have an ineffective %evl parameter.
 ;
 ; CONVERT_LEGAL: define void @test_vp_int_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x i32> %i2, <8 x i32> %f3, <8 x i1> %m, i32 %n) {
-; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i64 0
+; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i32 0
 ; CONVERT_LEGAL-NEXT:  [[NSPLAT:%.+]] = shufflevector <8 x i32> [[NINS]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CONVERT_LEGAL-NEXT:  [[EVLM:%.+]] = icmp ult <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>, [[NSPLAT]]
 ; CONVERT_LEGAL-NEXT:  [[NEWM:%.+]] = and <8 x i1> [[EVLM]], %m
@@ -475,7 +443,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; CONVERT_LEGAL:        ret void
 
 ; CONVERT_LEGAL: define void @test_vp_reduce_int_v4(i32 %start, <4 x i32> %vi, <4 x i1> %m, i32 %n) {
-; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i64 0
+; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i32 0
 ; CONVERT_LEGAL-NEXT:  [[NSPLAT:%.+]] = shufflevector <4 x i32> [[NINS]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CONVERT_LEGAL-NEXT:  [[EVLM:%.+]] = icmp ult <4 x i32> <i32 0, i32 1, i32 2, i32 3>, [[NSPLAT]]
 ; CONVERT_LEGAL-NEXT:  [[NEWM:%.+]] = and <4 x i1> [[EVLM]], %m
@@ -491,7 +459,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; CONVERT_LEGAL: ret void
 
 ; CONVERT_LEGAL: define void @test_vp_reduce_fp_v4(float %f, <4 x float> %vf, <4 x i1> %m, i32 %n) {
-; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i64 0
+; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <4 x i32> poison, i32 %n, i32 0
 ; CONVERT_LEGAL-NEXT:  [[NSPLAT:%.+]] = shufflevector <4 x i32> [[NINS]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CONVERT_LEGAL-NEXT:  [[EVLM:%.+]] = icmp ult <4 x i32> <i32 0, i32 1, i32 2, i32 3>, [[NSPLAT]]
 ; CONVERT_LEGAL-NEXT:  [[NEWM:%.+]] = and <4 x i1> [[EVLM]], %m
@@ -508,7 +476,7 @@ define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x 
 ; CONVERT_LEGAL: ret void
 
 ; CONVERT_LEGAL: define void @test_vp_cmp_v8(<8 x i32> %i0, <8 x i32> %i1, <8 x float> %f0, <8 x float> %f1, <8 x i1> %m, i32 %n) {
-; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i64 0
+; CONVERT_LEGAL-NEXT:  [[NINS:%.+]] = insertelement <8 x i32> poison, i32 %n, i32 0
 ; CONVERT_LEGAL-NEXT:  [[NSPLAT:%.+]] = shufflevector <8 x i32> [[NINS]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CONVERT_LEGAL-NEXT:  [[EVLM:%.+]] = icmp ult <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>, [[NSPLAT]]
 ; CONVERT_LEGAL-NEXT:  [[NEWM:%.+]] = and <8 x i1> [[EVLM]], %m

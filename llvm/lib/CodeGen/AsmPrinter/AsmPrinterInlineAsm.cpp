@@ -12,7 +12,6 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -278,8 +277,8 @@ static void EmitInlineAsmStr(const char *AsmStr, const MachineInstr *MI,
         for (; Val; --Val) {
           if (OpNo >= MI->getNumOperands())
             break;
-          const InlineAsm::Flag F(MI->getOperand(OpNo).getImm());
-          OpNo += F.getNumOperandRegisters() + 1;
+          unsigned OpFlags = MI->getOperand(OpNo).getImm();
+          OpNo += InlineAsm::getNumOperandRegisters(OpFlags) + 1;
         }
 
         // We may have a location metadata attached to the end of the
@@ -288,7 +287,7 @@ static void EmitInlineAsmStr(const char *AsmStr, const MachineInstr *MI,
         if (OpNo >= MI->getNumOperands() || MI->getOperand(OpNo).isMetadata()) {
           Error = true;
         } else {
-          const InlineAsm::Flag F(MI->getOperand(OpNo).getImm());
+          unsigned OpFlags = MI->getOperand(OpNo).getImm();
           ++OpNo; // Skip over the ID number.
 
           // FIXME: Shouldn't arch-independent output template handling go into
@@ -302,7 +301,7 @@ static void EmitInlineAsmStr(const char *AsmStr, const MachineInstr *MI,
           } else if (MI->getOperand(OpNo).isMBB()) {
             const MCSymbol *Sym = MI->getOperand(OpNo).getMBB()->getSymbol();
             Sym->print(OS, AP->MAI);
-          } else if (F.isMemKind()) {
+          } else if (InlineAsm::isMemKind(OpFlags)) {
             Error = AP->PrintAsmMemoryOperand(
                 MI, OpNo, Modifier[0] ? Modifier : nullptr, OS);
           } else {
@@ -379,14 +378,14 @@ void AsmPrinter::emitInlineAsm(const MachineInstr *MI) const {
     const MachineOperand &MO = MI->getOperand(I);
     if (!MO.isImm())
       continue;
-    const InlineAsm::Flag F(MO.getImm());
-    if (F.isClobberKind()) {
+    unsigned Flags = MO.getImm();
+    if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Clobber) {
       Register Reg = MI->getOperand(I + 1).getReg();
       if (!TRI->isAsmClobberable(*MF, Reg))
         RestrRegs.push_back(Reg);
     }
     // Skip to one before the next operand descriptor, if it exists.
-    I += F.getNumOperandRegisters();
+    I += InlineAsm::getNumOperandRegisters(Flags);
   }
 
   if (!RestrRegs.empty()) {
@@ -406,7 +405,7 @@ void AsmPrinter::emitInlineAsm(const MachineInstr *MI) const {
         DiagnosticInfoInlineAsm(LocCookie, Note, DiagnosticSeverity::DS_Note));
 
     for (const Register RR : RestrRegs) {
-      if (std::optional<std::string> reason =
+      if (llvm::Optional<std::string> reason =
               TRI->explainReservedReg(*MF, RR)) {
         MMI->getModule()->getContext().diagnose(DiagnosticInfoInlineAsm(
             LocCookie, *reason, DiagnosticSeverity::DS_Note));

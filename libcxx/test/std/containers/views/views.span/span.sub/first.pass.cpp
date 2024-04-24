@@ -14,7 +14,8 @@
 //
 // constexpr span<element_type, dynamic_extent> first(size_type count) const;
 //
-// Mandates: Count <= Extent is true.
+//  Requires: Count <= size().
+
 
 #include <span>
 #include <cassert>
@@ -23,7 +24,7 @@
 
 #include "test_macros.h"
 
-template <typename Span, std::size_t Count>
+template <typename Span, size_t Count>
 constexpr bool testConstexprSpan(Span sp)
 {
     LIBCPP_ASSERT((noexcept(sp.template first<Count>())));
@@ -43,7 +44,7 @@ constexpr bool testConstexprSpan(Span sp)
 }
 
 
-template <typename Span, std::size_t Count>
+template <typename Span, size_t Count>
 void testRuntimeSpan(Span sp)
 {
     LIBCPP_ASSERT((noexcept(sp.template first<Count>())));

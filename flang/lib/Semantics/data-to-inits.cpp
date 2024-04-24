@@ -30,11 +30,6 @@ static constexpr bool makeDefaultInitializationExplicit{false};
 // objects and pointers.
 static constexpr bool removeOriginalInits{false};
 
-// Impose a hard limit that's more than large enough for real applications but
-// small enough to cause artificial stress tests to fail reasonably instead of
-// crashing the compiler with a memory allocation failure.
-static constexpr auto maxDataInitBytes{std::size_t{1000000000}}; // 1GiB
-
 namespace Fortran::semantics {
 
 // Steps through a list of values in a DATA statement set; implements
@@ -81,7 +76,7 @@ private:
 };
 
 template <typename DSV> void ValueListIterator<DSV>::SetRepetitionCount() {
-  for (; at_ != end_; ++at_) {
+  for (repetitionsRemaining_ = 1; at_ != end_; ++at_) {
     auto repetitions{GetValue().repetitions};
     if (repetitions < 0) {
       hasFatalError_ = true;
@@ -128,7 +123,6 @@ private:
   DataInitializations &inits_;
   evaluate::ExpressionAnalyzer &exprAnalyzer_;
   ValueListIterator<DSV> values_;
-  const Scope *scope_{nullptr};
 };
 
 template <typename DSV>
@@ -147,9 +141,7 @@ bool DataInitializationCompiler<DSV>::Scan(
 template <typename DSV>
 bool DataInitializationCompiler<DSV>::Scan(const parser::Variable &var) {
   if (const auto *expr{GetExpr(exprAnalyzer_.context(), var)}) {
-    parser::CharBlock at{var.GetSource()};
-    exprAnalyzer_.GetFoldingContext().messages().SetLocation(at);
-    scope_ = &exprAnalyzer_.context().FindScope(at);
+    exprAnalyzer_.GetFoldingContext().messages().SetLocation(var.GetSource());
     if (InitDesignator(*expr)) {
       return true;
     }
@@ -160,17 +152,9 @@ bool DataInitializationCompiler<DSV>::Scan(const parser::Variable &var) {
 template <typename DSV>
 bool DataInitializationCompiler<DSV>::Scan(
     const parser::Designator &designator) {
-  MaybeExpr expr;
-  { // The out-of-range subscript errors from the designator folder are a
-    // more specific than the default ones from expression semantics, so
-    // disable those to avoid piling on.
-    auto restorer{exprAnalyzer_.GetContextualMessages().DiscardMessages()};
-    expr = exprAnalyzer_.Analyze(designator);
-  }
-  if (expr) {
-    parser::CharBlock at{parser::FindSourceLocation(designator)};
-    exprAnalyzer_.GetFoldingContext().messages().SetLocation(at);
-    scope_ = &exprAnalyzer_.context().FindScope(at);
+  if (auto expr{exprAnalyzer_.Analyze(designator)}) {
+    exprAnalyzer_.GetFoldingContext().messages().SetLocation(
+        parser::FindSourceLocation(designator));
     if (InitDesignator(*expr)) {
       return true;
     }
@@ -320,6 +304,9 @@ bool DataInitializationCompiler<DSV>::InitElement(
   bool isPointer{lastSymbol && IsPointer(*lastSymbol)};
   bool isProcPointer{lastSymbol && IsProcedurePointer(*lastSymbol)};
   evaluate::FoldingContext &context{exprAnalyzer_.GetFoldingContext()};
+  auto &messages{context.messages()};
+  auto restorer{
+      messages.SetLocation(values_.LocateSource().value_or(messages.at()))};
 
   const auto DescribeElement{[&]() {
     if (auto badDesignator{
@@ -335,15 +322,10 @@ bool DataInitializationCompiler<DSV>::InitElement(
     }
   }};
   const auto GetImage{[&]() -> evaluate::InitialImage & {
-    // This could be (and was) written to always call std::map<>::emplace(),
-    // which should handle duplicate entries gracefully, but it was still
-    // causing memory allocation & deallocation with gcc.
-    auto iter{inits_.find(&symbol)};
-    if (iter == inits_.end()) {
-      iter = inits_.emplace(&symbol, symbol.size()).first;
-    }
-    auto &symbolInit{iter->second};
-    symbolInit.NoteInitializedRange(offsetSymbol);
+    auto iter{inits_.emplace(&symbol, symbol.size())};
+    auto &symbolInit{iter.first->second};
+    symbolInit.initializedRanges.emplace_back(
+        offsetSymbol.offset(), offsetSymbol.size());
     return symbolInit.image;
   }};
   const auto OutOfRangeError{[&]() {
@@ -367,19 +349,9 @@ bool DataInitializationCompiler<DSV>::InitElement(
     return false;
   }
 
-  auto &messages{context.messages()};
-  auto restorer{
-      messages.SetLocation(values_.LocateSource().value_or(messages.at()))};
   const SomeExpr *expr{*values_};
   if (!expr) {
     CHECK(exprAnalyzer_.context().AnyFatalError());
-  } else if (symbol.size() > maxDataInitBytes) {
-    evaluate::AttachDeclaration(
-        exprAnalyzer_.context().Say(
-            "'%s' is too large to initialize with a DATA statement"_todo_en_US,
-            symbol.name()),
-        symbol);
-    return false;
   } else if (isPointer) {
     if (static_cast<std::size_t>(offsetSymbol.offset() + offsetSymbol.size()) >
         symbol.size()) {
@@ -389,9 +361,7 @@ bool DataInitializationCompiler<DSV>::InitElement(
       return true;
     } else if (isProcPointer) {
       if (evaluate::IsProcedure(*expr)) {
-        if (CheckPointerAssignment(exprAnalyzer_.context(), designator, *expr,
-                DEREF(scope_),
-                /*isBoundsRemapping=*/false, /*isAssumedRank=*/false)) {
+        if (CheckPointerAssignment(context, designator, *expr)) {
           if (lastSymbol->has<ProcEntityDetails>()) {
             GetImage().AddPointer(offsetSymbol.offset(), *expr);
             return true;
@@ -412,8 +382,7 @@ bool DataInitializationCompiler<DSV>::InitElement(
       exprAnalyzer_.Say(
           "Procedure '%s' may not be used to initialize '%s', which is not a procedure pointer"_err_en_US,
           expr->AsFortran(), DescribeElement());
-    } else if (CheckInitialDataPointerTarget(
-                   exprAnalyzer_.context(), designator, *expr, DEREF(scope_))) {
+    } else if (CheckInitialTarget(context, designator, *expr)) {
       GetImage().AddPointer(offsetSymbol.offset(), *expr);
       return true;
     }
@@ -435,42 +404,30 @@ bool DataInitializationCompiler<DSV>::InitElement(
       // value non-pointer initialization
       if (IsBOZLiteral(*expr) &&
           designatorType->category() != TypeCategory::Integer) { // 8.6.7(11)
-        if (exprAnalyzer_.context().ShouldWarn(
-                common::LanguageFeature::DataStmtExtensions)) {
-          exprAnalyzer_.Say(
-              "BOZ literal should appear in a DATA statement only as a value for an integer object, but '%s' is '%s'"_port_en_US,
-              DescribeElement(), designatorType->AsFortran());
-        }
-      } else if (converted->second &&
-          exprAnalyzer_.context().ShouldWarn(
-              common::LanguageFeature::DataStmtExtensions)) {
+        exprAnalyzer_.Say(
+            "BOZ literal should appear in a DATA statement only as a value for an integer object, but '%s' is '%s'"_port_en_US,
+            DescribeElement(), designatorType->AsFortran());
+      } else if (converted->second) {
         exprAnalyzer_.context().Say(
             "DATA statement value initializes '%s' of type '%s' with CHARACTER"_port_en_US,
             DescribeElement(), designatorType->AsFortran());
       }
       auto folded{evaluate::Fold(context, std::move(converted->first))};
-      // Rewritten from a switch() in order to avoid getting complaints
-      // about a missing "default:" from some compilers and complaints
-      // about a redundant "default:" from others.
-      auto status{GetImage().Add(
-          offsetSymbol.offset(), offsetSymbol.size(), folded, context)};
-      if (status == evaluate::InitialImage::Ok) {
+      switch (GetImage().Add(
+          offsetSymbol.offset(), offsetSymbol.size(), folded, context)) {
+      case evaluate::InitialImage::Ok:
         return true;
-      } else if (status == evaluate::InitialImage::NotAConstant) {
+      case evaluate::InitialImage::NotAConstant:
         exprAnalyzer_.Say(
             "DATA statement value '%s' for '%s' is not a constant"_err_en_US,
             folded.AsFortran(), DescribeElement());
-      } else if (status == evaluate::InitialImage::OutOfRange) {
+        break;
+      case evaluate::InitialImage::OutOfRange:
         OutOfRangeError();
-      } else if (status == evaluate::InitialImage::LengthMismatch) {
-        exprAnalyzer_.Say(
-            "DATA statement value '%s' for '%s' has the wrong length"_warn_en_US,
-            folded.AsFortran(), DescribeElement());
-        return true;
-      } else if (status == evaluate::InitialImage::TooManyElems) {
-        exprAnalyzer_.Say("DATA statement has too many elements"_err_en_US);
-      } else {
+        break;
+      default:
         CHECK(exprAnalyzer_.context().AnyFatalError());
+        break;
       }
     } else {
       exprAnalyzer_.context().Say(
@@ -585,8 +542,7 @@ static void PopulateWithComponentDefaults(SymbolDataInitialization &init,
               if (auto extents{evaluate::GetConstantExtents(
                       foldingContext, component)}) {
                 if (auto extant{init.image.AsConstant(foldingContext, *dyType,
-                        std::nullopt, *extents, false /*don't pad*/,
-                        componentOffset)}) {
+                        *extents, false /*don't pad*/, componentOffset)}) {
                   initialized = !(*extant == *object->init());
                 }
               }
@@ -603,7 +559,8 @@ static void PopulateWithComponentDefaults(SymbolDataInitialization &init,
           }
         }
         if (initialized) {
-          init.NoteInitializedRange(componentOffset, component.size());
+          init.initializedRanges.emplace_back(
+              componentOffset, component.size());
         }
       }
     } else if (const auto *proc{component.detailsIf<ProcEntityDetails>()}) {
@@ -611,7 +568,8 @@ static void PopulateWithComponentDefaults(SymbolDataInitialization &init,
         SomeExpr procPtrInit{evaluate::ProcedureDesignator{**proc->init()}};
         auto extant{init.image.AsConstantPointer(componentOffset)};
         if (!extant || !(*extant == procPtrInit)) {
-          init.NoteInitializedRange(componentOffset, component.size());
+          init.initializedRanges.emplace_back(
+              componentOffset, component.size());
           init.image.AddPointer(componentOffset, std::move(procPtrInit));
         }
       }
@@ -662,7 +620,7 @@ static void IncorporateExplicitInitialization(
   if (iter != inits.end()) { // DATA statement initialization
     for (const auto &range : iter->second.initializedRanges) {
       auto at{offset + range.start()};
-      combined.NoteInitializedRange(at, range.size());
+      combined.initializedRanges.emplace_back(at, range.size());
       combined.image.Incorporate(
           at, iter->second.image, range.start(), range.size());
     }
@@ -674,7 +632,7 @@ static void IncorporateExplicitInitialization(
     if (IsPointer(mutableSymbol)) {
       if (auto *object{mutableSymbol.detailsIf<ObjectEntityDetails>()}) {
         if (object->init()) {
-          combined.NoteInitializedRange(offset, mutableSymbol.size());
+          combined.initializedRanges.emplace_back(offset, mutableSymbol.size());
           combined.image.AddPointer(offset, *object->init());
           if (removeOriginalInits) {
             object->init().reset();
@@ -682,7 +640,7 @@ static void IncorporateExplicitInitialization(
         }
       } else if (auto *proc{mutableSymbol.detailsIf<ProcEntityDetails>()}) {
         if (proc->init() && *proc->init()) {
-          combined.NoteInitializedRange(offset, mutableSymbol.size());
+          combined.initializedRanges.emplace_back(offset, mutableSymbol.size());
           combined.image.AddPointer(
               offset, SomeExpr{evaluate::ProcedureDesignator{**proc->init()}});
           if (removeOriginalInits) {
@@ -692,7 +650,7 @@ static void IncorporateExplicitInitialization(
       }
     } else if (auto *object{mutableSymbol.detailsIf<ObjectEntityDetails>()}) {
       if (!IsNamedConstant(mutableSymbol) && object->init()) {
-        combined.NoteInitializedRange(offset, mutableSymbol.size());
+        combined.initializedRanges.emplace_back(offset, mutableSymbol.size());
         combined.image.Add(
             offset, mutableSymbol.size(), *object->init(), foldingContext);
         if (removeOriginalInits) {
@@ -781,7 +739,8 @@ static bool CombineEquivalencedInitialization(
     return false;
   }
   // If the items are in static storage, save the final initialization.
-  if (llvm::any_of(associated, [](SymbolRef ref) { return IsSaved(*ref); })) {
+  if (std::find_if(associated.begin(), associated.end(),
+          [](SymbolRef ref) { return IsSaved(*ref); }) != associated.end()) {
     // Create a compiler array temp that overlaps all the items.
     SourceName name{exprAnalyzer.context().GetTempName(scope)};
     auto emplaced{
@@ -919,8 +878,8 @@ void ConstructInitializer(const Symbol &symbol,
       }
     } else if (auto symbolType{evaluate::DynamicType::From(symbol)}) {
       if (auto extents{evaluate::GetConstantExtents(context, symbol)}) {
-        mutableObject.set_init(initialization.image.AsConstant(
-            context, *symbolType, std::nullopt, *extents));
+        mutableObject.set_init(
+            initialization.image.AsConstant(context, *symbolType, *extents));
       } else {
         exprAnalyzer.Say(symbol.name(),
             "internal: unknown shape for '%s' while constructing initializer from DATA"_err_en_US,

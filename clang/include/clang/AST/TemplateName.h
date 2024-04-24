@@ -21,7 +21,6 @@
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
 #include <cassert>
-#include <optional>
 
 namespace clang {
 
@@ -55,7 +54,7 @@ protected:
   };
 
   struct BitsTag {
-    LLVM_PREFERRED_TYPE(Kind)
+    /// A Kind.
     unsigned Kind : 2;
 
     // The template parameter index.
@@ -127,7 +126,7 @@ public:
   iterator end() const { return getStorage() + Bits.Data; }
 
   llvm::ArrayRef<NamedDecl*> decls() const {
-    return llvm::ArrayRef(begin(), end());
+    return llvm::makeArrayRef(begin(), end());
   }
 };
 
@@ -351,7 +350,9 @@ public:
   /// error.
   void dump() const;
 
-  void Profile(llvm::FoldingSetNodeID &ID);
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    ID.AddPointer(Storage.getOpaqueValue());
+  }
 
   /// Retrieve the template name as a void pointer.
   void *getAsVoidPointer() const { return Storage.getOpaqueValue(); }
@@ -378,7 +379,7 @@ class SubstTemplateTemplateParmStorage
 
   SubstTemplateTemplateParmStorage(TemplateName Replacement,
                                    Decl *AssociatedDecl, unsigned Index,
-                                   std::optional<unsigned> PackIndex)
+                                   Optional<unsigned> PackIndex)
       : UncommonTemplateNameStorage(SubstTemplateTemplateParm, Index,
                                     PackIndex ? *PackIndex + 1 : 0),
         Replacement(Replacement), AssociatedDecl(AssociatedDecl) {
@@ -394,9 +395,9 @@ public:
   /// This should match the result of `getParameter()->getIndex()`.
   unsigned getIndex() const { return Bits.Index; }
 
-  std::optional<unsigned> getPackIndex() const {
+  Optional<unsigned> getPackIndex() const {
     if (Bits.Data == 0)
-      return std::nullopt;
+      return None;
     return Bits.Data - 1;
   }
 
@@ -407,7 +408,7 @@ public:
 
   static void Profile(llvm::FoldingSetNodeID &ID, TemplateName Replacement,
                       Decl *AssociatedDecl, unsigned Index,
-                      std::optional<unsigned> PackIndex);
+                      Optional<unsigned> PackIndex);
 };
 
 inline TemplateName TemplateName::getUnderlying() const {

@@ -5,22 +5,22 @@
 
 !ERROR: The derived type 'undef' was forward-referenced but not defined
 type(undef) function f1()
-  call sub1(f1)
+  call sub(f1)
 end function
 
 !ERROR: The derived type 'undef' was forward-referenced but not defined
 type(undef) function f2() result(r)
-  call sub2(r)
+  call sub(r)
 end function
 
 !ERROR: The derived type 'undefpdt' was forward-referenced but not defined
 type(undefpdt(1)) function f3()
-  call sub3(f3)
+  call sub(f3)
 end function
 
 !ERROR: The derived type 'undefpdt' was forward-referenced but not defined
 type(undefpdt(1)) function f4() result(r)
-  call sub4(f4)
+  call sub(f4)
 end function
 
 !ERROR: 'bad' is not the name of a parameter for derived type 'pdt'
@@ -84,6 +84,7 @@ subroutine s9
   type con
     Type(t(3)), pointer :: y
   end type
+  !ERROR: Cannot construct value for derived type 't' before it is defined
   Integer :: nn = Size(Transfer(t(3)(666),[0]))
   type :: t(n)
     integer, kind :: n = 3

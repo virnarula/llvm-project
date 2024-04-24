@@ -81,10 +81,9 @@ bool IsStackTraceSuppressed(const StackTrace *stack) {
     }
 
     if (suppression_ctx->HasSuppressionType(kInterceptorViaFunction)) {
-      SymbolizedStackHolder symbolized_stack(symbolizer->SymbolizePC(addr));
-      const SymbolizedStack *frames = symbolized_stack.get();
+      SymbolizedStack *frames = symbolizer->SymbolizePC(addr);
       CHECK(frames);
-      for (const SymbolizedStack *cur = frames; cur; cur = cur->next) {
+      for (SymbolizedStack *cur = frames; cur; cur = cur->next) {
         const char *function_name = cur->info.function;
         if (!function_name) {
           continue;
@@ -92,9 +91,11 @@ bool IsStackTraceSuppressed(const StackTrace *stack) {
         // Match "interceptor_via_fun" suppressions.
         if (suppression_ctx->Match(function_name, kInterceptorViaFunction,
                                    &s)) {
+          frames->ClearAll();
           return true;
         }
       }
+      frames->ClearAll();
     }
   }
   return false;

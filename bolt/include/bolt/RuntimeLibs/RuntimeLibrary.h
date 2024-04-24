@@ -15,7 +15,6 @@
 #ifndef BOLT_RUNTIMELIBS_RUNTIME_LIBRARY_H
 #define BOLT_RUNTIMELIBS_RUNTIME_LIBRARY_H
 
-#include "bolt/Core/Linker.h"
 #include "llvm/ADT/StringRef.h"
 #include <functional>
 #include <vector>
@@ -23,6 +22,7 @@
 namespace llvm {
 
 class MCStreamer;
+class RuntimeDyld;
 
 namespace bolt {
 
@@ -51,8 +51,8 @@ public:
   virtual void emitBinary(BinaryContext &BC, MCStreamer &Streamer) = 0;
 
   /// Link with the library code.
-  virtual void link(BinaryContext &BC, StringRef ToolPath, BOLTLinker &Linker,
-                    BOLTLinker::SectionsMapper MapSections) = 0;
+  virtual void link(BinaryContext &BC, StringRef ToolPath, RuntimeDyld &RTDyld,
+                    std::function<void(RuntimeDyld &)> OnLoad) = 0;
 
 protected:
   /// The fini and init address set by the runtime library.
@@ -63,8 +63,7 @@ protected:
   static std::string getLibPath(StringRef ToolPath, StringRef LibFileName);
 
   /// Load a static runtime library specified by \p LibPath.
-  static void loadLibrary(StringRef LibPath, BOLTLinker &Linker,
-                          BOLTLinker::SectionsMapper MapSections);
+  static void loadLibrary(StringRef LibPath, RuntimeDyld &RTDyld);
 };
 
 } // namespace bolt

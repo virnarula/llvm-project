@@ -1,5 +1,5 @@
 ## Don't make symlinks on Windows.
-# UNSUPPORTED: system-windows, llvm-driver
+# UNSUPPORTED: system-windows
 
 # RUN: rm -rf %t
 # RUN: mkdir %t

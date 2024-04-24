@@ -24,8 +24,6 @@ public:
   NameAnonGlobalPass() = default;
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  static bool isRequired() { return true; }
 };
 
 } // end namespace llvm

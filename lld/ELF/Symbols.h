@@ -37,7 +37,7 @@ class InputSectionBase;
 class SharedSymbol;
 class Symbol;
 class Undefined;
-class LazySymbol;
+class LazyObject;
 class InputFile;
 
 void printTraceSymbol(const Symbol &sym, StringRef name);
@@ -76,7 +76,7 @@ public:
     CommonKind,
     SharedKind,
     UndefinedKind,
-    LazyKind,
+    LazyObjectKind,
   };
 
   Kind kind() const { return static_cast<Kind>(symbolKind); }
@@ -181,7 +181,7 @@ public:
 
   bool isLocal() const { return binding == llvm::ELF::STB_LOCAL; }
 
-  bool isLazy() const { return symbolKind == LazyKind; }
+  bool isLazy() const { return symbolKind == LazyObjectKind; }
 
   // True if this is an undefined weak symbol. This only works once
   // all input files have been added.
@@ -237,7 +237,7 @@ public:
   void resolve(const Undefined &other);
   void resolve(const CommonSymbol &other);
   void resolve(const Defined &other);
-  void resolve(const LazySymbol &other);
+  void resolve(const LazyObject &other);
   void resolve(const SharedSymbol &other);
 
   // If this is a lazy symbol, extract an input file and add the symbol
@@ -254,8 +254,8 @@ protected:
   Symbol(Kind k, InputFile *file, StringRef name, uint8_t binding,
          uint8_t stOther, uint8_t type)
       : file(file), nameData(name.data()), nameSize(name.size()), type(type),
-        binding(binding), stOther(stOther), symbolKind(k), exportDynamic(false),
-        archSpecificBit(false) {}
+        binding(binding), stOther(stOther), symbolKind(k),
+        exportDynamic(false) {}
 
   void overwrite(Symbol &sym, Kind k) const {
     if (sym.traced)
@@ -279,28 +279,15 @@ public:
   // True if defined relative to a section discarded by ICF.
   uint8_t folded : 1;
 
-  // Allow reuse of a bit between architecture-exclusive symbol flags.
-  // - needsTocRestore(): On PPC64, true if a call to this symbol needs to be
-  //   followed by a restore of the toc pointer.
-  // - isTagged(): On AArch64, true if the symbol needs special relocation and
-  //   metadata semantics because it's tagged, under the AArch64 MemtagABI.
-  uint8_t archSpecificBit : 1;
-  bool needsTocRestore() const { return archSpecificBit; }
-  bool isTagged() const { return archSpecificBit; }
-  void setNeedsTocRestore(bool v) { archSpecificBit = v; }
-  void setIsTagged(bool v) {
-    archSpecificBit = v;
-  }
+  // True if a call to this symbol needs to be followed by a restore of the
+  // PPC64 toc pointer.
+  uint8_t needsTocRestore : 1;
 
   // True if this symbol is defined by a symbol assignment or wrapped by --wrap.
   //
   // LTO shouldn't inline the symbol because it doesn't know the final content
   // of the symbol.
   uint8_t scriptDefined : 1;
-
-  // True if defined in a DSO. There may also be a definition in a relocatable
-  // object file.
-  uint8_t dsoDefined : 1;
 
   // True if defined in a DSO as protected visibility.
   uint8_t dsoProtected : 1;
@@ -314,15 +301,11 @@ public:
   uint32_t auxIdx;
   uint32_t dynsymIndex;
 
-  // If `file` is SharedFile (for SharedSymbol or copy-relocated Defined), this
-  // represents the Verdef index within the input DSO, which will be converted
-  // to a Verneed index in the output. Otherwise, this represents the Verdef
-  // index (VER_NDX_LOCAL, VER_NDX_GLOBAL, or a named version).
-  uint16_t versionId;
-  uint8_t versionScriptAssigned : 1;
+  // This field is a index to the symbol's version definition.
+  uint16_t verdefIndex;
 
-  // True if targeted by a range extension thunk.
-  uint8_t thunkAccessed : 1;
+  // Version definition index.
+  uint16_t versionId;
 
   void setFlags(uint16_t bits) {
     flags.fetch_or(bits, std::memory_order_relaxed);
@@ -360,7 +343,14 @@ public:
         size(size), section(section) {
     exportDynamic = config->exportDynamic;
   }
-  void overwrite(Symbol &sym) const;
+  void overwrite(Symbol &sym) const {
+    Symbol::overwrite(sym, DefinedKind);
+    sym.verdefIndex = -1;
+    auto &s = static_cast<Defined &>(sym);
+    s.value = value;
+    s.size = size;
+    s.section = section;
+  }
 
   static bool classof(const Symbol *s) { return s->isDefined(); }
 
@@ -475,7 +465,7 @@ public:
   uint32_t alignment;
 };
 
-// LazySymbol symbols represent symbols in object files between --start-lib and
+// LazyObject symbols represent symbols in object files between --start-lib and
 // --end-lib options. LLD also handles traditional archives as if all the files
 // in the archive are surrounded by --start-lib and --end-lib.
 //
@@ -484,14 +474,14 @@ public:
 // and the lazy. We represent that with a lazy symbol with a weak binding. This
 // means that code looking for undefined symbols normally also has to take lazy
 // symbols into consideration.
-class LazySymbol : public Symbol {
+class LazyObject : public Symbol {
 public:
-  LazySymbol(InputFile &file)
-      : Symbol(LazyKind, &file, {}, llvm::ELF::STB_GLOBAL,
+  LazyObject(InputFile &file)
+      : Symbol(LazyObjectKind, &file, {}, llvm::ELF::STB_GLOBAL,
                llvm::ELF::STV_DEFAULT, llvm::ELF::STT_NOTYPE) {}
-  void overwrite(Symbol &sym) const { Symbol::overwrite(sym, LazyKind); }
+  void overwrite(Symbol &sym) const { Symbol::overwrite(sym, LazyObjectKind); }
 
-  static bool classof(const Symbol *s) { return s->kind() == LazyKind; }
+  static bool classof(const Symbol *s) { return s->kind() == LazyObjectKind; }
 };
 
 // Some linker-generated symbols need to be created as
@@ -522,12 +512,12 @@ struct ElfSym {
   static Defined *mipsGpDisp;
   static Defined *mipsLocalGp;
 
-  // __global_pointer$ for RISC-V.
-  static Defined *riscvGlobalPointer;
-
   // __rel{,a}_iplt_{start,end} symbols.
   static Defined *relaIpltStart;
   static Defined *relaIpltEnd;
+
+  // __global_pointer$ for RISC-V.
+  static Defined *riscvGlobalPointer;
 
   // _TLS_MODULE_BASE_ on targets that support TLSDESC.
   static Defined *tlsModuleBase;
@@ -545,7 +535,7 @@ union SymbolUnion {
   alignas(CommonSymbol) char b[sizeof(CommonSymbol)];
   alignas(Undefined) char c[sizeof(Undefined)];
   alignas(SharedSymbol) char d[sizeof(SharedSymbol)];
-  alignas(LazySymbol) char e[sizeof(LazySymbol)];
+  alignas(LazyObject) char e[sizeof(LazyObject)];
 };
 
 template <typename... T> Defined *makeDefined(T &&...args) {

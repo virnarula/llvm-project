@@ -9,24 +9,24 @@
 #include "Transport.h"
 #include "URI.h"
 #include "support/Logger.h"
+#include "llvm/ADT/None.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
 #include <algorithm>
-#include <optional>
 #include <tuple>
 
 namespace clang {
 namespace clangd {
-std::optional<std::string> doPathMapping(llvm::StringRef S,
-                                         PathMapping::Direction Dir,
-                                         const PathMappings &Mappings) {
+llvm::Optional<std::string> doPathMapping(llvm::StringRef S,
+                                          PathMapping::Direction Dir,
+                                          const PathMappings &Mappings) {
   // Return early to optimize for the common case, wherein S is not a file URI
-  if (!S.starts_with("file://"))
-    return std::nullopt;
+  if (!S.startswith("file://"))
+    return llvm::None;
   auto Uri = URI::parse(S);
   if (!Uri) {
     llvm::consumeError(Uri.takeError());
-    return std::nullopt;
+    return llvm::None;
   }
   for (const auto &Mapping : Mappings) {
     const std::string &From = Dir == PathMapping::Direction::ClientToServer
@@ -42,7 +42,7 @@ std::optional<std::string> doPathMapping(llvm::StringRef S,
           .toString();
     }
   }
-  return std::nullopt;
+  return llvm::None;
 }
 
 void applyPathMappings(llvm::json::Value &V, PathMapping::Direction Dir,
@@ -54,7 +54,7 @@ void applyPathMappings(llvm::json::Value &V, PathMapping::Direction Dir,
     llvm::json::Object MappedObj;
     // 1. Map all the Keys
     for (auto &KV : *Obj) {
-      if (std::optional<std::string> MappedKey =
+      if (llvm::Optional<std::string> MappedKey =
               doPathMapping(KV.first.str(), Dir, Mappings)) {
         MappedObj.try_emplace(std::move(*MappedKey), std::move(KV.second));
       } else {
@@ -69,7 +69,7 @@ void applyPathMappings(llvm::json::Value &V, PathMapping::Direction Dir,
     for (llvm::json::Value &Val : *V.getAsArray())
       applyPathMappings(Val, Dir, Mappings);
   } else if (K == Kind::String) {
-    if (std::optional<std::string> Mapped =
+    if (llvm::Optional<std::string> Mapped =
             doPathMapping(*V.getAsString(), Dir, Mappings))
       V = std::move(*Mapped);
   }

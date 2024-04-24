@@ -1,6 +1,7 @@
 add_lldb_library(lldbPluginProcessPOSIX
   CrashReason.cpp
   NativeProcessELF.cpp
+  ProcessMessage.cpp
   ProcessPOSIXLog.cpp
 
   LINK_LIBS

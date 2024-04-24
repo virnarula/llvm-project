@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 void IntegerDivisionCheck::registerMatchers(MatchFinder *Finder) {
   const auto IntType = hasType(isInteger());
@@ -47,4 +49,6 @@ void IntegerDivisionCheck::check(const MatchFinder::MatchResult &Result) {
                               "point context; possible loss of precision");
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

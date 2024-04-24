@@ -8,7 +8,7 @@ Header:
   Version:
     Major:           1
     Minor:           0
-  PartCount:       2
+  PartCount:       7
 Parts:
   - Name:            SFI0
     Size:            8
@@ -45,7 +45,17 @@ Parts:
       AdvancedTextureOps: true
       WriteableMSAATextures: false
       NextUnusedBit:   true
-  - Name:            FKE0
+  - Name:            ISG1
+    Size:            8
+  - Name:            OSG1
+    Size:            8
+  - Name:            PSV0
+    Size:            8
+  - Name:            STAT
+    Size:            8
+  - Name:            HASH
+    Size:            20
+  - Name:            CXIL
     Size:            8
 ...
 

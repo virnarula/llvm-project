@@ -8,7 +8,6 @@ _f1:
 
         @ A misaligned ARM destination.
         .arm
-        .byte 0x0
         .globl _misaligned
 _misaligned:
         bx lr

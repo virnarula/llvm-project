@@ -29,13 +29,15 @@ struct Lowerer : coro::LowererBase {
 
 static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   Builder.SetInsertPoint(SubFn);
-  Value *FramePtr = SubFn->getFrame();
+  Value *FrameRaw = SubFn->getFrame();
   int Index = SubFn->getIndex();
 
-  auto *FrameTy = StructType::get(SubFn->getContext(),
-                                  {Builder.getPtrTy(), Builder.getPtrTy()});
+  auto *FrameTy = StructType::get(
+      SubFn->getContext(), {Builder.getInt8PtrTy(), Builder.getInt8PtrTy()});
+  PointerType *FramePtrTy = FrameTy->getPointerTo();
 
   Builder.SetInsertPoint(SubFn);
+  auto *FramePtr = Builder.CreateBitCast(FrameRaw, FramePtrTy);
   auto *Gep = Builder.CreateConstInBoundsGEP2_32(FrameTy, FramePtr, 0, Index);
   auto *Load = Builder.CreateLoad(FrameTy->getElementType(Index), Gep);
 
@@ -125,16 +127,10 @@ PreservedAnalyses CoroCleanupPass::run(Module &M,
   FunctionPassManager FPM;
   FPM.addPass(SimplifyCFGPass());
 
-  PreservedAnalyses FuncPA;
-  FuncPA.preserveSet<CFGAnalyses>();
-
   Lowerer L(M);
-  for (auto &F : M) {
-    if (L.lower(F)) {
-      FAM.invalidate(F, FuncPA);
+  for (auto &F : M)
+    if (L.lower(F))
       FPM.run(F, FAM);
-    }
-  }
 
   return PreservedAnalyses::none();
 }

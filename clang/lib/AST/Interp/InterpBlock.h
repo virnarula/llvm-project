@@ -31,34 +31,20 @@ enum PrimType : unsigned;
 
 /// A memory block, either on the stack or in the heap.
 ///
-/// The storage described by the block is immediately followed by
-/// optional metadata, which is followed by the actual data.
-///
-/// Block*        rawData()                  data()
-/// │               │                         │
-/// │               │                         │
-/// ▼               ▼                         ▼
-/// ┌───────────────┬─────────────────────────┬─────────────────┐
-/// │ Block         │ Metadata                │ Data            │
-/// │ sizeof(Block) │ Desc->getMetadataSize() │ Desc->getSize() │
-/// └───────────────┴─────────────────────────┴─────────────────┘
-///
-/// Desc->getAllocSize() describes the size after the Block, i.e.
-/// the data size and the metadata size.
-///
+/// The storage described by the block immediately follows it in memory.
 class Block final {
 public:
-  /// Creates a new block.
-  Block(const std::optional<unsigned> &DeclID, const Descriptor *Desc,
+  // Creates a new block.
+  Block(const llvm::Optional<unsigned> &DeclID, Descriptor *Desc,
         bool IsStatic = false, bool IsExtern = false)
       : DeclID(DeclID), IsStatic(IsStatic), IsExtern(IsExtern), Desc(Desc) {}
 
-  Block(const Descriptor *Desc, bool IsStatic = false, bool IsExtern = false)
+  Block(Descriptor *Desc, bool IsStatic = false, bool IsExtern = false)
       : DeclID((unsigned)-1), IsStatic(IsStatic), IsExtern(IsExtern),
         Desc(Desc) {}
 
   /// Returns the block's descriptor.
-  const Descriptor *getDescriptor() const { return Desc; }
+  Descriptor *getDescriptor() const { return Desc; }
   /// Checks if the block has any live pointers.
   bool hasPointers() const { return Pointers; }
   /// Checks if the block is extern.
@@ -68,54 +54,29 @@ public:
   /// Checks if the block is temporary.
   bool isTemporary() const { return Desc->IsTemporary; }
   /// Returns the size of the block.
-  unsigned getSize() const { return Desc->getAllocSize(); }
+  InterpSize getSize() const { return Desc->getAllocSize(); }
   /// Returns the declaration ID.
-  std::optional<unsigned> getDeclID() const { return DeclID; }
-  bool isInitialized() const { return IsInitialized; }
+  llvm::Optional<unsigned> getDeclID() const { return DeclID; }
 
   /// Returns a pointer to the stored data.
-  /// You are allowed to read Desc->getSize() bytes from this address.
-  std::byte *data() {
-    // rawData might contain metadata as well.
-    size_t DataOffset = Desc->getMetadataSize();
-    return rawData() + DataOffset;
-  }
-  const std::byte *data() const {
-    // rawData might contain metadata as well.
-    size_t DataOffset = Desc->getMetadataSize();
-    return rawData() + DataOffset;
-  }
-
-  /// Returns a pointer to the raw data, including metadata.
-  /// You are allowed to read Desc->getAllocSize() bytes from this address.
-  std::byte *rawData() {
-    return reinterpret_cast<std::byte *>(this) + sizeof(Block);
-  }
-  const std::byte *rawData() const {
-    return reinterpret_cast<const std::byte *>(this) + sizeof(Block);
-  }
+  char *data() { return reinterpret_cast<char *>(this + 1); }
 
   /// Returns a view over the data.
   template <typename T>
   T &deref() { return *reinterpret_cast<T *>(data()); }
-  template <typename T> const T &deref() const {
-    return *reinterpret_cast<const T *>(data());
-  }
 
   /// Invokes the constructor.
   void invokeCtor() {
-    std::memset(rawData(), 0, Desc->getAllocSize());
+    std::memset(data(), 0, getSize());
     if (Desc->CtorFn)
       Desc->CtorFn(this, data(), Desc->IsConst, Desc->IsMutable,
                    /*isActive=*/true, Desc);
-    IsInitialized = true;
   }
 
-  /// Invokes the Destructor.
+  // Invokes the Destructor.
   void invokeDtor() {
     if (Desc->DtorFn)
       Desc->DtorFn(this, data(), Desc);
-    IsInitialized = false;
   }
 
 protected:
@@ -123,36 +84,29 @@ protected:
   friend class DeadBlock;
   friend class InterpState;
 
-  Block(const Descriptor *Desc, bool IsExtern, bool IsStatic, bool IsDead)
-      : IsStatic(IsStatic), IsExtern(IsExtern), IsDead(true), Desc(Desc) {}
+  Block(Descriptor *Desc, bool IsExtern, bool IsStatic, bool IsDead)
+    : IsStatic(IsStatic), IsExtern(IsExtern), IsDead(true), Desc(Desc) {}
 
-  /// Deletes a dead block at the end of its lifetime.
+  // Deletes a dead block at the end of its lifetime.
   void cleanup();
 
-  /// Pointer chain management.
+  // Pointer chain management.
   void addPointer(Pointer *P);
   void removePointer(Pointer *P);
-  void replacePointer(Pointer *Old, Pointer *New);
-#ifndef NDEBUG
-  bool hasPointer(const Pointer *P) const;
-#endif
+  void movePointer(Pointer *From, Pointer *To);
 
   /// Start of the chain of pointers.
   Pointer *Pointers = nullptr;
   /// Unique identifier of the declaration.
-  std::optional<unsigned> DeclID;
+  llvm::Optional<unsigned> DeclID;
   /// Flag indicating if the block has static storage duration.
   bool IsStatic = false;
   /// Flag indicating if the block is an extern.
   bool IsExtern = false;
-  /// Flag indicating if the pointer is dead. This is only ever
-  /// set once, when converting the Block to a DeadBlock.
+  /// Flag indicating if the pointer is dead.
   bool IsDead = false;
-  /// Flag indicating if the block contents have been initialized
-  /// via invokeCtor.
-  bool IsInitialized = false;
   /// Pointer to the stack slot descriptor.
-  const Descriptor *Desc;
+  Descriptor *Desc;
 };
 
 /// Descriptor for a dead block.
@@ -165,8 +119,7 @@ public:
   DeadBlock(DeadBlock *&Root, Block *Blk);
 
   /// Returns a pointer to the stored data.
-  std::byte *data() { return B.data(); }
-  std::byte *rawData() { return B.rawData(); }
+  char *data() { return B.data(); }
 
 private:
   friend class Block;

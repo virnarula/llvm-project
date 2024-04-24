@@ -1,4 +1,5 @@
 // RUN: %clang_hwasan %s -o %t && %env_hwasan_opts=random_tags=1 %run %t
+// REQUIRES: stable-runtime
 
 #include <pthread.h>
 #include <sanitizer/hwasan_interface.h>

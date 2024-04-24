@@ -4,10 +4,10 @@
 ; RUN: llvm-as < %s | llvm-dis | llvm-as
 ; RUN: verify-uselistorder %s
 
-declare ptr @foo()
+declare void (i32)* @foo()
 
 define void @test() {
-        call ptr () @foo( )           ; <ptr>:1 [#uses=0]
+        call void (i32)* () @foo( )           ; <%ty*>:1 [#uses=0]
         ret void
 }
 

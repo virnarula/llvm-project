@@ -27,16 +27,15 @@ namespace process_netbsd {
 /// Changes in the inferior process state are broadcasted.
 class NativeProcessNetBSD : public NativeProcessELF {
 public:
-  class Manager : public NativeProcessProtocol::Manager {
+  class Factory : public NativeProcessProtocol::Factory {
   public:
-    using NativeProcessProtocol::Manager::Manager;
+    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+    Launch(ProcessLaunchInfo &launch_info, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
 
     llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-    Launch(ProcessLaunchInfo &launch_info,
-           NativeDelegate &native_delegate) override;
-
-    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-    Attach(lldb::pid_t pid, NativeDelegate &native_delegate) override;
+    Attach(lldb::pid_t pid, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
 
     Extension GetSupportedExtensions() const override;
   };
@@ -88,7 +87,6 @@ public:
   // Interface used by NativeRegisterContext-derived classes.
   static Status PtraceWrapper(int req, lldb::pid_t pid, void *addr = nullptr,
                               int data = 0, int *result = nullptr);
-  static Status StopProcess(lldb::pid_t pid);
 
   llvm::Expected<std::string> SaveCore(llvm::StringRef path_hint) override;
 

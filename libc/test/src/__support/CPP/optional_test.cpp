@@ -7,10 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/__support/CPP/optional.h"
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
-using LIBC_NAMESPACE::cpp::nullopt;
-using LIBC_NAMESPACE::cpp::optional;
+using __llvm_libc::cpp::nullopt;
+using __llvm_libc::cpp::optional;
 
 // This class has three properties for testing:
 // 1) No default constructor.
@@ -42,18 +42,14 @@ TEST(LlvmLibcOptionalTest, Tests) {
 
   // For this test case, the destructor increments the pointed-to value.
   int holding = 1;
-  {
-    optional<Contrived> Complicated(&holding);
-    // Destructor was run once as part of copying the object.
-    ASSERT_EQ(holding, 2);
-    // Destructor was run a second time as part of destruction.
-    Complicated.reset();
-    ASSERT_EQ(holding, 3);
-    // Destructor was not run a third time as the object is already destroyed.
-    Complicated.reset();
-    ASSERT_EQ(holding, 3);
-  }
-  // Make sure the destructor isn't called when the optional is destroyed.
+  optional<Contrived> Complicated(&holding);
+  // Destructor was run once as part of copying the object.
+  ASSERT_EQ(holding, 2);
+  // Destructor was run a second time as part of destruction.
+  Complicated.reset();
+  ASSERT_EQ(holding, 3);
+  // Destructor was not run a third time as the object is already destroyed.
+  Complicated.reset();
   ASSERT_EQ(holding, 3);
 
   // Test that assigning an optional to another works when set

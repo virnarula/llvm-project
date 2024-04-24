@@ -8,7 +8,6 @@
 
 #include "mlir-c/Dialect/Async.h"
 
-#include <pybind11/detail/common.h>
 #include <pybind11/pybind11.h>
 
 // -----------------------------------------------------------------------------

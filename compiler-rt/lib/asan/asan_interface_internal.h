@@ -53,10 +53,9 @@ extern "C" {
     const char *module_name; // Module name as a C string. This pointer is a
                              // unique identifier of a module.
     uptr has_dynamic_init;   // Non-zero if the global has dynamic initializer.
-    __asan_global_source_location *gcc_location;  // Source location of a global,
-                                                  // used by GCC compiler. LLVM uses
-                                                  // llvm-symbolizer that relies
-                                                  // on DWARF debugging info.
+    uptr windows_padding;    // TODO: Figure out how to remove this padding
+                             // that's simply here to make the MSVC incremental
+                             // linker happy...
     uptr odr_indicator;      // The address of the ODR indicator symbol.
   };
 

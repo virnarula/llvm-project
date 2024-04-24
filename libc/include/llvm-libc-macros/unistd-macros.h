@@ -1,7 +1,7 @@
 #ifndef __LLVM_LIBC_MACROS_UNISTD_MACROS_H
 #define __LLVM_LIBC_MACROS_UNISTD_MACROS_H
 
-#ifdef __linux__
+#ifdef __unix__
 #include "linux/unistd-macros.h"
 #endif
 

@@ -28,6 +28,7 @@ class COFFLinkerContext;
 class Defined;
 class DefinedAbsolute;
 class DefinedRegular;
+class DefinedRelative;
 class LazyArchive;
 class SectionChunk;
 class Symbol;
@@ -46,7 +47,7 @@ class Symbol;
 // There is one add* function per symbol type.
 class SymbolTable {
 public:
-  SymbolTable(COFFLinkerContext &c) : ctx(c) {}
+  SymbolTable(COFFLinkerContext &ctx) : ctx(ctx) {}
 
   void addFile(InputFile *file);
 
@@ -133,7 +134,6 @@ private:
 
   llvm::DenseMap<llvm::CachedHashStringRef, Symbol *> symMap;
   std::unique_ptr<BitcodeCompiler> lto;
-  bool ltoCompilationDone = false;
 
   COFFLinkerContext &ctx;
 };

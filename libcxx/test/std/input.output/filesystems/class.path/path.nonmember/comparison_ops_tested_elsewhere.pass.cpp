@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // The comparison operators are tested as part of [path.compare]
 // in class.path/path.members/path.compare.pass.cpp

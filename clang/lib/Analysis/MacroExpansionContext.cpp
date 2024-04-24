@@ -8,7 +8,6 @@
 
 #include "clang/Analysis/MacroExpansionContext.h"
 #include "llvm/Support/Debug.h"
-#include <optional>
 
 #define DEBUG_TYPE "macro-expansion-context"
 
@@ -97,14 +96,14 @@ void MacroExpansionContext::registerForPreprocessor(Preprocessor &NewPP) {
   PP->setTokenWatcher([this](const Token &Tok) { onTokenLexed(Tok); });
 }
 
-std::optional<StringRef>
+Optional<StringRef>
 MacroExpansionContext::getExpandedText(SourceLocation MacroExpansionLoc) const {
   if (MacroExpansionLoc.isMacroID())
-    return std::nullopt;
+    return llvm::None;
 
-  // If there was no macro expansion at that location, return std::nullopt.
+  // If there was no macro expansion at that location, return None.
   if (ExpansionRanges.find_as(MacroExpansionLoc) == ExpansionRanges.end())
-    return std::nullopt;
+    return llvm::None;
 
   // There was macro expansion, but resulted in no tokens, return empty string.
   const auto It = ExpandedTokens.find_as(MacroExpansionLoc);
@@ -115,14 +114,14 @@ MacroExpansionContext::getExpandedText(SourceLocation MacroExpansionLoc) const {
   return It->getSecond().str();
 }
 
-std::optional<StringRef>
+Optional<StringRef>
 MacroExpansionContext::getOriginalText(SourceLocation MacroExpansionLoc) const {
   if (MacroExpansionLoc.isMacroID())
-    return std::nullopt;
+    return llvm::None;
 
   const auto It = ExpansionRanges.find_as(MacroExpansionLoc);
   if (It == ExpansionRanges.end())
-    return std::nullopt;
+    return llvm::None;
 
   assert(It->getFirst() != It->getSecond() &&
          "Every macro expansion must cover a non-empty range.");

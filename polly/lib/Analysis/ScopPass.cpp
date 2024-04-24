@@ -19,7 +19,6 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include <optional>
 
 using namespace llvm;
 using namespace polly;
@@ -120,7 +119,7 @@ bool ScopAnalysisManagerFunctionProxy::Result::invalidate(
   // Even if all analyses were preserved, we still need to run deferred
   // invalidation
   for (auto &S : *SI) {
-    std::optional<PreservedAnalyses> InnerPA;
+    Optional<PreservedAnalyses> InnerPA;
     auto *scop = S.second.get();
     if (!scop)
       continue;

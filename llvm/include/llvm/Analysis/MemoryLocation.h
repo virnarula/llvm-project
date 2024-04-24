@@ -16,10 +16,9 @@
 #define LLVM_ANALYSIS_MEMORYLOCATION_H
 
 #include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/TypeSize.h"
-
-#include <optional>
 
 namespace llvm {
 
@@ -40,9 +39,9 @@ class VAArgInst;
 class Value;
 
 // Represents the size of a MemoryLocation. Logically, it's an
-// std::optional<uint63_t> that also carries a bit to represent whether the
-// integer it contains, N, is 'precise'. Precise, in this context, means that we
-// know that the area of storage referenced by the given MemoryLocation must be
+// Optional<uint63_t> that also carries a bit to represent whether the integer
+// it contains, N, is 'precise'. Precise, in this context, means that we know
+// that the area of storage referenced by the given MemoryLocation must be
 // precisely N bytes. An imprecise value is formed as the union of two or more
 // precise values, and can conservatively represent all of the values unioned
 // into it. Importantly, imprecise values are an *upper-bound* on the size of a
@@ -63,20 +62,17 @@ class Value;
 // we'll ever actually do so.
 //
 // If asked to represent a pathologically large value, this will degrade to
-// std::nullopt.
-// Store Scalable information in bit 62 of Value. Scalable information is
-// required to do Alias Analysis on Scalable quantities
+// None.
 class LocationSize {
   enum : uint64_t {
     BeforeOrAfterPointer = ~uint64_t(0),
-    ScalableBit = uint64_t(1) << 62,
-    AfterPointer = (BeforeOrAfterPointer - 1) & ~ScalableBit,
+    AfterPointer = BeforeOrAfterPointer - 1,
     MapEmpty = BeforeOrAfterPointer - 2,
     MapTombstone = BeforeOrAfterPointer - 3,
     ImpreciseBit = uint64_t(1) << 63,
 
     // The maximum value we can represent without falling back to 'unknown'.
-    MaxValue = (MapTombstone - 1) & ~(ImpreciseBit | ScalableBit),
+    MaxValue = (MapTombstone - 1) & ~ImpreciseBit,
   };
 
   uint64_t Value;
@@ -85,16 +81,12 @@ class LocationSize {
   // public LocationSize ctor goes away.
   enum DirectConstruction { Direct };
 
-  constexpr LocationSize(uint64_t Raw, DirectConstruction) : Value(Raw) {}
-  constexpr LocationSize(uint64_t Raw, bool Scalable)
-      : Value(Raw > MaxValue ? AfterPointer
-                             : Raw | (Scalable ? ScalableBit : uint64_t(0))) {}
+  constexpr LocationSize(uint64_t Raw, DirectConstruction): Value(Raw) {}
 
   static_assert(AfterPointer & ImpreciseBit,
                 "AfterPointer is imprecise by definition.");
   static_assert(BeforeOrAfterPointer & ImpreciseBit,
                 "BeforeOrAfterPointer is imprecise by definition.");
-  static_assert(~(MaxValue & ScalableBit), "Max value don't have bit 62 set");
 
 public:
   // FIXME: Migrate all users to construct via either `precise` or `upperBound`,
@@ -105,12 +97,12 @@ public:
   // this assumes the provided value is precise.
   constexpr LocationSize(uint64_t Raw)
       : Value(Raw > MaxValue ? AfterPointer : Raw) {}
-  // Create non-scalable LocationSize
-  static LocationSize precise(uint64_t Value) {
-    return LocationSize(Value, false /*Scalable*/);
-  }
+
+  static LocationSize precise(uint64_t Value) { return LocationSize(Value); }
   static LocationSize precise(TypeSize Value) {
-    return LocationSize(Value.getKnownMinValue(), Value.isScalable());
+    if (Value.isScalable())
+      return afterPointer();
+    return precise(Value.getFixedSize());
   }
 
   static LocationSize upperBound(uint64_t Value) {
@@ -124,7 +116,7 @@ public:
   static LocationSize upperBound(TypeSize Value) {
     if (Value.isScalable())
       return afterPointer();
-    return upperBound(Value.getFixedValue());
+    return upperBound(Value.getFixedSize());
   }
 
   /// Any location after the base pointer (but still within the underlying
@@ -157,8 +149,6 @@ public:
       return beforeOrAfterPointer();
     if (Value == AfterPointer || Other.Value == AfterPointer)
       return afterPointer();
-    if (isScalable() || Other.isScalable())
-      return afterPointer();
 
     return upperBound(std::max(getValue(), Other.getValue()));
   }
@@ -166,23 +156,19 @@ public:
   bool hasValue() const {
     return Value != AfterPointer && Value != BeforeOrAfterPointer;
   }
-  bool isScalable() const { return (Value & ScalableBit); }
-
-  TypeSize getValue() const {
+  uint64_t getValue() const {
     assert(hasValue() && "Getting value from an unknown LocationSize!");
-    assert((Value & ~(ImpreciseBit | ScalableBit)) < MaxValue &&
-           "Scalable bit of value should be masked");
-    return {Value & ~(ImpreciseBit | ScalableBit), isScalable()};
+    return Value & ~ImpreciseBit;
   }
 
   // Returns whether or not this value is precise. Note that if a value is
   // precise, it's guaranteed to not be unknown.
-  bool isPrecise() const { return (Value & ImpreciseBit) == 0; }
+  bool isPrecise() const {
+    return (Value & ImpreciseBit) == 0;
+  }
 
   // Convenience method to check if this LocationSize's value is 0.
-  bool isZero() const {
-    return hasValue() && getValue().getKnownMinValue() == 0;
-  }
+  bool isZero() const { return hasValue() && getValue() == 0; }
 
   /// Whether accesses before the base pointer are possible.
   bool mayBeBeforePointer() const { return Value == BeforeOrAfterPointer; }
@@ -191,7 +177,9 @@ public:
     return Value == Other.Value;
   }
 
-  bool operator!=(const LocationSize &Other) const { return !(*this == Other); }
+  bool operator!=(const LocationSize &Other) const {
+    return !(*this == Other);
+  }
 
   // Ordering operators are not provided, since it's unclear if there's only one
   // reasonable way to compare:
@@ -254,7 +242,7 @@ public:
   static MemoryLocation get(const Instruction *Inst) {
     return *MemoryLocation::getOrNone(Inst);
   }
-  static std::optional<MemoryLocation> getOrNone(const Instruction *Inst);
+  static Optional<MemoryLocation> getOrNone(const Instruction *Inst);
 
   /// Return a location representing the source of a memory transfer.
   static MemoryLocation getForSource(const MemTransferInst *MTI);
@@ -266,8 +254,8 @@ public:
   static MemoryLocation getForDest(const MemIntrinsic *MI);
   static MemoryLocation getForDest(const AtomicMemIntrinsic *MI);
   static MemoryLocation getForDest(const AnyMemIntrinsic *MI);
-  static std::optional<MemoryLocation> getForDest(const CallBase *CI,
-                                                  const TargetLibraryInfo &TLI);
+  static Optional<MemoryLocation> getForDest(const CallBase *CI,
+                                             const TargetLibraryInfo &TLI);
 
   /// Return a location representing a particular argument of a call.
   static MemoryLocation getForArgument(const CallBase *Call, unsigned ArgIdx,
@@ -294,7 +282,7 @@ public:
   // Return the exact size if the exact size is known at compiletime,
   // otherwise return MemoryLocation::UnknownSize.
   static uint64_t getSizeOrUnknown(const TypeSize &T) {
-    return T.isScalable() ? UnknownSize : T.getFixedValue();
+    return T.isScalable() ? UnknownSize : T.getFixedSize();
   }
 
   MemoryLocation() : Ptr(nullptr), Size(LocationSize::beforeOrAfterPointer()) {}
@@ -328,7 +316,9 @@ public:
 
 // Specialize DenseMapInfo.
 template <> struct DenseMapInfo<LocationSize> {
-  static inline LocationSize getEmptyKey() { return LocationSize::mapEmpty(); }
+  static inline LocationSize getEmptyKey() {
+    return LocationSize::mapEmpty();
+  }
   static inline LocationSize getTombstoneKey() {
     return LocationSize::mapTombstone();
   }
@@ -358,6 +348,6 @@ template <> struct DenseMapInfo<MemoryLocation> {
     return LHS == RHS;
   }
 };
-} // namespace llvm
+}
 
 #endif

@@ -24,7 +24,8 @@
 @ CHECK:                            ^
 
 	.thumb_set missing_comma
-@ CHECK: :[[#@LINE-1]]:26: error: expected comma
+
+@ CHECK: error: expected comma after name 'missing_comma'
 @ CHECK: 	.thumb_set missing_comma
 @ CHECK:                                ^
 

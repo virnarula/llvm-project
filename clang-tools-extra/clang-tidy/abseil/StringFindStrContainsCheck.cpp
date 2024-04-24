@@ -20,7 +20,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 using ::clang::transformer::addInclude;
 using ::clang::transformer::applyFirst;
@@ -105,4 +107,6 @@ void StringFindStrContainsCheck::storeOptions(
                 AbseilStringsMatchHeaderOption);
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

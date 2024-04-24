@@ -8,7 +8,6 @@
 
 #include "lldb/Interpreter/CommandAlias.h"
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -135,7 +134,7 @@ Options *CommandAlias::GetOptions() {
   return nullptr;
 }
 
-void CommandAlias::Execute(const char *args_string,
+bool CommandAlias::Execute(const char *args_string,
                            CommandReturnObject &result) {
   llvm_unreachable("CommandAlias::Execute is not to be called");
 }
@@ -182,7 +181,7 @@ bool CommandAlias::IsDashDashCommand() {
   for (const auto &opt_entry : *GetOptionArguments()) {
     std::tie(opt, std::ignore, value) = opt_entry;
     if (opt == CommandInterpreter::g_argument && !value.empty() &&
-        llvm::StringRef(value).ends_with("--")) {
+        llvm::StringRef(value).endswith("--")) {
       m_is_dashdash_alias = eLazyBoolYes;
       break;
     }
@@ -212,9 +211,9 @@ std::pair<lldb::CommandObjectSP, OptionArgVectorSP> CommandAlias::Desugar() {
     // FIXME: This doesn't work if the original alias fills a slot in the
     // underlying alias, since this just appends the two lists.
     auto desugared = ((CommandAlias *)underlying.get())->Desugar();
-    OptionArgVectorSP options = std::make_shared<OptionArgVector>();
-    llvm::append_range(*options, *desugared.second);
-    llvm::append_range(*options, *GetOptionArguments());
+    auto options = GetOptionArguments();
+    options->insert(options->begin(), desugared.second->begin(),
+                    desugared.second->end());
     return {desugared.first, options};
   }
 

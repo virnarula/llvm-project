@@ -17,7 +17,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::linalg;
@@ -40,8 +39,8 @@ template <typename ConcreteType>
 class FoldConstantBase : public OpRewritePattern<GenericOp> {
 public:
   struct APIntOrFloat {
-    std::optional<APInt> apInt;
-    std::optional<APFloat> apFloat;
+    Optional<APInt> apInt;
+    Optional<APFloat> apFloat;
   };
   struct APIntOrFloatArray {
     SmallVector<APInt> apInts;
@@ -56,28 +55,27 @@ public:
 
   LogicalResult matchAndRewrite(GenericOp genericOp,
                                 PatternRewriter &rewriter) const override {
-    // Mixed and buffer sematics aren't supported.
-    if (!genericOp.hasPureTensorSemantics())
+    if (genericOp.hasBufferSemantics())
       return failure();
 
     // Only support ops generating one output for now.
     if (genericOp.getNumDpsInits() != 1)
       return failure();
 
-    auto outputType = dyn_cast<ShapedType>(genericOp.getResultTypes().front());
+    auto outputType = genericOp.getResultTypes().front().dyn_cast<ShapedType>();
     // Require the output types to be static given that we are generating
     // constants.
     if (!outputType || !outputType.hasStaticShape())
       return failure();
 
     if (!llvm::all_of(genericOp.getInputs(), [](Value input) {
-          return isa<ShapedType>(input.getType());
+          return input.getType().isa<ShapedType>();
         }))
       return failure();
 
     // Make sure all element types are the same.
     auto getOperandElementType = [](Value value) {
-      return cast<ShapedType>(value.getType()).getElementType();
+      return value.getType().cast<ShapedType>().getElementType();
     };
     if (!llvm::all_equal(
             llvm::map_range(genericOp->getOperands(), getOperandElementType)))
@@ -97,8 +95,8 @@ public:
                       [](AffineMap map) { return map.isPermutation(); }))
       return failure();
 
-    for (OpOperand &operand : genericOp.getDpsInitsMutable()) {
-      if (genericOp.payloadUsesValueFromOperand(&operand))
+    for (OpOperand *operand : genericOp.getDpsInitOperands()) {
+      if (genericOp.payloadUsesValueFromOperand(operand))
         return failure();
     }
 
@@ -138,7 +136,7 @@ public:
     // unify the following cases but they have lifetime as the MLIRContext.
     SmallVector<APInt> intOutputValues;
     SmallVector<APFloat> fpOutputValues;
-    if (isa<FloatType>(elementType))
+    if (elementType.template isa<FloatType>())
       fpOutputValues.resize(numElements, APFloat(0.f));
     else
       intOutputValues.resize(numElements);
@@ -148,7 +146,7 @@ public:
       SmallVector<unsigned> dims;
       dims.reserve(map.getNumResults());
       for (AffineExpr result : map.getResults()) {
-        dims.push_back(cast<AffineDimExpr>(result).getPosition());
+        dims.push_back(result.cast<AffineDimExpr>().getPosition());
       }
       return dims;
     };
@@ -174,7 +172,7 @@ public:
 
     auto inputShapes = llvm::to_vector<4>(
         llvm::map_range(genericOp.getInputs(), [](Value value) {
-          return cast<ShapedType>(value.getType()).getShape();
+          return value.getType().cast<ShapedType>().getShape();
         }));
 
     // Given a `linearIndex`, remap it to a linear index to access linalg op
@@ -205,7 +203,7 @@ public:
       }
     };
 
-    bool isFloat = isa<FloatType>(elementType);
+    bool isFloat = elementType.isa<FloatType>();
     if (isFloat) {
       SmallVector<DenseElementsAttr::iterator_range<APFloat>> inFpRanges;
       for (int i = 0; i < numInputs; ++i)
@@ -282,7 +280,7 @@ struct FoldConstantTranspose : public FoldConstantBase<FoldConstantTranspose> {
 
     // The yield op should return the block argument corresponds to the input.
     for (Value yieldVal : yieldOp.getValues()) {
-      auto yieldArg = dyn_cast<BlockArgument>(yieldVal);
+      auto yieldArg = yieldVal.dyn_cast<BlockArgument>();
       if (!yieldArg || yieldArg.getOwner() != &body)
         return nullptr;
       if (yieldArg.getArgNumber() != 0)
@@ -292,8 +290,8 @@ struct FoldConstantTranspose : public FoldConstantBase<FoldConstantTranspose> {
     // No computation; just return the orginal value.
     return [](const APIntOrFloatArray &inputs) {
       if (inputs.apFloats.empty())
-        return APIntOrFloat{inputs.apInts.front(), std::nullopt};
-      return APIntOrFloat{std::nullopt, inputs.apFloats.front()};
+        return APIntOrFloat{inputs.apInts.front(), llvm::None};
+      return APIntOrFloat{llvm::None, inputs.apFloats.front()};
     };
   }
 

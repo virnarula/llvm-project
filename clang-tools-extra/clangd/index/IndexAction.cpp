@@ -9,9 +9,7 @@
 #include "IndexAction.h"
 #include "AST.h"
 #include "Headers.h"
-#include "clang-include-cleaner/Record.h"
 #include "index/Relation.h"
-#include "index/SymbolCollector.h"
 #include "index/SymbolOrigin.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -24,19 +22,18 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <utility>
 
 namespace clang {
 namespace clangd {
 namespace {
 
-std::optional<std::string> toURI(OptionalFileEntryRef File) {
+llvm::Optional<std::string> toURI(Optional<FileEntryRef> File) {
   if (!File)
-    return std::nullopt;
+    return llvm::None;
   auto AbsolutePath = File->getFileEntry().tryGetRealPathName();
   if (AbsolutePath.empty())
-    return std::nullopt;
+    return llvm::None;
   return URI::create(AbsolutePath).toString();
 }
 
@@ -88,7 +85,8 @@ public:
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           llvm::StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, llvm::StringRef SearchPath,
+                          Optional<FileEntryRef> File,
+                          llvm::StringRef SearchPath,
                           llvm::StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override {
     auto IncludeURI = toURI(File);
@@ -128,7 +126,7 @@ private:
 class IndexAction : public ASTFrontendAction {
 public:
   IndexAction(std::shared_ptr<SymbolCollector> C,
-              std::unique_ptr<include_cleaner::PragmaIncludes> PI,
+              std::unique_ptr<CanonicalIncludes> Includes,
               const index::IndexingOptions &Opts,
               std::function<void(SymbolSlab)> SymbolsCallback,
               std::function<void(RefSlab)> RefsCallback,
@@ -137,7 +135,8 @@ public:
       : SymbolsCallback(SymbolsCallback), RefsCallback(RefsCallback),
         RelationsCallback(RelationsCallback),
         IncludeGraphCallback(IncludeGraphCallback), Collector(C),
-        PI(std::move(PI)), Opts(Opts) {
+        Includes(std::move(Includes)), Opts(Opts),
+        PragmaHandler(collectIWYUHeaderMaps(this->Includes.get())) {
     this->Opts.ShouldTraverseDecl = [this](const Decl *D) {
       // Many operations performed during indexing is linear in terms of depth
       // of the decl (USR generation, name lookups, figuring out role of a
@@ -155,7 +154,8 @@ public:
 
   std::unique_ptr<ASTConsumer>
   CreateASTConsumer(CompilerInstance &CI, llvm::StringRef InFile) override {
-    PI->record(CI.getPreprocessor());
+    CI.getPreprocessor().addCommentHandler(PragmaHandler.get());
+    Includes->addSystemHeadersMapping(CI.getLangOpts());
     if (IncludeGraphCallback != nullptr)
       CI.getPreprocessor().addPPCallbacks(
           std::make_unique<IncludeGraphCollector>(CI.getSourceManager(), IG));
@@ -201,8 +201,9 @@ private:
   std::function<void(RelationSlab)> RelationsCallback;
   std::function<void(IncludeGraph)> IncludeGraphCallback;
   std::shared_ptr<SymbolCollector> Collector;
-  std::unique_ptr<include_cleaner::PragmaIncludes> PI;
+  std::unique_ptr<CanonicalIncludes> Includes;
   index::IndexingOptions Opts;
+  std::unique_ptr<CommentHandler> PragmaHandler;
   IncludeGraph IG;
 };
 
@@ -227,12 +228,12 @@ std::unique_ptr<FrontendAction> createStaticIndexingAction(
     Opts.RefFilter = RefKind::All;
     Opts.RefsInHeaders = true;
   }
-  auto PragmaIncludes = std::make_unique<include_cleaner::PragmaIncludes>();
-  Opts.PragmaIncludes = PragmaIncludes.get();
-  return std::make_unique<IndexAction>(std::make_shared<SymbolCollector>(Opts),
-                                       std::move(PragmaIncludes), IndexOpts,
-                                       SymbolsCallback, RefsCallback,
-                                       RelationsCallback, IncludeGraphCallback);
+  auto Includes = std::make_unique<CanonicalIncludes>();
+  Opts.Includes = Includes.get();
+  return std::make_unique<IndexAction>(
+      std::make_shared<SymbolCollector>(std::move(Opts)), std::move(Includes),
+      IndexOpts, SymbolsCallback, RefsCallback, RelationsCallback,
+      IncludeGraphCallback);
 }
 
 } // namespace clangd

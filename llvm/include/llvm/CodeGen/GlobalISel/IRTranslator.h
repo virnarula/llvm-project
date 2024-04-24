@@ -41,8 +41,6 @@ class CallLowering;
 class Constant;
 class ConstrainedFPIntrinsic;
 class DataLayout;
-class DbgDeclareInst;
-class DbgValueInst;
 class Instruction;
 class MachineBasicBlock;
 class MachineFunction;
@@ -69,7 +67,7 @@ public:
 
 private:
   /// Interface used to lower the everything related to calls.
-  const CallLowering *CLI = nullptr;
+  const CallLowering *CLI;
 
   /// This class contains the mapping between the Values to vreg related data.
   class ValueToVRegInfo {
@@ -106,7 +104,9 @@ private:
       return ValToVRegs.find(&V);
     }
 
-    bool contains(const Value &V) const { return ValToVRegs.contains(&V); }
+    bool contains(const Value &V) const {
+      return ValToVRegs.find(&V) != ValToVRegs.end();
+    }
 
     void reset() {
       ValToVRegs.clear();
@@ -117,7 +117,7 @@ private:
 
   private:
     VRegListT *insertVRegs(const Value &V) {
-      assert(!ValToVRegs.contains(&V) && "Value already exists");
+      assert(ValToVRegs.find(&V) == ValToVRegs.end() && "Value already exists");
 
       // We placement new using our fast allocator since we never try to free
       // the vectors until translation is finished.
@@ -127,7 +127,8 @@ private:
     }
 
     OffsetListT *insertOffsets(const Value &V) {
-      assert(!TypeToOffsets.contains(V.getType()) && "Type already exists");
+      assert(TypeToOffsets.find(V.getType()) == TypeToOffsets.end() &&
+             "Type already exists");
 
       auto *OffsetList = new (OffsetAlloc.Allocate()) OffsetListT();
       TypeToOffsets[V.getType()] = OffsetList;
@@ -204,27 +205,6 @@ private:
   /// \return true if the materialization succeeded.
   bool translate(const Constant &C, Register Reg);
 
-  /// Examine any debug-info attached to the instruction (in the form of
-  /// DPValues) and translate it.
-  void translateDbgInfo(const Instruction &Inst,
-                          MachineIRBuilder &MIRBuilder);
-
-  /// Translate a debug-info record of a dbg.value into a DBG_* instruction.
-  /// Pass in all the contents of the record, rather than relying on how it's
-  /// stored.
-  void translateDbgValueRecord(Value *V, bool HasArgList,
-                         const DILocalVariable *Variable,
-                         const DIExpression *Expression, const DebugLoc &DL,
-                         MachineIRBuilder &MIRBuilder);
-
-  /// Translate a debug-info record of a dbg.declare into an indirect DBG_*
-  /// instruction. Pass in all the contents of the record, rather than relying
-  /// on how it's stored.
-  void translateDbgDeclareRecord(Value *Address, bool HasArgList,
-                         const DILocalVariable *Variable,
-                         const DIExpression *Expression, const DebugLoc &DL,
-                         MachineIRBuilder &MIRBuilder);
-
   // Translate U as a copy of V.
   bool translateCopy(const User &U, const Value &V,
                      MachineIRBuilder &MIRBuilder);
@@ -266,20 +246,6 @@ private:
 
   bool translateKnownIntrinsic(const CallInst &CI, Intrinsic::ID ID,
                                MachineIRBuilder &MIRBuilder);
-
-  /// Returns the single livein physical register Arg was lowered to, if
-  /// possible.
-  std::optional<MCRegister> getArgPhysReg(Argument &Arg);
-
-  /// If debug-info targets an Argument and its expression is an EntryValue,
-  /// lower it as either an entry in the MF debug table (dbg.declare), or a
-  /// DBG_VALUE targeting the corresponding livein register for that Argument
-  /// (dbg.value).
-  bool translateIfEntryValueArgument(bool isDeclare, Value *Arg,
-                                     const DILocalVariable *Var,
-                                     const DIExpression *Expr,
-                                     const DebugLoc &DL,
-                                     MachineIRBuilder &MIRBuilder);
 
   bool translateInlineAsm(const CallBase &CB, MachineIRBuilder &MIRBuilder);
 
@@ -378,7 +344,7 @@ private:
   void emitSwitchCase(SwitchCG::CaseBlock &CB, MachineBasicBlock *SwitchBB,
                       MachineIRBuilder &MIB);
 
-  /// Generate for the BitTest header block, which precedes each sequence of
+  /// Generate for for the BitTest header block, which precedes each sequence of
   /// BitTestCases.
   void emitBitTestHeader(SwitchCG::BitTestBlock &BTB,
                          MachineBasicBlock *SwitchMBB);
@@ -386,10 +352,6 @@ private:
   void emitBitTestCase(SwitchCG::BitTestBlock &BB, MachineBasicBlock *NextMBB,
                        BranchProbability BranchProbToNext, Register Reg,
                        SwitchCG::BitTestCase &B, MachineBasicBlock *SwitchBB);
-
-  void splitWorkItem(SwitchCG::SwitchWorkList &WorkList,
-                     const SwitchCG::SwitchWorkListItem &W, Value *Cond,
-                     MachineBasicBlock *SwitchMBB, MachineIRBuilder &MIB);
 
   bool lowerJumpTableWorkItem(
       SwitchCG::SwitchWorkListItem W, MachineBasicBlock *SwitchMBB,
@@ -594,24 +556,24 @@ private:
   std::unique_ptr<MachineIRBuilder> EntryBuilder;
 
   // The MachineFunction currently being translated.
-  MachineFunction *MF = nullptr;
+  MachineFunction *MF;
 
   /// MachineRegisterInfo used to create virtual registers.
   MachineRegisterInfo *MRI = nullptr;
 
-  const DataLayout *DL = nullptr;
+  const DataLayout *DL;
 
   /// Current target configuration. Controls how the pass handles errors.
-  const TargetPassConfig *TPC = nullptr;
+  const TargetPassConfig *TPC;
 
-  CodeGenOptLevel OptLevel;
+  CodeGenOpt::Level OptLevel;
 
   /// Current optimization remark emitter. Used to report failures.
   std::unique_ptr<OptimizationRemarkEmitter> ORE;
 
-  AAResults *AA = nullptr;
-  AssumptionCache *AC = nullptr;
-  const TargetLibraryInfo *LibInfo = nullptr;
+  AAResults *AA;
+  AssumptionCache *AC;
+  const TargetLibraryInfo *LibInfo;
   FunctionLoweringInfo FuncInfo;
 
   // True when either the Target Machine specifies no optimizations or the
@@ -741,7 +703,7 @@ private:
       BranchProbability Prob = BranchProbability::getUnknown());
 
 public:
-  IRTranslator(CodeGenOptLevel OptLevel = CodeGenOptLevel::None);
+  IRTranslator(CodeGenOpt::Level OptLevel = CodeGenOpt::None);
 
   StringRef getPassName() const override { return "IRTranslator"; }
 

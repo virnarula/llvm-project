@@ -26,7 +26,7 @@ struct NotNoexceptCopy {
 
   int value_;
   constexpr explicit NotNoexceptCopy(int value = 0) : value_(value) {}
-  constexpr NotNoexceptCopy(const NotNoexceptCopy& other) noexcept(false) : value_(other.value_) {}
+  NotNoexceptCopy(const NotNoexceptCopy&) noexcept(false) = default;
 
   bool operator==(const NotNoexceptCopy&) const = default;
 

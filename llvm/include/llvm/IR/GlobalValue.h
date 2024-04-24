@@ -41,10 +41,6 @@ namespace Intrinsic {
 typedef unsigned ID;
 } // end namespace Intrinsic
 
-// Choose ';' as the delimiter. ':' was used once but it doesn't work well for
-// Objective-C functions which commonly have :'s in their names.
-inline constexpr char kGlobalIdentifierDelimiter = ';';
-
 class GlobalValue : public Constant {
 public:
   /// An enumeration for the kinds of linkage for global values.
@@ -202,9 +198,7 @@ public:
 
   GlobalValue(const GlobalValue &) = delete;
 
-  unsigned getAddressSpace() const {
-    return getType()->getAddressSpace();
-  }
+  unsigned getAddressSpace() const;
 
   enum class UnnamedAddr {
     None,
@@ -564,7 +558,8 @@ public:
   /// arbitrary GlobalValue, this is not the function you're looking for; see
   /// Mangler.h.
   static StringRef dropLLVMManglingEscape(StringRef Name) {
-    Name.consume_front("\1");
+    if (!Name.empty() && Name[0] == '\1')
+      return Name.substr(1);
     return Name;
   }
 
@@ -641,8 +636,8 @@ public:
   bool isAbsoluteSymbolRef() const;
 
   /// If this is an absolute symbol reference, returns the range of the symbol,
-  /// otherwise returns std::nullopt.
-  std::optional<ConstantRange> getAbsoluteSymbolRange() const;
+  /// otherwise returns None.
+  Optional<ConstantRange> getAbsoluteSymbolRange() const;
 
   /// This method unlinks 'this' from the containing module, but does not delete
   /// it.

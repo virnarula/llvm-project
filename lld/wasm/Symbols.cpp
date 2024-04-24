@@ -13,7 +13,6 @@
 #include "InputFiles.h"
 #include "OutputSections.h"
 #include "OutputSegment.h"
-#include "SymbolTable.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
 #include "llvm/Demangle/Demangle.h"
@@ -36,7 +35,7 @@ std::string maybeDemangleSymbol(StringRef name) {
   if (name == "__main_argc_argv")
     return "main";
   if (wasm::config->demangle)
-    return demangle(name);
+    return demangle(name.str());
   return name.str();
 }
 
@@ -78,7 +77,6 @@ DefinedFunction *WasmSym::callDtors;
 DefinedFunction *WasmSym::initMemory;
 DefinedFunction *WasmSym::applyDataRelocs;
 DefinedFunction *WasmSym::applyGlobalRelocs;
-DefinedFunction *WasmSym::applyTLSRelocs;
 DefinedFunction *WasmSym::applyGlobalTLSRelocs;
 DefinedFunction *WasmSym::initTLS;
 DefinedFunction *WasmSym::startFunction;
@@ -222,10 +220,6 @@ void Symbol::setHidden(bool isHidden) {
     flags |= WASM_SYMBOL_VISIBILITY_DEFAULT;
 }
 
-bool Symbol::isImported() const {
-  return isUndefined() && (importName.has_value() || forceImport);
-}
-
 bool Symbol::isExported() const {
   if (!isDefined() || isLocal())
     return false;
@@ -314,7 +308,7 @@ uint64_t DefinedData::getVA() const {
   // output segment (__tls_base).  When building without shared memory, TLS
   // symbols absolute, just like non-TLS.
   if (isTLS() && config->sharedMemory)
-    return getOutputSegmentOffset();
+    return getOutputSegmentOffset() + value;
   if (segment)
     return segment->getVA(value);
   return value;
@@ -426,15 +420,20 @@ const OutputSectionSymbol *SectionSymbol::getOutputSectionSymbol() const {
   return section->outputSec->sectionSym;
 }
 
-void LazySymbol::extract() {
-  if (file->lazy) {
-    file->lazy = false;
-    symtab->addFile(file, name);
-  }
-}
+void LazySymbol::fetch() { cast<ArchiveFile>(file)->addMember(&archiveSymbol); }
 
 void LazySymbol::setWeak() {
   flags |= (flags & ~WASM_SYMBOL_BINDING_MASK) | WASM_SYMBOL_BINDING_WEAK;
+}
+
+MemoryBufferRef LazySymbol::getMemberBuffer() {
+  Archive::Child c =
+      CHECK(archiveSymbol.getMember(),
+            "could not get the member for symbol " + toString(*this));
+
+  return CHECK(c.getMemoryBufferRef(),
+               "could not get the buffer for the member defining symbol " +
+                   toString(*this));
 }
 
 void printTraceSymbolUndefined(StringRef name, const InputFile* file) {
@@ -458,7 +457,6 @@ void printTraceSymbol(Symbol *sym) {
 
 const char *defaultModule = "env";
 const char *functionTableName = "__indirect_function_table";
-const char *memoryName = "memory";
 
 } // namespace wasm
 } // namespace lld

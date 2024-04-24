@@ -163,11 +163,11 @@ class R600OpenCLImageTypeLoweringPass : public ModulePass {
 
       Value *Replacement = nullptr;
       StringRef Name = F->getName();
-      if (Name.starts_with(GetImageResourceIDFunc)) {
+      if (Name.startswith(GetImageResourceIDFunc)) {
         Replacement = ConstantInt::get(Int32Type, ResourceID);
-      } else if (Name.starts_with(GetImageSizeFunc)) {
+      } else if (Name.startswith(GetImageSizeFunc)) {
         Replacement = &ImageSizeArg;
-      } else if (Name.starts_with(GetImageFormatFunc)) {
+      } else if (Name.startswith(GetImageFormatFunc)) {
         Replacement = &ImageFormatArg;
       } else {
         continue;
@@ -283,7 +283,7 @@ class R600OpenCLImageTypeLoweringPass : public ModulePass {
       Modified = true;
     }
     if (!Modified) {
-      return std::tuple(nullptr, nullptr);
+      return std::make_tuple(nullptr, nullptr);
     }
 
     // Create function with new signature and clone the old body into it.
@@ -311,7 +311,7 @@ class R600OpenCLImageTypeLoweringPass : public ModulePass {
       KernelMDArgs.push_back(MDNode::get(*Context, MDV));
     MDNode *NewMDNode = MDNode::get(*Context, KernelMDArgs);
 
-    return std::tuple(NewF, NewMDNode);
+    return std::make_tuple(NewF, NewMDNode);
   }
 
   bool transformKernels(Module &M) {

@@ -31,7 +31,7 @@ def Symbol : OpInterface<"SymbolOpInterface"> {
 
   let methods = [
     InterfaceMethod<"Returns the name of this symbol.",
-      "::mlir::StringAttr", "getNameAttr", (ins), [{
+      "StringAttr", "getNameAttr", (ins), [{
         // Don't rely on the trait implementation as optional symbol operations
         // may override this.
         return mlir::SymbolTable::getSymbolName($_op);
@@ -99,7 +99,7 @@ def Symbol : OpInterface<"SymbolOpInterface"> {
         given operation 'from'.
         Note: See mlir::SymbolTable::getSymbolUses for more details.
       }],
-      "::std::optional<::mlir::SymbolTable::UseRange>", "getSymbolUses",
+      "::llvm::Optional<::mlir::SymbolTable::UseRange>", "getSymbolUses",
       (ins "::mlir::Operation *":$from), [{}],
       /*defaultImplementation=*/[{
         return ::mlir::SymbolTable::getSymbolUses(this->getOperation(), from);
@@ -163,7 +163,7 @@ def Symbol : OpInterface<"SymbolOpInterface"> {
     // If this is an optional symbol, bail out early if possible.
     auto concreteOp = cast<ConcreteOp>($_op);
     if (concreteOp.isOptionalSymbol()) {
-      if(!concreteOp->getInherentAttr(::mlir::SymbolTable::getSymbolAttrName()).value_or(Attribute{}))
+      if(!concreteOp->getAttr(::mlir::SymbolTable::getSymbolAttrName()))
         return success();
     }
     if (::mlir::failed(::mlir::detail::verifySymbol($_op)))
@@ -174,23 +174,39 @@ def Symbol : OpInterface<"SymbolOpInterface"> {
     return success();
   }];
 
-  let extraSharedClassDeclaration = [{
-    using Visibility = mlir::SymbolTable::Visibility;
-
+  let extraClassDeclaration = [{
     /// Convenience version of `getNameAttr` that returns a StringRef.
-    ::mlir::StringRef getName() {
+    StringRef getName() {
       return getNameAttr().getValue();
     }
 
     /// Convenience version of `setName` that take a StringRef.
-    void setName(::mlir::StringRef name) {
-      setName(::mlir::StringAttr::get($_op->getContext(), name));
+    void setName(StringRef name) {
+      setName(StringAttr::get(this->getContext(), name));
+    }
+
+    /// Custom classof that handles the case where the symbol is optional.
+    static bool classof(Operation *op) {
+      auto *opConcept = getInterfaceFor(op);
+      if (!opConcept)
+        return false;
+      return !opConcept->isOptionalSymbol(opConcept, op) ||
+             op->getAttr(::mlir::SymbolTable::getSymbolAttrName());
     }
   }];
 
-  // Add additional classof checks to properly handle "optional" symbols.
-  let extraClassOf = [{
-    return $_op->hasAttr(::mlir::SymbolTable::getSymbolAttrName());
+  let extraTraitClassDeclaration = [{
+    using Visibility = mlir::SymbolTable::Visibility;
+
+    /// Convenience version of `getNameAttr` that returns a StringRef.
+    StringRef getName() {
+      return getNameAttr().getValue();
+    }
+
+    /// Convenience version of `setName` that take a StringRef.
+    void setName(StringRef name) {
+      setName(StringAttr::get($_op->getContext(), name));
+    }
   }];
 }
 

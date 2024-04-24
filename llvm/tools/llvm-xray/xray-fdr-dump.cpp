@@ -101,7 +101,7 @@ static CommandRegistration Unused(&Dump, []() -> Error {
 
   // Then we validate while printing each block.
   BlockVerifier BV;
-  for (const auto &ProcessThreadBlocks : Index) {
+  for (auto ProcessThreadBlocks : Index) {
     auto &Blocks = ProcessThreadBlocks.second;
     for (auto &B : Blocks) {
       for (auto *R : B.Records) {

@@ -53,7 +53,7 @@ void CommandObjectScript::CommandOptions::OptionParsingStarting(
 
 llvm::ArrayRef<OptionDefinition>
 CommandObjectScript::CommandOptions::GetDefinitions() {
-  return llvm::ArrayRef(g_script_options);
+  return llvm::makeArrayRef(g_script_options);
 }
 
 CommandObjectScript::CommandObjectScript(CommandInterpreter &interpreter)
@@ -65,14 +65,14 @@ CommandObjectScript::CommandObjectScript(CommandInterpreter &interpreter)
 
 CommandObjectScript::~CommandObjectScript() = default;
 
-void CommandObjectScript::DoExecute(llvm::StringRef command,
+bool CommandObjectScript::DoExecute(llvm::StringRef command,
                                     CommandReturnObject &result) {
   // Try parsing the language option but when the command contains a raw part
   // separated by the -- delimiter.
   OptionsWithRaw raw_args(command);
   if (raw_args.HasArgs()) {
     if (!ParseOptions(raw_args.GetArgs(), result))
-      return;
+      return false;
     command = raw_args.GetRawPart();
   }
 
@@ -84,7 +84,7 @@ void CommandObjectScript::DoExecute(llvm::StringRef command,
   if (language == lldb::eScriptLanguageNone) {
     result.AppendError(
         "the script-lang setting is set to none - scripting not available");
-    return;
+    return false;
   }
 
   ScriptInterpreter *script_interpreter =
@@ -92,7 +92,7 @@ void CommandObjectScript::DoExecute(llvm::StringRef command,
 
   if (script_interpreter == nullptr) {
     result.AppendError("no script interpreter");
-    return;
+    return false;
   }
 
   // Script might change Python code we use for formatting. Make sure we keep
@@ -102,7 +102,7 @@ void CommandObjectScript::DoExecute(llvm::StringRef command,
   if (command.empty()) {
     script_interpreter->ExecuteInterpreterLoop();
     result.SetStatus(eReturnStatusSuccessFinishNoResult);
-    return;
+    return result.Succeeded();
   }
 
   // We can do better when reporting the status of one-liner script execution.
@@ -110,4 +110,6 @@ void CommandObjectScript::DoExecute(llvm::StringRef command,
     result.SetStatus(eReturnStatusSuccessFinishNoResult);
   else
     result.SetStatus(eReturnStatusFailed);
+
+  return result.Succeeded();
 }

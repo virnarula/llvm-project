@@ -16,8 +16,6 @@
 
 #include "mlir/IR/PatternMatch.h"
 
-#if MLIR_ENABLE_PDL_IN_PATTERNMATCH
-
 namespace mlir {
 namespace pdl_interp {
 class RecordMatchOp;
@@ -40,27 +38,19 @@ using OwningOpRange = llvm::OwningArrayRef<Operation *>;
 class PDLByteCodePattern : public Pattern {
 public:
   static PDLByteCodePattern create(pdl_interp::RecordMatchOp matchOp,
-                                   PDLPatternConfigSet *configSet,
                                    ByteCodeAddr rewriterAddr);
 
   /// Return the bytecode address of the rewriter for this pattern.
   ByteCodeAddr getRewriterAddr() const { return rewriterAddr; }
 
-  /// Return the configuration set for this pattern, or null if there is none.
-  PDLPatternConfigSet *getConfigSet() const { return configSet; }
-
 private:
   template <typename... Args>
-  PDLByteCodePattern(ByteCodeAddr rewriterAddr, PDLPatternConfigSet *configSet,
-                     Args &&...patternArgs)
-      : Pattern(std::forward<Args>(patternArgs)...), rewriterAddr(rewriterAddr),
-        configSet(configSet) {}
+  PDLByteCodePattern(ByteCodeAddr rewriterAddr, Args &&...patternArgs)
+      : Pattern(std::forward<Args>(patternArgs)...),
+        rewriterAddr(rewriterAddr) {}
 
   /// The address of the rewriter for this pattern.
   ByteCodeAddr rewriterAddr;
-
-  /// The optional config set for this pattern.
-  PDLPatternConfigSet *configSet;
 };
 
 //===----------------------------------------------------------------------===//
@@ -158,8 +148,6 @@ public:
   /// Create a ByteCode instance from the given module containing operations in
   /// the PDL interpreter dialect.
   PDLByteCode(ModuleOp module,
-              SmallVector<std::unique_ptr<PDLPatternConfigSet>> configs,
-              const DenseMap<Operation *, PDLPatternConfigSet *> &configMap,
               llvm::StringMap<PDLConstraintFunction> constraintFns,
               llvm::StringMap<PDLRewriteFunction> rewriteFns);
 
@@ -177,9 +165,9 @@ public:
              PDLByteCodeMutableState &state) const;
 
   /// Run the rewriter of the given pattern that was previously matched in
-  /// `match`. Returns if a failure was encountered during the rewrite.
-  LogicalResult rewrite(PatternRewriter &rewriter, const MatchResult &match,
-                        PDLByteCodeMutableState &state) const;
+  /// `match`.
+  void rewrite(PatternRewriter &rewriter, const MatchResult &match,
+               PDLByteCodeMutableState &state) const;
 
 private:
   /// Execute the given byte code starting at the provided instruction `inst`.
@@ -188,9 +176,6 @@ private:
   void executeByteCode(const ByteCodeField *inst, PatternRewriter &rewriter,
                        PDLByteCodeMutableState &state,
                        SmallVectorImpl<MatchResult> *matches) const;
-
-  /// The set of pattern configs referenced within the bytecode.
-  SmallVector<std::unique_ptr<PDLPatternConfigSet>> configs;
 
   /// A vector containing pointers to uniqued data. The storage is intentionally
   /// opaque such that we can store a wide range of data types. The types of
@@ -225,39 +210,5 @@ private:
 
 } // namespace detail
 } // namespace mlir
-
-#else
-
-namespace mlir::detail {
-
-class PDLByteCodeMutableState {
-public:
-  void cleanupAfterMatchAndRewrite() {}
-  void updatePatternBenefit(unsigned patternIndex, PatternBenefit benefit) {}
-};
-
-class PDLByteCodePattern : public Pattern {};
-
-class PDLByteCode {
-public:
-  struct MatchResult {
-    const PDLByteCodePattern *pattern = nullptr;
-    PatternBenefit benefit;
-  };
-
-  void initializeMutableState(PDLByteCodeMutableState &state) const {}
-  void match(Operation *op, PatternRewriter &rewriter,
-             SmallVectorImpl<MatchResult> &matches,
-             PDLByteCodeMutableState &state) const {}
-  LogicalResult rewrite(PatternRewriter &rewriter, const MatchResult &match,
-                        PDLByteCodeMutableState &state) const {
-    return failure();
-  }
-  ArrayRef<PDLByteCodePattern> getPatterns() const { return {}; }
-};
-
-} // namespace mlir::detail
-
-#endif // MLIR_ENABLE_PDL_IN_PATTERNMATCH
 
 #endif // MLIR_REWRITE_BYTECODE_H_

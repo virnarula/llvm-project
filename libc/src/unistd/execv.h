@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_UNISTD_EXECV_H
 #define LLVM_LIBC_SRC_UNISTD_EXECV_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int execv(const char *path, char *const argv[]);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_EXECV_H

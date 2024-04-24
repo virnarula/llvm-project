@@ -11,7 +11,9 @@
 
 #include "MakeSmartPtrCheck.h"
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 /// Replace the pattern:
 /// \code
@@ -35,6 +37,8 @@ private:
   const bool RequireCPlusPlus14;
 };
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_MAKE_UNIQUE_H

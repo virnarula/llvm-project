@@ -8,7 +8,6 @@
 
 #include "Reproducer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Process.h"
 
 using namespace llvm;
 using namespace llvm::dsymutil;
@@ -17,16 +16,10 @@ static std::string createReproducerDir(std::error_code &EC) {
   SmallString<128> Root;
   if (const char *Path = getenv("DSYMUTIL_REPRODUCER_PATH")) {
     Root.assign(Path);
-    EC = sys::fs::create_directories(Root);
-  } else if (const char *Path = getenv("LLVM_DIAGNOSTIC_DIR")) {
-    Root.assign(Path);
-    llvm::sys::path::append(
-        Root, "dsymutil-" + llvm::Twine(llvm::sys::Process::getProcessId()));
-    EC = sys::fs::create_directories(Root);
+    EC = sys::fs::create_directory(Root);
   } else {
     EC = sys::fs::createUniqueDirectory("dsymutil", Root);
   }
-  sys::fs::make_absolute(Root);
   return EC ? "" : std::string(Root);
 }
 
@@ -46,8 +39,6 @@ ReproducerGenerate::ReproducerGenerate(std::error_code &EC, int Argc,
 ReproducerGenerate::~ReproducerGenerate() {
   if (GenerateOnExit && !Generated)
     generate();
-  else if (!Generated && !Root.empty())
-    sys::fs::remove_directories(Root, /* IgnoreErrors */ true);
 }
 
 void ReproducerGenerate::generate() {

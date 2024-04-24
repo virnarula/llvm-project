@@ -15,32 +15,23 @@ and it is advised that all five are defaulted or explicitly defined.
 Note that defining a function with ``= delete`` is considered to be a
 definition.
 
-This check implements `C.21
-<https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-five>`_
-from the C++ Core Guidelines.
+This rule is part of the "Constructors, assignments, and destructors" profile of the C++ Core
+Guidelines, corresponding to rule C.21. See
+
+https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#c21-if-you-define-or-delete-any-default-operation-define-or-delete-them-all.
 
 Options
 -------
 
 .. option:: AllowSoleDefaultDtor
 
-   When set to `true` (default is `false`), this check will only trigger on
-   destructors if they are defined and not defaulted.
+   When set to `true` (default is `false`), this check doesn't flag classes with a sole, explicitly
+   defaulted destructor. An example for such a class is:
 
    .. code-block:: c++
 
-     struct A { // This is fine.
+     struct A {
        virtual ~A() = default;
-     };
-
-     struct B { // This is not fine.
-       ~B() {}
-     };
-
-     struct C {
-       // This is not checked, because the destructor might be defaulted in
-       // another translation unit.
-       ~C();
      };
 
 .. option:: AllowMissingMoveFunctions

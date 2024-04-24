@@ -6,29 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstddef>
-#include <cstdint>
-#include <pybind11/cast.h>
-#include <pybind11/detail/common.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/pytypes.h>
-#include <string>
 #include <utility>
-#include <vector>
 
 #include "IRModule.h"
 
 #include "PybindUtils.h"
 
-#include "mlir-c/AffineExpr.h"
 #include "mlir-c/AffineMap.h"
 #include "mlir-c/Bindings/Python/Interop.h"
 #include "mlir-c/IntegerSet.h"
-#include "mlir/Support/LLVM.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 
 namespace py = pybind11;
 using namespace mlir;
@@ -106,10 +92,9 @@ public:
   static MlirAffineExpr castFrom(PyAffineExpr &orig) {
     if (!DerivedTy::isaFunction(orig)) {
       auto origRepr = py::repr(py::cast(orig)).cast<std::string>();
-      throw py::value_error((Twine("Cannot cast affine expression to ") +
-                             DerivedTy::pyClassName + " (from " + origRepr +
-                             ")")
-                                .str());
+      throw SetPyError(PyExc_ValueError,
+                       Twine("Cannot cast affine expression to ") +
+                           DerivedTy::pyClassName + " (from " + origRepr + ")");
     }
     return orig;
   }
@@ -361,7 +346,7 @@ public:
 
 } // namespace
 
-bool PyAffineExpr::operator==(const PyAffineExpr &other) const {
+bool PyAffineExpr::operator==(const PyAffineExpr &other) {
   return mlirAffineExprEqual(affineExpr, other.affineExpr);
 }
 
@@ -420,7 +405,7 @@ private:
 };
 } // namespace
 
-bool PyAffineMap::operator==(const PyAffineMap &other) const {
+bool PyAffineMap::operator==(const PyAffineMap &other) {
   return mlirAffineMapEqual(affineMap, other.affineMap);
 }
 
@@ -497,7 +482,7 @@ private:
 };
 } // namespace
 
-bool PyIntegerSet::operator==(const PyIntegerSet &other) const {
+bool PyIntegerSet::operator==(const PyIntegerSet &other) {
   return mlirIntegerSetEqual(integerSet, other.integerSet);
 }
 

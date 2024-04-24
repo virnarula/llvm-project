@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "../utils/ExceptionAnalyzer.h"
 
-namespace clang::tidy::openmp {
+namespace clang {
+namespace tidy {
+namespace openmp {
 
 /// Analyzes OpenMP Structured Blocks and checks that no exception escapes
 /// out of the Structured Block it was thrown in.
@@ -35,6 +37,8 @@ private:
   utils::ExceptionAnalyzer Tracer;
 };
 
-} // namespace clang::tidy::openmp
+} // namespace openmp
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_OPENMP_EXCEPTIONESCAPECHECK_H

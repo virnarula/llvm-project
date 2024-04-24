@@ -56,8 +56,9 @@ static Status EnsureFDFlags(int fd, int flags) {
 // Public Static Methods
 
 llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-NativeProcessNetBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
-                                     NativeDelegate &native_delegate) {
+NativeProcessNetBSD::Factory::Launch(ProcessLaunchInfo &launch_info,
+                                     NativeDelegate &native_delegate,
+                                     MainLoop &mainloop) const {
   Log *log = GetLog(POSIXLog::Process);
 
   Status status;
@@ -95,7 +96,7 @@ NativeProcessNetBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
 
   std::unique_ptr<NativeProcessNetBSD> process_up(new NativeProcessNetBSD(
       pid, launch_info.GetPTY().ReleasePrimaryFileDescriptor(), native_delegate,
-      Info.GetArchitecture(), m_mainloop));
+      Info.GetArchitecture(), mainloop));
 
   status = process_up->SetupTrace();
   if (status.Fail())
@@ -109,8 +110,9 @@ NativeProcessNetBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
 }
 
 llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-NativeProcessNetBSD::Manager::Attach(
-    lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate) {
+NativeProcessNetBSD::Factory::Attach(
+    lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate,
+    MainLoop &mainloop) const {
   Log *log = GetLog(POSIXLog::Process);
   LLDB_LOG(log, "pid = {0:x}", pid);
 
@@ -122,7 +124,7 @@ NativeProcessNetBSD::Manager::Attach(
   }
 
   std::unique_ptr<NativeProcessNetBSD> process_up(new NativeProcessNetBSD(
-      pid, -1, native_delegate, Info.GetArchitecture(), m_mainloop));
+      pid, -1, native_delegate, Info.GetArchitecture(), mainloop));
 
   Status status = process_up->Attach();
   if (!status.Success())
@@ -132,7 +134,7 @@ NativeProcessNetBSD::Manager::Attach(
 }
 
 NativeProcessNetBSD::Extension
-NativeProcessNetBSD::Manager::GetSupportedExtensions() const {
+NativeProcessNetBSD::Factory::GetSupportedExtensions() const {
   return Extension::multiprocess | Extension::fork | Extension::vfork |
          Extension::pass_signals | Extension::auxv | Extension::libraries_svr4 |
          Extension::savecore;
@@ -379,29 +381,6 @@ void NativeProcessNetBSD::MonitorSignal(lldb::pid_t pid, int signal) {
   SetState(StateType::eStateStopped, true);
 }
 
-Status NativeProcessNetBSD::StopProcess(lldb::pid_t pid) {
-#ifdef PT_STOP
-  return PtraceWrapper(PT_STOP, pid);
-#else
-  Log *log = GetLog(POSIXLog::Ptrace);
-  Status error;
-  int ret;
-
-  errno = 0;
-  ret = kill(pid, SIGSTOP);
-
-  if (ret == -1)
-    error.SetErrorToErrno();
-
-  LLDB_LOG(log, "kill({0}, SIGSTOP)", pid);
-
-  if (error.Fail())
-    LLDB_LOG(log, "kill() failed: {0}", error);
-
-  return error;
-#endif
-}
-
 Status NativeProcessNetBSD::PtraceWrapper(int req, lldb::pid_t pid, void *addr,
                                           int data, int *result) {
   Log *log = GetLog(POSIXLog::Ptrace);
@@ -554,7 +533,7 @@ Status NativeProcessNetBSD::Resume(const ResumeActionList &resume_actions) {
   return ret;
 }
 
-Status NativeProcessNetBSD::Halt() { return StopProcess(GetID()); }
+Status NativeProcessNetBSD::Halt() { return PtraceWrapper(PT_STOP, GetID()); }
 
 Status NativeProcessNetBSD::Detach() {
   Status error;
@@ -578,7 +557,9 @@ Status NativeProcessNetBSD::Signal(int signo) {
   return error;
 }
 
-Status NativeProcessNetBSD::Interrupt() { return StopProcess(GetID()); }
+Status NativeProcessNetBSD::Interrupt() {
+  return PtraceWrapper(PT_STOP, GetID());
+}
 
 Status NativeProcessNetBSD::Kill() {
   Log *log = GetLog(POSIXLog::Process);

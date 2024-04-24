@@ -121,16 +121,6 @@ namespace llvm {
     Never,
   };
 
-  /// \brief Enumeration value for AMDGPU code object version, which is the
-  /// code object version times 100.
-  enum CodeObjectVersionKind {
-    COV_None,
-    COV_2 = 200, // Unsupported.
-    COV_3 = 300, // Unsupported.
-    COV_4 = 400,
-    COV_5 = 500,
-  };
-
   class TargetOptions {
   public:
     TargetOptions()
@@ -140,20 +130,21 @@ namespace llvm {
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
-          DisableIntegratedAS(false), RelaxELFRelocations(true),
-          FunctionSections(false), DataSections(false),
-          IgnoreXCOFFVisibility(false), XCOFFTracebackTable(true),
-          UniqueSectionNames(true), UniqueBasicBlockSectionNames(false),
-          TrapUnreachable(false), NoTrapAfterNoreturn(false), TLSSize(0),
-          EmulatedTLS(false), EnableTLSDESC(false), EnableIPRA(false),
+          LowerGlobalDtorsViaCxaAtExit(false), DisableIntegratedAS(false),
+          RelaxELFRelocations(false), FunctionSections(false),
+          DataSections(false), IgnoreXCOFFVisibility(false),
+          XCOFFTracebackTable(true), UniqueSectionNames(true),
+          UniqueBasicBlockSectionNames(false), TrapUnreachable(false),
+          NoTrapAfterNoreturn(false), TLSSize(0), EmulatedTLS(false),
+          ExplicitEmulatedTLS(false), EnableIPRA(false),
           EmitStackSizeSection(false), EnableMachineOutliner(false),
           EnableMachineFunctionSplitter(false), SupportsDefaultOutlining(false),
           EmitAddrsig(false), EmitCallSiteInfo(false),
           SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
           ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
-          XRayFunctionIndex(true), DebugStrictDwarf(false), Hotpatch(false),
-          PPCGenScalarMASSEntries(false), JMCInstrument(false),
-          EnableCFIFixup(false), MisExpect(false), XCOFFReadOnlyPointers(false),
+          XRayOmitFunctionIndex(false), DebugStrictDwarf(false),
+          Hotpatch(false), PPCGenScalarMASSEntries(false), JMCInstrument(false),
+          EnableCFIFixup(false), MisExpect(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
     /// DisableFramePointerElim - This returns true if frame pointer elimination
@@ -256,6 +247,10 @@ namespace llvm {
     /// constructors.
     unsigned UseInitArray : 1;
 
+    /// Use __cxa_atexit to register global destructors; determines how
+    /// llvm.global_dtors is lowered.
+    unsigned LowerGlobalDtorsViaCxaAtExit : 1;
+
     /// Disable the integrated assembler.
     unsigned DisableIntegratedAS : 1;
 
@@ -295,8 +290,8 @@ namespace llvm {
     /// function in the runtime library..
     unsigned EmulatedTLS : 1;
 
-    /// EnableTLSDESC - This flag enables TLS Descriptors.
-    unsigned EnableTLSDESC : 1;
+    /// Whether -emulated-tls or -no-emulated-tls is set.
+    unsigned ExplicitEmulatedTLS : 1;
 
     /// This flag enables InterProcedural Register Allocation (IPRA).
     unsigned EnableIPRA : 1;
@@ -347,7 +342,7 @@ namespace llvm {
     unsigned ForceDwarfFrameSection : 1;
 
     /// Emit XRay Function Index section
-    unsigned XRayFunctionIndex : 1;
+    unsigned XRayOmitFunctionIndex : 1;
 
     /// When set to true, don't use DWARF extensions in later DWARF versions.
     /// By default, it is set to false.
@@ -368,10 +363,6 @@ namespace llvm {
     /// When set to true, enable MisExpect Diagnostics
     /// By default, it is set to false
     unsigned MisExpect : 1;
-
-    /// When set to true, const objects with relocatable address values are put
-    /// into the RO data section.
-    unsigned XCOFFReadOnlyPointers : 1;
 
     /// Name of the stack usage file (i.e., .su file) if user passes
     /// -fstack-usage. If empty, it can be implied that -fstack-usage is not

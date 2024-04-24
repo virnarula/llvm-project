@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 void StringIntegerAssignmentCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -175,4 +177,6 @@ void StringIntegerAssignmentCheck::check(
   }
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

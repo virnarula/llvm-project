@@ -86,9 +86,9 @@ struct SectionCommand {
 
 // This represents ". = <expr>" or "<symbol> = <expr>".
 struct SymbolAssignment : SectionCommand {
-  SymbolAssignment(StringRef name, Expr e, unsigned symOrder, std::string loc)
+  SymbolAssignment(StringRef name, Expr e, std::string loc)
       : SectionCommand(AssignmentKind), name(name), expression(e),
-        symOrder(symOrder), location(loc) {}
+        location(loc) {}
 
   static bool classof(const SectionCommand *c) {
     return c->kind == AssignmentKind;
@@ -104,11 +104,6 @@ struct SymbolAssignment : SectionCommand {
   // Command attributes for PROVIDE, HIDDEN and PROVIDE_HIDDEN.
   bool provide = false;
   bool hidden = false;
-
-  // This assignment references DATA_SEGMENT_RELRO_END.
-  bool dataSegmentRelroEnd = false;
-
-  unsigned symOrder;
 
   // Holds file name and line number for error reporting.
   std::string location;
@@ -156,9 +151,6 @@ struct MemoryRegion {
   uint32_t negInvFlags;
   uint64_t curPos = 0;
 
-  uint64_t getOrigin() const { return origin().getValue(); }
-  uint64_t getLength() const { return length().getValue(); }
-
   bool compatibleWith(uint32_t secFlags) const {
     if ((secFlags & negFlags) || (~secFlags & negInvFlags))
       return false;
@@ -173,7 +165,7 @@ class SectionPattern {
   StringMatcher excludedFilePat;
 
   // Cache of the most recent input argument and result of excludesFile().
-  mutable std::optional<std::pair<const InputFile *, bool>> excludesFileCache;
+  mutable llvm::Optional<std::pair<const InputFile *, bool>> excludesFileCache;
 
 public:
   SectionPattern(StringMatcher &&pat1, StringMatcher &&pat2)
@@ -192,7 +184,7 @@ class InputSectionDescription : public SectionCommand {
   SingleStringMatcher filePat;
 
   // Cache of the most recent input argument and result of matchesFile().
-  mutable std::optional<std::pair<const InputFile *, bool>> matchesFileCache;
+  mutable llvm::Optional<std::pair<const InputFile *, bool>> matchesFileCache;
 
 public:
   InputSectionDescription(StringRef filePattern, uint64_t withFlags = 0,
@@ -259,7 +251,7 @@ struct PhdrsCommand {
   unsigned type = llvm::ELF::PT_NULL;
   bool hasFilehdr = false;
   bool hasPhdrs = false;
-  std::optional<unsigned> flags;
+  llvm::Optional<unsigned> flags;
   Expr lmaExpr = nullptr;
 };
 
@@ -323,7 +315,6 @@ public:
 
   void addOrphanSections();
   void diagnoseOrphanHandling() const;
-  void diagnoseMissingSGSectionAddress() const;
   void adjustOutputSections();
   void adjustSectionsAfterSorting();
 
@@ -342,12 +333,6 @@ public:
   // Used to handle INSERT AFTER statements.
   void processInsertCommands();
 
-  // Describe memory region usage.
-  void printMemoryUsage(raw_ostream &os);
-
-  // Check backward location counter assignment and memory region/LMA overflows.
-  void checkFinalScriptConditions() const;
-
   // SECTIONS command list.
   SmallVector<SectionCommand *, 0> sectionCommands;
 
@@ -355,10 +340,7 @@ public:
   SmallVector<PhdrsCommand, 0> phdrsCommands;
 
   bool hasSectionsCommand = false;
-  bool seenDataAlign = false;
-  bool seenRelroEnd = false;
   bool errorOnMissingSection = false;
-  std::string backwardDotErr;
 
   // List of section patterns specified with KEEP commands. They will
   // be kept even if they are unused and --gc-sections is specified.

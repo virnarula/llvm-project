@@ -1,5 +1,4 @@
-// RUN: %check_clang_tidy %s bugprone-unused-return-value %t -- \
-// RUN:   --config="{CheckOptions: {bugprone-unused-return-value.AllowCastToVoid: true}}" -- -fexceptions
+// RUN: %check_clang_tidy %s bugprone-unused-return-value %t -- -- -fexceptions
 
 namespace std {
 
@@ -53,9 +52,6 @@ struct vector {
   bool empty() const noexcept;
 };
 
-class error_code {
-};
-
 // the check should be able to match std lib calls even if the functions are
 // declared inside inline namespaces
 inline namespace v1 {
@@ -76,131 +72,119 @@ int increment(int i) {
 
 void useFuture(const std::future &fut);
 
-std::error_code errorFunc() {
-    return std::error_code();
-}
-
 void warning() {
   std::async(increment, 42);
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value returned by this function should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
 
   std::async(std::launch::async, increment, 42);
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   Foo F;
   std::launder(&F);
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   std::remove_if(nullptr, nullptr, nullptr);
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   std::unique(nullptr, nullptr);
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   std::unique_ptr<Foo> UPtr;
   UPtr.release();
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   std::string Str;
   Str.empty();
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
-
-  (int)Str.empty();
-  // CHECK-MESSAGES: [[@LINE-1]]:8: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:8: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   std::vector<Foo> Vec;
   Vec.empty();
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:3: note: cast {{.*}} this warning
 
   // test discarding return values inside different kinds of statements
 
   auto Lambda = [] { std::remove(nullptr, nullptr, 1); };
-  // CHECK-MESSAGES: [[@LINE-1]]:22: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:22: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:22: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:22: note: cast {{.*}} this warning
 
   if (true)
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
   else if (true)
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
   else
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
 
   while (true)
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
 
   do
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
   while (true);
 
   for (;;)
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
 
   for (std::remove(nullptr, nullptr, 1);;)
-    // CHECK-MESSAGES: [[@LINE-1]]:8: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-    // CHECK-MESSAGES: [[@LINE-2]]:8: note: cast the expression to void to silence this warning
+    // CHECK-NOTES: [[@LINE-1]]:8: warning: the value {{.*}} should be used
+    // CHECK-NOTES: [[@LINE-2]]:8: note: cast {{.*}} this warning
     ;
 
   for (;; std::remove(nullptr, nullptr, 1))
-    // CHECK-MESSAGES: [[@LINE-1]]:11: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-    // CHECK-MESSAGES: [[@LINE-2]]:11: note: cast the expression to void to silence this warning
+    // CHECK-NOTES: [[@LINE-1]]:11: warning: the value {{.*}} should be used
+    // CHECK-NOTES: [[@LINE-2]]:11: note: cast {{.*}} this warning
     ;
 
   for (auto C : "foo")
     std::remove(nullptr, nullptr, 1);
-  // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+  // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+  // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
 
   switch (1) {
   case 1:
     std::remove(nullptr, nullptr, 1);
-    // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-    // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+    // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+    // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
     break;
   default:
     std::remove(nullptr, nullptr, 1);
-    // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-    // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+    // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+    // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
     break;
   }
 
   try {
     std::remove(nullptr, nullptr, 1);
-    // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-    // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+    // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+    // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
   } catch (...) {
     std::remove(nullptr, nullptr, 1);
-    // CHECK-MESSAGES: [[@LINE-1]]:5: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-    // CHECK-MESSAGES: [[@LINE-2]]:5: note: cast the expression to void to silence this warning
+    // CHECK-NOTES: [[@LINE-1]]:5: warning: the value {{.*}} should be used
+    // CHECK-NOTES: [[@LINE-2]]:5: note: cast {{.*}} this warning
   }
-
-  errorFunc();
-  // CHECK-MESSAGES: [[@LINE-1]]:3: warning: the value returned by this function should not be disregarded; neglecting it may lead to errors
-  // CHECK-MESSAGES: [[@LINE-2]]:3: note: cast the expression to void to silence this warning
 }
 
 void noWarning() {
@@ -224,8 +208,6 @@ void noWarning() {
 
   std::vector<Foo> VecNoWarning;
   auto VecEmptyRetval = VecNoWarning.empty();
-
-  (void) errorFunc();
 
   // test using the return value in different kinds of expressions
   useFuture(std::async(increment, 42));

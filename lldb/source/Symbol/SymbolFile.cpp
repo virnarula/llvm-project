@@ -18,7 +18,6 @@
 #include "lldb/Symbol/VariableList.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
-#include "lldb/Utility/StructuredData.h"
 #include "lldb/lldb-private.h"
 
 #include <future>
@@ -134,6 +133,17 @@ void SymbolFile::GetMangledNamesForFunction(
     const std::string &scope_qualified_name,
     std::vector<ConstString> &mangled_names) {}
 
+void SymbolFile::FindTypes(
+    ConstString name, const CompilerDeclContext &parent_decl_ctx,
+    uint32_t max_matches,
+    llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
+    TypeMap &types) {}
+
+void SymbolFile::FindTypes(llvm::ArrayRef<CompilerContext> pattern,
+                           LanguageSet languages,
+                           llvm::DenseSet<SymbolFile *> &searched_symbol_files,
+                           TypeMap &types) {}
+
 void SymbolFile::AssertModuleLock() {
   // The code below is too expensive to leave enabled in release builds. It's
   // enabled in debug builds or when the correct macro is set.
@@ -154,15 +164,16 @@ SymbolFile::RegisterInfoResolver::~RegisterInfoResolver() = default;
 
 Symtab *SymbolFileCommon::GetSymtab() {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
-  // Fetch the symtab from the main object file.
-  auto *symtab = GetMainObjectFile()->GetSymtab();
-  if (m_symtab != symtab) {
-    m_symtab = symtab;
+  if (m_symtab)
+    return m_symtab;
 
-    // Then add our symbols to it.
-    if (m_symtab)
-      AddSymbols(*m_symtab);
-  }
+  // Fetch the symtab from the main object file.
+  m_symtab = GetMainObjectFile()->GetSymtab();
+
+  // Then add our symbols to it.
+  if (m_symtab)
+    AddSymbols(*m_symtab);
+
   return m_symtab;
 }
 
@@ -175,8 +186,8 @@ void SymbolFileCommon::SectionFileAddressesChanged() {
   ObjectFile *symfile_objfile = GetObjectFile();
   if (symfile_objfile != module_objfile)
     symfile_objfile->SectionFileAddressesChanged();
-  if (auto *symtab = GetSymtab())
-    symtab->SectionFileAddressesChanged();
+  if (m_symtab)
+    m_symtab->SectionFileAddressesChanged();
 }
 
 uint32_t SymbolFileCommon::GetNumCompileUnits() {
@@ -205,7 +216,7 @@ void SymbolFileCommon::SetCompileUnitAtIndex(uint32_t idx,
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   const size_t num_compile_units = GetNumCompileUnits();
   assert(idx < num_compile_units);
-  UNUSED_IF_ASSERT_DISABLED(num_compile_units);
+  (void)num_compile_units;
 
   // Fire off an assertion if this compile unit already exists for now. The
   // partial parsing should take care of only setting the compile unit
@@ -216,13 +227,12 @@ void SymbolFileCommon::SetCompileUnitAtIndex(uint32_t idx,
   (*m_compile_units)[idx] = cu_sp;
 }
 
-llvm::Expected<TypeSystemSP>
+llvm::Expected<TypeSystem &>
 SymbolFileCommon::GetTypeSystemForLanguage(lldb::LanguageType language) {
   auto type_system_or_err =
       m_objfile_sp->GetModule()->GetTypeSystemForLanguage(language);
   if (type_system_or_err) {
-    if (auto ts = *type_system_or_err)
-      ts->SetSymbolFile(this);
+    type_system_or_err->SetSymbolFile(this);
   }
   return type_system_or_err;
 }

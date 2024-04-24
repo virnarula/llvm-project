@@ -192,14 +192,6 @@ public:
   /// expression.  Text() should contain the definition of this function.
   const char *FunctionName() override { return "$__lldb_expr"; }
 
-  /// Returns whether the call to Parse on this user expression is cacheable.
-  /// This function exists to provide an escape hatch for supporting languages
-  /// where parsing an expression in the exact same context is unsafe. For
-  /// example, languages where generic functions aren't monomorphized, but
-  /// implement some other mechanism to represent generic values, may be unsafe
-  /// to cache, as the concrete type substitution may be different in every
-  /// expression evaluation.
-  virtual bool IsParseCacheable() { return true; }
   /// Return the language that should be used when parsing.  To use the
   /// default, return eLanguageTypeUnknown.
   lldb::LanguageType Language() const override { return m_language; }
@@ -286,8 +278,7 @@ protected:
             lldb::ExpressionVariableSP &result) = 0;
 
   static lldb::addr_t GetObjectPointer(lldb::StackFrameSP frame_sp,
-                                       llvm::StringRef object_name,
-                                       Status &err);
+                                       ConstString &object_name, Status &err);
 
   /// Return ValueObject for a given variable name in the current stack frame
   ///
@@ -304,7 +295,7 @@ protected:
   ///          'nullptr' (and sets the error status parameter 'err').
   static lldb::ValueObjectSP
   GetObjectPointerValueObject(lldb::StackFrameSP frame,
-                              llvm::StringRef object_name, Status &err);
+                              ConstString const &object_name, Status &err);
 
   /// Populate m_in_cplusplus_method and m_in_objectivec_method based on the
   /// environment.

@@ -24,7 +24,6 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Signals.h"
-#include <optional>
 
 using clang::pseudo::ForestNode;
 using clang::pseudo::Token;
@@ -108,21 +107,21 @@ int main(int argc, char *argv[]) {
 
   clang::LangOptions LangOpts = clang::pseudo::genericLangOpts();
   std::string SourceText;
-  std::optional<clang::pseudo::TokenStream> RawStream;
-  std::optional<TokenStream> PreprocessedStream;
-  std::optional<clang::pseudo::TokenStream> ParseableStream;
+  llvm::Optional<clang::pseudo::TokenStream> RawStream;
+  llvm::Optional<TokenStream> PreprocessedStream;
+  llvm::Optional<clang::pseudo::TokenStream> ParseableStream;
   if (Source.getNumOccurrences()) {
     SourceText = readOrDie(Source);
     RawStream = clang::pseudo::lex(SourceText, LangOpts);
-    TokenStream *Stream = &*RawStream;
+    TokenStream *Stream = RawStream.getPointer();
 
     auto DirectiveStructure = clang::pseudo::DirectiveTree::parse(*RawStream);
     clang::pseudo::chooseConditionalBranches(DirectiveStructure, *RawStream);
 
-    std::optional<TokenStream> Preprocessed;
+    llvm::Optional<TokenStream> Preprocessed;
     if (StripDirectives) {
       Preprocessed = DirectiveStructure.stripDirectives(*Stream);
-      Stream = &*Preprocessed;
+      Stream = Preprocessed.getPointer();
     }
 
     if (PrintSource)
@@ -151,7 +150,7 @@ int main(int argc, char *argv[]) {
   if (ParseableStream) {
     clang::pseudo::ForestArena Arena;
     clang::pseudo::GSS GSS;
-    std::optional<clang::pseudo::SymbolID> StartSymID =
+    llvm::Optional<clang::pseudo::SymbolID> StartSymID =
         Lang.G.findNonterminal(StartSymbol);
     if (!StartSymID) {
       llvm::errs() << llvm::formatv(

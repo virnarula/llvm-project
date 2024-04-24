@@ -3,7 +3,7 @@
 
 target datalayout = "f64:64:64-v64:64:64"
 
-define void @test_phi_in_landingpad() personality ptr
+define void @test_phi_in_landingpad() personality i8*
 ; CHECK-LABEL: @test_phi_in_landingpad(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    invoke void @foo()
@@ -13,14 +13,14 @@ define void @test_phi_in_landingpad() personality ptr
 ; CHECK-NEXT:    to label [[DONE:%.*]] unwind label [[LPAD]]
 ; CHECK:       lpad:
 ; CHECK-NEXT:    [[TMP0:%.*]] = phi <2 x double> [ undef, [[ENTRY:%.*]] ], [ undef, [[INNER]] ]
-; CHECK-NEXT:    [[TMP1:%.*]] = landingpad { ptr, i32 }
-; CHECK-NEXT:    catch ptr null
+; CHECK-NEXT:    [[TMP1:%.*]] = landingpad { i8*, i32 }
+; CHECK-NEXT:    catch i8* null
 ; CHECK-NEXT:    br label [[DONE]]
 ; CHECK:       done:
 ; CHECK-NEXT:    [[TMP2:%.*]] = phi <2 x double> [ undef, [[INNER]] ], [ [[TMP0]], [[LPAD]] ]
 ; CHECK-NEXT:    ret void
 ;
-  @__gxx_personality_v0 {
+  bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   invoke void @foo()
   to label %inner unwind label %lpad
@@ -34,7 +34,7 @@ inner:
 lpad:
   %x1 = phi double [ undef, %entry ], [ undef, %inner ]
   %y1 = phi double [ undef, %entry ], [ undef, %inner ]
-  landingpad { ptr, i32 } catch ptr null
+  landingpad { i8*, i32 } catch i8* null
   br label %done
 
 done:

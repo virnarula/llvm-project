@@ -15,6 +15,7 @@
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/JSON.h"
@@ -22,7 +23,6 @@
 #include <cassert>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,7 +61,7 @@ struct DiagBase {
   // May be relative, absolute or even artificially constructed.
   std::string File;
   // Absolute path to containing file, if available.
-  std::optional<std::string> AbsFile;
+  llvm::Optional<std::string> AbsFile;
 
   clangd::Range Range;
   DiagnosticsEngine::Level Severity = DiagnosticsEngine::Note;
@@ -83,10 +83,6 @@ struct Fix {
   std::string Message;
   /// TextEdits from clang's fix-its. Must be non-empty.
   llvm::SmallVector<TextEdit, 1> Edits;
-
-  /// Annotations for the Edits.
-  llvm::SmallVector<std::pair<ChangeAnnotationIdentifier, ChangeAnnotation>>
-      Annotations;
 };
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const Fix &F);
 
@@ -124,12 +120,15 @@ void toLSPDiags(
     const Diag &D, const URIForFile &File, const ClangdDiagnosticOptions &Opts,
     llvm::function_ref<void(clangd::Diagnostic, llvm::ArrayRef<Fix>)> OutFn);
 
+/// Convert from Fix to LSP CodeAction.
+CodeAction toCodeAction(const Fix &D, const URIForFile &File);
+
 /// Convert from clang diagnostic level to LSP severity.
 int getSeverity(DiagnosticsEngine::Level L);
 
 /// Returns a URI providing more information about a particular diagnostic.
-std::optional<std::string> getDiagnosticDocURI(Diag::DiagSource, unsigned ID,
-                                               llvm::StringRef Name);
+llvm::Optional<std::string> getDiagnosticDocURI(Diag::DiagSource, unsigned ID,
+                                                llvm::StringRef Name);
 
 /// StoreDiags collects the diagnostics that can later be reported by
 /// clangd. It groups all notes for a diagnostic into a single Diag
@@ -171,9 +170,9 @@ private:
   LevelAdjuster Adjuster = nullptr;
   DiagCallback DiagCB = nullptr;
   std::vector<Diag> Output;
-  std::optional<LangOptions> LangOpts;
-  std::optional<Diag> LastDiag;
-  std::optional<FullSourceLoc> LastDiagLoc;  // Valid only when LastDiag is set.
+  llvm::Optional<LangOptions> LangOpts;
+  llvm::Optional<Diag> LastDiag;
+  llvm::Optional<FullSourceLoc> LastDiagLoc; // Valid only when LastDiag is set.
   bool LastDiagOriginallyError = false;      // Valid only when LastDiag is set.
   SourceManager *OrigSrcMgr = nullptr;
 

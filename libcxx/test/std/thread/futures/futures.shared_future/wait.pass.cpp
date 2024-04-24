@@ -18,7 +18,6 @@
 #include <cassert>
 #include <chrono>
 #include <future>
-#include <ratio>
 
 #include "make_test_thread.h"
 #include "test_macros.h"

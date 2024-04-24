@@ -31,7 +31,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-#include <optional>
 #include <set>
 #include <string>
 
@@ -262,7 +261,7 @@ public:
         SelFirst, AllSpelledTokens.end(), [&](const syntax::Token &Tok) {
           return SM.getFileOffset(Tok.location()) < SelEnd;
         });
-    auto Sel = llvm::ArrayRef(SelFirst, SelLimit);
+    auto Sel = llvm::makeArrayRef(SelFirst, SelLimit);
     // Find which of these are preprocessed to nothing and should be ignored.
     llvm::BitVector PPIgnored(Sel.size(), false);
     for (const syntax::TokenBuffer::Expansion &X :
@@ -396,7 +395,7 @@ private:
           // Implausible if upperbound(Tok) < First.
           if (auto Offset = LastAffectedToken(Tok.location()))
             return *Offset < First;
-          // A prefix of the expanded tokens may be from an implicit
+          // A prefix of the expanded tokens may be from an an implicit
           // inclusion (e.g. preamble patch, or command-line -include).
           return true;
         });
@@ -419,7 +418,7 @@ private:
     if (EndInvalid)
       End = Toks.expandedTokens().end();
 
-    return llvm::ArrayRef(Start, End);
+    return llvm::makeArrayRef(Start, End);
   }
 
   // Hit-test a consecutive range of tokens from a single file ID.
@@ -513,12 +512,12 @@ private:
   }
 
   // Decomposes Loc and returns the offset if the file ID is SelFile.
-  std::optional<unsigned> offsetInSelFile(SourceLocation Loc) const {
+  llvm::Optional<unsigned> offsetInSelFile(SourceLocation Loc) const {
     // Decoding Loc with SM.getDecomposedLoc is relatively expensive.
     // But SourceLocations for a file are numerically contiguous, so we
     // can use cheap integer operations instead.
     if (Loc < SelFileBounds.getBegin() || Loc >= SelFileBounds.getEnd())
-      return std::nullopt;
+      return llvm::None;
     // FIXME: subtracting getRawEncoding() is dubious, move this logic into SM.
     return Loc.getRawEncoding() - SelFileBounds.getBegin().getRawEncoding();
   }
@@ -635,12 +634,8 @@ public:
     if (llvm::isa_and_nonnull<TranslationUnitDecl>(X))
       return Base::TraverseDecl(X); // Already pushed by constructor.
     // Base::TraverseDecl will suppress children, but not this node itself.
-    if (X && X->isImplicit()) {
-      // Most implicit nodes have only implicit children and can be skipped.
-      // However there are exceptions (`void foo(Concept auto x)`), and
-      // the base implementation knows how to find them.
-      return Base::TraverseDecl(X);
-    }
+    if (X && X->isImplicit())
+      return true;
     return traverseNode(X, [&] { return Base::TraverseDecl(X); });
   }
   bool TraverseTypeLoc(TypeLoc X) {
@@ -663,9 +658,6 @@ public:
   }
   bool TraverseAttr(Attr *X) {
     return traverseNode(X, [&] { return Base::TraverseAttr(X); });
-  }
-  bool TraverseConceptReference(ConceptReference *X) {
-    return traverseNode(X, [&] { return Base::TraverseConceptReference(X); });
   }
   // Stmt is the same, but this form allows the data recursion optimization.
   bool dataTraverseStmtPre(Stmt *X) {
@@ -1067,7 +1059,7 @@ bool SelectionTree::createEach(ASTContext &AST,
 SelectionTree SelectionTree::createRight(ASTContext &AST,
                                          const syntax::TokenBuffer &Tokens,
                                          unsigned int Begin, unsigned int End) {
-  std::optional<SelectionTree> Result;
+  llvm::Optional<SelectionTree> Result;
   createEach(AST, Tokens, Begin, End, [&](SelectionTree T) {
     Result = std::move(T);
     return true;
@@ -1113,9 +1105,6 @@ const DeclContext &SelectionTree::Node::getDeclContext() const {
           return *DC;
       return *Current->getLexicalDeclContext();
     }
-    if (const auto *LE = CurrentNode->ASTNode.get<LambdaExpr>())
-      if (CurrentNode != this)
-        return *LE->getCallOperator();
   }
   llvm_unreachable("A tree must always be rooted at TranslationUnitDecl.");
 }

@@ -75,8 +75,8 @@ InstructionCost SystemZTTIImpl::getIntImmCost(const APInt &Imm, Type *Ty,
   // here, so that constant hoisting will ignore this constant.
   if (BitSize == 0)
     return TTI::TCC_Free;
-  // No cost model for operations on integers larger than 128 bit implemented yet.
-  if ((!ST->hasVector() && BitSize > 64) || BitSize > 128)
+  // No cost model for operations on integers larger than 64 bit implemented yet.
+  if (BitSize > 64)
     return TTI::TCC_Free;
 
   if (Imm == 0)
@@ -96,8 +96,7 @@ InstructionCost SystemZTTIImpl::getIntImmCost(const APInt &Imm, Type *Ty,
     return 2 * TTI::TCC_Basic;
   }
 
-  // i128 immediates loads from Constant Pool
-  return 2 * TTI::TCC_Basic;
+  return 4 * TTI::TCC_Basic;
 }
 
 InstructionCost SystemZTTIImpl::getIntImmCostInst(unsigned Opcode, unsigned Idx,
@@ -301,8 +300,8 @@ void SystemZTTIImpl::getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
       }
       if (isa<StoreInst>(&I)) {
         Type *MemAccessTy = I.getOperand(0)->getType();
-        NumStores += getMemoryOpCost(Instruction::Store, MemAccessTy,
-                                     std::nullopt, 0, TTI::TCK_RecipThroughput);
+        NumStores += getMemoryOpCost(Instruction::Store, MemAccessTy, None, 0,
+                                     TTI::TCK_RecipThroughput);
       }
     }
 
@@ -480,27 +479,21 @@ InstructionCost SystemZTTIImpl::getArithmeticInstrCost(
       return LIBCALL_COST;
 
     // Give discount for some combined logical operations if supported.
-    if (Args.size() == 2) {
+    if (Args.size() == 2 && ST->hasMiscellaneousExtensions3()) {
       if (Opcode == Instruction::Xor) {
         for (const Value *A : Args) {
           if (const Instruction *I = dyn_cast<Instruction>(A))
             if (I->hasOneUse() &&
-                (I->getOpcode() == Instruction::Or ||
-                 I->getOpcode() == Instruction::And ||
+                (I->getOpcode() == Instruction::And ||
+                 I->getOpcode() == Instruction::Or ||
                  I->getOpcode() == Instruction::Xor))
-              if ((ScalarBits <= 64 && ST->hasMiscellaneousExtensions3()) ||
-                  (isInt128InVR(Ty) &&
-                   (I->getOpcode() == Instruction::Or || ST->hasVectorEnhancements1())))
-                return 0;
+              return 0;
         }
       }
-      else if (Opcode == Instruction::And || Opcode == Instruction::Or) {
+      else if (Opcode == Instruction::Or || Opcode == Instruction::And) {
         for (const Value *A : Args) {
           if (const Instruction *I = dyn_cast<Instruction>(A))
-            if ((I->hasOneUse() && I->getOpcode() == Instruction::Xor) &&
-                ((ScalarBits <= 64 && ST->hasMiscellaneousExtensions3()) ||
-                 (isInt128InVR(Ty) &&
-                  (Opcode == Instruction::And || ST->hasVectorEnhancements1()))))
+            if (I->hasOneUse() && I->getOpcode() == Instruction::Xor)
               return 0;
         }
       }
@@ -539,8 +532,7 @@ InstructionCost SystemZTTIImpl::getArithmeticInstrCost(
       return (NumVectors * (SignedDivRem ? SDivPow2Cost : 1));
     if (DivRemConst) {
       SmallVector<Type *> Tys(Args.size(), Ty);
-      return VF * DivMulSeqCost +
-             getScalarizationOverhead(VTy, Args, Tys, CostKind);
+      return VF * DivMulSeqCost + getScalarizationOverhead(VTy, Args, Tys);
     }
     if ((SignedDivRem || UnsignedDivRem) && VF > 4)
       // Temporary hack: disable high vectorization factors with integer
@@ -566,8 +558,7 @@ InstructionCost SystemZTTIImpl::getArithmeticInstrCost(
             getArithmeticInstrCost(Opcode, Ty->getScalarType(), CostKind);
         SmallVector<Type *> Tys(Args.size(), Ty);
         InstructionCost Cost =
-            (VF * ScalarCost) +
-            getScalarizationOverhead(VTy, Args, Tys, CostKind);
+            (VF * ScalarCost) + getScalarizationOverhead(VTy, Args, Tys);
         // FIXME: VF 2 for these FP operations are currently just as
         // expensive as for VF 4.
         if (VF == 2)
@@ -585,8 +576,8 @@ InstructionCost SystemZTTIImpl::getArithmeticInstrCost(
     // There is no native support for FRem.
     if (Opcode == Instruction::FRem) {
       SmallVector<Type *> Tys(Args.size(), Ty);
-      InstructionCost Cost = (VF * LIBCALL_COST) +
-                             getScalarizationOverhead(VTy, Args, Tys, CostKind);
+      InstructionCost Cost =
+          (VF * LIBCALL_COST) + getScalarizationOverhead(VTy, Args, Tys);
       // FIXME: VF 2 for float is currently just as expensive as for VF 4.
       if (VF == 2 && ScalarBits == 32)
         Cost *= 2;
@@ -605,7 +596,7 @@ InstructionCost SystemZTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
                                                TTI::TargetCostKind CostKind,
                                                int Index, VectorType *SubTp,
                                                ArrayRef<const Value *> Args) {
-  Kind = improveShuffleKindFromMask(Kind, Mask, Tp, Index, SubTp);
+  Kind = improveShuffleKindFromMask(Kind, Mask);
   if (ST->hasVector()) {
     unsigned NumVectors = getNumVectorRegs(Tp);
 
@@ -656,8 +647,8 @@ static unsigned getElSizeLog2Diff(Type *Ty0, Type *Ty1) {
 unsigned SystemZTTIImpl::
 getVectorTruncCost(Type *SrcTy, Type *DstTy) {
   assert (SrcTy->isVectorTy() && DstTy->isVectorTy());
-  assert(SrcTy->getPrimitiveSizeInBits().getFixedValue() >
-             DstTy->getPrimitiveSizeInBits().getFixedValue() &&
+  assert(SrcTy->getPrimitiveSizeInBits().getFixedSize() >
+             DstTy->getPrimitiveSizeInBits().getFixedSize() &&
          "Packing must reduce size of vector type.");
   assert(cast<FixedVectorType>(SrcTy)->getNumElements() ==
              cast<FixedVectorType>(DstTy)->getNumElements() &&
@@ -781,63 +772,29 @@ InstructionCost SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     assert (!Dst->isVectorTy());
 
     if (Opcode == Instruction::SIToFP || Opcode == Instruction::UIToFP) {
-      if (Src->isIntegerTy(128))
-        return LIBCALL_COST;
       if (SrcScalarBits >= 32 ||
           (I != nullptr && isa<LoadInst>(I->getOperand(0))))
         return 1;
       return SrcScalarBits > 1 ? 2 /*i8/i16 extend*/ : 5 /*branch seq.*/;
     }
 
-    if ((Opcode == Instruction::FPToSI || Opcode == Instruction::FPToUI) &&
-        Dst->isIntegerTy(128))
-      return LIBCALL_COST;
+    if ((Opcode == Instruction::ZExt || Opcode == Instruction::SExt) &&
+        Src->isIntegerTy(1)) {
+      if (ST->hasLoadStoreOnCond2())
+        return 2; // li 0; loc 1
 
-    if ((Opcode == Instruction::ZExt || Opcode == Instruction::SExt)) {
-      if (Src->isIntegerTy(1)) {
-        if (DstScalarBits == 128)
-          return 5 /*branch seq.*/;
-
-        if (ST->hasLoadStoreOnCond2())
-          return 2; // li 0; loc 1
-
-        // This should be extension of a compare i1 result, which is done with
-        // ipm and a varying sequence of instructions.
-        unsigned Cost = 0;
-        if (Opcode == Instruction::SExt)
-          Cost = (DstScalarBits < 64 ? 3 : 4);
-        if (Opcode == Instruction::ZExt)
-          Cost = 3;
-        Type *CmpOpTy = ((I != nullptr) ? getCmpOpsType(I) : nullptr);
-        if (CmpOpTy != nullptr && CmpOpTy->isFloatingPointTy())
-          // If operands of an fp-type was compared, this costs +1.
-          Cost++;
-        return Cost;
-      }
-      else if (isInt128InVR(Dst)) {
-        // Extensions from GPR to i128 (in VR) typically costs two instructions,
-        // but a zero-extending load would be just one extra instruction.
-        if (Opcode == Instruction::ZExt && I != nullptr)
-          if (LoadInst *Ld = dyn_cast<LoadInst>(I->getOperand(0)))
-            if (Ld->hasOneUse())
-              return 1;
-        return 2;
-      }
-    }
-
-    if (Opcode == Instruction::Trunc && isInt128InVR(Src) && I != nullptr) {
-      if (LoadInst *Ld = dyn_cast<LoadInst>(I->getOperand(0)))
-        if (Ld->hasOneUse())
-          return 0;  // Will be converted to GPR load.
-      bool OnlyTruncatingStores = true;
-      for (const User *U : I->users())
-        if (!isa<StoreInst>(U)) {
-          OnlyTruncatingStores = false;
-          break;
-        }
-      if (OnlyTruncatingStores)
-        return 0;
-      return 2; // Vector element extraction.
+      // This should be extension of a compare i1 result, which is done with
+      // ipm and a varying sequence of instructions.
+      unsigned Cost = 0;
+      if (Opcode == Instruction::SExt)
+        Cost = (DstScalarBits < 64 ? 3 : 4);
+      if (Opcode == Instruction::ZExt)
+        Cost = 3;
+      Type *CmpOpTy = ((I != nullptr) ? getCmpOpsType(I) : nullptr);
+      if (CmpOpTy != nullptr && CmpOpTy->isFloatingPointTy())
+        // If operands of an fp-type was compared, this costs +1.
+        Cost++;
+      return Cost;
     }
   }
   else if (ST->hasVector()) {
@@ -908,10 +865,8 @@ InstructionCost SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
           (Opcode == Instruction::FPToSI || Opcode == Instruction::FPToUI))
         NeedsExtracts = false;
 
-      TotCost += getScalarizationOverhead(SrcVecTy, /*Insert*/ false,
-                                          NeedsExtracts, CostKind);
-      TotCost += getScalarizationOverhead(DstVecTy, NeedsInserts,
-                                          /*Extract*/ false, CostKind);
+      TotCost += getScalarizationOverhead(SrcVecTy, false, NeedsExtracts);
+      TotCost += getScalarizationOverhead(DstVecTy, NeedsInserts, false);
 
       // FIXME: VF 2 for float<->i32 is currently just as expensive as for VF 4.
       if (VF == 2 && SrcScalarBits == 32 && DstScalarBits == 32)
@@ -923,8 +878,7 @@ InstructionCost SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     if (Opcode == Instruction::FPTrunc) {
       if (SrcScalarBits == 128)  // fp128 -> double/float + inserts of elements.
         return VF /*ldxbr/lexbr*/ +
-               getScalarizationOverhead(DstVecTy, /*Insert*/ true,
-                                        /*Extract*/ false, CostKind);
+               getScalarizationOverhead(DstVecTy, true, false);
       else // double -> float
         return VF / 2 /*vledb*/ + std::max(1U, VF / 4 /*vperm*/);
     }
@@ -937,8 +891,7 @@ InstructionCost SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
         return VF * 2;
       }
       // -> fp128.  VF * lxdb/lxeb + extraction of elements.
-      return VF + getScalarizationOverhead(SrcVecTy, /*Insert*/ false,
-                                           /*Extract*/ true, CostKind);
+      return VF + getScalarizationOverhead(SrcVecTy, false, true);
     }
   }
 
@@ -971,7 +924,7 @@ InstructionCost SystemZTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
       // A loaded value compared with 0 with multiple users becomes Load and
       // Test. The load is then not foldable, so return 0 cost for the ICmp.
       unsigned ScalarBits = ValTy->getScalarSizeInBits();
-      if (I != nullptr && (ScalarBits == 32 || ScalarBits == 64))
+      if (I != nullptr && ScalarBits >= 32)
         if (LoadInst *Ld = dyn_cast<LoadInst>(I->getOperand(0)))
           if (const ConstantInt *C = dyn_cast<ConstantInt>(I->getOperand(1)))
             if (!Ld->hasOneUse() && Ld->getParent() == I->getParent() &&
@@ -984,8 +937,8 @@ InstructionCost SystemZTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
       return Cost;
     }
     case Instruction::Select:
-      if (ValTy->isFloatingPointTy() || isInt128InVR(ValTy))
-        return 4; // No LOC for FP / i128 - costs a conditional jump.
+      if (ValTy->isFloatingPointTy())
+        return 4; // No load on condition for FP - costs a conditional jump.
       return 1; // Load On Condition / Select Register.
     }
   }
@@ -1043,9 +996,7 @@ InstructionCost SystemZTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
 }
 
 InstructionCost SystemZTTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val,
-                                                   TTI::TargetCostKind CostKind,
-                                                   unsigned Index, Value *Op0,
-                                                   Value *Op1) {
+                                                   unsigned Index) {
   // vlvgp will insert two grs into a vector register, so only count half the
   // number of instructions.
   if (Opcode == Instruction::InsertElement && Val->isIntOrIntVectorTy(64))
@@ -1061,7 +1012,7 @@ InstructionCost SystemZTTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val,
     return Cost;
   }
 
-  return BaseT::getVectorInstrCost(Opcode, Val, CostKind, Index, Op0, Op1);
+  return BaseT::getVectorInstrCost(Opcode, Val, Index);
 }
 
 // Check if a load may be folded as a memory operand in its user.
@@ -1193,15 +1144,6 @@ InstructionCost SystemZTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
     }
   }
 
-  // Type legalization (via getNumberOfParts) can't handle structs
-  if (TLI->getValueType(DL, Src, true) == MVT::Other)
-    return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
-                                  CostKind);
-
-  // FP128 is a legal type but kept in a register pair on older CPUs.
-  if (Src->isFP128Ty() && !ST->hasVectorEnhancements1())
-    return 2;
-
   unsigned NumOps =
     (Src->isVectorTy() ? getNumVectorRegs(Src) : getNumberOfParts(Src));
 
@@ -1221,6 +1163,10 @@ InstructionCost SystemZTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
         return 0;
     }
   }
+
+  if (Src->getScalarSizeInBits() == 128)
+    // 128 bit scalars are held in a pair of two 64 bit registers.
+    NumOps *= 2;
 
   return  NumOps;
 }
@@ -1277,6 +1223,7 @@ InstructionCost SystemZTTIImpl::getInterleavedMemoryOpCost(
     // dst vector for vperm (S.A.).
     unsigned NumSrcVecs = std::min(NumEltsPerVecReg, Factor);
     unsigned NumDstVecs = NumVectorMemOps;
+    assert (NumSrcVecs > 1 && "Expected at least two source vectors.");
     NumPermutes += (NumDstVecs * NumSrcVecs) - NumDstVecs;
   }
 

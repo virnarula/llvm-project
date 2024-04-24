@@ -107,7 +107,7 @@ public:
 
   Type *GetType();
 
-  Scalar &ResolveValue(ExecutionContext *exe_ctx, Module *module = nullptr);
+  Scalar &ResolveValue(ExecutionContext *exe_ctx);
 
   const Scalar &GetScalar() const { return m_value; }
 
@@ -144,8 +144,6 @@ public:
   bool GetData(DataExtractor &data);
 
   void Clear();
-
-  static ValueType GetValueTypeFromAddressType(AddressType address_type);
 
 protected:
   Scalar m_value;

@@ -17,14 +17,11 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
 namespace mlir {
-namespace affine {
 #define GEN_PASS_DEF_AFFINELOOPNORMALIZE
 #include "mlir/Dialect/Affine/Passes.h.inc"
-} // namespace affine
 } // namespace mlir
 
 using namespace mlir;
-using namespace mlir::affine;
 
 namespace {
 
@@ -32,17 +29,14 @@ namespace {
 /// As currently implemented, this pass cannot fail, but it might skip over ops
 /// that are already in a normalized form.
 struct AffineLoopNormalizePass
-    : public affine::impl::AffineLoopNormalizeBase<AffineLoopNormalizePass> {
-  explicit AffineLoopNormalizePass(bool promoteSingleIter) {
-    this->promoteSingleIter = promoteSingleIter;
-  }
+    : public impl::AffineLoopNormalizeBase<AffineLoopNormalizePass> {
 
   void runOnOperation() override {
-    getOperation().walk([&](Operation *op) {
+    getOperation().walk([](Operation *op) {
       if (auto affineParallel = dyn_cast<AffineParallelOp>(op))
         normalizeAffineParallel(affineParallel);
       else if (auto affineFor = dyn_cast<AffineForOp>(op))
-        (void)normalizeAffineFor(affineFor, promoteSingleIter);
+        (void)normalizeAffineFor(affineFor);
     });
   }
 };
@@ -50,6 +44,6 @@ struct AffineLoopNormalizePass
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::affine::createAffineLoopNormalizePass(bool promoteSingleIter) {
-  return std::make_unique<AffineLoopNormalizePass>(promoteSingleIter);
+mlir::createAffineLoopNormalizePass() {
+  return std::make_unique<AffineLoopNormalizePass>();
 }
