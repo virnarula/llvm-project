@@ -25,6 +25,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/DataLayout.h"
 
 #define DEBUG_TYPE "nvptx-mem-opts"
 
@@ -62,8 +63,9 @@ namespace {
     // Helper functions
     void CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexValues);
     bool isCallCoalescable(LoadInst *LI, std::vector<IndexType> &indexValues);
-    bool canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE);
-    void prefetchDataToCache(IRBuilder<> &Builder, Value *Address);
+    bool canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE, const DataLayout &DL);
+    Value* calculateAddress(Value *CurrentAddr, IRBuilder<> &Builder, const DataLayout &DL);
+    void prefetchDataToCache(IRBuilder<> &Builder, Value *address);
     
     std::vector<IndexType> isLoadingFromArray(LoadInst *LI);
 
@@ -231,12 +233,48 @@ void NVPTXMemOpts::CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexV
 }
 
 // Logic to decide whether to prefetch or not
-bool NVPTXMemOpts::canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE) {
-    return false;
+bool NVPTXMemOpts::canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE, const DataLayout &DL) {
+  // First, check if the LoadInst is part of a loop structure.
+  if (Loop *L = LIInfo.getLoopFor(LI->getParent())) {
+    // Ensure the loop is in a simplified form which is easier to analyze.
+    if (!L->isLoopSimplifyForm()) return false;
+    // Attempt to cast the pointer operand of the load instruction to a GEP instruction
+    auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+    // Retrieve the base pointer of the GEP
+    auto ptr = GEP->getPointerOperand();
+    auto ptrGEP = dyn_cast<GetElementPtrInst>(ptr);
+    // If the base pointer is also a GEP, this might be too complex for simple prefetching logic
+    if (ptrGEP) {
+        return false; 
+    }
+    // Get the SCEV representation of the memory address being loaded
+    if (const SCEV *AccessFunction = SE.getSCEV(GEP)) {
+      // Check if the access pattern to the memory address is affine
+      if (SE.isAffineExpr(AccessFunction)) {
+        // Calculate the stride of the memory access // ToDo: Is this the correct way to get the address?
+        auto *stride = dyn_cast<SCEVConstant>(SE.getMinusSCEV(AccessFunction, SE.getPointerBase(AccessFunction)));
+        // If there's a consistent stride, compare it to 32 times the size of the type loaded. (warp size)
+        if (stride && stride->getValue()->getZExtValue() == 32 * DL.getTypeAllocSize(LI->getType())) {
+            return true;
+        }
+      }
+    }
+  }
+  // If none of the conditions for prefetching are met, return false
+  return false;
 }
 
-// Prefetcing logic
-void NVPTXMemOpts::prefetchDataToCache(IRBuilder<> &Builder, Value *Address) {
+Value* NVPTXMemOpts::calculateAddress(Value *CurrentAddr, IRBuilder<> &Builder, const DataLayout &DL) {
+  // Calculate offset based on warp size
+  auto *Offset = ConstantInt::get(Type::getInt64Ty(Builder.getContext()), 32 * DL.getTypeAllocSize(CurrentAddr->getType()));
+  return Builder.CreateAdd(CurrentAddr, Offset, "prefetchAddr");
+}
+
+void NVPTXMemOpts::prefetchDataToCache(IRBuilder<> &Builder, Value *address) {
+  Module *M = Builder.GetInsertBlock()->getModule();
+  // this is an inbuilt function for nvptx, not sure whether this can be used
+  FunctionCallee PrefetchFunc = M->getOrInsertFunction("llvm.nvvm.prefetch.global", FunctionType::getVoidTy(M->getContext()), address->getType(), Type::getInt32Ty(M->getContext()));
+  Builder.CreateCall(PrefetchFunc, {address, Builder.getInt32(0)});
 }
 
 bool NVPTXMemOpts::runOnFunction(Function &F) {
@@ -244,6 +282,7 @@ bool NVPTXMemOpts::runOnFunction(Function &F) {
   //Analysis for prefetching: 
   LoopInfo &LIInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  const DataLayout &DL = F.getParent()->getDataLayout();
 
   errs() << "Hello from NVPTXMemOpts\n";
   std::vector<LoadInst*> toDelete;
@@ -257,6 +296,12 @@ bool NVPTXMemOpts::runOnFunction(Function &F) {
           errs() << "Found a candidate instruction: " << *LI << "\n";
           CoalesceMemCalls(LI, indexValues);
           toDelete.push_back(LI);
+        }
+        // Check if prefetching is applicable
+        if (canPrefetch(LI, LIInfo, SE, DL)) {  
+          IRBuilder<> Builder(LI);
+          Value *prefetchAddr = calculateAddress(LI->getPointerOperand(), Builder, DL);
+          prefetchDataToCache(Builder, prefetchAddr);
         }
       }
     }
