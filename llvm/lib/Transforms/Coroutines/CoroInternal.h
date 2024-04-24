@@ -25,17 +25,11 @@ bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
 
-/// Attempts to rewrite the location operand of debug intrinsics in terms of
-/// the coroutine frame pointer, folding pointer offsets into the DIExpression
-/// of the intrinsic.
-/// If the frame pointer is an Argument, store it into an alloca if
-/// OptimizeFrame is false.
+/// Recover a dbg.declare prepared by the frontend and emit an alloca
+/// holding a pointer to the coroutine frame.
 void salvageDebugInfo(
-    SmallDenseMap<Argument *, AllocaInst *, 4> &ArgToAllocaMap,
-    DbgVariableIntrinsic &DVI, bool OptimizeFrame, bool IsEntryPoint);
-void salvageDebugInfo(
-    SmallDenseMap<Argument *, AllocaInst *, 4> &ArgToAllocaMap, DPValue &DPV,
-    bool OptimizeFrame, bool UseEntryValue);
+    SmallDenseMap<llvm::Value *, llvm::AllocaInst *, 4> &DbgPtrAllocaCache,
+    DbgVariableIntrinsic *DVI, bool OptimizeFrame);
 
 // Keeps data and helper functions for lowering coroutine intrinsics.
 struct LowererBase {
@@ -130,6 +124,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
   };
 
   struct AsyncLoweringStorage {
+    FunctionType *AsyncFuncTy;
     Value *Context;
     CallingConv::ID AsyncCC;
     unsigned ContextArgNo;
@@ -188,8 +183,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
     switch (ABI) {
     case coro::ABI::Switch:
       return FunctionType::get(Type::getVoidTy(FrameTy->getContext()),
-                               PointerType::getUnqual(FrameTy->getContext()),
-                               /*IsVarArg=*/false);
+                               FrameTy->getPointerTo(), /*IsVarArg*/false);
     case coro::ABI::Retcon:
     case coro::ABI::RetconOnce:
       return RetconLowering.ResumePrototype->getFunctionType();
@@ -243,13 +237,10 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
     return nullptr;
   }
 
-  BasicBlock::iterator getInsertPtAfterFramePtr() const {
-    if (auto *I = dyn_cast<Instruction>(FramePtr)) {
-      BasicBlock::iterator It = std::next(I->getIterator());
-      It.setHeadBit(true); // Copy pre-RemoveDIs behaviour.
-      return It;
-    }
-    return cast<Argument>(FramePtr)->getParent()->getEntryBlock().begin();
+  Instruction *getInsertPtAfterFramePtr() const {
+    if (auto *I = dyn_cast<Instruction>(FramePtr))
+      return I->getNextNode();
+    return &cast<Argument>(FramePtr)->getParent()->getEntryBlock().front();
   }
 
   /// Allocate memory according to the rules of the active lowering.
@@ -270,10 +261,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
   void buildFrom(Function &F);
 };
 
-bool defaultMaterializable(Instruction &V);
-void buildCoroutineFrame(
-    Function &F, Shape &Shape,
-    const std::function<bool(Instruction &)> &MaterializableCallback);
+void buildCoroutineFrame(Function &F, Shape &Shape);
 CallInst *createMustTailCall(DebugLoc Loc, Function *MustTailCallFn,
                              ArrayRef<Value *> Arguments, IRBuilder<> &);
 } // End namespace coro.

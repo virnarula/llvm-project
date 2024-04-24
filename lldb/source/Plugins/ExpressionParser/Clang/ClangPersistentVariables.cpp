@@ -20,17 +20,14 @@
 #include "clang/AST/Decl.h"
 
 #include "llvm/ADT/StringMap.h"
-#include <optional>
-#include <memory>
 
 using namespace lldb;
 using namespace lldb_private;
 
-char ClangPersistentVariables::ID;
-
 ClangPersistentVariables::ClangPersistentVariables(
     std::shared_ptr<Target> target_sp)
-    : m_target_sp(target_sp) {}
+    : lldb_private::PersistentExpressionState(LLVMCastKind::eKindClang),
+      m_target_sp(target_sp) {}
 
 ExpressionVariableSP ClangPersistentVariables::CreatePersistentVariable(
     const lldb::ValueObjectSP &valobj_sp) {
@@ -71,25 +68,25 @@ void ClangPersistentVariables::RemovePersistentVariable(
     m_next_persistent_variable_id--;
 }
 
-std::optional<CompilerType>
+llvm::Optional<CompilerType>
 ClangPersistentVariables::GetCompilerTypeFromPersistentDecl(
     ConstString type_name) {
   PersistentDecl p = m_persistent_decls.lookup(type_name.GetCString());
 
   if (p.m_decl == nullptr)
-    return std::nullopt;
+    return llvm::None;
 
   if (clang::TypeDecl *tdecl = llvm::dyn_cast<clang::TypeDecl>(p.m_decl)) {
     opaque_compiler_type_t t = static_cast<opaque_compiler_type_t>(
         const_cast<clang::Type *>(tdecl->getTypeForDecl()));
     return CompilerType(p.m_context, t);
   }
-  return std::nullopt;
+  return llvm::None;
 }
 
-void ClangPersistentVariables::RegisterPersistentDecl(
-    ConstString name, clang::NamedDecl *decl,
-    std::shared_ptr<TypeSystemClang> ctx) {
+void ClangPersistentVariables::RegisterPersistentDecl(ConstString name,
+                                                      clang::NamedDecl *decl,
+                                                      TypeSystemClang *ctx) {
   PersistentDecl p = {decl, ctx};
   m_persistent_decls.insert(std::make_pair(name.GetCString(), p));
 
@@ -119,7 +116,7 @@ std::shared_ptr<ClangModulesDeclVendor>
 ClangPersistentVariables::GetClangModulesDeclVendor() {
   if (!m_modules_decl_vendor_sp) {
     m_modules_decl_vendor_sp.reset(
-        ClangModulesDeclVendor::Create(*m_target_sp));
+        ClangModulesDeclVendor::Create(*m_target_sp.get()));
   }
   return m_modules_decl_vendor_sp;
 }

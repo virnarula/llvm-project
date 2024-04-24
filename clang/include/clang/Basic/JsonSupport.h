@@ -71,7 +71,7 @@ inline std::string JsonFormat(StringRef RawSR, bool AddQuotes) {
   }
 
   // Remove new-lines.
-  llvm::erase(Str, '\n');
+  llvm::erase_value(Str, '\n');
 
   if (!AddQuotes)
     return Str;

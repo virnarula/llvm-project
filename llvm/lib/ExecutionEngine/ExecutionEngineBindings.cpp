@@ -21,7 +21,6 @@
 #include "llvm/Target/CodeGenCWrappers.h"
 #include "llvm/Target/TargetOptions.h"
 #include <cstring>
-#include <optional>
 
 using namespace llvm;
 
@@ -138,8 +137,8 @@ LLVMBool LLVMCreateJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
   std::string Error;
   EngineBuilder builder(std::unique_ptr<Module>(unwrap(M)));
   builder.setEngineKind(EngineKind::JIT)
-      .setErrorStr(&Error)
-      .setOptLevel((CodeGenOptLevel)OptLevel);
+         .setErrorStr(&Error)
+         .setOptLevel((CodeGenOpt::Level)OptLevel);
   if (ExecutionEngine *JIT = builder.create()) {
     *OutJIT = wrap(JIT);
     return 0;
@@ -196,11 +195,11 @@ LLVMBool LLVMCreateMCJITCompilerForModule(
   std::string Error;
   EngineBuilder builder(std::move(Mod));
   builder.setEngineKind(EngineKind::JIT)
-      .setErrorStr(&Error)
-      .setOptLevel((CodeGenOptLevel)options.OptLevel)
-      .setTargetOptions(targetOptions);
+         .setErrorStr(&Error)
+         .setOptLevel((CodeGenOpt::Level)options.OptLevel)
+         .setTargetOptions(targetOptions);
   bool JIT;
-  if (std::optional<CodeModel::Model> CM = unwrap(options.CodeModel, JIT))
+  if (Optional<CodeModel::Model> CM = unwrap(options.CodeModel, JIT))
     builder.setCodeModel(*CM);
   if (options.MCJMM)
     builder.setMCJITMemoryManager(

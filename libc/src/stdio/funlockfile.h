@@ -11,10 +11,10 @@
 
 #include <stdio.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void funlockfile(::FILE *stream);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDIO_FUNLOCKFILE_H

@@ -92,8 +92,8 @@ public:
   std::size_t GetNextInputBytes(const char *&);
   bool AdvanceRecord(int = 1);
   void BackspaceRecord();
-  void HandleRelativePosition(std::int64_t byteOffset);
-  void HandleAbsolutePosition(std::int64_t byteOffset); // for r* in list I/O
+  void HandleRelativePosition(std::int64_t);
+  void HandleAbsolutePosition(std::int64_t); // for r* in list I/O
   std::optional<DataEdit> GetNextDataEdit(int maxRepeat = 1);
   ExternalFileUnit *GetExternalFileUnit() const; // null if internal unit
   bool BeginReadingRecord();
@@ -102,7 +102,6 @@ public:
   bool Inquire(InquiryKeywordHash, bool &);
   bool Inquire(InquiryKeywordHash, std::int64_t, bool &); // PENDING=
   bool Inquire(InquiryKeywordHash, std::int64_t &);
-  std::int64_t InquirePos();
   void GotChar(signed int = 1); // for READ(SIZE=); can be <0
 
   MutableModes &mutableModes();
@@ -124,11 +123,7 @@ public:
   // Vacant after the end of the current record
   std::optional<char32_t> GetCurrentChar(std::size_t &byteCount);
 
-  // The "remaining" arguments to CueUpInput(), SkipSpaces(), & NextInField()
-  // are always in units of bytes, not characters; the distinction matters
-  // for internal input from CHARACTER(KIND=2 and 4).
-
-  // For fixed-width fields, return the number of remaining bytes.
+  // For fixed-width fields, return the number of remaining characters.
   // Skip over leading blanks.
   std::optional<int> CueUpInput(const DataEdit &edit) {
     std::optional<int> remaining;
@@ -138,10 +133,6 @@ public:
     } else {
       if (edit.width.value_or(0) > 0) {
         remaining = *edit.width;
-        if (int bytesPerChar{GetConnectionState().internalIoCharKind};
-            bytesPerChar > 1) {
-          *remaining *= bytesPerChar;
-        }
       }
       SkipSpaces(remaining);
     }
@@ -177,7 +168,7 @@ public:
 
   // Detect and signal any end-of-record condition after input.
   // Returns true if at EOR and remaining input should be padded with blanks.
-  bool CheckForEndOfRecord(std::size_t afterReading);
+  bool CheckForEndOfRecord();
 
   // Skips spaces, advances records, and ignores NAMELIST comments
   std::optional<char32_t> GetNextNonBlank(std::size_t &byteCount) {
@@ -271,7 +262,6 @@ public:
   bool Inquire(InquiryKeywordHash, bool &);
   bool Inquire(InquiryKeywordHash, std::int64_t, bool &);
   bool Inquire(InquiryKeywordHash, std::int64_t &);
-  std::int64_t InquirePos();
 
   void BadInquiryKeywordHashCrash(InquiryKeywordHash);
 
@@ -303,8 +293,8 @@ template <>
 class ListDirectedStatementState<Direction::Input>
     : public FormattedIoStatementState<Direction::Input> {
 public:
-  bool inNamelistSequence() const { return inNamelistSequence_; }
-  int EndIoStatement();
+  bool inNamelistArray() const { return inNamelistArray_; }
+  void set_inNamelistArray(bool yes = true) { inNamelistArray_ = yes; }
 
   // Skips value separators, handles repetition and null values.
   // Vacant when '/' appears; present with descriptor == ListDirectedNullValue
@@ -316,14 +306,11 @@ public:
   // input statement.  This member function resets some state so that
   // repetition and null values work correctly for each successive
   // NAMELIST input item.
-  void ResetForNextNamelistItem(bool inNamelistSequence) {
+  void ResetForNextNamelistItem(bool inNamelistArray) {
     remaining_ = 0;
-    if (repeatPosition_) {
-      repeatPosition_->Cancel();
-    }
     eatComma_ = false;
     realPart_ = imaginaryPart_ = false;
-    inNamelistSequence_ = inNamelistSequence;
+    inNamelistArray_ = inNamelistArray;
   }
 
 private:
@@ -333,7 +320,7 @@ private:
   bool hitSlash_{false}; // once '/' is seen, nullify further items
   bool realPart_{false};
   bool imaginaryPart_{false};
-  bool inNamelistSequence_{false};
+  bool inNamelistArray_{false};
 };
 
 template <Direction DIR>
@@ -356,7 +343,6 @@ public:
   MutableModes &mutableModes() { return unit_.modes; }
   void HandleRelativePosition(std::int64_t);
   void HandleAbsolutePosition(std::int64_t);
-  std::int64_t InquirePos();
 
 protected:
   bool free_{true};
@@ -403,7 +389,6 @@ public:
       const Descriptor &, const char *sourceFile = nullptr, int sourceLine = 0);
   IoStatementState &ioStatementState() { return ioStatementState_; }
   using ListDirectedStatementState<DIR>::GetNextDataEdit;
-  int EndIoStatement();
 
 private:
   IoStatementState ioStatementState_; // points to *this
@@ -421,7 +406,6 @@ public:
   int EndIoStatement();
   ExternalFileUnit *GetExternalFileUnit() const { return &unit_; }
   void SetAsynchronous();
-  std::int64_t InquirePos();
 
 private:
   ExternalFileUnit &unit_;
@@ -479,7 +463,6 @@ class ExternalListIoStatementState : public ExternalIoStatementState<DIR>,
 public:
   using ExternalIoStatementState<DIR>::ExternalIoStatementState;
   using ListDirectedStatementState<DIR>::GetNextDataEdit;
-  int EndIoStatement();
 };
 
 template <Direction DIR>
@@ -500,6 +483,7 @@ public:
   MutableModes &mutableModes();
   ConnectionState &GetConnectionState();
   ExternalFileUnit *GetExternalFileUnit() const;
+  void CompleteOperation();
   int EndIoStatement();
   bool Emit(const char *, std::size_t bytes, std::size_t elementBytes = 0);
   std::size_t GetNextInputBytes(const char *&);
@@ -538,7 +522,6 @@ class ChildListIoStatementState : public ChildIoStatementState<DIR>,
 public:
   using ChildIoStatementState<DIR>::ChildIoStatementState;
   using ListDirectedStatementState<DIR>::GetNextDataEdit;
-  int EndIoStatement();
 };
 
 template <Direction DIR>
@@ -551,10 +534,10 @@ public:
 // OPEN
 class OpenStatementState : public ExternalIoStatementBase {
 public:
-  OpenStatementState(ExternalFileUnit &unit, bool wasExtant, bool isNewUnit,
+  OpenStatementState(ExternalFileUnit &unit, bool wasExtant,
       const char *sourceFile = nullptr, int sourceLine = 0)
-      : ExternalIoStatementBase{unit, sourceFile, sourceLine},
-        wasExtant_{wasExtant}, isNewUnit_{isNewUnit} {}
+      : ExternalIoStatementBase{unit, sourceFile, sourceLine}, wasExtant_{
+                                                                   wasExtant} {}
   bool wasExtant() const { return wasExtant_; }
   void set_status(OpenStatus status) { status_ = status; } // STATUS=
   void set_path(const char *, std::size_t); // FILE=
@@ -569,7 +552,6 @@ public:
 
 private:
   bool wasExtant_;
-  bool isNewUnit_;
   std::optional<OpenStatus> status_;
   std::optional<Position> position_;
   std::optional<Action> action_;

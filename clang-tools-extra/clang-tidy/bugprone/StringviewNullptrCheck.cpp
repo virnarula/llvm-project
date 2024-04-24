@@ -18,7 +18,9 @@
 #include "clang/Tooling/Transformer/Stencil.h"
 #include "llvm/ADT/StringRef.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 using namespace ::clang::ast_matchers;
 using namespace ::clang::transformer;
@@ -300,4 +302,6 @@ StringviewNullptrCheck::StringviewNullptrCheck(StringRef Name,
     : utils::TransformerClangTidyCheck(StringviewNullptrCheckImpl(), Name,
                                        Context) {}
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

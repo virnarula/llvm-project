@@ -11,11 +11,11 @@
 
 #include <stdint.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 intmax_t strtoimax(const char *__restrict str, char **__restrict str_end,
                    int base);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_INTTYPES_STRTOIMAX_H

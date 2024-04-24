@@ -9,7 +9,6 @@
 #ifndef LLDB_SOURCE_PLUGINS_PROCESS_UTILITY_STOPINFOMACHEXCEPTION_H
 #define LLDB_SOURCE_PLUGINS_PROCESS_UTILITY_STOPINFOMACHEXCEPTION_H
 
-#include <optional>
 #include <string>
 
 #include "lldb/Target/StopInfo.h"
@@ -46,7 +45,7 @@ public:
 #if defined(__APPLE__)
   struct MachException {
     static const char *Name(exception_type_t exc_type);
-    static std::optional<exception_type_t> ExceptionCode(const char *name);
+    static llvm::Optional<exception_type_t> ExceptionCode(const char *name);
   };
 #endif
 

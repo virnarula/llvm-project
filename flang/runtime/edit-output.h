@@ -38,6 +38,20 @@ class RealOutputEditingBase {
 protected:
   explicit RealOutputEditingBase(IoStatementState &io) : io_{io} {}
 
+  static bool IsInfOrNaN(const decimal::ConversionToDecimalResult &res) {
+    const char *p{res.str};
+    if (!p || res.length < 1) {
+      return false;
+    }
+    if (*p == '-' || *p == '+') {
+      if (res.length == 1) {
+        return false;
+      }
+      ++p;
+    }
+    return *p < '0' || *p > '9';
+  }
+
   // Returns null when the exponent overflows a fixed-size output field.
   const char *FormatExponent(int, const DataEdit &edit, int &length);
   bool EmitPrefix(const DataEdit &, std::size_t length, std::size_t width);
@@ -70,15 +84,7 @@ private:
 
   bool IsZero() const { return x_.IsZero(); }
 
-  decimal::ConversionToDecimalResult ConvertToDecimal(
-      int significantDigits, enum decimal::FortranRounding, int flags = 0);
-
-  struct ConvertToHexadecimalResult {
-    const char *str;
-    int length;
-    int exponent;
-  };
-  ConvertToHexadecimalResult ConvertToHexadecimal(
+  decimal::ConversionToDecimalResult Convert(
       int significantDigits, enum decimal::FortranRounding, int flags = 0);
 
   BinaryFloatingPoint x_;

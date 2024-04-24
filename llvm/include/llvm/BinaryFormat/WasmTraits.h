@@ -87,12 +87,11 @@ template <> struct DenseMapInfo<wasm::WasmLimits, void> {
 template <> struct DenseMapInfo<wasm::WasmTableType, void> {
   static wasm::WasmTableType getEmptyKey() {
     return wasm::WasmTableType{
-        wasm::ValType(0), DenseMapInfo<wasm::WasmLimits, void>::getEmptyKey()};
+        0, DenseMapInfo<wasm::WasmLimits, void>::getEmptyKey()};
   }
   static wasm::WasmTableType getTombstoneKey() {
     return wasm::WasmTableType{
-        wasm::ValType(1),
-        DenseMapInfo<wasm::WasmLimits, void>::getTombstoneKey()};
+        1, DenseMapInfo<wasm::WasmLimits, void>::getTombstoneKey()};
   }
   static unsigned getHashValue(const wasm::WasmTableType &TableType) {
     return hash_combine(

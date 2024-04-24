@@ -49,8 +49,10 @@ using ::testing::IsEmpty;
 using ::testing::Matches;
 using ::testing::Pair;
 using ::testing::PrintToString;
+using ::testing::Property;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
+using ::testing::Value;
 
 namespace llvm {
 namespace cfi_verify {
@@ -148,7 +150,7 @@ MATCHER_P2(HasPath, Result, Matcher, "has path " + PrintToString(Matcher)) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestSinglePathFallthroughUd2) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x02, // 0: jne 4 [+2]
@@ -175,7 +177,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestSinglePathFallthroughUd2) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestSinglePathJumpUd2) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x02, // 0: jne 4 [+2]
@@ -202,7 +204,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestSinglePathJumpUd2) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestDualPathDualUd2) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x03, // 0: jne 5 [+3]
@@ -242,7 +244,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestDualPathDualUd2) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestDualPathSingleUd2) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x05, // 0: jne 7 [+5]
@@ -281,7 +283,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphTestDualPathSingleUd2) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphFailures) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x90,       // 0: nop
@@ -304,7 +306,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphFailures) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphNoXrefs) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0xeb, 0xfe, // 0: jmp 0 [-2]
@@ -320,7 +322,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphNoXrefs) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphConditionalInfiniteLoop) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0xfe, // 0: jne 0 [-2]
@@ -343,7 +345,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphConditionalInfiniteLoop) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphUnconditionalInfiniteLoop) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x02, // 0: jne 4 [+2]
@@ -368,7 +370,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphUnconditionalInfiniteLoop) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphNoFlowsToIndirection) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x00, // 0: jne 2 [+0]
@@ -384,7 +386,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphNoFlowsToIndirection) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphLengthExceededUpwards) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x06, // 0: jne 8 [+6]
@@ -414,7 +416,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphLengthExceededUpwards) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphLengthExceededDownwards) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x02, // 0: jne 4 [+2]
@@ -451,7 +453,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphLengthExceededDownwards) {
 // should only need to be generated once.
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphWithRepeatedWork) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   Analysis.parseSectionContents(
       {
           0x75, 0x05, // 0: jne 7 [+5]
@@ -492,7 +494,7 @@ TEST_F(BasicGraphBuilderTest, BuildFlowGraphWithRepeatedWork) {
 
 TEST_F(BasicGraphBuilderTest, BuildFlowGraphComplexExample) {
   if (!SuccessfullyInitialised)
-    GTEST_SKIP();
+    return;
   // The following code has this graph:
   //  +----------+      +--------------+
   //  |    20    | <--- |      0       |

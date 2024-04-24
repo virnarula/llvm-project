@@ -19,7 +19,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <thread>
 
 namespace fuzzer {
 
@@ -140,7 +139,7 @@ public:
   // be the equivalent command line.
   std::string toString() const {
     std::stringstream SS;
-    for (const auto &arg : getArguments())
+    for (auto arg : getArguments())
       SS << arg << " ";
     if (hasOutputFile())
       SS << ">" << getOutputFile() << " ";

@@ -11,9 +11,8 @@ add_mlir_conversion_library(MLIRComplexToLibm
   Core
 
   LINK_LIBS PUBLIC
-  MLIRComplexDialect
   MLIRDialectUtils
   MLIRFuncDialect
-  MLIRPass
+  MLIRComplexDialect
   MLIRTransformUtils
   )

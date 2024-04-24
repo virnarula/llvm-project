@@ -51,12 +51,12 @@ type lookup EC
 # CHECK-NEXT:   e3
 # CHECK-NEXT: }
 
-expression (E) 1
-# CHECK-LABEL: expression (E) 1
+print (E) 1
+# CHECK-LABEL: print (E) 1
 # CHECK: (E) $0 = e2
 
-expression (EC) 1
-# CHECK-LABEL: expression (EC) 1
+print (EC) 1
+# CHECK-LABEL: print (EC) 1
 # CHECK: (EC) $1 = e2
 
 target variable a e ec

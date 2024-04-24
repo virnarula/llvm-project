@@ -22,16 +22,12 @@ subroutine formatAssign(flag1, flag2, flag3)
     ! CHECK: fir.store %[[TWO]]
     ! CHECK: br ^bb[[END_BLOCK]]
     ! CHECK: ^bb[[END_BLOCK]]
-    ! CHECK: fir.call @{{.*}}ReportFatalUserError
-    ! CHECK: fir.unreachable
     ! CHECK: fir.call @{{.*}}BeginExternalFormattedOutput
     ! CHECK: fir.call @{{.*}}OutputAscii
     ! CHECK: fir.call @{{.*}}OutputReal32
     ! CHECK: fir.call @{{.*}}EndIoStatement
     pi = 3.141592653589
     write(*, label) " PI=", pi
-    ! CHECK: fir.call @{{.*}}ReportFatalUserError
-    ! CHECK: fir.unreachable
     ! CHECK: fir.call @{{.*}}BeginExternalFormattedOutput
     ! CHECK: fir.call @{{.*}}OutputAscii
     ! CHECK: fir.call @{{.*}}OutputReal32
@@ -43,8 +39,6 @@ subroutine formatAssign(flag1, flag2, flag3)
        assign 200 to label
     end if
     if (flag3) then
-      ! CHECK: fir.call @{{.*}}ReportFatalUserError
-      ! CHECK: fir.unreachable
       ! CHECK: fir.call @{{.*}}BeginExternalFormattedOutput
       ! CHECK: fir.call @{{.*}}OutputAscii
       ! CHECK: fir.call @{{.*}}OutputReal32

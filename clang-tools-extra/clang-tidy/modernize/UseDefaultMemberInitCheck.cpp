@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 namespace {
 AST_MATCHER_P(InitListExpr, initCountIs, unsigned, N) {
@@ -206,7 +208,7 @@ void UseDefaultMemberInitCheck::registerMatchers(MatchFinder *Finder) {
 
   auto Init =
       anyOf(initListExpr(anyOf(allOf(initCountIs(1), hasInit(0, InitBase)),
-                               initCountIs(0), hasType(arrayType()))),
+                               initCountIs(0))),
             InitBase);
 
   Finder->addMatcher(
@@ -246,12 +248,8 @@ void UseDefaultMemberInitCheck::checkDefaultInit(
   // Check whether we have multiple hand-written constructors and bomb out, as
   // it is hard to reconcile their sets of member initializers.
   const auto *ClassDecl = cast<CXXRecordDecl>(Field->getParent());
-  if (llvm::count_if(ClassDecl->decls(), [](const Decl *D) {
-        if (const auto *FTD = dyn_cast<FunctionTemplateDecl>(D))
-          D = FTD->getTemplatedDecl();
-        if (const auto *Ctor = dyn_cast<CXXConstructorDecl>(D))
-          return !Ctor->isCopyOrMoveConstructor();
-        return false;
+  if (llvm::count_if(ClassDecl->ctors(), [](const CXXConstructorDecl *Ctor) {
+        return !Ctor->isCopyOrMoveConstructor();
       }) > 1)
     return;
 
@@ -267,30 +265,20 @@ void UseDefaultMemberInitCheck::checkDefaultInit(
   CharSourceRange InitRange =
       CharSourceRange::getCharRange(LParenEnd, Init->getRParenLoc());
 
-  const Expr *InitExpression = Init->getInit();
-  const QualType InitType = InitExpression->getType();
-
-  const bool ValueInit =
-      isa<ImplicitValueInitExpr>(InitExpression) && !isa<ArrayType>(InitType);
-  const bool CanAssign =
-      UseAssignment && (!ValueInit || !InitType->isEnumeralType());
-  const bool NeedsBraces = !CanAssign || isa<ArrayType>(InitType);
+  bool ValueInit = isa<ImplicitValueInitExpr>(Init->getInit());
+  bool CanAssign = UseAssignment && (!ValueInit || !Init->getInit()->getType()->isEnumeralType());
 
   auto Diag =
       diag(Field->getLocation(), "use default member initializer for %0")
-      << Field;
-
-  if (CanAssign)
-    Diag << FixItHint::CreateInsertion(FieldEnd, " = ");
-  if (NeedsBraces)
-    Diag << FixItHint::CreateInsertion(FieldEnd, "{");
+      << Field
+      << FixItHint::CreateInsertion(FieldEnd, CanAssign ? " = " : "{")
+      << FixItHint::CreateInsertionFromRange(FieldEnd, InitRange);
 
   if (CanAssign && ValueInit)
-    Diag << FixItHint::CreateInsertion(FieldEnd, getValueOfValueInit(InitType));
-  else
-    Diag << FixItHint::CreateInsertionFromRange(FieldEnd, InitRange);
+    Diag << FixItHint::CreateInsertion(
+        FieldEnd, getValueOfValueInit(Init->getInit()->getType()));
 
-  if (NeedsBraces)
+  if (!CanAssign)
     Diag << FixItHint::CreateInsertion(FieldEnd, "}");
 
   Diag << FixItHint::CreateRemoval(Init->getSourceRange());
@@ -304,7 +292,10 @@ void UseDefaultMemberInitCheck::checkExistingInit(
     return;
 
   diag(Init->getSourceLocation(), "member initializer for %0 is redundant")
-      << Field << FixItHint::CreateRemoval(Init->getSourceRange());
+      << Field
+      << FixItHint::CreateRemoval(Init->getSourceRange());
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

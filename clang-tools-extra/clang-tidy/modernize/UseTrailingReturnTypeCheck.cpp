@@ -15,11 +15,12 @@
 #include "llvm/ADT/StringExtras.h"
 
 #include <cctype>
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 namespace {
 struct UnqualNameVisitor : public RecursiveASTVisitor<UnqualNameVisitor> {
 public:
@@ -98,13 +99,12 @@ public:
       return false;
     const auto *T = TL.getTypePtr();
     return TraverseTypeLoc(TL.getNamedTypeLoc(),
-                           T->getKeyword() != ElaboratedTypeKeyword::None ||
-                               T->getQualifier());
+                           T->getKeyword() != ETK_None || T->getQualifier());
   }
 
   bool VisitDeclRefExpr(DeclRefExpr *S) {
     DeclarationName Name = S->getNameInfo().getName();
-    return S->getQualifierLoc() || Name.isEmpty() || !Name.isIdentifier() ||
+    return S->getQualifierLoc() || !Name.isIdentifier() ||
            !visitUnqualName(Name.getAsIdentifierInfo()->getName());
   }
 
@@ -177,7 +177,7 @@ static bool isSpecifier(Token T) {
                    tok::kw_static, tok::kw_friend, tok::kw_virtual);
 }
 
-static std::optional<ClassifiedToken>
+static llvm::Optional<ClassifiedToken>
 classifyToken(const FunctionDecl &F, Preprocessor &PP, Token Tok) {
   ClassifiedToken CT;
   CT.T = Tok;
@@ -212,12 +212,12 @@ classifyToken(const FunctionDecl &F, Preprocessor &PP, Token Tok) {
   // If the Token/Macro contains more than one type of tokens, we would need
   // to split the macro in order to move parts to the trailing return type.
   if (ContainsQualifiers + ContainsSpecifiers + ContainsSomethingElse > 1)
-    return std::nullopt;
+    return llvm::None;
 
   return CT;
 }
 
-std::optional<SmallVector<ClassifiedToken, 8>>
+llvm::Optional<SmallVector<ClassifiedToken, 8>>
 UseTrailingReturnTypeCheck::classifyTokensBeforeFunctionName(
     const FunctionDecl &F, const ASTContext &Ctx, const SourceManager &SM,
     const LangOptions &LangOpts) {
@@ -243,7 +243,7 @@ UseTrailingReturnTypeCheck::classifyTokensBeforeFunctionName(
         if (!MI || MI->isFunctionLike()) {
           // Cannot handle function style macros.
           diag(F.getLocation(), Message);
-          return std::nullopt;
+          return llvm::None;
         }
       }
 
@@ -251,11 +251,11 @@ UseTrailingReturnTypeCheck::classifyTokensBeforeFunctionName(
       T.setKind(Info.getTokenID());
     }
 
-    if (std::optional<ClassifiedToken> CT = classifyToken(F, *PP, T))
+    if (llvm::Optional<ClassifiedToken> CT = classifyToken(F, *PP, T))
       ClassifiedTokens.push_back(*CT);
     else {
       diag(F.getLocation(), Message);
-      return std::nullopt;
+      return llvm::None;
     }
   }
 
@@ -293,7 +293,7 @@ SourceRange UseTrailingReturnTypeCheck::findReturnTypeAndCVSourceRange(
     return ReturnTypeRange;
 
   // Include qualifiers to the left and right of the return type.
-  std::optional<SmallVector<ClassifiedToken, 8>> MaybeTokens =
+  llvm::Optional<SmallVector<ClassifiedToken, 8>> MaybeTokens =
       classifyTokensBeforeFunctionName(F, Ctx, SM, LangOpts);
   if (!MaybeTokens)
     return {};
@@ -345,7 +345,7 @@ void UseTrailingReturnTypeCheck::keepSpecifiers(
 
   // Tokenize return type. If it contains macros which contain a mix of
   // qualifiers, specifiers and types, give up.
-  std::optional<SmallVector<ClassifiedToken, 8>> MaybeTokens =
+  llvm::Optional<SmallVector<ClassifiedToken, 8>> MaybeTokens =
       classifyTokensBeforeFunctionName(F, Ctx, SM, LangOpts);
   if (!MaybeTokens)
     return;
@@ -435,7 +435,8 @@ void UseTrailingReturnTypeCheck::check(const MatchFinder::MatchResult &Result) {
   if (!TSI)
     return;
 
-  auto FTL = TSI->getTypeLoc().IgnoreParens().getAs<FunctionTypeLoc>();
+  FunctionTypeLoc FTL =
+      TSI->getTypeLoc().IgnoreParens().getAs<FunctionTypeLoc>();
   if (!FTL) {
     // FIXME: This may happen if we have __attribute__((...)) on the function.
     // We abort for now. Remove this when the function type location gets
@@ -494,4 +495,6 @@ void UseTrailingReturnTypeCheck::check(const MatchFinder::MatchResult &Result) {
       << FixItHint::CreateInsertion(InsertionLoc, " -> " + ReturnType);
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

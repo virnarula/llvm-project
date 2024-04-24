@@ -30,7 +30,6 @@ class SanitizerArgs {
   std::vector<std::string> SystemIgnorelistFiles;
   std::vector<std::string> CoverageAllowlistFiles;
   std::vector<std::string> CoverageIgnorelistFiles;
-  std::vector<std::string> BinaryMetadataIgnorelistFiles;
   int CoverageFeatures = 0;
   int BinaryMetadataFeatures = 0;
   int MsanTrackOrigins = 0;
@@ -38,11 +37,9 @@ class SanitizerArgs {
   bool MsanParamRetval = true;
   bool CfiCrossDso = false;
   bool CfiICallGeneralizePointers = false;
-  bool CfiICallNormalizeIntegers = false;
   bool CfiCanonicalJumpTables = false;
   int AsanFieldPadding = 0;
   bool SharedRuntime = false;
-  bool StableABI = false;
   bool AsanUseAfterScope = true;
   bool AsanPoisonCustomArrayCookie = false;
   bool AsanGlobalsDeadStripping = false;
@@ -76,7 +73,6 @@ public:
                 bool DiagnoseErrors = true);
 
   bool needsSharedRt() const { return SharedRuntime; }
-  bool needsStableAbi() const { return StableABI; }
 
   bool needsMemProfRt() const { return NeedsMemProfRt; }
   bool needsAsanRt() const { return Sanitizers.has(SanitizerKind::Address); }
@@ -119,10 +115,6 @@ public:
   const std::string &getMemtagMode() const {
     assert(!MemtagMode.empty());
     return MemtagMode;
-  }
-
-  bool hasShadowCallStack() const {
-    return Sanitizers.has(SanitizerKind::ShadowCallStack);
   }
 
   bool requiresPIE() const;

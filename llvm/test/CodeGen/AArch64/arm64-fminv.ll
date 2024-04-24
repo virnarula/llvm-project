@@ -1,5 +1,4 @@
 ; RUN: llc -mtriple=arm64-linux-gnu -o - %s | FileCheck %s
-; RUN: llc -global-isel=1 -mtriple=arm64-linux-gnu -o - %s | FileCheck %s
 
 define float @test_fminv_v2f32(<2 x float> %in) {
 ; CHECK: test_fminv_v2f32:

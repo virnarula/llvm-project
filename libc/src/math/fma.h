@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_FMA_H
 #define LLVM_LIBC_SRC_MATH_FMA_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 double fma(double x, double y, double z);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_FMA_H

@@ -11,11 +11,11 @@
 
 #include <stdio.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 size_t fwrite_unlocked(const void *__restrict ptr, size_t size, size_t nmemb,
                        ::FILE *__restrict stream);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDIO_FWRITE_UNLOCKED_H

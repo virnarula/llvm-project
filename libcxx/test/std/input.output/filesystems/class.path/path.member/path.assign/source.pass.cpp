@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // These tests require locale for non-char paths
 // UNSUPPORTED: no-localization
@@ -24,7 +23,8 @@
 // template <class InputIterator>
 //      path& assign(InputIterator first, InputIterator last);
 
-#include <filesystem>
+
+#include "filesystem_include.h"
 #include <type_traits>
 #include <string_view>
 #include <cassert>
@@ -32,12 +32,11 @@
 // On Windows, charset conversions cause allocations in the path class in
 // cases where no allocations are done on other platforms.
 
-#include "../../path_helper.h"
-#include "count_new.h"
-#include "make_string.h"
-#include "test_iterators.h"
 #include "test_macros.h"
-namespace fs = std::filesystem;
+#include "test_iterators.h"
+#include "count_new.h"
+#include "filesystem_test_helper.h"
+
 
 template <class CharT>
 void RunTestCase(MultiStringType const& MS) {
@@ -230,7 +229,7 @@ void RunStringMoveTest(const fs::path::value_type* Expect) {
   assert(p == Expect);
   {
     // Signature test
-    LIBCPP_ASSERT_NOEXCEPT(p = std::move(ss));
+    LIBCPP_ONLY(ASSERT_NOEXCEPT(p = std::move(ss)));
   }
 }
 

@@ -10,7 +10,6 @@
 #include "llvm/Support/Alignment.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <optional>
 
 using testing::AllOf;
 using testing::AnyOf;
@@ -36,7 +35,7 @@ TEST(AlignedBuffer, Empty) {
 
 TEST(OffsetDistribution, AlignToBegin) {
   const size_t BufferSize = 8192;
-  OffsetDistribution OD(BufferSize, 1024, std::nullopt);
+  OffsetDistribution OD(BufferSize, 1024, None);
   std::default_random_engine Gen;
   for (size_t I = 0; I <= 10; ++I)
     EXPECT_EQ(OD(Gen), 0U);

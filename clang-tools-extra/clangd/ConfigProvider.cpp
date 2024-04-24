@@ -19,7 +19,6 @@
 #include "llvm/Support/Path.h"
 #include <chrono>
 #include <mutex>
-#include <optional>
 #include <string>
 
 namespace clang {
@@ -40,7 +39,7 @@ public:
            std::vector<CompiledFragment> &Out) const {
     read(
         TFS, FreshTime,
-        [&](std::optional<llvm::StringRef> Data) {
+        [&](llvm::Optional<llvm::StringRef> Data) {
           CachedValue.clear();
           if (Data)
             for (auto &Fragment : Fragment::parseYAML(*Data, path(), DC)) {

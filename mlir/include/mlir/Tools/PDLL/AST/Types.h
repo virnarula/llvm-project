@@ -11,7 +11,6 @@
 
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/StorageUniquer.h"
-#include <optional>
 
 namespace mlir {
 namespace pdll {
@@ -162,12 +161,11 @@ public:
   /// Return an instance of the Operation type with an optional operation name.
   /// If no name is provided, this type may refer to any operation.
   static OperationType get(Context &context,
-                           std::optional<StringRef> name = std::nullopt,
+                           Optional<StringRef> name = llvm::None,
                            const ods::Operation *odsOp = nullptr);
 
-  /// Return the name of this operation type, or std::nullopt if it doesn't have
-  /// on.
-  std::optional<StringRef> getName() const;
+  /// Return the name of this operation type, or None if it doesn't have on.
+  Optional<StringRef> getName() const;
 
   /// Return the ODS operation that this type refers to, or nullptr if the ODS
   /// operation is unknown.
@@ -249,7 +247,7 @@ public:
   static TupleType get(Context &context, ArrayRef<Type> elementTypes,
                        ArrayRef<StringRef> elementNames);
   static TupleType get(Context &context,
-                       ArrayRef<Type> elementTypes = std::nullopt);
+                       ArrayRef<Type> elementTypes = llvm::None);
 
   /// Return the element types of this tuple.
   ArrayRef<Type> getElementTypes() const;

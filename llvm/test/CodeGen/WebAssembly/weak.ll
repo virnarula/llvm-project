@@ -17,7 +17,7 @@ define void @g() {
 ; CHECK: bar:
 ; CHECK:   .int32 foo
 ; CHECK:   .size bar, 4
-@bar = global ptr @foo
+@bar = global i32* @foo
 
 ; CHECK: .weak h
 declare extern_weak void @h()

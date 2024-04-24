@@ -26,6 +26,7 @@
 #include "TargetInfo/MipsTargetInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -57,7 +58,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstdint>
 #include <map>
@@ -471,6 +471,48 @@ void MipsAsmPrinter::emitBasicBlockEnd(const MachineBasicBlock &MBB) {
     TS.emitDirectiveInsn();
 }
 
+/// isBlockOnlyReachableByFallthough - Return true if the basic block has
+/// exactly one predecessor and the control transfer mechanism between
+/// the predecessor and this block is a fall-through.
+bool MipsAsmPrinter::isBlockOnlyReachableByFallthrough(const MachineBasicBlock*
+                                                       MBB) const {
+  // The predecessor has to be immediately before this block.
+  const MachineBasicBlock *Pred = *MBB->pred_begin();
+
+  // If the predecessor is a switch statement, assume a jump table
+  // implementation, so it is not a fall through.
+  if (const BasicBlock *bb = Pred->getBasicBlock())
+    if (isa<SwitchInst>(bb->getTerminator()))
+      return false;
+
+  // If this is a landing pad, it isn't a fall through.  If it has no preds,
+  // then nothing falls through to it.
+  if (MBB->isEHPad() || MBB->pred_empty())
+    return false;
+
+  // If there isn't exactly one predecessor, it can't be a fall through.
+  MachineBasicBlock::const_pred_iterator PI = MBB->pred_begin(), PI2 = PI;
+  ++PI2;
+
+  if (PI2 != MBB->pred_end())
+    return false;
+
+  // The predecessor has to be immediately before this block.
+  if (!Pred->isLayoutSuccessor(MBB))
+    return false;
+
+  // If the block is completely empty, then it definitely does fall through.
+  if (Pred->empty())
+    return true;
+
+  // Otherwise, check the last instruction.
+  // Check if the last terminator is an unconditional branch.
+  MachineBasicBlock::const_iterator I = Pred->end();
+  while (I != Pred->begin() && !(--I)->isTerminator()) ;
+
+  return !I->isBarrier();
+}
+
 // Print out an operand for an inline asm expression.
 bool MipsAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
                                      const char *ExtraCode, raw_ostream &O) {
@@ -527,8 +569,8 @@ bool MipsAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
       const MachineOperand &FlagsOP = MI->getOperand(OpNum - 1);
       if (!FlagsOP.isImm())
         return true;
-      const InlineAsm::Flag Flags(FlagsOP.getImm());
-      const unsigned NumVals = Flags.getNumOperandRegisters();
+      unsigned Flags = FlagsOP.getImm();
+      unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
       // Number of registers represented by this operand. We are looking
       // for 2 for 32 bit mode and 1 for 64 bit mode.
       if (NumVals != 2) {
@@ -735,20 +777,16 @@ void MipsAsmPrinter::emitStartOfAsmFile(Module &M) {
   // around it by re-initializing the PIC state here.
   TS.setPic(OutContext.getObjectFileInfo()->isPositionIndependent());
 
-  // Try to get target-features from the first function.
-  StringRef FS = TM.getTargetFeatureString();
-  Module::iterator F = M.begin();
-  if (FS.empty() && M.size() && F->hasFnAttribute("target-features"))
-    FS = F->getFnAttribute("target-features").getValueAsString();
-
   // Compute MIPS architecture attributes based on the default subtarget
-  // that we'd have constructed.
+  // that we'd have constructed. Module level directives aren't LTO
+  // clean anyhow.
   // FIXME: For ifunc related functions we could iterate over and look
   // for a feature string that doesn't match the default one.
   const Triple &TT = TM.getTargetTriple();
   StringRef CPU = MIPS_MC::selectMipsCPU(TT, TM.getTargetCPU());
+  StringRef FS = TM.getTargetFeatureString();
   const MipsTargetMachine &MTM = static_cast<const MipsTargetMachine &>(TM);
-  const MipsSubtarget STI(TT, CPU, FS, MTM.isLittleEndian(), MTM, std::nullopt);
+  const MipsSubtarget STI(TT, CPU, FS, MTM.isLittleEndian(), MTM, None);
 
   bool IsABICalls = STI.isABICalls();
   const MipsABIInfo &ABI = MTM.getABI();
@@ -1015,7 +1053,7 @@ void MipsAsmPrinter::EmitFPCallStub(
   //
   // .align 2
   //
-  OutStreamer->emitValueToAlignment(Align(4));
+  OutStreamer->emitValueToAlignment(4);
   MipsTargetStreamer &TS = getTargetStreamer();
   //
   // .set nomips16
@@ -1164,7 +1202,7 @@ void MipsAsmPrinter::EmitSled(const MachineInstr &MI, SledKind Kind) {
   //   LD       RA, 8(SP)
   //   DADDIU   SP, SP, 16
   //
-  OutStreamer->emitCodeAlignment(Align(4), &getSubtargetInfo());
+  OutStreamer->emitCodeAlignment(4, &getSubtargetInfo());
   auto CurSled = OutContext.createTempSymbol("xray_sled_", true);
   OutStreamer->emitLabel(CurSled);
   auto Target = OutContext.createTempSymbol();

@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -95,7 +96,7 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
 private:
-  RegScavenger *RS = nullptr;
+  RegScavenger *RS;
 
   // MinCSFrameIndex, MaxCSFrameIndex - Keeps the range of callee saved
   // stack frame indexes.
@@ -110,11 +111,11 @@ private:
   // Flag to control whether to use the register scavenger to resolve
   // frame index materialization registers. Set according to
   // TRI->requiresFrameIndexScavenging() for the current function.
-  bool FrameIndexVirtualScavenging = false;
+  bool FrameIndexVirtualScavenging;
 
   // Flag to control whether the scavenger should be passed even though
   // FrameIndexVirtualScavenging is used.
-  bool FrameIndexEliminationScavenging = false;
+  bool FrameIndexEliminationScavenging;
 
   // Emit remarks.
   MachineOptimizationRemarkEmitter *ORE = nullptr;
@@ -127,17 +128,6 @@ private:
   void replaceFrameIndices(MachineFunction &MF);
   void replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &MF,
                            int &SPAdj);
-  // Frame indices in debug values are encoded in a target independent
-  // way with simply the frame index and offset rather than any
-  // target-specific addressing mode.
-  bool replaceFrameIndexDebugInstr(MachineFunction &MF, MachineInstr &MI,
-                                   unsigned OpIdx, int SPAdj = 0);
-  // Does same as replaceFrameIndices but using the backward MIR walk and
-  // backward register scavenger walk.
-  void replaceFrameIndicesBackward(MachineFunction &MF);
-  void replaceFrameIndicesBackward(MachineBasicBlock *BB, MachineFunction &MF,
-                                   int &SPAdj);
-
   void insertPrologEpilogCode(MachineFunction &MF);
   void insertZeroCallUsedRegs(MachineFunction &MF);
 };
@@ -271,17 +261,8 @@ bool PEI::runOnMachineFunction(MachineFunction &MF) {
 
   // Replace all MO_FrameIndex operands with physical register references
   // and actual offsets.
-  if (TFI->needsFrameIndexResolution(MF)) {
-    // Allow the target to determine this after knowing the frame size.
-    FrameIndexEliminationScavenging =
-        (RS && !FrameIndexVirtualScavenging) ||
-        TRI->requiresFrameIndexReplacementScavenging(MF);
-
-    if (TRI->eliminateFrameIndicesBackwards())
-      replaceFrameIndicesBackward(MF);
-    else
-      replaceFrameIndices(MF);
-  }
+  //
+  replaceFrameIndices(MF);
 
   // If register scavenging is needed, as we've enabled doing it as a
   // post-pass, scavenge the virtual registers that frame index elimination
@@ -293,7 +274,7 @@ bool PEI::runOnMachineFunction(MachineFunction &MF) {
   MachineFrameInfo &MFI = MF.getFrameInfo();
   uint64_t StackSize = MFI.getStackSize();
 
-  uint64_t Threshold = TFI->getStackThreshold();
+  unsigned Threshold = UINT_MAX;
   if (MF.getFunction().hasFnAttribute("warn-stack-size")) {
     bool Failed = MF.getFunction()
                       .getFnAttribute("warn-stack-size")
@@ -317,29 +298,26 @@ bool PEI::runOnMachineFunction(MachineFunction &MF) {
         SpillSize += MFI.getObjectSize(Idx);
     }
 
-    [[maybe_unused]] float SpillPct =
+    float SpillPct =
         static_cast<float>(SpillSize) / static_cast<float>(StackSize);
-    LLVM_DEBUG(
-        dbgs() << formatv("{0}/{1} ({3:P}) spills, {2}/{1} ({4:P}) variables",
-                          SpillSize, StackSize, StackSize - SpillSize, SpillPct,
-                          1.0f - SpillPct));
+    float VarPct = 1.0f - SpillPct;
+    int64_t VariableSize = StackSize - SpillSize;
+    dbgs() << formatv("{0}/{1} ({3:P}) spills, {2}/{1} ({4:P}) variables",
+                      SpillSize, StackSize, VariableSize, SpillPct, VarPct);
     if (UnsafeStackSize != 0) {
-      LLVM_DEBUG(dbgs() << formatv(", {0}/{2} ({1:P}) unsafe stack",
-                                   UnsafeStackSize,
-                                   static_cast<float>(UnsafeStackSize) /
-                                       static_cast<float>(StackSize),
-                                   StackSize));
+      float UnsafePct =
+          static_cast<float>(UnsafeStackSize) / static_cast<float>(StackSize);
+      dbgs() << formatv(", {0}/{2} ({1:P}) unsafe stack", UnsafeStackSize,
+                        UnsafePct, StackSize);
     }
-    LLVM_DEBUG(dbgs() << "\n");
+    dbgs() << "\n";
   }
 
   ORE->emit([&]() {
     return MachineOptimizationRemarkAnalysis(DEBUG_TYPE, "StackSize",
                                              MF.getFunction().getSubprogram(),
                                              &MF.front())
-           << ore::NV("NumStackBytes", StackSize)
-           << " stack bytes in function '"
-           << ore::NV("Function", MF.getFunction().getName()) << "'";
+           << ore::NV("NumStackBytes", StackSize) << " stack bytes in function";
   });
 
   delete RS;
@@ -386,23 +364,18 @@ void PEI::calculateCallFrameInfo(MachineFunction &MF) {
       }
 
   assert(!MFI.isMaxCallFrameSizeComputed() ||
-         (MFI.getMaxCallFrameSize() >= MaxCallFrameSize &&
-          !(AdjustsStack && !MFI.adjustsStack())));
+         (MFI.getMaxCallFrameSize() == MaxCallFrameSize &&
+          MFI.adjustsStack() == AdjustsStack));
   MFI.setAdjustsStack(AdjustsStack);
   MFI.setMaxCallFrameSize(MaxCallFrameSize);
 
-  if (TFI->canSimplifyCallFramePseudos(MF)) {
+  for (MachineBasicBlock::iterator I : FrameSDOps) {
     // If call frames are not being included as part of the stack frame, and
     // the target doesn't indicate otherwise, remove the call frame pseudos
     // here. The sub/add sp instruction pairs are still inserted, but we don't
     // need to track the SP adjustment for frame index elimination.
-    for (MachineBasicBlock::iterator I : FrameSDOps)
+    if (TFI->canSimplifyCallFramePseudos(MF))
       TFI->eliminateCallFramePseudoInstr(MF, *I->getParent(), I);
-
-    // We can't track the call frame size after call frame pseudos have been
-    // eliminated. Set it to zero everywhere to keep MachineVerifier happy.
-    for (MachineBasicBlock &MBB : MF)
-      MBB.setCallFrameSize(0);
   }
 }
 
@@ -625,7 +598,7 @@ static void insertCSRSaves(MachineBasicBlock &SaveBlock,
       } else {
         const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
         TII.storeRegToStackSlot(SaveBlock, I, Reg, true, CS.getFrameIdx(), RC,
-                                TRI, Register());
+                                TRI);
       }
     }
   }
@@ -651,8 +624,7 @@ static void insertCSRRestores(MachineBasicBlock &RestoreBlock,
           .addReg(CI.getDstReg(), getKillRegState(true));
       } else {
         const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
-        TII.loadRegFromStackSlot(RestoreBlock, I, Reg, CI.getFrameIdx(), RC,
-                                 TRI, Register());
+        TII.loadRegFromStackSlot(RestoreBlock, I, Reg, CI.getFrameIdx(), RC, TRI);
         assert(I != RestoreBlock.begin() &&
                "loadRegFromStackSlot didn't insert any code!");
         // Insert in reverse order.  loadRegFromStackSlot can insert
@@ -708,7 +680,7 @@ void PEI::spillCalleeSavedRegs(MachineFunction &MF) {
 /// AdjustStackOffset - Helper function used to adjust the stack frame offset.
 static inline void AdjustStackOffset(MachineFrameInfo &MFI, int FrameIdx,
                                      bool StackGrowsDown, int64_t &Offset,
-                                     Align &MaxAlign) {
+                                     Align &MaxAlign, unsigned Skew) {
   // If the stack grows down, add the object size to find the lowest address.
   if (StackGrowsDown)
     Offset += MFI.getObjectSize(FrameIdx);
@@ -720,7 +692,7 @@ static inline void AdjustStackOffset(MachineFrameInfo &MFI, int FrameIdx,
   MaxAlign = std::max(MaxAlign, Alignment);
 
   // Adjust to alignment boundary.
-  Offset = alignTo(Offset, Alignment);
+  Offset = alignTo(Offset, Alignment, Skew);
 
   if (StackGrowsDown) {
     LLVM_DEBUG(dbgs() << "alloc FI(" << FrameIdx << ") at SP[" << -Offset
@@ -844,10 +816,11 @@ static inline bool scavengeStackSlot(MachineFrameInfo &MFI, int FrameIdx,
 static void AssignProtectedObjSet(const StackObjSet &UnassignedObjs,
                                   SmallSet<int, 16> &ProtectedObjs,
                                   MachineFrameInfo &MFI, bool StackGrowsDown,
-                                  int64_t &Offset, Align &MaxAlign) {
+                                  int64_t &Offset, Align &MaxAlign,
+                                  unsigned Skew) {
 
   for (int i : UnassignedObjs) {
-    AdjustStackOffset(MFI, i, StackGrowsDown, Offset, MaxAlign);
+    AdjustStackOffset(MFI, i, StackGrowsDown, Offset, MaxAlign, Skew);
     ProtectedObjs.insert(i);
   }
 }
@@ -872,6 +845,9 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   assert(LocalAreaOffset >= 0
          && "Local area offset should be in direction of stack growth");
   int64_t Offset = LocalAreaOffset;
+
+  // Skew to be applied to alignment.
+  unsigned Skew = TFI.getStackAlignmentSkew(MF);
 
 #ifdef EXPENSIVE_CHECKS
   for (unsigned i = 0, e = MFI.getObjectIndexEnd(); i != e; ++i)
@@ -920,7 +896,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
       if (!StackGrowsDown && MFI.isDeadObjectIndex(FrameIndex))
         continue;
 
-      AdjustStackOffset(MFI, FrameIndex, StackGrowsDown, Offset, MaxAlign);
+      AdjustStackOffset(MFI, FrameIndex, StackGrowsDown, Offset, MaxAlign,
+                        Skew);
     }
   }
 
@@ -941,7 +918,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     SmallVector<int, 2> SFIs;
     RS->getScavengingFrameIndices(SFIs);
     for (int SFI : SFIs)
-      AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign);
+      AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign, Skew);
   }
 
   // FIXME: Once this is working, then enable flag will change to a target
@@ -952,7 +929,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     Align Alignment = MFI.getLocalFrameMaxAlign();
 
     // Adjust to alignment boundary.
-    Offset = alignTo(Offset, Alignment);
+    Offset = alignTo(Offset, Alignment, Skew);
 
     LLVM_DEBUG(dbgs() << "Local frame base offset: " << Offset << "\n");
 
@@ -998,8 +975,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
              "Stack protector on non-default stack expected to not be "
              "pre-allocated by LocalStackSlotPass.");
     } else if (!MFI.getUseLocalStackAllocationBlock()) {
-      AdjustStackOffset(MFI, StackProtectorFI, StackGrowsDown, Offset,
-                        MaxAlign);
+      AdjustStackOffset(MFI, StackProtectorFI, StackGrowsDown, Offset, MaxAlign,
+                        Skew);
     } else if (!MFI.isObjectPreAllocated(MFI.getStackProtectorIndex())) {
       llvm_unreachable(
           "Stack protector not pre-allocated by LocalStackSlotPass.");
@@ -1047,11 +1024,11 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
                        "LocalStackSlotPass.");
 
     AssignProtectedObjSet(LargeArrayObjs, ProtectedObjs, MFI, StackGrowsDown,
-                          Offset, MaxAlign);
+                          Offset, MaxAlign, Skew);
     AssignProtectedObjSet(SmallArrayObjs, ProtectedObjs, MFI, StackGrowsDown,
-                          Offset, MaxAlign);
+                          Offset, MaxAlign, Skew);
     AssignProtectedObjSet(AddrOfObjs, ProtectedObjs, MFI, StackGrowsDown,
-                          Offset, MaxAlign);
+                          Offset, MaxAlign, Skew);
   }
 
   SmallVector<int, 8> ObjectsToAllocate;
@@ -1082,10 +1059,10 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   // Allocate the EH registration node first if one is present.
   if (EHRegNodeFrameIndex != std::numeric_limits<int>::max())
     AdjustStackOffset(MFI, EHRegNodeFrameIndex, StackGrowsDown, Offset,
-                      MaxAlign);
+                      MaxAlign, Skew);
 
   // Give the targets a chance to order the objects the way they like it.
-  if (MF.getTarget().getOptLevel() != CodeGenOptLevel::None &&
+  if (MF.getTarget().getOptLevel() != CodeGenOpt::None &&
       MF.getTarget().Options.StackSymbolOrdering)
     TFI.orderFrameObjects(MF, ObjectsToAllocate);
 
@@ -1095,7 +1072,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   // optimizing.
   BitVector StackBytesFree;
   if (!ObjectsToAllocate.empty() &&
-      MF.getTarget().getOptLevel() != CodeGenOptLevel::None &&
+      MF.getTarget().getOptLevel() != CodeGenOpt::None &&
       MFI.getStackProtectorIndex() < 0 && TFI.enableStackSlotScavenging(MF))
     computeFreeStackSlots(MFI, StackGrowsDown, MinCSFrameIndex, MaxCSFrameIndex,
                           FixedCSEnd, StackBytesFree);
@@ -1104,7 +1081,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   for (auto &Object : ObjectsToAllocate)
     if (!scavengeStackSlot(MFI, Object, StackGrowsDown, MaxAlign,
                            StackBytesFree))
-      AdjustStackOffset(MFI, Object, StackGrowsDown, Offset, MaxAlign);
+      AdjustStackOffset(MFI, Object, StackGrowsDown, Offset, MaxAlign, Skew);
 
   // Make sure the special register scavenging spill slot is closest to the
   // stack pointer.
@@ -1112,7 +1089,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     SmallVector<int, 2> SFIs;
     RS->getScavengingFrameIndices(SFIs);
     for (int SFI : SFIs)
-      AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign);
+      AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign, Skew);
   }
 
   if (!TFI.targetHandlesStackFrameRounding()) {
@@ -1138,7 +1115,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     // SP not FP. Align to MaxAlign so this works.
     StackAlign = std::max(StackAlign, MaxAlign);
     int64_t OffsetBeforeAlignment = Offset;
-    Offset = alignTo(Offset, StackAlign);
+    Offset = alignTo(Offset, StackAlign, Skew);
 
     // If we have increased the offset to fulfill the alignment constrants,
     // then the scavenging spill slots may become harder to reach from the
@@ -1241,11 +1218,7 @@ void PEI::insertZeroCallUsedRegs(MachineFunction &MF) {
   BitVector UsedRegs(TRI.getNumRegs());
   if (OnlyUsed)
     for (const MachineBasicBlock &MBB : MF)
-      for (const MachineInstr &MI : MBB) {
-        // skip debug instructions
-        if (MI.isDebugInstr())
-          continue;
-
+      for (const MachineInstr &MI : MBB)
         for (const MachineOperand &MO : MI.operands()) {
           if (!MO.isReg())
             continue;
@@ -1255,7 +1228,6 @@ void PEI::insertZeroCallUsedRegs(MachineFunction &MF) {
               (MO.isDef() || MO.isUse()))
             UsedRegs.set(Reg);
         }
-      }
 
   // Get a list of registers that are used.
   BitVector LiveIns(TRI.getNumRegs());
@@ -1299,15 +1271,7 @@ void PEI::insertZeroCallUsedRegs(MachineFunction &MF) {
         if (!MO.isReg())
           continue;
 
-        MCRegister Reg = MO.getReg();
-        if (!Reg)
-          continue;
-
-        // This picks up sibling registers (e.q. %al -> %ah).
-        for (MCRegUnit Unit : TRI.regunits(Reg))
-          RegsToZero.reset(Unit);
-
-        for (MCPhysReg SReg : TRI.sub_and_superregs_inclusive(Reg))
+        for (MCPhysReg SReg : TRI.sub_and_superregs_inclusive(MO.getReg()))
           RegsToZero.reset(SReg);
       }
     }
@@ -1325,11 +1289,8 @@ void PEI::insertZeroCallUsedRegs(MachineFunction &MF) {
         if (!MO.isReg())
           continue;
 
-        MCRegister Reg = MO.getReg();
-        if (!Reg)
-          continue;
-
-        for (const MCPhysReg Reg : TRI.sub_and_superregs_inclusive(Reg))
+        for (const MCPhysReg &Reg :
+             TRI.sub_and_superregs_inclusive(MO.getReg()))
           RegsToZero.reset(Reg);
       }
     }
@@ -1347,176 +1308,48 @@ void PEI::insertZeroCallUsedRegs(MachineFunction &MF) {
       TFI.emitZeroCallUsedRegs(RegsToZero, MBB);
 }
 
-/// Replace all FrameIndex operands with physical register references and actual
-/// offsets.
-void PEI::replaceFrameIndicesBackward(MachineFunction &MF) {
-  const TargetFrameLowering &TFI = *MF.getSubtarget().getFrameLowering();
-
-  for (auto &MBB : MF) {
-    int SPAdj = 0;
-    if (!MBB.succ_empty()) {
-      // Get the SP adjustment for the end of MBB from the start of any of its
-      // successors. They should all be the same.
-      assert(all_of(MBB.successors(), [&MBB](const MachineBasicBlock *Succ) {
-        return Succ->getCallFrameSize() ==
-               (*MBB.succ_begin())->getCallFrameSize();
-      }));
-      const MachineBasicBlock &FirstSucc = **MBB.succ_begin();
-      SPAdj = TFI.alignSPAdjust(FirstSucc.getCallFrameSize());
-      if (TFI.getStackGrowthDirection() == TargetFrameLowering::StackGrowsUp)
-        SPAdj = -SPAdj;
-    }
-
-    replaceFrameIndicesBackward(&MBB, MF, SPAdj);
-
-    // We can't track the call frame size after call frame pseudos have been
-    // eliminated. Set it to zero everywhere to keep MachineVerifier happy.
-    MBB.setCallFrameSize(0);
-  }
-}
-
 /// replaceFrameIndices - Replace all MO_FrameIndex operands with physical
 /// register references and actual offsets.
 void PEI::replaceFrameIndices(MachineFunction &MF) {
-  const TargetFrameLowering &TFI = *MF.getSubtarget().getFrameLowering();
+  const auto &ST = MF.getSubtarget();
+  const TargetFrameLowering &TFI = *ST.getFrameLowering();
+  if (!TFI.needsFrameIndexResolution(MF))
+    return;
 
-  for (auto &MBB : MF) {
-    int SPAdj = TFI.alignSPAdjust(MBB.getCallFrameSize());
-    if (TFI.getStackGrowthDirection() == TargetFrameLowering::StackGrowsUp)
-      SPAdj = -SPAdj;
+  const TargetRegisterInfo *TRI = ST.getRegisterInfo();
 
-    replaceFrameIndices(&MBB, MF, SPAdj);
+  // Allow the target to determine this after knowing the frame size.
+  FrameIndexEliminationScavenging = (RS && !FrameIndexVirtualScavenging) ||
+    TRI->requiresFrameIndexReplacementScavenging(MF);
 
-    // We can't track the call frame size after call frame pseudos have been
-    // eliminated. Set it to zero everywhere to keep MachineVerifier happy.
-    MBB.setCallFrameSize(0);
-  }
-}
+  // Store SPAdj at exit of a basic block.
+  SmallVector<int, 8> SPState;
+  SPState.resize(MF.getNumBlockIDs());
+  df_iterator_default_set<MachineBasicBlock*> Reachable;
 
-bool PEI::replaceFrameIndexDebugInstr(MachineFunction &MF, MachineInstr &MI,
-                                      unsigned OpIdx, int SPAdj) {
-  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-  const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
-  if (MI.isDebugValue()) {
-
-    MachineOperand &Op = MI.getOperand(OpIdx);
-    assert(MI.isDebugOperand(&Op) &&
-           "Frame indices can only appear as a debug operand in a DBG_VALUE*"
-           " machine instruction");
-    Register Reg;
-    unsigned FrameIdx = Op.getIndex();
-    unsigned Size = MF.getFrameInfo().getObjectSize(FrameIdx);
-
-    StackOffset Offset = TFI->getFrameIndexReference(MF, FrameIdx, Reg);
-    Op.ChangeToRegister(Reg, false /*isDef*/);
-
-    const DIExpression *DIExpr = MI.getDebugExpression();
-
-    // If we have a direct DBG_VALUE, and its location expression isn't
-    // currently complex, then adding an offset will morph it into a
-    // complex location that is interpreted as being a memory address.
-    // This changes a pointer-valued variable to dereference that pointer,
-    // which is incorrect. Fix by adding DW_OP_stack_value.
-
-    if (MI.isNonListDebugValue()) {
-      unsigned PrependFlags = DIExpression::ApplyOffset;
-      if (!MI.isIndirectDebugValue() && !DIExpr->isComplex())
-        PrependFlags |= DIExpression::StackValue;
-
-      // If we have DBG_VALUE that is indirect and has a Implicit location
-      // expression need to insert a deref before prepending a Memory
-      // location expression. Also after doing this we change the DBG_VALUE
-      // to be direct.
-      if (MI.isIndirectDebugValue() && DIExpr->isImplicit()) {
-        SmallVector<uint64_t, 2> Ops = {dwarf::DW_OP_deref_size, Size};
-        bool WithStackValue = true;
-        DIExpr = DIExpression::prependOpcodes(DIExpr, Ops, WithStackValue);
-        // Make the DBG_VALUE direct.
-        MI.getDebugOffset().ChangeToRegister(0, false);
-      }
-      DIExpr = TRI.prependOffsetExpression(DIExpr, PrependFlags, Offset);
-    } else {
-      // The debug operand at DebugOpIndex was a frame index at offset
-      // `Offset`; now the operand has been replaced with the frame
-      // register, we must add Offset with `register x, plus Offset`.
-      unsigned DebugOpIndex = MI.getDebugOperandIndex(&Op);
-      SmallVector<uint64_t, 3> Ops;
-      TRI.getOffsetOpcodes(Offset, Ops);
-      DIExpr = DIExpression::appendOpsToArg(DIExpr, Ops, DebugOpIndex);
+  // Iterate over the reachable blocks in DFS order.
+  for (auto DFI = df_ext_begin(&MF, Reachable), DFE = df_ext_end(&MF, Reachable);
+       DFI != DFE; ++DFI) {
+    int SPAdj = 0;
+    // Check the exit state of the DFS stack predecessor.
+    if (DFI.getPathLength() >= 2) {
+      MachineBasicBlock *StackPred = DFI.getPath(DFI.getPathLength() - 2);
+      assert(Reachable.count(StackPred) &&
+             "DFS stack predecessor is already visited.\n");
+      SPAdj = SPState[StackPred->getNumber()];
     }
-    MI.getDebugExpressionOp().setMetadata(DIExpr);
-    return true;
+    MachineBasicBlock *BB = *DFI;
+    replaceFrameIndices(BB, MF, SPAdj);
+    SPState[BB->getNumber()] = SPAdj;
   }
 
-  if (MI.isDebugPHI()) {
-    // Allow stack ref to continue onwards.
-    return true;
-  }
-
-  // TODO: This code should be commoned with the code for
-  // PATCHPOINT. There's no good reason for the difference in
-  // implementation other than historical accident.  The only
-  // remaining difference is the unconditional use of the stack
-  // pointer as the base register.
-  if (MI.getOpcode() == TargetOpcode::STATEPOINT) {
-    assert((!MI.isDebugValue() || OpIdx == 0) &&
-           "Frame indicies can only appear as the first operand of a "
-           "DBG_VALUE machine instruction");
-    Register Reg;
-    MachineOperand &Offset = MI.getOperand(OpIdx + 1);
-    StackOffset refOffset = TFI->getFrameIndexReferencePreferSP(
-        MF, MI.getOperand(OpIdx).getIndex(), Reg, /*IgnoreSPUpdates*/ false);
-    assert(!refOffset.getScalable() &&
-           "Frame offsets with a scalable component are not supported");
-    Offset.setImm(Offset.getImm() + refOffset.getFixed() + SPAdj);
-    MI.getOperand(OpIdx).ChangeToRegister(Reg, false /*isDef*/);
-    return true;
-  }
-  return false;
-}
-
-void PEI::replaceFrameIndicesBackward(MachineBasicBlock *BB,
-                                      MachineFunction &MF, int &SPAdj) {
-  assert(MF.getSubtarget().getRegisterInfo() &&
-         "getRegisterInfo() must be implemented!");
-
-  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
-  const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
-  const TargetFrameLowering &TFI = *MF.getSubtarget().getFrameLowering();
-
-  RegScavenger *LocalRS = FrameIndexEliminationScavenging ? RS : nullptr;
-  if (LocalRS)
-    LocalRS->enterBasicBlockEnd(*BB);
-
-  for (MachineBasicBlock::iterator I = BB->end(); I != BB->begin();) {
-    MachineInstr &MI = *std::prev(I);
-
-    if (TII.isFrameInstr(MI)) {
-      SPAdj -= TII.getSPAdjust(MI);
-      TFI.eliminateCallFramePseudoInstr(MF, *BB, &MI);
+  // Handle the unreachable blocks.
+  for (auto &BB : MF) {
+    if (Reachable.count(&BB))
+      // Already handled in DFS traversal.
       continue;
-    }
-
-    // Step backwards to get the liveness state at (immedately after) MI.
-    if (LocalRS)
-      LocalRS->backward(I);
-
-    bool RemovedMI = false;
-    for (const auto &[Idx, Op] : enumerate(MI.operands())) {
-      if (!Op.isFI())
-        continue;
-
-      if (replaceFrameIndexDebugInstr(MF, MI, Idx, SPAdj))
-        continue;
-
-      // Eliminate this FrameIndex operand.
-      RemovedMI = TRI.eliminateFrameIndex(MI, SPAdj, Idx, LocalRS);
-      if (RemovedMI)
-        break;
-    }
-
-    if (!RemovedMI)
-      --I;
+    int SPAdj = 0;
+    replaceFrameIndices(&BB, MF, SPAdj);
   }
 }
 
@@ -1527,6 +1360,9 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &MF,
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+
+  if (RS && FrameIndexEliminationScavenging)
+    RS->enterBasicBlock(*BB);
 
   bool InsideCallSequence = false;
 
@@ -1545,8 +1381,83 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &MF,
       if (!MI.getOperand(i).isFI())
         continue;
 
-      if (replaceFrameIndexDebugInstr(MF, MI, i, SPAdj))
+      // Frame indices in debug values are encoded in a target independent
+      // way with simply the frame index and offset rather than any
+      // target-specific addressing mode.
+      if (MI.isDebugValue()) {
+        MachineOperand &Op = MI.getOperand(i);
+        assert(
+            MI.isDebugOperand(&Op) &&
+            "Frame indices can only appear as a debug operand in a DBG_VALUE*"
+            " machine instruction");
+        Register Reg;
+        unsigned FrameIdx = Op.getIndex();
+        unsigned Size = MF.getFrameInfo().getObjectSize(FrameIdx);
+
+        StackOffset Offset =
+            TFI->getFrameIndexReference(MF, FrameIdx, Reg);
+        Op.ChangeToRegister(Reg, false /*isDef*/);
+
+        const DIExpression *DIExpr = MI.getDebugExpression();
+
+        // If we have a direct DBG_VALUE, and its location expression isn't
+        // currently complex, then adding an offset will morph it into a
+        // complex location that is interpreted as being a memory address.
+        // This changes a pointer-valued variable to dereference that pointer,
+        // which is incorrect. Fix by adding DW_OP_stack_value.
+
+        if (MI.isNonListDebugValue()) {
+          unsigned PrependFlags = DIExpression::ApplyOffset;
+          if (!MI.isIndirectDebugValue() && !DIExpr->isComplex())
+            PrependFlags |= DIExpression::StackValue;
+
+          // If we have DBG_VALUE that is indirect and has a Implicit location
+          // expression need to insert a deref before prepending a Memory
+          // location expression. Also after doing this we change the DBG_VALUE
+          // to be direct.
+          if (MI.isIndirectDebugValue() && DIExpr->isImplicit()) {
+            SmallVector<uint64_t, 2> Ops = {dwarf::DW_OP_deref_size, Size};
+            bool WithStackValue = true;
+            DIExpr = DIExpression::prependOpcodes(DIExpr, Ops, WithStackValue);
+            // Make the DBG_VALUE direct.
+            MI.getDebugOffset().ChangeToRegister(0, false);
+          }
+          DIExpr = TRI.prependOffsetExpression(DIExpr, PrependFlags, Offset);
+        } else {
+          // The debug operand at DebugOpIndex was a frame index at offset
+          // `Offset`; now the operand has been replaced with the frame
+          // register, we must add Offset with `register x, plus Offset`.
+          unsigned DebugOpIndex = MI.getDebugOperandIndex(&Op);
+          SmallVector<uint64_t, 3> Ops;
+          TRI.getOffsetOpcodes(Offset, Ops);
+          DIExpr = DIExpression::appendOpsToArg(DIExpr, Ops, DebugOpIndex);
+        }
+        MI.getDebugExpressionOp().setMetadata(DIExpr);
         continue;
+      } else if (MI.isDebugPHI()) {
+        // Allow stack ref to continue onwards.
+        continue;
+      }
+
+      // TODO: This code should be commoned with the code for
+      // PATCHPOINT. There's no good reason for the difference in
+      // implementation other than historical accident.  The only
+      // remaining difference is the unconditional use of the stack
+      // pointer as the base register.
+      if (MI.getOpcode() == TargetOpcode::STATEPOINT) {
+        assert((!MI.isDebugValue() || i == 0) &&
+               "Frame indicies can only appear as the first operand of a "
+               "DBG_VALUE machine instruction");
+        Register Reg;
+        MachineOperand &Offset = MI.getOperand(i + 1);
+        StackOffset refOffset = TFI->getFrameIndexReferencePreferSP(
+            MF, MI.getOperand(i).getIndex(), Reg, /*IgnoreSPUpdates*/ false);
+        assert(!refOffset.getScalable() &&
+               "Frame offsets with a scalable component are not supported");
+        Offset.setImm(Offset.getImm() + refOffset.getFixed() + SPAdj);
+        MI.getOperand(i).ChangeToRegister(Reg, false /*isDef*/);
+        continue;
+      }
 
       // Some instructions (e.g. inline asm instructions) can have
       // multiple frame indices and/or cause eliminateFrameIndex
@@ -1561,7 +1472,8 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &MF,
       // If this instruction has a FrameIndex operand, we need to
       // use that target machine register info object to eliminate
       // it.
-      TRI.eliminateFrameIndex(MI, SPAdj, i);
+      TRI.eliminateFrameIndex(MI, SPAdj, i,
+                              FrameIndexEliminationScavenging ?  RS : nullptr);
 
       // Reset the iterator if we were at the beginning of the BB.
       if (AtBeginning) {
@@ -1583,7 +1495,10 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &MF,
     if (DidFinishLoop && InsideCallSequence)
       SPAdj += TII.getSPAdjust(MI);
 
-    if (DoIncr && I != BB->end())
-      ++I;
+    if (DoIncr && I != BB->end()) ++I;
+
+    // Update register states.
+    if (RS && FrameIndexEliminationScavenging && DidFinishLoop)
+      RS->forward(MI);
   }
 }

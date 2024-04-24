@@ -12,7 +12,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 /// This check is to warn about the performance overhead arising from
 /// concatenating strings, using the operator+, instead of operator+=.
@@ -34,6 +36,8 @@ private:
   const bool StrictMode;
 };
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_PERFORMANCE_INEFFICIENTSTRINGCONCATENATION_H

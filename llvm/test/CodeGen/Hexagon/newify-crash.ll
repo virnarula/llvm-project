@@ -1,7 +1,7 @@
 ; RUN: llc -march=hexagon < %s | FileCheck %s
 ;
 ; Check that this testcase doesn't crash.
-; CHECK: jump f0
+; CHECK: vadd
 
 target triple = "hexagon"
 

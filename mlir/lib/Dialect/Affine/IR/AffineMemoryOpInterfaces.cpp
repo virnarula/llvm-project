@@ -9,7 +9,6 @@
 #include "mlir/Dialect/Affine/IR/AffineMemoryOpInterfaces.h"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 //===----------------------------------------------------------------------===//
 // Affine Memory Op Interfaces

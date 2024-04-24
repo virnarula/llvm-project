@@ -1,6 +1,6 @@
-declare ptr @foo(...)
-define ptr @bar() {
-	%ret = call ptr (...) @foo( i32 123 )
-	ret ptr %ret
+declare i32* @foo(...)
+define i32* @bar() {
+	%ret = call i32* (...) @foo( i32 123 )
+	ret i32* %ret
 }
 @baz = global i32 0

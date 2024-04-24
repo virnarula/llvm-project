@@ -1,10 +1,10 @@
 ; RUN: llc < %s -march=xcore -mcpu=xs1b-generic | FileCheck %s
 
-define ptr @addr_G() {
+define i32 *@addr_G() {
 entry:
 ; CHECK-LABEL: addr_G:
 ; CHECK: get r11, id
-	ret ptr @G
+	ret i32* @G
 }
 
 @G = thread_local global i32 15

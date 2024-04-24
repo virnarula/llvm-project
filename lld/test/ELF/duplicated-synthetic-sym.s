@@ -10,7 +10,7 @@
 
 // CHECK:      duplicate symbol: _binary_file_bin_start
 // CHECK-NEXT: defined in {{.*}}.o
-// CHECK-NEXT: defined in file.bin
+// CHECK-NEXT: defined in <internal>
 
 .globl  _binary_file_bin_start
 _binary_file_bin_start:

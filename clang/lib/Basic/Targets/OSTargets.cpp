@@ -67,23 +67,48 @@ void getDarwinDefines(MacroBuilder &Builder, const LangOptions &Opts,
     return;
   }
 
-  assert(OsVersion < VersionTuple(100) && "Invalid version!");
-  char Str[7];
-  if (Triple.isMacOSX() && OsVersion < VersionTuple(10, 10)) {
-    Str[0] = '0' + (OsVersion.getMajor() / 10);
-    Str[1] = '0' + (OsVersion.getMajor() % 10);
-    Str[2] = '0' + std::min(OsVersion.getMinor().value_or(0), 9U);
-    Str[3] = '0' + std::min(OsVersion.getSubminor().value_or(0), 9U);
-    Str[4] = '\0';
-  } else if (!Triple.isMacOSX() && OsVersion.getMajor() < 10) {
+  // Set the appropriate OS version define.
+  if (Triple.isiOS()) {
+    assert(OsVersion < VersionTuple(100) && "Invalid version!");
+    char Str[7];
+    if (OsVersion.getMajor() < 10) {
+      Str[0] = '0' + OsVersion.getMajor();
+      Str[1] = '0' + (OsVersion.getMinor().value_or(0) / 10);
+      Str[2] = '0' + (OsVersion.getMinor().value_or(0) % 10);
+      Str[3] = '0' + (OsVersion.getSubminor().value_or(0) / 10);
+      Str[4] = '0' + (OsVersion.getSubminor().value_or(0) % 10);
+      Str[5] = '\0';
+    } else {
+      // Handle versions >= 10.
+      Str[0] = '0' + (OsVersion.getMajor() / 10);
+      Str[1] = '0' + (OsVersion.getMajor() % 10);
+      Str[2] = '0' + (OsVersion.getMinor().value_or(0) / 10);
+      Str[3] = '0' + (OsVersion.getMinor().value_or(0) % 10);
+      Str[4] = '0' + (OsVersion.getSubminor().value_or(0) / 10);
+      Str[5] = '0' + (OsVersion.getSubminor().value_or(0) % 10);
+      Str[6] = '\0';
+    }
+    if (Triple.isTvOS())
+      Builder.defineMacro("__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__", Str);
+    else
+      Builder.defineMacro("__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__",
+                          Str);
+
+  } else if (Triple.isWatchOS()) {
+    assert(OsVersion < VersionTuple(10) && "Invalid version!");
+    char Str[6];
     Str[0] = '0' + OsVersion.getMajor();
     Str[1] = '0' + (OsVersion.getMinor().value_or(0) / 10);
     Str[2] = '0' + (OsVersion.getMinor().value_or(0) % 10);
     Str[3] = '0' + (OsVersion.getSubminor().value_or(0) / 10);
     Str[4] = '0' + (OsVersion.getSubminor().value_or(0) % 10);
     Str[5] = '\0';
-  } else {
-    // Handle versions >= 10.
+    Builder.defineMacro("__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__", Str);
+  } else if (Triple.isDriverKit()) {
+    assert(OsVersion.getMajor() < 100 &&
+           OsVersion.getMinor().value_or(0) < 100 &&
+           OsVersion.getSubminor().value_or(0) < 100 && "Invalid version!");
+    char Str[7];
     Str[0] = '0' + (OsVersion.getMajor() / 10);
     Str[1] = '0' + (OsVersion.getMajor() % 10);
     Str[2] = '0' + (OsVersion.getMinor().value_or(0) / 10);
@@ -91,33 +116,36 @@ void getDarwinDefines(MacroBuilder &Builder, const LangOptions &Opts,
     Str[4] = '0' + (OsVersion.getSubminor().value_or(0) / 10);
     Str[5] = '0' + (OsVersion.getSubminor().value_or(0) % 10);
     Str[6] = '\0';
-  }
-
-  // Set the appropriate OS version define.
-  if (Triple.isTvOS()) {
-    Builder.defineMacro("__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__", Str);
-  } else if (Triple.isiOS()) {
-    Builder.defineMacro("__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__", Str);
-  } else if (Triple.isWatchOS()) {
-    Builder.defineMacro("__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__", Str);
-  } else if (Triple.isDriverKit()) {
-    assert(OsVersion.getMinor().value_or(0) < 100 &&
-           OsVersion.getSubminor().value_or(0) < 100 && "Invalid version!");
     Builder.defineMacro("__ENVIRONMENT_DRIVERKIT_VERSION_MIN_REQUIRED__", Str);
   } else if (Triple.isMacOSX()) {
+    // Note that the Driver allows versions which aren't representable in the
+    // define (because we only get a single digit for the minor and micro
+    // revision numbers). So, we limit them to the maximum representable
+    // version.
+    assert(OsVersion < VersionTuple(100) && "Invalid version!");
+    char Str[7];
+    if (OsVersion < VersionTuple(10, 10)) {
+      Str[0] = '0' + (OsVersion.getMajor() / 10);
+      Str[1] = '0' + (OsVersion.getMajor() % 10);
+      Str[2] = '0' + std::min(OsVersion.getMinor().value_or(0), 9U);
+      Str[3] = '0' + std::min(OsVersion.getSubminor().value_or(0), 9U);
+      Str[4] = '\0';
+    } else {
+      // Handle versions > 10.9.
+      Str[0] = '0' + (OsVersion.getMajor() / 10);
+      Str[1] = '0' + (OsVersion.getMajor() % 10);
+      Str[2] = '0' + (OsVersion.getMinor().value_or(0) / 10);
+      Str[3] = '0' + (OsVersion.getMinor().value_or(0) % 10);
+      Str[4] = '0' + (OsVersion.getSubminor().value_or(0) / 10);
+      Str[5] = '0' + (OsVersion.getSubminor().value_or(0) % 10);
+      Str[6] = '\0';
+    }
     Builder.defineMacro("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__", Str);
   }
 
-  if (Triple.isOSDarwin()) {
-    // Any darwin OS defines a general darwin OS version macro in addition
-    // to the other OS specific macros.
-    assert(OsVersion.getMinor().value_or(0) < 100 &&
-           OsVersion.getSubminor().value_or(0) < 100 && "Invalid version!");
-    Builder.defineMacro("__ENVIRONMENT_OS_VERSION_MIN_REQUIRED__", Str);
-
-    // Tell users about the kernel if there is one.
+  // Tell users about the kernel if there is one.
+  if (Triple.isOSDarwin())
     Builder.defineMacro("__MACH__");
-  }
 
   PlatformMinVersion = OsVersion;
 }
@@ -214,8 +242,7 @@ static void addVisualCDefines(const LangOptions &Opts, MacroBuilder &Builder) {
       Builder.defineMacro("_HAS_CHAR16_T_LANGUAGE_SUPPORT", Twine(1));
 
     if (Opts.isCompatibleWithMSVC(LangOptions::MSVC2015)) {
-      if (Opts.CPlusPlus23)
-        // TODO update to the proper value.
+      if (Opts.CPlusPlus2b)
         Builder.defineMacro("_MSVC_LANG", "202004L");
       else if (Opts.CPlusPlus20)
         Builder.defineMacro("_MSVC_LANG", "202002L");
@@ -224,9 +251,6 @@ static void addVisualCDefines(const LangOptions &Opts, MacroBuilder &Builder) {
       else if (Opts.CPlusPlus14)
         Builder.defineMacro("_MSVC_LANG", "201402L");
     }
-
-    if (Opts.isCompatibleWithMSVC(LangOptions::MSVC2022_3))
-      Builder.defineMacro("_MSVC_CONSTEXPR_ATTRIBUTE");
   }
 
   if (Opts.MicrosoftExt) {

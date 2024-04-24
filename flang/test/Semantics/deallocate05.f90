@@ -32,33 +32,32 @@ Deallocate(rp)
 
 Allocate(x(3))
 
-!ERROR: Component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
+!ERROR: component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
 Deallocate(x(2)%p)
 
-!ERROR: Name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
+!ERROR: name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
 Deallocate(pi)
 
-!ERROR: Component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
-!ERROR: Name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
+!ERROR: component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
+!ERROR: name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
 Deallocate(x(2)%p, pi)
 
-!ERROR: Name in DEALLOCATE statement must be a variable name
+!ERROR: name in DEALLOCATE statement must be a variable name
 Deallocate(prp)
 
-!ERROR: Name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
-!ERROR: Name in DEALLOCATE statement must be a variable name
+!ERROR: name in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
+!ERROR: name in DEALLOCATE statement must be a variable name
 Deallocate(pi, prp)
 
-!ERROR: Name in DEALLOCATE statement must be a variable name
+!ERROR: name in DEALLOCATE statement must be a variable name
 Deallocate(maxvalue)
 
-!ERROR: Component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
+!ERROR: component in DEALLOCATE statement must have the ALLOCATABLE or POINTER attribute
 Deallocate(x%p)
 
 !ERROR: STAT may not be duplicated in a DEALLOCATE statement
 Deallocate(x, stat=s, stat=s)
-!ERROR: STAT variable 'const_s' is not definable
-!BECAUSE: '13_4' is not a variable or pointer
+!ERROR: STAT variable 'const_s' must be definable
 Deallocate(x, stat=const_s)
 !ERROR: ERRMSG may not be duplicated in a DEALLOCATE statement
 Deallocate(x, errmsg=ee, errmsg=ee)

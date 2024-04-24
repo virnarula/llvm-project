@@ -8,10 +8,9 @@
 
 # A Fortran feature history cheat sheet
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 ## Original IBM 704 FORTRAN

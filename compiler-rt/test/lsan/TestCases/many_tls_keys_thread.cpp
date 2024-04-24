@@ -57,4 +57,4 @@ int main() {
 }
 
 // CHECK: LeakSanitizer: detected memory leaks
-// CHECK: SUMMARY: {{.*}}Sanitizer:
+// CHECK: SUMMARY: {{(Leak|Address)}}Sanitizer:

@@ -1,4 +1,4 @@
-//===- File.cpp - Reading/writing sparse tensors from/to files ------------===//
+//===- File.cpp - Parsing sparse tensors from files -----------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,20 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements reading and writing sparse tensor files.
+// This file implements parsing and printing of files in one of the
+// following external formats:
+//
+// (1) Matrix Market Exchange (MME): *.mtx
+//     https://math.nist.gov/MatrixMarket/formats.html
+//
+// (2) Formidable Repository of Open Sparse Tensors and Tools (FROSTT): *.tns
+//     http://frostt.io/tensors/file-formats.html
+//
+// This file is part of the lightweight runtime support library for sparse
+// tensor manipulations.  The functionality of the support library is meant
+// to simplify benchmarking, testing, and debugging MLIR code operating on
+// sparse tensors.  However, the provided functionality is **not** part of
+// core MLIR itself.
 //
 //===----------------------------------------------------------------------===//
 
@@ -34,10 +47,18 @@ void SparseTensorReader::closeFile() {
   }
 }
 
+// TODO(wrengr/bixia): figure out how to reorganize the element-parsing
+// loop of `openSparseTensorCOO` into methods of this class, so we can
+// avoid leaking access to the `line` pointer (both for general hygiene
+// and because we can't mark it const due to the second argument of
+// `strtoul`/`strtoud` being `char * *restrict` rather than
+// `char const* *restrict`).
+//
 /// Attempts to read a line from the file.
-void SparseTensorReader::readLine() {
-  if (!fgets(line, kColWidth, file))
-    MLIR_SPARSETENSOR_FATAL("Cannot read next line of %s\n", filename);
+char *SparseTensorReader::readLine() {
+  if (fgets(line, kColWidth, file))
+    return line;
+  MLIR_SPARSETENSOR_FATAL("Cannot read next line of %s\n", filename);
 }
 
 /// Reads and parses the file's header.

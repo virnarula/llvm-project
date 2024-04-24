@@ -11,10 +11,10 @@
 
 #include <unistd.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int isatty(int fd);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_ISATTY_H

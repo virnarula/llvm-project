@@ -1,3 +1,4 @@
+; RUN: opt < %s -lcssa -disable-output
 ; RUN: opt < %s -passes=lcssa -disable-output
 ; PR977
 ; END.

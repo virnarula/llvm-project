@@ -4,7 +4,6 @@
 // RUN: %env_asan_opts=coverage=1 %run ./test.exe
 //
 // RUN: %sancov print *.sancov | FileCheck %s
-
 #include <stdio.h>
 
 void foo() { fputs("FOO", stderr); }

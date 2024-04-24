@@ -428,7 +428,7 @@ DecodeStatus HexagonDisassembler::getSingleInstruction(MCInst &MI, MCInst &MCB,
                                  STI);
 
     if (Result != MCDisassembler::Success &&
-        STI.hasFeature(Hexagon::ExtensionHVX))
+        STI.getFeatureBits()[Hexagon::ExtensionHVX])
       Result = decodeInstruction(DecoderTableEXT_mmvec32, MI, Instruction,
                                  Address, this, STI);
 
@@ -512,8 +512,6 @@ DecodeStatus HexagonDisassembler::getSingleInstruction(MCInst &MI, MCInst &MCB,
         const bool Rev = HexagonMCInstrInfo::IsReverseVecRegPair(Producer);
         const unsigned ProdPairIndex =
             Rev ? Producer - Hexagon::WR0 : Producer - Hexagon::W0;
-        if (Rev)
-          SubregBit = !SubregBit;
         Producer = (ProdPairIndex << 1) + SubregBit + Hexagon::V0;
       } else if (SubregBit)
         // Hexagon PRM 10.11 New-value operands
@@ -809,7 +807,7 @@ static const uint16_t SysRegDecoderTable[] = {
 static DecodeStatus DecodeSysRegsRegisterClass(MCInst &Inst, unsigned RegNo,
                                                uint64_t /*Address*/,
                                                const MCDisassembler *Decoder) {
-  if (RegNo >= std::size(SysRegDecoderTable))
+  if (RegNo >= sizeof(SysRegDecoderTable) / sizeof(SysRegDecoderTable[0]))
     return MCDisassembler::Fail;
 
   if (SysRegDecoderTable[RegNo] == Hexagon::NoRegister)
@@ -837,7 +835,7 @@ static DecodeStatus
 DecodeSysRegs64RegisterClass(MCInst &Inst, unsigned RegNo, uint64_t /*Address*/,
                              const MCDisassembler *Decoder) {
   RegNo = RegNo >> 1;
-  if (RegNo >= std::size(SysReg64DecoderTable))
+  if (RegNo >= sizeof(SysReg64DecoderTable) / sizeof(SysReg64DecoderTable[0]))
     return MCDisassembler::Fail;
 
   if (SysReg64DecoderTable[RegNo] == Hexagon::NoRegister)

@@ -21,7 +21,7 @@
 #include <cstring>
 #include <unistd.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 extern void *memcpy(void *__restrict, const void *__restrict, size_t);
 extern void *memmove(void *, const void *, size_t);
@@ -30,7 +30,7 @@ extern void bzero(void *, size_t);
 extern int memcmp(const void *, const void *, size_t);
 extern int bcmp(const void *, const void *, size_t);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 namespace llvm {
 namespace libc_benchmarks {
@@ -42,15 +42,9 @@ static cl::opt<std::string>
     SizeDistributionName("size-distribution-name",
                          cl::desc("The name of the distribution to use"));
 
-static cl::opt<bool> SweepMode(
-    "sweep-mode",
-    cl::desc(
-        "If set, benchmark all sizes from sweep-min-size to sweep-max-size"));
-
-static cl::opt<uint32_t>
-    SweepMinSize("sweep-min-size",
-                 cl::desc("The minimum size to use in sweep-mode"),
-                 cl::init(0));
+static cl::opt<bool>
+    SweepMode("sweep-mode",
+              cl::desc("If set, benchmark all sizes from 0 to sweep-max-size"));
 
 static cl::opt<uint32_t>
     SweepMaxSize("sweep-max-size",
@@ -103,7 +97,7 @@ struct MemfunctionBenchmarkBase : public BenchmarkSetup {
   CircularArrayRef<ParameterBatch::ParameterType>
   generateBatch(size_t Iterations) {
     randomize();
-    return cycle(ArrayRef(Parameters), Iterations);
+    return cycle(makeArrayRef(Parameters), Iterations);
   }
 
 protected:
@@ -191,7 +185,7 @@ struct MemfunctionBenchmarkSweep final : public MemfunctionBenchmarkBase {
     BO.InitialIterations = 100;
     auto &Measurements = Study.Measurements;
     Measurements.reserve(NumTrials * SweepMaxSize);
-    for (size_t Size = SweepMinSize; Size <= SweepMaxSize; ++Size) {
+    for (size_t Size = 0; Size <= SweepMaxSize; ++Size) {
       CurrentSweepSize = Size;
       runTrials(BO, Measurements);
     }

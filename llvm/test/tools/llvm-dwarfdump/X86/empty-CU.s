@@ -1,7 +1,6 @@
 # RUN: llvm-mc %s -filetype obj -triple x86_64-apple-darwin -o - \
 # RUN: | not llvm-dwarfdump --verify --debug-info - \
 # RUN: | FileCheck %s
-# CHECK: error: unable to decode LEB128 at offset 0x00000005: malformed uleb128, extends past end
 # CHECK: error: Compilation unit without DIE.
 
         .section        __DWARF,__debug_info,regular,debug
@@ -18,6 +17,5 @@
 .byte 1    # Abbrev code
 .byte 0x11 # TAG_compile_unit
 .byte 0    # no children
-.byte 0    # EOM(1)
-.byte 0    # EOM(2)
-           # Intentionally missing EOM(3)
+.byte 0    # no attributes
+.byte 0

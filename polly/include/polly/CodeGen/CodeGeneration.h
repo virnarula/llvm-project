@@ -18,6 +18,7 @@ namespace polly {
 enum VectorizerChoice {
   VECTORIZER_NONE,
   VECTORIZER_STRIPMINE,
+  VECTORIZER_POLLY,
 };
 extern VectorizerChoice PollyVectorizerChoice;
 

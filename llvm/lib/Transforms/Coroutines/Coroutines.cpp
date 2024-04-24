@@ -37,15 +37,16 @@ using namespace llvm;
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
-      Int8Ptr(PointerType::get(Context, 0)),
+      Int8Ptr(Type::getInt8PtrTy(Context)),
       ResumeFnType(FunctionType::get(Type::getVoidTy(Context), Int8Ptr,
                                      /*isVarArg=*/false)),
       NullPtr(ConstantPointerNull::get(Int8Ptr)) {}
 
-// Creates a call to llvm.coro.subfn.addr to obtain a resume function address.
-// It generates the following:
+// Creates a sequence of instructions to obtain a resume function address using
+// llvm.coro.subfn.addr. It generates the following sequence:
 //
-//    call ptr @llvm.coro.subfn.addr(ptr %Arg, i8 %index)
+//    call i8* @llvm.coro.subfn.addr(i8* %Arg, i8 %index)
+//    bitcast i8* %2 to void(i8*)*
 
 Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
                                         Instruction *InsertPt) {
@@ -55,7 +56,11 @@ Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
   assert(Index >= CoroSubFnInst::IndexFirst &&
          Index < CoroSubFnInst::IndexLast &&
          "makeSubFnCall: Index value out of range");
-  return CallInst::Create(Fn, {Arg, IndexVal}, "", InsertPt);
+  auto *Call = CallInst::Create(Fn, {Arg, IndexVal}, "", InsertPt);
+
+  auto *Bitcast =
+      new BitCastInst(Call, ResumeFnType->getPointerTo(), "", InsertPt);
+  return Bitcast;
 }
 
 // NOTE: Must be sorted!
@@ -132,9 +137,8 @@ void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
     return;
 
   Value *Replacement =
-      Elide
-          ? ConstantPointerNull::get(PointerType::get(CoroId->getContext(), 0))
-          : CoroFrees.front()->getFrame();
+      Elide ? ConstantPointerNull::get(Type::getInt8PtrTy(CoroId->getContext()))
+            : CoroFrees.front()->getFrame();
 
   for (CoroFreeInst *CF : CoroFrees) {
     CF->replaceAllUsesWith(Replacement);
@@ -263,7 +267,7 @@ void coro::Shape::buildFrom(Function &F) {
   if (!CoroBegin) {
     // Replace coro.frame which are supposed to be lowered to the result of
     // coro.begin with undef.
-    auto *Undef = UndefValue::get(PointerType::get(F.getContext(), 0));
+    auto *Undef = UndefValue::get(Type::getInt8PtrTy(F.getContext()));
     for (CoroFrameInst *CF : CoroFrames) {
       CF->replaceAllUsesWith(Undef);
       CF->eraseFromParent();
@@ -592,6 +596,20 @@ static void checkAsyncFuncPointer(const Instruction *I, Value *V) {
   auto *AsyncFuncPtrAddr = dyn_cast<GlobalVariable>(V->stripPointerCasts());
   if (!AsyncFuncPtrAddr)
     fail(I, "llvm.coro.id.async async function pointer not a global", V);
+
+  if (AsyncFuncPtrAddr->getType()->isOpaquePointerTy())
+    return;
+
+  auto *StructTy = cast<StructType>(
+      AsyncFuncPtrAddr->getType()->getNonOpaquePointerElementType());
+  if (StructTy->isOpaque() || !StructTy->isPacked() ||
+      StructTy->getNumElements() != 2 ||
+      !StructTy->getElementType(0)->isIntegerTy(32) ||
+      !StructTy->getElementType(1)->isIntegerTy(32))
+    fail(I,
+         "llvm.coro.id.async async function pointer argument's type is not "
+         "<{i32, i32}>",
+         V);
 }
 
 void CoroIdAsyncInst::checkWellFormed() const {
@@ -607,15 +625,19 @@ void CoroIdAsyncInst::checkWellFormed() const {
 static void checkAsyncContextProjectFunction(const Instruction *I,
                                              Function *F) {
   auto *FunTy = cast<FunctionType>(F->getValueType());
-  if (!FunTy->getReturnType()->isPointerTy())
+  Type *Int8Ty = Type::getInt8Ty(F->getContext());
+  auto *RetPtrTy = dyn_cast<PointerType>(FunTy->getReturnType());
+  if (!RetPtrTy || !RetPtrTy->isOpaqueOrPointeeTypeMatches(Int8Ty))
     fail(I,
          "llvm.coro.suspend.async resume function projection function must "
-         "return a ptr type",
+         "return an i8* type",
          F);
-  if (FunTy->getNumParams() != 1 || !FunTy->getParamType(0)->isPointerTy())
+  if (FunTy->getNumParams() != 1 || !FunTy->getParamType(0)->isPointerTy() ||
+      !cast<PointerType>(FunTy->getParamType(0))
+           ->isOpaqueOrPointeeTypeMatches(Int8Ty))
     fail(I,
          "llvm.coro.suspend.async resume function projection function must "
-         "take one ptr type as parameter",
+         "take one i8* type as parameter",
          F);
 }
 

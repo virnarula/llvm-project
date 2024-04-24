@@ -13,7 +13,6 @@
 #include "SPIRVInstPrinter.h"
 #include "SPIRV.h"
 #include "SPIRVBaseInfo.h"
-#include "llvm/ADT/APFloat.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
@@ -50,49 +49,14 @@ void SPIRVInstPrinter::printRemainingVariableOps(const MCInst *MI,
 void SPIRVInstPrinter::printOpConstantVarOps(const MCInst *MI,
                                              unsigned StartIndex,
                                              raw_ostream &O) {
-  const unsigned NumVarOps = MI->getNumOperands() - StartIndex;
-
-  assert((NumVarOps == 1 || NumVarOps == 2) &&
-         "Unsupported number of bits for literal variable");
-
   O << ' ';
-
-  uint64_t Imm = MI->getOperand(StartIndex).getImm();
-
-  // Handle 64 bit literals.
-  if (NumVarOps == 2) {
+  if (MI->getNumOperands() - StartIndex == 2) { // Handle 64 bit literals.
+    uint64_t Imm = MI->getOperand(StartIndex).getImm();
     Imm |= (MI->getOperand(StartIndex + 1).getImm() << 32);
+    O << Imm;
+  } else {
+    printRemainingVariableOps(MI, StartIndex, O, true, false);
   }
-
-  // Format and print float values.
-  if (MI->getOpcode() == SPIRV::OpConstantF) {
-    APFloat FP = NumVarOps == 1 ? APFloat(APInt(32, Imm).bitsToFloat())
-                                : APFloat(APInt(64, Imm).bitsToDouble());
-
-    // Print infinity and NaN as hex floats.
-    // TODO: Make sure subnormal numbers are handled correctly as they may also
-    // require hex float notation.
-    if (FP.isInfinity()) {
-      if (FP.isNegative())
-        O << '-';
-      O << "0x1p+128";
-      return;
-    }
-    if (FP.isNaN()) {
-      O << "0x1.8p+128";
-      return;
-    }
-
-    // Format val as a decimal floating point or scientific notation (whichever
-    // is shorter), with enough digits of precision to produce the exact value.
-    O << format("%.*g", std::numeric_limits<double>::max_digits10,
-                FP.convertToDouble());
-
-    return;
-  }
-
-  // Print integer values directly.
-  O << Imm;
 }
 
 void SPIRVInstPrinter::recordOpExtInstImport(const MCInst *MI) {
@@ -116,13 +80,13 @@ void SPIRVInstPrinter::printInst(const MCInst *MI, uint64_t Address,
     printOpExtInst(MI, OS);
   } else {
     // Print any extra operands for variadic instructions.
-    const MCInstrDesc &MCDesc = MII.get(OpCode);
+    MCInstrDesc MCDesc = MII.get(OpCode);
     if (MCDesc.isVariadic()) {
       const unsigned NumFixedOps = MCDesc.getNumOperands();
       const unsigned LastFixedIndex = NumFixedOps - 1;
       const int FirstVariableIndex = NumFixedOps;
-      if (NumFixedOps > 0 && MCDesc.operands()[LastFixedIndex].OperandType ==
-                                 MCOI::OPERAND_UNKNOWN) {
+      if (NumFixedOps > 0 &&
+          MCDesc.OpInfo[LastFixedIndex].OperandType == MCOI::OPERAND_UNKNOWN) {
         // For instructions where a custom type (not reg or immediate) comes as
         // the last operand before the variable_ops. This is usually a StringImm
         // operand, but there are a few other cases.
@@ -205,9 +169,7 @@ void SPIRVInstPrinter::printInst(const MCInst *MI, uint64_t Address,
         }
         case SPIRV::OpConstantI:
         case SPIRV::OpConstantF:
-          // The last fixed operand along with any variadic operands that follow
-          // are part of the variable value.
-          printOpConstantVarOps(MI, NumFixedOps - 1, OS);
+          printOpConstantVarOps(MI, NumFixedOps, OS);
           break;
         default:
           printRemainingVariableOps(MI, NumFixedOps, OS);
@@ -223,7 +185,7 @@ void SPIRVInstPrinter::printInst(const MCInst *MI, uint64_t Address,
 void SPIRVInstPrinter::printOpExtInst(const MCInst *MI, raw_ostream &O) {
   // The fixed operands have already been printed, so just need to decide what
   // type of ExtInst operands to print based on the instruction set and number.
-  const MCInstrDesc &MCDesc = MII.get(MI->getOpcode());
+  MCInstrDesc MCDesc = MII.get(MI->getOpcode());
   unsigned NumFixedOps = MCDesc.getNumOperands();
   const auto NumOps = MI->getNumOperands();
   if (NumOps == NumFixedOps)
@@ -238,7 +200,7 @@ void SPIRVInstPrinter::printOpExtInst(const MCInst *MI, raw_ostream &O) {
 void SPIRVInstPrinter::printOpDecorate(const MCInst *MI, raw_ostream &O) {
   // The fixed operands have already been printed, so just need to decide what
   // type of decoration operands to print based on the Decoration type.
-  const MCInstrDesc &MCDesc = MII.get(MI->getOpcode());
+  MCInstrDesc MCDesc = MII.get(MI->getOpcode());
   unsigned NumFixedOps = MCDesc.getNumOperands();
 
   if (NumFixedOps != MI->getNumOperands()) {

@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <stdlib.h>
+
 #ifndef LLVM_LIBC_SRC_STDLIB_SRAND_H
 #define LLVM_LIBC_SRC_STDLIB_SRAND_H
 
-#include <stdlib.h>
-
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void srand(unsigned int seed);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDLIB_SRAND_H

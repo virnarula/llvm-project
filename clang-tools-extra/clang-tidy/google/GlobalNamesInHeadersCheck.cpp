@@ -14,24 +14,22 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::google::readability {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace readability {
 
 GlobalNamesInHeadersCheck::GlobalNamesInHeadersCheck(StringRef Name,
                                                      ClangTidyContext *Context)
-    : ClangTidyCheck(Name, Context) {
-  std::optional<StringRef> HeaderFileExtensionsOption =
-      Options.get("HeaderFileExtensions");
-  RawStringHeaderFileExtensions =
-      HeaderFileExtensionsOption.value_or(utils::defaultHeaderFileExtensions());
-  if (HeaderFileExtensionsOption) {
-    if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
-                                    HeaderFileExtensions,
-                                    utils::defaultFileExtensionDelimiters())) {
-      this->configurationDiag("Invalid header file extension: '%0'")
-          << RawStringHeaderFileExtensions;
-    }
-  } else
-    HeaderFileExtensions = Context->getHeaderFileExtensions();
+    : ClangTidyCheck(Name, Context),
+      RawStringHeaderFileExtensions(Options.getLocalOrGlobal(
+          "HeaderFileExtensions", utils::defaultHeaderFileExtensions())) {
+  if (!utils::parseFileExtensions(RawStringHeaderFileExtensions,
+                                  HeaderFileExtensions,
+                                  utils::defaultFileExtensionDelimiters())) {
+    this->configurationDiag("Invalid header file extension: '%0'")
+        << RawStringHeaderFileExtensions;
+  }
 }
 
 void GlobalNamesInHeadersCheck::storeOptions(
@@ -76,4 +74,7 @@ void GlobalNamesInHeadersCheck::check(const MatchFinder::MatchResult &Result) {
        "using declarations in the global namespace in headers are prohibited");
 }
 
-} // namespace clang::tidy::google::readability
+} // namespace readability
+} // namespace google
+} // namespace tidy
+} // namespace clang

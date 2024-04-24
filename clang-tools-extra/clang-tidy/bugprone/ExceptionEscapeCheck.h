@@ -13,7 +13,9 @@
 #include "../utils/ExceptionAnalyzer.h"
 #include "llvm/ADT/StringSet.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Finds functions which should not throw exceptions: Destructors, move
 /// constructors, move assignment operators, the main() function,
@@ -40,6 +42,8 @@ private:
   utils::ExceptionAnalyzer Tracer;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_EXCEPTION_ESCAPE_H

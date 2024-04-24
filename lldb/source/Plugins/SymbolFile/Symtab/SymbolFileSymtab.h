@@ -10,7 +10,6 @@
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_SYMTAB_SYMBOLFILESYMTAB_H
 
 #include <map>
-#include <optional>
 #include <vector>
 
 #include "lldb/Symbol/SymbolFile.h"
@@ -57,7 +56,7 @@ public:
   bool ParseDebugMacros(lldb_private::CompileUnit &comp_unit) override;
 
   bool ParseSupportFiles(lldb_private::CompileUnit &comp_unit,
-                         lldb_private::SupportFileList &support_files) override;
+                         lldb_private::FileSpecList &support_files) override;
 
   size_t ParseTypes(lldb_private::CompileUnit &comp_unit) override;
 
@@ -71,7 +70,7 @@ public:
   ParseVariablesForContext(const lldb_private::SymbolContext &sc) override;
 
   lldb_private::Type *ResolveTypeUID(lldb::user_id_t type_uid) override;
-  std::optional<ArrayInfo> GetDynamicArrayInfoForUID(
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
       lldb::user_id_t type_uid,
       const lldb_private::ExecutionContext *exe_ctx) override;
 
@@ -93,11 +92,14 @@ protected:
 
   lldb::CompUnitSP ParseCompileUnitAtIndex(uint32_t index) override;
 
+  typedef std::map<lldb_private::ConstString, lldb::TypeSP> TypeMap;
+
   lldb_private::Symtab::IndexCollection m_source_indexes;
   lldb_private::Symtab::IndexCollection m_func_indexes;
   lldb_private::Symtab::IndexCollection m_code_indexes;
   lldb_private::Symtab::IndexCollection m_data_indexes;
   lldb_private::Symtab::NameToIndexMap m_objc_class_name_to_index;
+  TypeMap m_objc_class_types;
 };
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_SYMTAB_SYMBOLFILESYMTAB_H

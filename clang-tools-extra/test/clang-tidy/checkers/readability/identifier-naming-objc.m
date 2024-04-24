@@ -1,6 +1,6 @@
 // RUN: %check_clang_tidy %s readability-identifier-naming %t \
 // RUN: -config='{CheckOptions: \
-// RUN:  {readability-identifier-naming.ObjcIvarPrefix: '_'}}' \
+// RUN:  [{key: readability-identifier-naming.ObjcIvarPrefix, value: '_'}]}' \
 // RUN: --
 
 @interface Foo {

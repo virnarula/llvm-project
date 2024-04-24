@@ -82,11 +82,6 @@ Examples:
 Options
 -------
 
-.. option:: IgnoreMacros
-
-   If `true`, ignore boolean expressions originating from expanded macros.
-   Default is `false`.
-
 .. option:: ChainedConditionalReturn
 
    If `true`, conditional boolean return statements at the end of an
@@ -104,8 +99,8 @@ Options
 
 .. option:: SimplifyDeMorganRelaxed
 
-   If `true`, :option:`SimplifyDeMorgan` will also transform negated
-   conjunctions and disjunctions where there is no negation on either operand.
+   If `true`, :option:`SimplifyDeMorgan` will also transform negated 
+   conjunctions and disjunctions where there is no negation on either operand. 
    This option has no effect if :option:`SimplifyDeMorgan` is `false`.
    Default is `false`.
 

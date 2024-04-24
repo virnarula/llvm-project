@@ -25,7 +25,6 @@ public:
   explicit IVUsersPrinterPass(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &U);
-  static bool isRequired() { return true; }
 };
 }
 

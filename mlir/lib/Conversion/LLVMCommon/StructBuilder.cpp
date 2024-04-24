@@ -23,7 +23,7 @@ StructBuilder::StructBuilder(Value v) : value(v), structType(v.getType()) {
 }
 
 Value StructBuilder::extractPtr(OpBuilder &builder, Location loc,
-                                unsigned pos) const {
+                                unsigned pos) {
   return builder.create<LLVM::ExtractValueOp>(loc, value, pos);
 }
 

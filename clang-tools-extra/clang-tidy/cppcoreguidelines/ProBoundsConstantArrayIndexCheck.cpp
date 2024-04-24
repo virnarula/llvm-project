@@ -11,11 +11,12 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 ProBoundsConstantArrayIndexCheck::ProBoundsConstantArrayIndexCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -48,8 +49,8 @@ void ProBoundsConstantArrayIndexCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       cxxOperatorCallExpr(
           hasOverloadedOperatorName("[]"),
-          callee(cxxMethodDecl(
-              ofClass(cxxRecordDecl(hasName("::std::array")).bind("type")))),
+          hasArgument(
+              0, hasType(cxxRecordDecl(hasName("::std::array")).bind("type"))),
           hasArgument(1, expr().bind("index")))
           .bind("expr"),
       this);
@@ -69,7 +70,7 @@ void ProBoundsConstantArrayIndexCheck::check(
   if (IndexExpr->isValueDependent())
     return; // We check in the specialization.
 
-  std::optional<llvm::APSInt> Index =
+  Optional<llvm::APSInt> Index =
       IndexExpr->getIntegerConstantExpr(*Result.Context);
   if (!Index) {
     SourceRange BaseRange;
@@ -127,4 +128,6 @@ void ProBoundsConstantArrayIndexCheck::check(
   }
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

@@ -14,13 +14,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Lex/Lexer.h"
-#include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
@@ -28,9 +28,7 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Unicode.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -62,8 +60,7 @@ class NonLocalizedStringChecker
                      check::PostObjCMessage,
                      check::PostStmt<ObjCStringLiteral>> {
 
-  const BugType BT{this, "Unlocalizable string",
-                   "Localizability Issue (Apple)"};
+  mutable std::unique_ptr<BugType> BT;
 
   // Methods that require a localized string
   mutable llvm::DenseMap<const IdentifierInfo *,
@@ -90,6 +87,8 @@ class NonLocalizedStringChecker
                                       Selector S) const;
 
 public:
+  NonLocalizedStringChecker();
+
   // When this parameter is set to true, the checker assumes all
   // methods that return NSStrings are unlocalized. Thus, more false
   // positives will be reported.
@@ -106,6 +105,11 @@ public:
 
 REGISTER_MAP_WITH_PROGRAMSTATE(LocalizedMemMap, const MemRegion *,
                                LocalizedState)
+
+NonLocalizedStringChecker::NonLocalizedStringChecker() {
+  BT.reset(new BugType(this, "Unlocalizable string",
+                       "Localizability Issue (Apple)"));
+}
 
 namespace {
 class NonLocalizedStringBRVisitor final : public BugReporterVisitor {
@@ -712,7 +716,7 @@ void NonLocalizedStringChecker::setNonLocalizedState(const SVal S,
 
 
 static bool isDebuggingName(std::string name) {
-  return StringRef(name).contains_insensitive("debug");
+  return StringRef(name).lower().find("debug") != StringRef::npos;
 }
 
 /// Returns true when, heuristically, the analyzer may be analyzing debugging
@@ -758,7 +762,7 @@ void NonLocalizedStringChecker::reportLocalizationError(
 
   // Generate the bug report.
   auto R = std::make_unique<PathSensitiveBugReport>(
-      BT, "User-facing text should use localized string macro", ErrNode);
+      *BT, "User-facing text should use localized string macro", ErrNode);
   if (argumentNumber) {
     R->addRange(M.getArgExpr(argumentNumber - 1)->getSourceRange());
   } else {
@@ -811,9 +815,9 @@ void NonLocalizedStringChecker::checkPreObjCMessage(const ObjCMethodCall &msg,
     // Handle the case where the receiver is an NSString
     // These special NSString methods draw to the screen
 
-    if (!(SelectorName.starts_with("drawAtPoint") ||
-          SelectorName.starts_with("drawInRect") ||
-          SelectorName.starts_with("drawWithRect")))
+    if (!(SelectorName.startswith("drawAtPoint") ||
+          SelectorName.startswith("drawInRect") ||
+          SelectorName.startswith("drawWithRect")))
       return;
 
     SVal svTitle = msg.getReceiverSVal();
@@ -842,9 +846,10 @@ void NonLocalizedStringChecker::checkPreObjCMessage(const ObjCMethodCall &msg,
   if (argumentNumber < 0) { // There was no match in UIMethods
     if (const Decl *D = msg.getDecl()) {
       if (const ObjCMethodDecl *OMD = dyn_cast_or_null<ObjCMethodDecl>(D)) {
-        for (auto [Idx, FormalParam] : llvm::enumerate(OMD->parameters())) {
-          if (isAnnotatedAsTakingLocalized(FormalParam)) {
-            argumentNumber = Idx;
+        auto formals = OMD->parameters();
+        for (unsigned i = 0, ei = formals.size(); i != ei; ++i) {
+          if (isAnnotatedAsTakingLocalized(formals[i])) {
+            argumentNumber = i;
             break;
           }
         }
@@ -999,7 +1004,7 @@ NonLocalizedStringBRVisitor::VisitNode(const ExplodedNode *Succ,
   if (Satisfied)
     return nullptr;
 
-  std::optional<StmtPoint> Point = Succ->getLocation().getAs<StmtPoint>();
+  Optional<StmtPoint> Point = Succ->getLocation().getAs<StmtPoint>();
   if (!Point)
     return nullptr;
 
@@ -1136,7 +1141,7 @@ void EmptyLocalizationContextChecker::MethodCrawler::VisitObjCMessageExpr(
     SE = Mgr.getSourceManager().getSLocEntry(SLInfo.first);
   }
 
-  std::optional<llvm::MemoryBufferRef> BF =
+  llvm::Optional<llvm::MemoryBufferRef> BF =
       Mgr.getSourceManager().getBufferOrNone(SLInfo.first, SL);
   if (!BF)
     return;
@@ -1248,8 +1253,8 @@ bool PluralMisuseChecker::MethodCrawler::isCheckingPlurality(
           BO = B;
         }
       }
-      if (VD->getName().contains_insensitive("plural") ||
-          VD->getName().contains_insensitive("singular")) {
+      if (VD->getName().lower().find("plural") != StringRef::npos ||
+          VD->getName().lower().find("singular") != StringRef::npos) {
         return true;
       }
     }

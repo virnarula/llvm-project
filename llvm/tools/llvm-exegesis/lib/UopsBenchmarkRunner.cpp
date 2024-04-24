@@ -19,45 +19,25 @@ Expected<std::vector<BenchmarkMeasure>>
 UopsBenchmarkRunner::runMeasurements(const FunctionExecutor &Executor) const {
   std::vector<BenchmarkMeasure> Result;
   const PfmCountersInfo &PCI = State.getPfmCounters();
-
-  SmallVector<const char *> ValCountersToRun;
-  Error ValCounterErr = getValidationCountersToRun(ValCountersToRun);
-  if (ValCounterErr)
-    return std::move(ValCounterErr);
-
   // Uops per port.
   for (const auto *IssueCounter = PCI.IssueCounters,
                   *IssueCounterEnd = PCI.IssueCounters + PCI.NumIssueCounters;
        IssueCounter != IssueCounterEnd; ++IssueCounter) {
-    SmallVector<int64_t> ValCounterPortValues(ValCountersToRun.size(), -1);
     if (!IssueCounter->Counter)
       continue;
-    auto ExpectedCounterValue = Executor.runAndSample(
-        IssueCounter->Counter, ValCountersToRun, ValCounterPortValues);
+    auto ExpectedCounterValue = Executor.runAndMeasure(IssueCounter->Counter);
     if (!ExpectedCounterValue)
       return ExpectedCounterValue.takeError();
-
-    std::map<ValidationEvent, int64_t> ValidationInfo;
-    for (size_t I = 0; I < ValidationCounters.size(); ++I)
-      ValidationInfo[ValidationCounters[I]] = ValCounterPortValues[I];
-
-    Result.push_back(BenchmarkMeasure::Create(
-        IssueCounter->ProcResName, (*ExpectedCounterValue)[0], ValidationInfo));
+    Result.push_back(BenchmarkMeasure::Create(IssueCounter->ProcResName,
+                                              *ExpectedCounterValue));
   }
   // NumMicroOps.
   if (const char *const UopsCounter = PCI.UopsCounter) {
-    SmallVector<int64_t> ValCounterUopsValues(ValCountersToRun.size(), -1);
-    auto ExpectedCounterValue = Executor.runAndSample(
-        UopsCounter, ValCountersToRun, ValCounterUopsValues);
+    auto ExpectedCounterValue = Executor.runAndMeasure(UopsCounter);
     if (!ExpectedCounterValue)
       return ExpectedCounterValue.takeError();
-
-    std::map<ValidationEvent, int64_t> ValidationInfo;
-    for (size_t I = 0; I < ValidationCounters.size(); ++I)
-      ValidationInfo[ValidationCounters[I]] = ValCounterUopsValues[I];
-
-    Result.push_back(BenchmarkMeasure::Create(
-        "NumMicroOps", (*ExpectedCounterValue)[0], ValidationInfo));
+    Result.push_back(
+        BenchmarkMeasure::Create("NumMicroOps", *ExpectedCounterValue));
   }
   return std::move(Result);
 }

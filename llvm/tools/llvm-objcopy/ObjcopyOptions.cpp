@@ -7,9 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "ObjcopyOptions.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/ObjCopy/CommonConfig.h"
 #include "llvm/ObjCopy/ConfigManager.h"
@@ -25,128 +26,149 @@
 
 using namespace llvm;
 using namespace llvm::objcopy;
-using namespace llvm::opt;
 
 namespace {
 enum ObjcopyID {
   OBJCOPY_INVALID = 0, // This is not an option ID.
-#define OPTION(...) LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(OBJCOPY_, __VA_ARGS__),
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  OBJCOPY_##ID,
 #include "ObjcopyOpts.inc"
 #undef OPTION
 };
 
-namespace objcopy_opt {
-#define PREFIX(NAME, VALUE)                                                    \
-  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
-  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
-                                                std::size(NAME##_init) - 1);
+#define PREFIX(NAME, VALUE) const char *const OBJCOPY_##NAME[] = VALUE;
 #include "ObjcopyOpts.inc"
 #undef PREFIX
 
-static constexpr opt::OptTable::Info ObjcopyInfoTable[] = {
-#define OPTION(...)                                                            \
-  LLVM_CONSTRUCT_OPT_INFO_WITH_ID_PREFIX(OBJCOPY_, __VA_ARGS__),
+const opt::OptTable::Info ObjcopyInfoTable[] = {
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  {OBJCOPY_##PREFIX,                                                           \
+   NAME,                                                                       \
+   HELPTEXT,                                                                   \
+   METAVAR,                                                                    \
+   OBJCOPY_##ID,                                                               \
+   opt::Option::KIND##Class,                                                   \
+   PARAM,                                                                      \
+   FLAGS,                                                                      \
+   OBJCOPY_##GROUP,                                                            \
+   OBJCOPY_##ALIAS,                                                            \
+   ALIASARGS,                                                                  \
+   VALUES},
 #include "ObjcopyOpts.inc"
 #undef OPTION
 };
-} // namespace objcopy_opt
 
-class ObjcopyOptTable : public opt::GenericOptTable {
+class ObjcopyOptTable : public opt::OptTable {
 public:
-  ObjcopyOptTable() : opt::GenericOptTable(objcopy_opt::ObjcopyInfoTable) {
+  ObjcopyOptTable() : OptTable(ObjcopyInfoTable) {
     setGroupedShortOptions(true);
   }
 };
 
 enum InstallNameToolID {
   INSTALL_NAME_TOOL_INVALID = 0, // This is not an option ID.
-#define OPTION(...)                                                            \
-  LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(INSTALL_NAME_TOOL_, __VA_ARGS__),
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  INSTALL_NAME_TOOL_##ID,
 #include "InstallNameToolOpts.inc"
 #undef OPTION
 };
 
-namespace install_name_tool {
-
 #define PREFIX(NAME, VALUE)                                                    \
-  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
-  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
-                                                std::size(NAME##_init) - 1);
+  const char *const INSTALL_NAME_TOOL_##NAME[] = VALUE;
 #include "InstallNameToolOpts.inc"
 #undef PREFIX
 
-static constexpr opt::OptTable::Info InstallNameToolInfoTable[] = {
-#define OPTION(...)                                                            \
-  LLVM_CONSTRUCT_OPT_INFO_WITH_ID_PREFIX(INSTALL_NAME_TOOL_, __VA_ARGS__),
+const opt::OptTable::Info InstallNameToolInfoTable[] = {
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  {INSTALL_NAME_TOOL_##PREFIX,                                                 \
+   NAME,                                                                       \
+   HELPTEXT,                                                                   \
+   METAVAR,                                                                    \
+   INSTALL_NAME_TOOL_##ID,                                                     \
+   opt::Option::KIND##Class,                                                   \
+   PARAM,                                                                      \
+   FLAGS,                                                                      \
+   INSTALL_NAME_TOOL_##GROUP,                                                  \
+   INSTALL_NAME_TOOL_##ALIAS,                                                  \
+   ALIASARGS,                                                                  \
+   VALUES},
 #include "InstallNameToolOpts.inc"
 #undef OPTION
 };
-} // namespace install_name_tool
 
-class InstallNameToolOptTable : public opt::GenericOptTable {
+class InstallNameToolOptTable : public opt::OptTable {
 public:
-  InstallNameToolOptTable()
-      : GenericOptTable(install_name_tool::InstallNameToolInfoTable) {}
+  InstallNameToolOptTable() : OptTable(InstallNameToolInfoTable) {}
 };
 
 enum BitcodeStripID {
   BITCODE_STRIP_INVALID = 0, // This is not an option ID.
-#define OPTION(...)                                                            \
-  LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(BITCODE_STRIP_, __VA_ARGS__),
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  BITCODE_STRIP_##ID,
 #include "BitcodeStripOpts.inc"
 #undef OPTION
 };
 
-namespace bitcode_strip {
-
-#define PREFIX(NAME, VALUE)                                                    \
-  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
-  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
-                                                std::size(NAME##_init) - 1);
+#define PREFIX(NAME, VALUE) const char *const BITCODE_STRIP_##NAME[] = VALUE;
 #include "BitcodeStripOpts.inc"
 #undef PREFIX
 
-static constexpr opt::OptTable::Info BitcodeStripInfoTable[] = {
-#define OPTION(...)                                                            \
-  LLVM_CONSTRUCT_OPT_INFO_WITH_ID_PREFIX(BITCODE_STRIP_, __VA_ARGS__),
+const opt::OptTable::Info BitcodeStripInfoTable[] = {
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  {BITCODE_STRIP_##PREFIX,                                                     \
+   NAME,                                                                       \
+   HELPTEXT,                                                                   \
+   METAVAR,                                                                    \
+   BITCODE_STRIP_##ID,                                                         \
+   opt::Option::KIND##Class,                                                   \
+   PARAM,                                                                      \
+   FLAGS,                                                                      \
+   BITCODE_STRIP_##GROUP,                                                      \
+   BITCODE_STRIP_##ALIAS,                                                      \
+   ALIASARGS,                                                                  \
+   VALUES},
 #include "BitcodeStripOpts.inc"
 #undef OPTION
 };
-} // namespace bitcode_strip
 
-class BitcodeStripOptTable : public opt::GenericOptTable {
+class BitcodeStripOptTable : public opt::OptTable {
 public:
-  BitcodeStripOptTable()
-      : opt::GenericOptTable(bitcode_strip::BitcodeStripInfoTable) {}
+  BitcodeStripOptTable() : OptTable(BitcodeStripInfoTable) {}
 };
 
 enum StripID {
   STRIP_INVALID = 0, // This is not an option ID.
-#define OPTION(...) LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(STRIP_, __VA_ARGS__),
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  STRIP_##ID,
 #include "StripOpts.inc"
 #undef OPTION
 };
 
-namespace strip {
-#define PREFIX(NAME, VALUE)                                                    \
-  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
-  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
-                                                std::size(NAME##_init) - 1);
+#define PREFIX(NAME, VALUE) const char *const STRIP_##NAME[] = VALUE;
 #include "StripOpts.inc"
 #undef PREFIX
 
-static constexpr opt::OptTable::Info StripInfoTable[] = {
-#define OPTION(...) LLVM_CONSTRUCT_OPT_INFO_WITH_ID_PREFIX(STRIP_, __VA_ARGS__),
+const opt::OptTable::Info StripInfoTable[] = {
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  {STRIP_##PREFIX, NAME,       HELPTEXT,                                       \
+   METAVAR,        STRIP_##ID, opt::Option::KIND##Class,                       \
+   PARAM,          FLAGS,      STRIP_##GROUP,                                  \
+   STRIP_##ALIAS,  ALIASARGS,  VALUES},
 #include "StripOpts.inc"
 #undef OPTION
 };
-} // namespace strip
 
-class StripOptTable : public opt::GenericOptTable {
+class StripOptTable : public opt::OptTable {
 public:
-  StripOptTable() : GenericOptTable(strip::StripInfoTable) {
-    setGroupedShortOptions(true);
-  }
+  StripOptTable() : OptTable(StripInfoTable) { setGroupedShortOptions(true); }
 };
 
 } // namespace
@@ -166,7 +188,6 @@ static SectionFlag parseSectionRenameFlag(StringRef SectionName) {
       .CaseLower("contents", SectionFlag::SecContents)
       .CaseLower("share", SectionFlag::SecShare)
       .CaseLower("exclude", SectionFlag::SecExclude)
-      .CaseLower("large", SectionFlag::SecLarge)
       .Default(SectionFlag::SecNone);
 }
 
@@ -180,7 +201,7 @@ parseSectionFlagSet(ArrayRef<StringRef> SectionFlags) {
           errc::invalid_argument,
           "unrecognized section flag '%s'. Flags supported for GNU "
           "compatibility: alloc, load, noload, readonly, exclude, debug, "
-          "code, data, rom, share, contents, merge, strings, large",
+          "code, data, rom, share, contents, merge, strings",
           Flag.str().c_str());
     ParsedFlags |= ParsedFlag;
   }
@@ -205,7 +226,7 @@ static Expected<SectionRename> parseRenameSectionValue(StringRef FlagValue) {
 
   if (NameAndFlags.size() > 1) {
     Expected<SectionFlag> ParsedFlagSet =
-        parseSectionFlagSet(ArrayRef(NameAndFlags).drop_front());
+        parseSectionFlagSet(makeArrayRef(NameAndFlags).drop_front());
     if (!ParsedFlagSet)
       return ParsedFlagSet.takeError();
     SR.NewFlags = *ParsedFlagSet;
@@ -294,13 +315,7 @@ static const StringMap<MachineInfo> TargetMap{
     // SPARC
     {"elf32-sparc", {ELF::EM_SPARC, false, false}},
     {"elf32-sparcel", {ELF::EM_SPARC, false, true}},
-    // Hexagon
     {"elf32-hexagon", {ELF::EM_HEXAGON, false, true}},
-    // LoongArch
-    {"elf32-loongarch", {ELF::EM_LOONGARCH, false, true}},
-    {"elf64-loongarch", {ELF::EM_LOONGARCH, true, true}},
-    // SystemZ
-    {"elf64-s390", {ELF::EM_S390, true, false}},
 };
 
 static Expected<TargetInfo>
@@ -317,7 +332,7 @@ getOutputTargetInfoByTargetName(StringRef TargetName) {
     MI.OSABI = ELF::ELFOSABI_FREEBSD;
 
   FileFormat Format;
-  if (TargetName.starts_with("elf"))
+  if (TargetName.startswith("elf"))
     Format = FileFormat::ELF;
   else
     // This should never happen because `TargetName` is valid (it certainly
@@ -545,7 +560,7 @@ objcopy::parseObjcopyOptions(ArrayRef<const char *> RawArgsArr,
 
   const char *const *DashDash =
       llvm::find_if(RawArgsArr, [](StringRef Str) { return Str == "--"; });
-  ArrayRef<const char *> ArgsArr = ArrayRef(RawArgsArr.begin(), DashDash);
+  ArrayRef<const char *> ArgsArr = makeArrayRef(RawArgsArr.begin(), DashDash);
   if (DashDash != RawArgsArr.end())
     DashDash = std::next(DashDash);
 
@@ -738,35 +753,6 @@ objcopy::parseObjcopyOptions(ArrayRef<const char *> RawArgsArr,
       InputArgs.getLastArgValue(OBJCOPY_prefix_alloc_sections);
   if (auto Arg = InputArgs.getLastArg(OBJCOPY_extract_partition))
     Config.ExtractPartition = Arg->getValue();
-
-  if (const auto *A = InputArgs.getLastArg(OBJCOPY_gap_fill)) {
-    if (Config.OutputFormat != FileFormat::Binary)
-      return createStringError(
-          errc::invalid_argument,
-          "'--gap-fill' is only supported for binary output");
-    ErrorOr<uint64_t> Val = getAsInteger<uint64_t>(A->getValue());
-    if (!Val)
-      return createStringError(Val.getError(), "--gap-fill: bad number: %s",
-                               A->getValue());
-    uint8_t ByteVal = Val.get();
-    if (ByteVal != Val.get())
-      return createStringError(std::errc::value_too_large,
-                               "gap-fill value %s is out of range (0 to 0xff)",
-                               A->getValue());
-    Config.GapFill = ByteVal;
-  }
-
-  if (const auto *A = InputArgs.getLastArg(OBJCOPY_pad_to)) {
-    if (Config.OutputFormat != FileFormat::Binary)
-      return createStringError(
-          errc::invalid_argument,
-          "'--pad-to' is only supported for binary output");
-    ErrorOr<uint64_t> Addr = getAsInteger<uint64_t>(A->getValue());
-    if (!Addr)
-      return createStringError(Addr.getError(), "--pad-to: bad number: %s",
-                               A->getValue());
-    Config.PadTo = *Addr;
-  }
 
   for (auto *Arg : InputArgs.filtered(OBJCOPY_redefine_symbol)) {
     if (!StringRef(Arg->getValue()).contains('='))
@@ -1230,7 +1216,7 @@ objcopy::parseStripOptions(ArrayRef<const char *> RawArgsArr,
                            function_ref<Error(Error)> ErrorCallback) {
   const char *const *DashDash =
       llvm::find_if(RawArgsArr, [](StringRef Str) { return Str == "--"; });
-  ArrayRef<const char *> ArgsArr = ArrayRef(RawArgsArr.begin(), DashDash);
+  ArrayRef<const char *> ArgsArr = makeArrayRef(RawArgsArr.begin(), DashDash);
   if (DashDash != RawArgsArr.end())
     DashDash = std::next(DashDash);
 

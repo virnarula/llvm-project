@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 void MisplacedPointerArithmeticInAllocCheck::registerMatchers(
     MatchFinder *Finder) {
@@ -97,4 +99,6 @@ void MisplacedPointerArithmeticInAllocCheck::check(
       << FixItHint::CreateInsertion(NewRParen, RParen);
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

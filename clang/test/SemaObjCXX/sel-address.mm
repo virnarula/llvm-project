@@ -15,6 +15,5 @@ void h() {
 
   // Shouldn't crash.
   g(&@selector(foo));
-  g(&(@selector(foo)));
 }
 

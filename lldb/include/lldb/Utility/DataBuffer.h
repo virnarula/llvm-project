@@ -8,6 +8,7 @@
 
 #ifndef LLDB_UTILITY_DATABUFFER_H
 #define LLDB_UTILITY_DATABUFFER_H
+#if defined(__cplusplus)
 
 #include <cstdint>
 #include <cstring>
@@ -148,4 +149,5 @@ private:
 
 } // namespace lldb_private
 
+#endif /// #if defined(__cplusplus)
 #endif // LLDB_UTILITY_DATABUFFER_H

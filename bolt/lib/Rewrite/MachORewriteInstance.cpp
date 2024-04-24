@@ -17,15 +17,14 @@
 #include "bolt/Profile/DataReader.h"
 #include "bolt/Rewrite/BinaryPassManager.h"
 #include "bolt/Rewrite/ExecutableFileMemoryManager.h"
-#include "bolt/Rewrite/JITLinkLinker.h"
 #include "bolt/RuntimeLibs/InstrumentationRuntimeLibrary.h"
 #include "bolt/Utils/Utils.h"
+#include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCObjectStreamer.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include <memory>
-#include <optional>
 
 namespace opts {
 
@@ -56,28 +55,25 @@ namespace bolt {
 
 extern MCPlusBuilder *createX86MCPlusBuilder(const MCInstrAnalysis *,
                                              const MCInstrInfo *,
-                                             const MCRegisterInfo *,
-                                             const MCSubtargetInfo *);
+                                             const MCRegisterInfo *);
 extern MCPlusBuilder *createAArch64MCPlusBuilder(const MCInstrAnalysis *,
                                                  const MCInstrInfo *,
-                                                 const MCRegisterInfo *,
-                                                 const MCSubtargetInfo *);
+                                                 const MCRegisterInfo *);
 
 namespace {
 
 MCPlusBuilder *createMCPlusBuilder(const Triple::ArchType Arch,
                                    const MCInstrAnalysis *Analysis,
                                    const MCInstrInfo *Info,
-                                   const MCRegisterInfo *RegInfo,
-                                   const MCSubtargetInfo *STI) {
+                                   const MCRegisterInfo *RegInfo) {
 #ifdef X86_AVAILABLE
   if (Arch == Triple::x86_64)
-    return createX86MCPlusBuilder(Analysis, Info, RegInfo, STI);
+    return createX86MCPlusBuilder(Analysis, Info, RegInfo);
 #endif
 
 #ifdef AARCH64_AVAILABLE
   if (Arch == Triple::aarch64)
-    return createAArch64MCPlusBuilder(Analysis, Info, RegInfo, STI);
+    return createAArch64MCPlusBuilder(Analysis, Info, RegInfo);
 #endif
 
   llvm_unreachable("architecture unsupported by MCPlusBuilder");
@@ -88,8 +84,8 @@ MCPlusBuilder *createMCPlusBuilder(const Triple::ArchType Arch,
 #define DEBUG_TYPE "bolt"
 
 Expected<std::unique_ptr<MachORewriteInstance>>
-MachORewriteInstance::create(object::MachOObjectFile *InputFile,
-                             StringRef ToolPath) {
+MachORewriteInstance::createMachORewriteInstance(
+    object::MachOObjectFile *InputFile, StringRef ToolPath) {
   Error Err = Error::success();
   auto MachORI =
       std::make_unique<MachORewriteInstance>(InputFile, ToolPath, Err);
@@ -109,9 +105,8 @@ MachORewriteInstance::MachORewriteInstance(object::MachOObjectFile *InputFile,
     return;
   }
   BC = std::move(BCOrErr.get());
-  BC->initializeTarget(std::unique_ptr<MCPlusBuilder>(
-      createMCPlusBuilder(BC->TheTriple->getArch(), BC->MIA.get(),
-                          BC->MII.get(), BC->MRI.get(), BC->STI.get())));
+  BC->initializeTarget(std::unique_ptr<MCPlusBuilder>(createMCPlusBuilder(
+      BC->TheTriple->getArch(), BC->MIA.get(), BC->MII.get(), BC->MRI.get())));
   if (opts::Instrument)
     BC->setRuntimeLibrary(std::make_unique<InstrumentationRuntimeLibrary>());
 }
@@ -202,9 +197,9 @@ std::vector<DataInCodeRegion> readDataInCode(const MachOObjectFile &O) {
   return DataInCode;
 }
 
-std::optional<uint64_t> readStartAddress(const MachOObjectFile &O) {
-  std::optional<uint64_t> StartOffset;
-  std::optional<uint64_t> TextVMAddr;
+Optional<uint64_t> readStartAddress(const MachOObjectFile &O) {
+  Optional<uint64_t> StartOffset;
+  Optional<uint64_t> TextVMAddr;
   for (const object::MachOObjectFile::LoadCommandInfo &LC : O.load_commands()) {
     switch (LC.C.cmd) {
     case MachO::LC_MAIN: {
@@ -233,8 +228,8 @@ std::optional<uint64_t> readStartAddress(const MachOObjectFile &O) {
     }
   }
   return (TextVMAddr && StartOffset)
-             ? std::optional<uint64_t>(*TextVMAddr + *StartOffset)
-             : std::nullopt;
+             ? Optional<uint64_t>(*TextVMAddr + *StartOffset)
+             : llvm::None;
 }
 
 } // anonymous namespace
@@ -339,7 +334,7 @@ void MachORewriteInstance::disassembleFunctions() {
       continue;
     Function.disassemble();
     if (opts::PrintDisasm)
-      Function.print(outs(), "after disassembly");
+      Function.print(outs(), "after disassembly", true);
   }
 }
 
@@ -362,7 +357,7 @@ void MachORewriteInstance::postProcessFunctions() {
       continue;
     Function.postProcessCFG();
     if (opts::PrintCFG)
-      Function.print(outs(), "after building cfg");
+      Function.print(outs(), "after building cfg", true);
   }
 }
 
@@ -390,8 +385,7 @@ void MachORewriteInstance::runOptimizationPasses() {
   Manager.runPasses();
 }
 
-void MachORewriteInstance::mapInstrumentationSection(
-    StringRef SectionName, BOLTLinker::SectionMapper MapSection) {
+void MachORewriteInstance::mapInstrumentationSection(StringRef SectionName) {
   if (!opts::Instrument)
     return;
   ErrorOr<BinarySection &> Section = BC->getUniqueSectionByName(SectionName);
@@ -401,11 +395,11 @@ void MachORewriteInstance::mapInstrumentationSection(
   }
   if (!Section->hasValidSectionID())
     return;
-  MapSection(*Section, Section->getAddress());
+  RTDyld->reassignSectionAddress(Section->getSectionID(),
+                                 Section->getAddress());
 }
 
-void MachORewriteInstance::mapCodeSections(
-    BOLTLinker::SectionMapper MapSection) {
+void MachORewriteInstance::mapCodeSections() {
   for (BinaryFunction *Function : BC->getAllBinaryFunctions()) {
     if (!Function->isEmitted())
       continue;
@@ -422,7 +416,8 @@ void MachORewriteInstance::mapCodeSections(
     LLVM_DEBUG(dbgs() << "BOLT: mapping 0x"
                  << Twine::utohexstr(FuncSection->getAllocAddress()) << " to 0x"
                  << Twine::utohexstr(Function->getOutputAddress()) << '\n');
-    MapSection(*FuncSection, Function->getOutputAddress());
+    RTDyld->reassignSectionAddress(FuncSection->getSectionID(),
+                                   Function->getOutputAddress());
     Function->setImageAddress(FuncSection->getAllocAddress());
     Function->setImageSize(FuncSection->getOutputSize());
   }
@@ -443,7 +438,7 @@ void MachORewriteInstance::mapCodeSections(
       assert(FuncSection && "cannot find section for function");
       Addr = llvm::alignTo(Addr, 4);
       FuncSection->setOutputAddress(Addr);
-      MapSection(*FuncSection, Addr);
+      RTDyld->reassignSectionAddress(FuncSection->getSectionID(), Addr);
       Function->setFileOffset(Addr - BOLT->getAddress() +
                               BOLT->getInputFileOffset());
       Function->setImageAddress(FuncSection->getAllocAddress());
@@ -453,6 +448,34 @@ void MachORewriteInstance::mapCodeSections(
     }
   }
 }
+
+namespace {
+
+class BOLTSymbolResolver : public LegacyJITSymbolResolver {
+  BinaryContext &BC;
+public:
+  BOLTSymbolResolver(BinaryContext &BC) : BC(BC) {}
+
+  JITSymbol findSymbolInLogicalDylib(const std::string &Name) override {
+    return JITSymbol(nullptr);
+  }
+
+  JITSymbol findSymbol(const std::string &Name) override {
+    LLVM_DEBUG(dbgs() << "BOLT: looking for " << Name << "\n");
+    if (BinaryData *I = BC.getBinaryDataByName(Name)) {
+      const uint64_t Address = I->isMoved() && !I->isJumpTable()
+                                   ? I->getOutputAddress()
+                                   : I->getAddress();
+      LLVM_DEBUG(dbgs() << "Resolved to address 0x" << Twine::utohexstr(Address)
+                        << "\n");
+      return JITSymbol(Address, JITSymbolFlags());
+    }
+    LLVM_DEBUG(dbgs() << "Resolved to address 0x0\n");
+    return JITSymbol(nullptr);
+  }
+};
+
+} // end anonymous namespace
 
 void MachORewriteInstance::emitAndLink() {
   std::error_code EC;
@@ -479,35 +502,44 @@ void MachORewriteInstance::emitAndLink() {
       "error creating in-memory object");
   assert(Obj && "createObjectFile cannot return nullptr");
 
-  auto EFMM = std::make_unique<ExecutableFileMemoryManager>(*BC);
-  EFMM->setNewSecPrefix(getNewSecPrefix());
-  EFMM->setOrgSecPrefix(getOrgSecPrefix());
+  BOLTSymbolResolver Resolver = BOLTSymbolResolver(*BC);
 
-  Linker = std::make_unique<JITLinkLinker>(*BC, std::move(EFMM));
-  Linker->loadObject(ObjectMemBuffer->getMemBufferRef(),
-                     [this](auto MapSection) {
-                       // Assign addresses to all sections. If key corresponds
-                       // to the object created by ourselves, call our regular
-                       // mapping function. If we are loading additional objects
-                       // as part of runtime libraries for instrumentation,
-                       // treat them as extra sections.
-                       mapCodeSections(MapSection);
-                       mapInstrumentationSection("__counters", MapSection);
-                       mapInstrumentationSection("__tables", MapSection);
-                     });
+  MCAsmLayout FinalLayout(
+      static_cast<MCObjectStreamer *>(Streamer.get())->getAssembler());
 
-  // TODO: Refactor addRuntimeLibSections to work properly on Mach-O
-  // and use it here.
-  // if (auto *RtLibrary = BC->getRuntimeLibrary()) {
-  //   RtLibrary->link(*BC, ToolPath, *Linker, [this](auto MapSection) {
-  //     mapInstrumentationSection("I__setup", MapSection);
-  //     mapInstrumentationSection("I__fini", MapSection);
-  //     mapInstrumentationSection("I__data", MapSection);
-  //     mapInstrumentationSection("I__text", MapSection);
-  //     mapInstrumentationSection("I__cstring", MapSection);
-  //     mapInstrumentationSection("I__literal16", MapSection);
-  //   });
-  // }
+  BC->EFMM.reset(new ExecutableFileMemoryManager(*BC, /*AllowStubs*/ false));
+  BC->EFMM->setOrgSecPrefix(getOrgSecPrefix());
+  BC->EFMM->setNewSecPrefix(getNewSecPrefix());
+
+  RTDyld.reset(new decltype(RTDyld)::element_type(*BC->EFMM, Resolver));
+  RTDyld->setProcessAllSections(true);
+  RTDyld->loadObject(*Obj);
+  if (RTDyld->hasError()) {
+    outs() << "BOLT-ERROR: RTDyld failed.\n";
+    exit(1);
+  }
+
+  // Assign addresses to all sections. If key corresponds to the object
+  // created by ourselves, call our regular mapping function. If we are
+  // loading additional objects as part of runtime libraries for
+  // instrumentation, treat them as extra sections.
+  mapCodeSections();
+  mapInstrumentationSection("__counters");
+  mapInstrumentationSection("__tables");
+
+          // TODO: Refactor addRuntimeLibSections to work properly on Mach-O
+          // and use it here.
+  //FIXME! Put this in RtLibrary->link
+//          mapInstrumentationSection("I__setup");
+//          mapInstrumentationSection("I__fini");
+//          mapInstrumentationSection("I__data");
+//          mapInstrumentationSection("I__text");
+//          mapInstrumentationSection("I__cstring");
+//          mapInstrumentationSection("I__literal16");
+
+//  if (auto *RtLibrary = BC->getRuntimeLibrary()) {
+//    RtLibrary->link(*BC, ToolPath, *ES, *OLT);
+//  }
 }
 
 void MachORewriteInstance::writeInstrumentationSection(StringRef SectionName,
@@ -568,10 +600,8 @@ void MachORewriteInstance::rewriteFile() {
   writeInstrumentationSection("I__literal16", OS);
 
   Out->keep();
-  EC = sys::fs::setPermissions(
-      opts::OutputFilename,
-      static_cast<sys::fs::perms>(sys::fs::perms::all_all &
-                                  ~sys::fs::getUmask()));
+  EC = sys::fs::setPermissions(opts::OutputFilename,
+                               sys::fs::perms::all_all);
   check_error(EC, "cannot set permissions of output file");
 }
 

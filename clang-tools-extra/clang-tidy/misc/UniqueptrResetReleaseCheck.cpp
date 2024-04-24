@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 UniqueptrResetReleaseCheck::UniqueptrResetReleaseCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -146,4 +148,6 @@ void UniqueptrResetReleaseCheck::check(const MatchFinder::MatchResult &Result) {
         Result.SourceManager->getFileID(ResetMember->getBeginLoc()),
         "<utility>");
 }
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

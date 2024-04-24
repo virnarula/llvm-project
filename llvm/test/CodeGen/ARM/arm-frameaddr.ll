@@ -3,15 +3,15 @@
 ; PR4344
 ; PR4416
 
-define ptr @t() nounwind {
+define i8* @t() nounwind {
 entry:
 ; DARWIN-LABEL: t:
 ; DARWIN: mov r0, r7
 
 ; LINUX-LABEL: t:
 ; LINUX: mov r0, r11
-	%0 = call ptr @llvm.frameaddress(i32 0)
-        ret ptr %0
+	%0 = call i8* @llvm.frameaddress(i32 0)
+        ret i8* %0
 }
 
-declare ptr @llvm.frameaddress(i32) nounwind readnone
+declare i8* @llvm.frameaddress(i32) nounwind readnone

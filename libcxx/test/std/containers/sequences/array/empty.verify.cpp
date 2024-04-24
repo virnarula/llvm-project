@@ -16,9 +16,15 @@
 
 #include <array>
 
-void f() {
+#include "test_macros.h"
+
+int main(int, char**)
+{
+
     std::array<int, 1> c;
     c.empty(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
     std::array<int, 0> c0;
     c0.empty(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+
+    return 0;
 }

@@ -6,11 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // The string reported on errors changed, which makes those tests fail when run
 // against already-released libc++'s.
-// XFAIL: stdlib=apple-libc++ && target={{.+}}-apple-macosx{{10.15|11.0}}
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx{{10.15|11.0}}
 
 // <filesystem>
 
@@ -19,16 +19,18 @@
 // file_time_type last_write_time() const;
 // file_time_type last_write_time(error_code const&) const noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
-#include "assert_macros.h"
 #include "filesystem_test_helper.h"
-#include "test_macros.h"
-namespace fs = std::filesystem;
+#include "rapid-cxx-test.h"
 
-static void signatures() {
+#include "test_macros.h"
+
+TEST_SUITE(directory_entry_obs_testsuite)
+
+TEST_CASE(signatures) {
   using namespace fs;
   {
     const fs::directory_entry e = {};
@@ -42,7 +44,7 @@ static void signatures() {
   }
 }
 
-static void basic() {
+TEST_CASE(basic) {
   using namespace fs;
 
   scoped_test_env env;
@@ -58,8 +60,8 @@ static void basic() {
     LIBCPP_ONLY(remove(file));
 
     std::error_code ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect);
-    assert(!ec);
+    TEST_CHECK(ent.last_write_time(ec) == expect);
+    TEST_CHECK(!ec);
   }
   {
     directory_entry ent(dir);
@@ -68,8 +70,8 @@ static void basic() {
     LIBCPP_ONLY(remove(dir));
 
     std::error_code ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect);
-    assert(!ec);
+    TEST_CHECK(ent.last_write_time(ec) == expect);
+    TEST_CHECK(!ec);
   }
   env.create_file("file", 99);
   {
@@ -77,12 +79,12 @@ static void basic() {
     file_time_type expect = last_write_time(sym);
 
     std::error_code ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect);
-    assert(!ec);
+    TEST_CHECK(ent.last_write_time(ec) == expect);
+    TEST_CHECK(!ec);
   }
 }
 
-static void error_reporting() {
+TEST_CASE(error_reporting) {
   using namespace fs;
 
   static_test_env static_env;
@@ -104,17 +106,17 @@ static void error_reporting() {
 
     std::error_code ec = GetTestEC();
     ent.assign(static_env.DNE, ec);
-    assert(ent.path() == static_env.DNE);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_REQUIRE(ent.path() == static_env.DNE);
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
 
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == file_time_type::min());
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(ent.last_write_time(ec) == file_time_type::min());
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
 
     ExceptionChecker Checker(static_env.DNE,
                              std::errc::no_such_file_or_directory,
                              "directory_entry::last_write_time");
-    TEST_VALIDATE_EXCEPTION(filesystem_error, Checker, ent.last_write_time());
+    TEST_CHECK_THROW_RESULT(filesystem_error, Checker, ent.last_write_time());
   }
   // test a dead symlink
   {
@@ -122,22 +124,22 @@ static void error_reporting() {
 
     std::error_code ec = GetTestEC();
     file_time_type expect_bad = last_write_time(static_env.BadSymlink, ec);
-    assert(expect_bad == file_time_type::min());
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(expect_bad == file_time_type::min());
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
 
     ec = GetTestEC();
     ent.assign(static_env.BadSymlink, ec);
-    assert(ent.path() == static_env.BadSymlink);
-    assert(!ec);
+    TEST_REQUIRE(ent.path() == static_env.BadSymlink);
+    TEST_CHECK(!ec);
 
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect_bad);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(ent.last_write_time(ec) == expect_bad);
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
 
     ExceptionChecker Checker(static_env.BadSymlink,
                              std::errc::no_such_file_or_directory,
                              "directory_entry::last_write_time");
-    TEST_VALIDATE_EXCEPTION(filesystem_error, Checker, ent.last_write_time());
+    TEST_CHECK_THROW_RESULT(filesystem_error, Checker, ent.last_write_time());
   }
   // Windows doesn't support setting perms::none to trigger failures
   // reading directories.
@@ -150,22 +152,22 @@ static void error_reporting() {
 
     std::error_code ec = GetTestEC();
     ent.assign(file, ec);
-    assert(ent.path() == file);
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_REQUIRE(ent.path() == file);
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
 
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == file_time_type::min());
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ent.last_write_time(ec) == file_time_type::min());
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
 
     ExceptionChecker Checker(file, std::errc::permission_denied,
                              "last_write_time");
-    TEST_VALIDATE_EXCEPTION(filesystem_error, Checker, ent.last_write_time());
+    TEST_CHECK_THROW_RESULT(filesystem_error, Checker, ent.last_write_time());
 
     permissions(dir, old_perms);
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect_good);
-    assert(!ec);
-    TEST_DOES_NOT_THROW(ent.last_write_time());
+    TEST_CHECK(ent.last_write_time(ec) == expect_good);
+    TEST_CHECK(!ec);
+    TEST_CHECK_NO_THROW(ent.last_write_time());
   }
   permissions(dir, old_perms);
   // test a symlink w/o appropriate permissions.
@@ -176,22 +178,22 @@ static void error_reporting() {
 
     std::error_code ec = GetTestEC();
     ent.assign(sym_in_dir, ec);
-    assert(ent.path() == sym_in_dir);
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_REQUIRE(ent.path() == sym_in_dir);
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
 
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == file_time_type::min());
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ent.last_write_time(ec) == file_time_type::min());
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
 
     ExceptionChecker Checker(sym_in_dir, std::errc::permission_denied,
                              "last_write_time");
-    TEST_VALIDATE_EXCEPTION(filesystem_error, Checker, ent.last_write_time());
+    TEST_CHECK_THROW_RESULT(filesystem_error, Checker, ent.last_write_time());
 
     permissions(dir, old_perms);
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect_good);
-    assert(!ec);
-    TEST_DOES_NOT_THROW(ent.last_write_time());
+    TEST_CHECK(ent.last_write_time(ec) == expect_good);
+    TEST_CHECK(!ec);
+    TEST_CHECK_NO_THROW(ent.last_write_time());
   }
   permissions(dir, old_perms);
   // test a symlink to a file w/o appropriate permissions
@@ -202,30 +204,24 @@ static void error_reporting() {
 
     std::error_code ec = GetTestEC();
     ent.assign(sym_out_of_dir, ec);
-    assert(ent.path() == sym_out_of_dir);
-    assert(!ec);
+    TEST_REQUIRE(ent.path() == sym_out_of_dir);
+    TEST_CHECK(!ec);
 
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == file_time_type::min());
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ent.last_write_time(ec) == file_time_type::min());
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
 
     ExceptionChecker Checker(sym_out_of_dir, std::errc::permission_denied,
                              "last_write_time");
-    TEST_VALIDATE_EXCEPTION(filesystem_error, Checker, ent.last_write_time());
+    TEST_CHECK_THROW_RESULT(filesystem_error, Checker, ent.last_write_time());
 
     permissions(dir, old_perms);
     ec = GetTestEC();
-    assert(ent.last_write_time(ec) == expect_good);
-    assert(!ec);
-    TEST_DOES_NOT_THROW(ent.last_write_time());
+    TEST_CHECK(ent.last_write_time(ec) == expect_good);
+    TEST_CHECK(!ec);
+    TEST_CHECK_NO_THROW(ent.last_write_time());
   }
 #endif
 }
 
-int main(int, char**) {
-  signatures();
-  basic();
-  error_reporting();
-
-  return 0;
-}
+TEST_SUITE_END()

@@ -19,7 +19,8 @@ clang::NamedDecl *NameSearchContext::AddVarDecl(const CompilerType &type) {
   if (!type.IsValid())
     return nullptr;
 
-  auto lldb_ast = type.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
+  TypeSystemClang *lldb_ast =
+      llvm::dyn_cast<TypeSystemClang>(type.GetTypeSystem());
   if (!lldb_ast)
     return nullptr;
 
@@ -45,7 +46,8 @@ clang::NamedDecl *NameSearchContext::AddFunDecl(const CompilerType &type,
   if (m_function_types.count(type))
     return nullptr;
 
-  auto lldb_ast = type.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
+  TypeSystemClang *lldb_ast =
+      llvm::dyn_cast<TypeSystemClang>(type.GetTypeSystem());
   if (!lldb_ast)
     return nullptr;
 
@@ -62,9 +64,9 @@ clang::NamedDecl *NameSearchContext::AddFunDecl(const CompilerType &type,
   clang::DeclContext *context = const_cast<DeclContext *>(m_decl_context);
 
   if (extern_c) {
-    context = LinkageSpecDecl::Create(ast, context, SourceLocation(),
-                                      SourceLocation(),
-                                      clang::LinkageSpecLanguageIDs::C, false);
+    context = LinkageSpecDecl::Create(
+        ast, context, SourceLocation(), SourceLocation(),
+        clang::LinkageSpecDecl::LanguageIDs::lang_c, false);
     // FIXME: The LinkageSpecDecl here should be added to m_decl_context.
   }
 

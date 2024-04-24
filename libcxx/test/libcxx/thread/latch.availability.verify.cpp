@@ -7,13 +7,16 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11
-// REQUIRES: availability-synchronization_library-missing
+// REQUIRES: use_system_cxx_lib && target={{.+}}-apple-macosx10.{{9|10|11|12|13|14|15}}
+
 
 // Test the availability markup on std::latch.
 
 #include <latch>
 
-void f() {
+
+int main(int, char**)
+{
     std::latch latch(10);
     latch.count_down(); // expected-error {{is unavailable}}
     latch.count_down(3); // expected-error {{is unavailable}}

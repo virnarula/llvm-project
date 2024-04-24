@@ -10,10 +10,10 @@
 
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Section.h"
+#include "lldb/Core/StreamBuffer.h"
 #include "lldb/Expression/DWARFExpression.h"
 #include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/DataBufferHeap.h"
-#include "lldb/Utility/StreamBuffer.h"
 
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
@@ -24,7 +24,6 @@
 #include "PdbUtil.h"
 #include "CodeViewRegisterMapping.h"
 #include "PdbFPOProgramToDWARFExpression.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -131,7 +130,7 @@ static DWARFExpression MakeLocationExpressionInternal(lldb::ModuleSP module,
 
 static bool MakeRegisterBasedLocationExpressionInternal(
     Stream &stream, llvm::codeview::RegisterId reg, RegisterKind &register_kind,
-    std::optional<int32_t> relative_offset, lldb::ModuleSP module) {
+    llvm::Optional<int32_t> relative_offset, lldb::ModuleSP module) {
   uint32_t reg_num = GetRegisterNumber(module->GetArchitecture().GetMachine(),
                                        reg, register_kind);
   if (reg_num == LLDB_INVALID_REGNUM)
@@ -155,7 +154,7 @@ static bool MakeRegisterBasedLocationExpressionInternal(
 }
 
 static DWARFExpression MakeRegisterBasedLocationExpressionInternal(
-    llvm::codeview::RegisterId reg, std::optional<int32_t> relative_offset,
+    llvm::codeview::RegisterId reg, llvm::Optional<int32_t> relative_offset,
     lldb::ModuleSP module) {
   return MakeLocationExpressionInternal(
       module, [&](Stream &stream, RegisterKind &register_kind) -> bool {
@@ -166,7 +165,7 @@ static DWARFExpression MakeRegisterBasedLocationExpressionInternal(
 
 DWARFExpression lldb_private::npdb::MakeEnregisteredLocationExpression(
     llvm::codeview::RegisterId reg, lldb::ModuleSP module) {
-  return MakeRegisterBasedLocationExpressionInternal(reg, std::nullopt, module);
+  return MakeRegisterBasedLocationExpressionInternal(reg, llvm::None, module);
 }
 
 DWARFExpression lldb_private::npdb::MakeRegRelLocationExpression(
@@ -249,7 +248,7 @@ DWARFExpression lldb_private::npdb::MakeConstantLocationExpression(
     Value.U = constant.getZExtValue();
   }
 
-  bytes = llvm::ArrayRef(reinterpret_cast<const uint8_t *>(&Value), 8)
+  bytes = llvm::makeArrayRef(reinterpret_cast<const uint8_t *>(&Value), 8)
               .take_front(size);
   buffer->CopyData(bytes.data(), size);
   DataExtractor extractor(buffer, lldb::eByteOrderLittle, address_size);
@@ -275,9 +274,9 @@ lldb_private::npdb::MakeEnregisteredLocationExpressionForComposite(
             cur_offset = offset_loc.first;
           }
           MemberValLocation loc = offset_loc.second;
-          std::optional<int32_t> offset =
-              loc.is_at_reg ? std::nullopt
-                            : std::optional<int32_t>(loc.reg_offset);
+          llvm::Optional<int32_t> offset =
+              loc.is_at_reg ? llvm::None
+                            : llvm::Optional<int32_t>(loc.reg_offset);
           if (!MakeRegisterBasedLocationExpressionInternal(
                   stream, (RegisterId)loc.reg_id, register_kind, offset,
                   module))

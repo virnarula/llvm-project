@@ -1,5 +1,5 @@
-@h = global ptr @f
-@h2 = global ptr @g
+@h = global void ()* @f
+@h2 = global void ()* @g
 
 define available_externally void @f() {
   ret void

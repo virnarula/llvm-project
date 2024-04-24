@@ -18,7 +18,6 @@ class MemDerefPrinterPass : public PassInfoMixin<MemDerefPrinterPass> {
 public:
   MemDerefPrinterPass(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-  static bool isRequired() { return true; }
 };
 } // namespace llvm
 

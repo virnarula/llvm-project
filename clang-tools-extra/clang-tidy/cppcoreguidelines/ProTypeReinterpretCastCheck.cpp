@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 void ProTypeReinterpretCastCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(cxxReinterpretCastExpr().bind("cast"), this);
@@ -25,4 +27,6 @@ void ProTypeReinterpretCastCheck::check(
   diag(MatchedCast->getOperatorLoc(), "do not use reinterpret_cast");
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

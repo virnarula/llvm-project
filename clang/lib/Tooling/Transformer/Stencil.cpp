@@ -152,7 +152,7 @@ public:
     if (E == nullptr)
       return llvm::make_error<StringError>(errc::invalid_argument,
                                            "Id not bound or not Expr: " + Id);
-    std::optional<std::string> Source;
+    llvm::Optional<std::string> Source;
     switch (Op) {
     case UnaryNodeOperator::Parens:
       Source = tooling::buildParens(*E, *Match.Context);
@@ -229,8 +229,8 @@ public:
       // Validate the original range to attempt to get a meaningful error
       // message. If it's valid, then something else is the cause and we just
       // return the generic failure message.
-      if (auto Err = tooling::validateRange(*RawRange, *Match.SourceManager,
-                                            /*AllowSystemHeaders=*/true))
+      if (auto Err =
+              tooling::validateEditRange(*RawRange, *Match.SourceManager))
         return handleErrors(std::move(Err), [](std::unique_ptr<StringError> E) {
           assert(E->convertToErrorCode() ==
                      llvm::make_error_code(errc::invalid_argument) &&
@@ -245,9 +245,8 @@ public:
           "selected range could not be resolved to a valid source range");
     }
     // Validate `Range`, because `makeFileCharRange` accepts some ranges that
-    // `validateRange` rejects.
-    if (auto Err = tooling::validateRange(Range, *Match.SourceManager,
-                                          /*AllowSystemHeaders=*/true))
+    // `validateEditRange` rejects.
+    if (auto Err = tooling::validateEditRange(Range, *Match.SourceManager))
       return joinErrors(
           llvm::createStringError(errc::invalid_argument,
                                   "selected range is not valid for editing"),
@@ -278,7 +277,7 @@ public:
     if (E == nullptr)
       return llvm::make_error<StringError>(errc::invalid_argument,
                                            "Id not bound: " + BaseId);
-    std::optional<std::string> S = tooling::buildAccess(*E, *Match.Context);
+    llvm::Optional<std::string> S = tooling::buildAccess(*E, *Match.Context);
     if (!S)
       return llvm::make_error<StringError>(
           errc::invalid_argument,
@@ -328,7 +327,7 @@ public:
     assert(containsNoNullStencils(CaseStencils) &&
            "cases of selectBound may not be null");
   }
-  ~SelectBoundStencil() override {}
+  ~SelectBoundStencil() override{};
 
   llvm::Error eval(const MatchFinder::MatchResult &match,
                    std::string *result) const override {

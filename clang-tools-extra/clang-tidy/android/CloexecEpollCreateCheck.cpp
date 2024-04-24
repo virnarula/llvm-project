@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 void CloexecEpollCreateCheck::registerMatchers(MatchFinder *Finder) {
   registerMatchersImpl(
@@ -28,4 +30,6 @@ void CloexecEpollCreateCheck::check(const MatchFinder::MatchResult &Result) {
               "epoll_create1(EPOLL_CLOEXEC)");
 }
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang

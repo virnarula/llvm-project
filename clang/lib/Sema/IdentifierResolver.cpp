@@ -60,9 +60,6 @@ public:
     }
   }
 
-  IdDeclInfoMap(const IdDeclInfoMap &) = delete;
-  IdDeclInfoMap &operator=(const IdDeclInfoMap &) = delete;
-
   /// Returns the IdDeclInfo associated to the DeclarationName.
   /// It creates a new IdDeclInfo if one was not created before for this id.
   IdDeclInfo &operator[](DeclarationName Name);
@@ -109,9 +106,7 @@ bool IdentifierResolver::isDeclInScope(Decl *D, DeclContext *Ctx, Scope *S,
     return false;
   if (Ctx->isFunctionOrMethod() || (S && S->isFunctionPrototypeScope())) {
     // Ignore the scopes associated within transparent declaration contexts.
-    while (S->getEntity() &&
-           (S->getEntity()->isTransparentContext() ||
-            (!LangOpt.CPlusPlus && isa<RecordDecl>(S->getEntity()))))
+    while (S->getEntity() && S->getEntity()->isTransparentContext())
       S = S->getParent();
 
     if (S->isDeclScope(D))
@@ -236,12 +231,9 @@ void IdentifierResolver::RemoveDecl(NamedDecl *D) {
   return toIdDeclInfo(Ptr)->RemoveDecl(D);
 }
 
-llvm::iterator_range<IdentifierResolver::iterator>
-IdentifierResolver::decls(DeclarationName Name) {
-  return {begin(Name), end()};
-}
-
-IdentifierResolver::iterator IdentifierResolver::begin(DeclarationName Name) {
+/// begin - Returns an iterator for decls with name 'Name'.
+IdentifierResolver::iterator
+IdentifierResolver::begin(DeclarationName Name) {
   if (IdentifierInfo *II = Name.getAsIdentifierInfo())
     readingIdentifier(*II);
 

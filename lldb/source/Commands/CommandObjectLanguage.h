@@ -19,7 +19,7 @@ public:
   ~CommandObjectLanguage() override;
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result);
+  bool DoExecute(Args &command, CommandReturnObject &result);
 };
 } // namespace lldb_private
 

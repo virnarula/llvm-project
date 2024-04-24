@@ -8,6 +8,9 @@
 
 // UNSUPPORTED: c++03, c++11, c++14
 
+// Throwing bad_variant_access is supported starting in macosx10.13
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx10.{{9|10|11|12}} && !no-exceptions
+
 // <variant>
 
 // template <class ...Types> class variant;
@@ -220,7 +223,7 @@ void test_copy_ctor_valueless_by_exception() {
 #endif // TEST_HAS_NO_EXCEPTIONS
 }
 
-template <std::size_t Idx>
+template <size_t Idx>
 constexpr bool test_constexpr_copy_ctor_imp(std::variant<long, void*, const int> const& v) {
   auto v2 = v;
   return v2.index() == v.index() &&

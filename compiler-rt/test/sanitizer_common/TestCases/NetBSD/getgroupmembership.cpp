@@ -1,6 +1,6 @@
 // RUN: %clangxx -O0 -g %s -o %t && %run %t
 
-// XFAIL: target={{.*netbsd.*}} && msan
+// XFAIL: netbsd && msan
 
 #include <stdlib.h>
 #include <unistd.h>

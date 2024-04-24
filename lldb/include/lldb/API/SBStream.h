@@ -19,9 +19,7 @@ class LLDB_API SBStream {
 public:
   SBStream();
 
-#ifndef SWIG
   SBStream(SBStream &&rhs);
-#endif
 
   ~SBStream();
 
@@ -37,9 +35,7 @@ public:
   // for the stream output whose length can be accessed using this accessor.
   size_t GetSize();
 
-#ifndef SWIG
-  __attribute__((format(printf, 2, 3))) void Printf(const char *format, ...);
-#endif
+  void Printf(const char *format, ...) __attribute__((format(printf, 2, 3)));
 
   void Print(const char *str);
 
@@ -49,9 +45,7 @@ public:
 
   void RedirectToFile(lldb::FileSP file);
 
-#ifndef SWIG
   void RedirectToFileHandle(FILE *fh, bool transfer_fh_ownership);
-#endif
 
   void RedirectToFileDescriptor(int fd, bool transfer_fh_ownership);
 

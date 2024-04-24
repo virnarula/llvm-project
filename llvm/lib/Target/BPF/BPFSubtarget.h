@@ -16,12 +16,7 @@
 #include "BPFFrameLowering.h"
 #include "BPFISelLowering.h"
 #include "BPFInstrInfo.h"
-#include "BPFRegisterInfo.h"
 #include "BPFSelectionDAGInfo.h"
-#include "llvm/CodeGen/GlobalISel/CallLowering.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
-#include "llvm/CodeGen/RegisterBankInfo.h"
 #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -43,12 +38,11 @@ class BPFSubtarget : public BPFGenSubtargetInfo {
 private:
   void initializeEnvironment();
   void initSubtargetFeatures(StringRef CPU, StringRef FS);
+  bool probeJmpExt();
 
 protected:
   // unused
   bool isDummyMode;
-
-  bool IsLittleEndian;
 
   // whether the cpu supports jmp ext
   bool HasJmpExt;
@@ -62,14 +56,6 @@ protected:
 
   // whether we should enable MCAsmInfo DwarfUsesRelocationsAcrossSections
   bool UseDwarfRIS;
-
-  // whether cpu v4 insns are enabled.
-  bool HasLdsx, HasMovsx, HasBswap, HasSdivSmod, HasGotol, HasStoreImm;
-
-  std::unique_ptr<CallLowering> CallLoweringInfo;
-  std::unique_ptr<InstructionSelector> InstSelector;
-  std::unique_ptr<LegalizerInfo> Legalizer;
-  std::unique_ptr<RegisterBankInfo> RegBankInfo;
 
 public:
   // This constructor initializes the data members to match that
@@ -86,14 +72,6 @@ public:
   bool getHasJmp32() const { return HasJmp32; }
   bool getHasAlu32() const { return HasAlu32; }
   bool getUseDwarfRIS() const { return UseDwarfRIS; }
-  bool hasLdsx() const { return HasLdsx; }
-  bool hasMovsx() const { return HasMovsx; }
-  bool hasBswap() const { return HasBswap; }
-  bool hasSdivSmod() const { return HasSdivSmod; }
-  bool hasGotol() const { return HasGotol; }
-  bool hasStoreImm() const { return HasStoreImm; }
-
-  bool isLittleEndian() const { return IsLittleEndian; }
 
   const BPFInstrInfo *getInstrInfo() const override { return &InstrInfo; }
   const BPFFrameLowering *getFrameLowering() const override {
@@ -105,14 +83,9 @@ public:
   const BPFSelectionDAGInfo *getSelectionDAGInfo() const override {
     return &TSInfo;
   }
-  const BPFRegisterInfo *getRegisterInfo() const override {
+  const TargetRegisterInfo *getRegisterInfo() const override {
     return &InstrInfo.getRegisterInfo();
   }
-
-  const CallLowering *getCallLowering() const override;
-  InstructionSelector *getInstructionSelector() const override;
-  const LegalizerInfo *getLegalizerInfo() const override;
-  const RegisterBankInfo *getRegBankInfo() const override;
 };
 } // End llvm namespace
 

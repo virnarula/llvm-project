@@ -8,13 +8,11 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_COMPILECOMMANDS_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_COMPILECOMMANDS_H
 
-#include "GlobalCompilationDatabase.h"
 #include "support/Threading.h"
+#include "clang/Tooling/ArgumentsAdjusters.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/CommandLine.h"
 #include <deque>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,12 +27,11 @@ namespace clangd {
 //  - injecting -isysroot flags on mac as the system clang does
 struct CommandMangler {
   // Absolute path to clang.
-  std::optional<std::string> ClangPath;
+  llvm::Optional<std::string> ClangPath;
   // Directory containing builtin headers.
-  std::optional<std::string> ResourceDir;
+  llvm::Optional<std::string> ResourceDir;
   // Root for searching for standard library (passed to -isysroot).
-  std::optional<std::string> Sysroot;
-  SystemIncludeExtractorFn SystemIncludeExtractor;
+  llvm::Optional<std::string> Sysroot;
 
   // A command-mangler that doesn't know anything about the system.
   // This is hermetic for unit-tests, but won't work well in production.
@@ -45,12 +42,11 @@ struct CommandMangler {
   //  - on mac, find clang and isysroot by querying the `xcrun` launcher
   static CommandMangler detect();
 
-  // `Cmd` may describe compilation of a different file, and will be updated
-  // for parsing `TargetFile`.
-  void operator()(tooling::CompileCommand &Cmd,
-                  llvm::StringRef TargetFile) const;
+  void adjust(std::vector<std::string> &Cmd, llvm::StringRef File) const;
+  explicit operator clang::tooling::ArgumentsAdjuster() &&;
 
 private:
+  CommandMangler() = default;
   Memoize<llvm::StringMap<std::string>> ResolvedDrivers;
   Memoize<llvm::StringMap<std::string>> ResolvedDriversNoFollow;
 };

@@ -6,7 +6,11 @@
 
 template <class CharT, std::size_t N>
 auto make_string(const char (&in)[N]) {
-  return std::basic_string<CharT>(in + 0, in + (N - 1));
+  std::basic_string<CharT> r(N - 1, static_cast<CharT>(0));
+  for (std::size_t i = 0; i < N - 1; ++i) {
+    r[i] = static_cast<CharT>(in[i]);
+  }
+  return r;
 }
 
 template <class CharT, std::size_t N>

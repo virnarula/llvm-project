@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef MAP_ALLOCATOR_REQUIREMENT_TEST_TEMPLATES_H
 #define MAP_ALLOCATOR_REQUIREMENT_TEST_TEMPLATES_H
 

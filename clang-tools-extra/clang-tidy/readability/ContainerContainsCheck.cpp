@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 void ContainerContainsCheck::registerMatchers(MatchFinder *Finder) {
   const auto SupportedContainers = hasType(
@@ -131,8 +133,10 @@ void ContainerContainsCheck::check(const MatchFinder::MatchResult &Result) {
   Diag << FixItHint::CreateReplacement(
       CharSourceRange::getCharRange(ComparisonBegin, CallBegin),
       Negated ? "!" : "");
-  Diag << FixItHint::CreateRemoval(CharSourceRange::getTokenRange(
-      CallEnd.getLocWithOffset(1), ComparisonEnd));
+  Diag << FixItHint::CreateRemoval(CharSourceRange::getCharRange(
+      CallEnd.getLocWithOffset(1), ComparisonEnd.getLocWithOffset(1)));
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

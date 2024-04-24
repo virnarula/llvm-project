@@ -6,9 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/DiagnosticSerialization.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendActions.h"
@@ -18,9 +15,7 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Serialization/ASTReader.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Threading.h"
 
@@ -30,7 +25,6 @@
 
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/ModuleList.h"
-#include "lldb/Core/Progress.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Symbol/CompileUnit.h"
@@ -67,9 +61,6 @@ public:
   void EndSourceFile() override;
 
 private:
-  bool HandleModuleRemark(const clang::Diagnostic &info);
-  void SetCurrentModuleProgress(std::string module_name);
-
   typedef std::pair<clang::DiagnosticsEngine::Level, std::string>
       IDAndDiagnostic;
   std::vector<IDAndDiagnostic> m_diagnostics;
@@ -81,9 +72,6 @@ private:
   /// Output string filled by m_os. Will be reused for different diagnostics.
   std::string m_output;
   Log *m_log;
-  /// A Progress with explicitly managed lifetime.
-  std::unique_ptr<Progress> m_current_progress_up;
-  std::vector<std::string> m_module_build_stack;
 };
 
 /// The private implementation of our ClangModulesDeclVendor.  Contains all the
@@ -137,7 +125,7 @@ private:
   ImportedModuleSet m_user_imported_modules;
   // We assume that every ASTContext has an TypeSystemClang, so we also store
   // a custom TypeSystemClang for our internal ASTContext.
-  std::shared_ptr<TypeSystemClang> m_ast_context;
+  std::unique_ptr<TypeSystemClang> m_ast_context;
 };
 } // anonymous namespace
 
@@ -152,9 +140,6 @@ StoringDiagnosticConsumer::StoringDiagnosticConsumer() {
 
 void StoringDiagnosticConsumer::HandleDiagnostic(
     clang::DiagnosticsEngine::Level DiagLevel, const clang::Diagnostic &info) {
-  if (HandleModuleRemark(info))
-    return;
-
   // Print the diagnostic to m_output.
   m_output.clear();
   m_diag_printer->HandleDiagnostic(DiagLevel, info);
@@ -185,52 +170,7 @@ void StoringDiagnosticConsumer::BeginSourceFile(
 }
 
 void StoringDiagnosticConsumer::EndSourceFile() {
-  m_current_progress_up = nullptr;
   m_diag_printer->EndSourceFile();
-}
-
-bool StoringDiagnosticConsumer::HandleModuleRemark(
-    const clang::Diagnostic &info) {
-  Log *log = GetLog(LLDBLog::Expressions);
-  switch (info.getID()) {
-  case clang::diag::remark_module_build: {
-    const auto &module_name = info.getArgStdStr(0);
-    SetCurrentModuleProgress(module_name);
-    m_module_build_stack.push_back(module_name);
-
-    const auto &module_path = info.getArgStdStr(1);
-    LLDB_LOG(log, "Building Clang module {0} as {1}", module_name, module_path);
-    return true;
-  }
-  case clang::diag::remark_module_build_done: {
-    // The current module is done.
-    m_module_build_stack.pop_back();
-    if (m_module_build_stack.empty()) {
-      m_current_progress_up = nullptr;
-    } else {
-      // When the just completed module began building, a module that depends on
-      // it ("module A") was effectively paused. Update the progress to re-show
-      // "module A" as continuing to be built.
-      const auto &resumed_module_name = m_module_build_stack.back();
-      SetCurrentModuleProgress(resumed_module_name);
-    }
-
-    const auto &module_name = info.getArgStdStr(0);
-    LLDB_LOG(log, "Finished building Clang module {0}", module_name);
-    return true;
-  }
-  default:
-    return false;
-  }
-}
-
-void StoringDiagnosticConsumer::SetCurrentModuleProgress(
-    std::string module_name) {
-  if (!m_current_progress_up)
-    m_current_progress_up =
-        std::make_unique<Progress>("Building Clang modules");
-
-  m_current_progress_up->Increment(1, std::move(module_name));
 }
 
 ClangModulesDeclVendor::ClangModulesDeclVendor()
@@ -250,7 +190,7 @@ ClangModulesDeclVendorImpl::ClangModulesDeclVendorImpl(
 
   // Initialize our TypeSystemClang.
   m_ast_context =
-      std::make_shared<TypeSystemClang>("ClangModulesDeclVendor ASTContext",
+      std::make_unique<TypeSystemClang>("ClangModulesDeclVendor ASTContext",
                                         m_compiler_instance->getASTContext());
 }
 
@@ -329,14 +269,14 @@ bool ClangModulesDeclVendorImpl::AddModule(const SourceModule &module,
 
       bool is_system = true;
       bool is_framework = false;
-      auto dir = HS.getFileMgr().getOptionalDirectoryRef(
-          module.search_path.GetStringRef());
+      auto dir =
+          HS.getFileMgr().getDirectory(module.search_path.GetStringRef());
       if (!dir)
         return error();
-      auto file = HS.lookupModuleMapFile(*dir, is_framework);
+      auto *file = HS.lookupModuleMapFile(*dir, is_framework);
       if (!file)
         return error();
-      if (!HS.loadModuleMapFile(*file, is_system))
+      if (!HS.loadModuleMapFile(file, is_system))
         return error();
     }
   }
@@ -669,9 +609,7 @@ ClangModulesDeclVendor::Create(Target &target) {
       "-target",
       arch.GetTriple().str(),
       "-fmodules-validate-system-headers",
-      "-Werror=non-modular-include-in-framework-module",
-      "-Xclang=-fincremental-extensions",
-      "-Rmodule-build"};
+      "-Werror=non-modular-include-in-framework-module"};
 
   target.GetPlatform()->AddClangModuleCompilationOptions(
       &target, compiler_invocation_arguments);
@@ -709,17 +647,15 @@ ClangModulesDeclVendor::Create(Target &target) {
     }
   }
 
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> diagnostics_engine =
+      clang::CompilerInstance::createDiagnostics(new clang::DiagnosticOptions,
+                                                 new StoringDiagnosticConsumer);
+
   std::vector<const char *> compiler_invocation_argument_cstrs;
   compiler_invocation_argument_cstrs.reserve(
       compiler_invocation_arguments.size());
   for (const std::string &arg : compiler_invocation_arguments)
     compiler_invocation_argument_cstrs.push_back(arg.c_str());
-
-  auto diag_options_up =
-      clang::CreateAndPopulateDiagOpts(compiler_invocation_argument_cstrs);
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> diagnostics_engine =
-      clang::CompilerInstance::createDiagnostics(diag_options_up.release(),
-                                                 new StoringDiagnosticConsumer);
 
   Log *log = GetLog(LLDBLog::Expressions);
   LLDB_LOG(log, "ClangModulesDeclVendor's compiler flags {0:$[ ]}",
@@ -764,6 +700,8 @@ ClangModulesDeclVendor::Create(Target &target) {
   if (!action->BeginSourceFile(*instance,
                                instance->getFrontendOpts().Inputs[0]))
     return nullptr;
+
+  instance->getPreprocessor().enableIncrementalProcessing();
 
   instance->createASTReader();
 

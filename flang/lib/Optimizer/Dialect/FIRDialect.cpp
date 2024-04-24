@@ -14,7 +14,6 @@
 #include "flang/Optimizer/Dialect/FIRAttr.h"
 #include "flang/Optimizer/Dialect/FIROps.h"
 #include "flang/Optimizer/Dialect/FIRType.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Transforms/InliningUtils.h"
 
 using namespace fir;
@@ -32,7 +31,8 @@ struct FIRInlinerInterface : public mlir::DialectInlinerInterface {
   /// This hook checks to see if the operation `op` is legal to inline into the
   /// given region `reg`.
   bool isLegalToInline(mlir::Operation *op, mlir::Region *reg,
-                       bool wouldBeCloned, mlir::IRMapping &map) const final {
+                       bool wouldBeCloned,
+                       mlir::BlockAndValueMapping &map) const final {
     return fir::canLegallyInline(op, reg, wouldBeCloned, map);
   }
 
@@ -41,7 +41,7 @@ struct FIRInlinerInterface : public mlir::DialectInlinerInterface {
   /// previously returned by the call operation with the operands of the
   /// return.
   void handleTerminator(mlir::Operation *op,
-                        mlir::ValueRange valuesToRepl) const final {
+                        llvm::ArrayRef<mlir::Value> valuesToRepl) const final {
     auto returnOp = llvm::cast<mlir::func::ReturnOp>(op);
     assert(returnOp.getNumOperands() == valuesToRepl.size());
     for (const auto &it : llvm::enumerate(returnOp.getOperands()))
@@ -59,14 +59,12 @@ struct FIRInlinerInterface : public mlir::DialectInlinerInterface {
 
 fir::FIROpsDialect::FIROpsDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect("fir", ctx, mlir::TypeID::get<FIROpsDialect>()) {
-  getContext()->loadDialect<mlir::LLVM::LLVMDialect>();
   registerTypes();
   registerAttributes();
   addOperations<
 #define GET_OP_LIST
 #include "flang/Optimizer/Dialect/FIROps.cpp.inc"
       >();
-  registerOpExternalInterfaces();
   addInterfaces<FIRInlinerInterface>();
 }
 

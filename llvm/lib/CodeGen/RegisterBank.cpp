@@ -11,7 +11,6 @@
 
 #include "llvm/CodeGen/RegisterBank.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/CodeGen/RegisterBankInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Debug.h"
@@ -20,8 +19,18 @@
 
 using namespace llvm;
 
-bool RegisterBank::verify(const RegisterBankInfo &RBI,
-                          const TargetRegisterInfo &TRI) const {
+const unsigned RegisterBank::InvalidID = UINT_MAX;
+
+RegisterBank::RegisterBank(
+    unsigned ID, const char *Name, unsigned Size,
+    const uint32_t *CoveredClasses, unsigned NumRegClasses)
+    : ID(ID), Name(Name), Size(Size) {
+  ContainedRegClasses.resize(NumRegClasses);
+  ContainedRegClasses.setBitsInMask(CoveredClasses);
+}
+
+bool RegisterBank::verify(const TargetRegisterInfo &TRI) const {
+  assert(isValid() && "Invalid register bank");
   for (unsigned RCId = 0, End = TRI.getNumRegClasses(); RCId != End; ++RCId) {
     const TargetRegisterClass &RC = *TRI.getRegClass(RCId);
 
@@ -41,7 +50,7 @@ bool RegisterBank::verify(const RegisterBankInfo &RBI,
 
       // Verify that the Size of the register bank is big enough to cover
       // all the register classes it covers.
-      assert(RBI.getMaximumSize(getID()) >= TRI.getRegSizeInBits(SubRC) &&
+      assert(getSize() >= TRI.getRegSizeInBits(SubRC) &&
              "Size is not big enough for all the subclasses!");
       assert(covers(SubRC) && "Not all subclasses are covered");
     }
@@ -50,7 +59,14 @@ bool RegisterBank::verify(const RegisterBankInfo &RBI,
 }
 
 bool RegisterBank::covers(const TargetRegisterClass &RC) const {
-  return (CoveredClasses[RC.getID() / 32] & (1U << RC.getID() % 32)) != 0;
+  assert(isValid() && "RB hasn't been initialized yet");
+  return ContainedRegClasses.test(RC.getID());
+}
+
+bool RegisterBank::isValid() const {
+  return ID != InvalidID && Name != nullptr && Size != 0 &&
+         // A register bank that does not cover anything is useless.
+         !ContainedRegClasses.empty();
 }
 
 bool RegisterBank::operator==(const RegisterBank &OtherRB) const {
@@ -73,18 +89,15 @@ void RegisterBank::print(raw_ostream &OS, bool IsForDebug,
   OS << getName();
   if (!IsForDebug)
     return;
-
-  unsigned Count = 0;
-  for (int i = 0, e = ((NumRegClasses + 31) / 32); i != e; ++i)
-    Count += llvm::popcount(CoveredClasses[i]);
-
-  OS << "(ID:" << getID() << ")\n"
-     << "Number of Covered register classes: " << Count << '\n';
+  OS << "(ID:" << getID() << ", Size:" << getSize() << ")\n"
+     << "isValid:" << isValid() << '\n'
+     << "Number of Covered register classes: " << ContainedRegClasses.count()
+     << '\n';
   // Print all the subclasses if we can.
   // This register classes may not be properly initialized yet.
-  if (!TRI || NumRegClasses == 0)
+  if (!TRI || ContainedRegClasses.empty())
     return;
-  assert(NumRegClasses == TRI->getNumRegClasses() &&
+  assert(ContainedRegClasses.size() == TRI->getNumRegClasses() &&
          "TRI does not match the initialization process?");
   OS << "Covered register classes:\n";
   ListSeparator LS;

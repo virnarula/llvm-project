@@ -5,26 +5,22 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #endif
 
-#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Config/llvm-config.h"
 
 #include <system_error>
 
 using namespace llvm;
-
-static ExitOnError ExitOnErr;
 
 static cl::opt<std::string>
 InputFilename(cl::Positional, cl::desc("<input bitcode>"), cl::init("-"));
@@ -32,9 +28,6 @@ InputFilename(cl::Positional, cl::desc("<input bitcode>"), cl::init("-"));
 static cl::opt<std::string>
 OutputFilename("o", cl::desc("Output filename"),
                cl::value_desc("filename"));
-
-static cl::opt<bool> TextualOut("S", cl::desc("Emit LLVM textual assembly"),
-                                cl::init(false));
 
 int main(int argc, char **argv) {
   LLVMContext Context;
@@ -52,15 +45,17 @@ int main(int argc, char **argv) {
       ErrorMessage = ec.message();
     } else {
       std::unique_ptr<MemoryBuffer> &BufferPtr = BufferOrErr.get();
-      SMDiagnostic Err;
-      std::unique_ptr<llvm::Module> MPtr =
+      ErrorOr<std::unique_ptr<Module>> ModuleOrErr =
 #if HAVE_LLVM > 0x0390
-          ExitOnErr(Expected<std::unique_ptr<llvm::Module>>(
-              parseIR(BufferPtr.get()->getMemBufferRef(), Err, Context)));
+          expectedToErrorOrAndEmitErrors(Context,
+          parseBitcodeFile(BufferPtr.get()->getMemBufferRef(), Context));
 #else
-          parseIR(BufferPtr.get()->getMemBufferRef(), Err, Context);
+          parseBitcodeFile(BufferPtr.get()->getMemBufferRef(), Context);
 #endif
-      M = MPtr.release();
+      if (std::error_code ec = ModuleOrErr.getError())
+        ErrorMessage = ec.message();
+
+      M = ModuleOrErr.get().release();
     }
   }
 
@@ -110,16 +105,14 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  if (TextualOut)
-    M->print(Out->os(), nullptr, true);
-  else
 #if HAVE_LLVM >= 0x0700
-    WriteBitcodeToFile(*M, Out->os());
+  WriteBitcodeToFile(*M, Out->os());
 #else
-    WriteBitcodeToFile(M, Out->os());
+  WriteBitcodeToFile(M, Out->os());
 #endif
 
   // Declare success.
   Out->keep();
   return 0;
 }
+

@@ -17,10 +17,11 @@
 
 #include "test_macros.h"
 
-int main(int, char**) {
-  assert(std::char_traits<char>::to_char_type('a') == 'a');
-  assert(std::char_traits<char>::to_char_type('A') == 'A');
-  assert(std::char_traits<char>::to_char_type(0) == 0);
+int main(int, char**)
+{
+    assert(std::char_traits<char>::to_char_type('a') == 'a');
+    assert(std::char_traits<char>::to_char_type('A') == 'A');
+    assert(std::char_traits<char>::to_char_type(0) == 0);
 
   return 0;
 }

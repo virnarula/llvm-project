@@ -13,12 +13,15 @@
 #include "clang/Analysis/Analyses/ExprMutationAnalyzer.h"
 #include "llvm/ADT/DenseSet.h"
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+
+namespace misc {
 
 /// This check warns on variables which could be declared const but are not.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/misc/const-correctness.html
+/// http://clang.llvm.org/extra/clang-tidy/checks/misc-const-correctness.html
 class ConstCorrectnessCheck : public ClangTidyCheck {
 public:
   ConstCorrectnessCheck(StringRef Name, ClangTidyContext *Context);
@@ -47,6 +50,8 @@ private:
   const bool TransformPointersAsValues;
 };
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MISC_CONSTCORRECTNESSCHECK_H

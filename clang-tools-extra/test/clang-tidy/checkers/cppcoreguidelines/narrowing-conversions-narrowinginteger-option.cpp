@@ -1,10 +1,10 @@
 // RUN: %check_clang_tidy -check-suffix=DEFAULT %s \
 // RUN: cppcoreguidelines-narrowing-conversions %t -- \
-// RUN: -config='{CheckOptions: {cppcoreguidelines-narrowing-conversions.WarnOnIntegerNarrowingConversion: true}}'
+// RUN: -config='{CheckOptions: [{key: cppcoreguidelines-narrowing-conversions.WarnOnIntegerNarrowingConversion, value: true}]}'
 
 // RUN: %check_clang_tidy -check-suffix=DISABLED %s \
 // RUN: cppcoreguidelines-narrowing-conversions %t -- \
-// RUN: -config='{CheckOptions: {cppcoreguidelines-narrowing-conversions.WarnOnIntegerNarrowingConversion: false}}'
+// RUN: -config='{CheckOptions: [{key: cppcoreguidelines-narrowing-conversions.WarnOnIntegerNarrowingConversion, value: false}]}'
 
 void foo(unsigned long long value) {
   int a = value;

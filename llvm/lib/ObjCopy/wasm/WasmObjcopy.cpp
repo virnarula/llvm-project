@@ -22,11 +22,11 @@ using namespace object;
 using SectionPred = std::function<bool(const Section &Sec)>;
 
 static bool isDebugSection(const Section &Sec) {
-  return Sec.Name.starts_with(".debug");
+  return Sec.Name.startswith(".debug");
 }
 
 static bool isLinkerSection(const Section &Sec) {
-  return Sec.Name.starts_with("reloc.") || Sec.Name == "linking";
+  return Sec.Name.startswith("reloc.") || Sec.Name == "linking";
 }
 
 static bool isNameSection(const Section &Sec) { return Sec.Name == "name"; }
@@ -126,12 +126,10 @@ static Error handleArgs(const CommonConfig &Config, Object &Obj) {
     Sec.SectionType = llvm::wasm::WASM_SEC_CUSTOM;
     Sec.Name = NewSection.SectionName;
 
-    llvm::StringRef InputData =
-        llvm::StringRef(NewSection.SectionData->getBufferStart(),
-                        NewSection.SectionData->getBufferSize());
     std::unique_ptr<MemoryBuffer> BufferCopy = MemoryBuffer::getMemBufferCopy(
-        InputData, NewSection.SectionData->getBufferIdentifier());
-    Sec.Contents = ArrayRef<uint8_t>(
+        NewSection.SectionData->getBufferStart(),
+        NewSection.SectionData->getBufferIdentifier());
+    Sec.Contents = makeArrayRef<uint8_t>(
         reinterpret_cast<const uint8_t *>(BufferCopy->getBufferStart()),
         BufferCopy->getBufferSize());
 

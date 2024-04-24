@@ -15,7 +15,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/iterator_range.h"
-#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -417,9 +416,7 @@ void OptimizationRemarkAnalysisFPCommute::anchor() {}
 void OptimizationRemarkAnalysisAliasing::anchor() {}
 
 void llvm::diagnoseDontCall(const CallInst &CI) {
-  const auto *F =
-      dyn_cast<Function>(CI.getCalledOperand()->stripPointerCasts());
-
+  auto *F = CI.getCalledFunction();
   if (!F)
     return;
 
@@ -441,7 +438,7 @@ void llvm::diagnoseDontCall(const CallInst &CI) {
 }
 
 void DiagnosticInfoDontCall::print(DiagnosticPrinter &DP) const {
-  DP << "call to " << demangle(getFunctionName()) << " marked \"dontcall-";
+  DP << "call to " << getFunctionName() << " marked \"dontcall-";
   if (getSeverity() == DiagnosticSeverity::DS_Error)
     DP << "error\"";
   else

@@ -11,7 +11,7 @@
 #include "flang/Optimizer/Builder/Character.h"
 #include "flang/Optimizer/Builder/FIRBuilder.h"
 #include "flang/Optimizer/Builder/Runtime/RTBuilder.h"
-#include "flang/Optimizer/Support/Utils.h"
+#include "flang/Optimizer/Builder/Todo.h"
 #include "flang/Runtime/numeric.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
@@ -240,7 +240,10 @@ mlir::Value fir::runtime::genExponent(fir::FirOpBuilder &builder,
                                       mlir::Value x) {
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
-  if (fltTy.isF32()) {
+
+  if (fltTy.isF16()) {
+    TODO(loc, "support for REAL with KIND = 2 in EXPONENT");
+  } else if (fltTy.isF32()) {
     if (resultType.isInteger(32))
       func = fir::runtime::getRuntimeFunc<mkRTKey(Exponent4_4)>(loc, builder);
     else if (resultType.isInteger(64))
@@ -261,7 +264,7 @@ mlir::Value fir::runtime::genExponent(fir::FirOpBuilder &builder,
     else if (resultType.isInteger(64))
       func = fir::runtime::getRuntimeFunc<ForcedExponent16_8>(loc, builder);
   } else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "EXPONENT");
+    fir::emitFatalError(loc, "unsupported REAL kind in EXPONENT");
 
   auto funcTy = func.getFunctionType();
   llvm::SmallVector<mlir::Value> args = {
@@ -275,7 +278,9 @@ mlir::Value fir::runtime::genFraction(fir::FirOpBuilder &builder,
                                       mlir::Location loc, mlir::Value x) {
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in FRACTION");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Fraction4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Fraction8)>(loc, builder);
@@ -284,7 +289,7 @@ mlir::Value fir::runtime::genFraction(fir::FirOpBuilder &builder,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedFraction16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "FRACTION");
+    fir::emitFatalError(loc, "unsupported REAL kind in FRACTION");
 
   auto funcTy = func.getFunctionType();
   llvm::SmallVector<mlir::Value> args = {
@@ -302,7 +307,9 @@ mlir::Value fir::runtime::genMod(fir::FirOpBuilder &builder, mlir::Location loc,
   if (fltTy != p.getType())
     fir::emitFatalError(loc, "arguments type mismatch in MOD");
 
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in MOD");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(ModReal4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(ModReal8)>(loc, builder);
@@ -311,7 +318,7 @@ mlir::Value fir::runtime::genMod(fir::FirOpBuilder &builder, mlir::Location loc,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedMod16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "MOD");
+    fir::emitFatalError(loc, "unsupported REAL kind in MOD");
 
   auto funcTy = func.getFunctionType();
   auto sourceFile = fir::factory::locationToFilename(builder, loc);
@@ -330,7 +337,9 @@ mlir::Value fir::runtime::genNearest(fir::FirOpBuilder &builder,
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
 
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in NEAREST");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Nearest4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Nearest8)>(loc, builder);
@@ -339,7 +348,7 @@ mlir::Value fir::runtime::genNearest(fir::FirOpBuilder &builder,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedNearest16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "NEAREST");
+    fir::emitFatalError(loc, "unsupported REAL kind in NEAREST");
 
   auto funcTy = func.getFunctionType();
 
@@ -365,7 +374,9 @@ mlir::Value fir::runtime::genRRSpacing(fir::FirOpBuilder &builder,
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
 
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in RRSPACING");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(RRSpacing4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(RRSpacing8)>(loc, builder);
@@ -374,7 +385,7 @@ mlir::Value fir::runtime::genRRSpacing(fir::FirOpBuilder &builder,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedRRSpacing16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "RRSPACING");
+    fir::emitFatalError(loc, "unsupported REAL kind in RRSPACING");
 
   auto funcTy = func.getFunctionType();
   llvm::SmallVector<mlir::Value> args = {
@@ -390,7 +401,9 @@ mlir::Value fir::runtime::genScale(fir::FirOpBuilder &builder,
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
 
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in SCALE");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Scale4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Scale8)>(loc, builder);
@@ -399,7 +412,7 @@ mlir::Value fir::runtime::genScale(fir::FirOpBuilder &builder,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedScale16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "SCALE");
+    fir::emitFatalError(loc, "unsupported REAL kind in SCALE");
 
   auto funcTy = func.getFunctionType();
   auto args = fir::runtime::createArguments(builder, loc, funcTy, x, i);
@@ -467,7 +480,9 @@ mlir::Value fir::runtime::genSetExponent(fir::FirOpBuilder &builder,
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
 
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in FRACTION");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(SetExponent4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(SetExponent8)>(loc, builder);
@@ -476,7 +491,7 @@ mlir::Value fir::runtime::genSetExponent(fir::FirOpBuilder &builder,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedSetExponent16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "SET_EXPONENT");
+    fir::emitFatalError(loc, "unsupported REAL kind in FRACTION");
 
   auto funcTy = func.getFunctionType();
   auto args = fir::runtime::createArguments(builder, loc, funcTy, x, i);
@@ -490,7 +505,9 @@ mlir::Value fir::runtime::genSpacing(fir::FirOpBuilder &builder,
   mlir::func::FuncOp func;
   mlir::Type fltTy = x.getType();
 
-  if (fltTy.isF32())
+  if (fltTy.isF16())
+    TODO(loc, "support for REAL with KIND = 2 in SPACING");
+  else if (fltTy.isF32())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Spacing4)>(loc, builder);
   else if (fltTy.isF64())
     func = fir::runtime::getRuntimeFunc<mkRTKey(Spacing8)>(loc, builder);
@@ -499,7 +516,7 @@ mlir::Value fir::runtime::genSpacing(fir::FirOpBuilder &builder,
   else if (fltTy.isF128())
     func = fir::runtime::getRuntimeFunc<ForcedSpacing16>(loc, builder);
   else
-    fir::intrinsicTypeTODO(builder, fltTy, loc, "SPACING");
+    fir::emitFatalError(loc, "unsupported REAL kind in SPACING");
 
   auto funcTy = func.getFunctionType();
   llvm::SmallVector<mlir::Value> args = {

@@ -320,9 +320,6 @@ bool SIPreEmitPeephole::mustRetainExeczBranch(
       if (MI.isConditionalBranch())
         return true;
 
-      if (MI.isMetaInstruction())
-        continue;
-
       if (TII->hasUnwantedEffectsWhenEXECEmpty(MI))
         return true;
 

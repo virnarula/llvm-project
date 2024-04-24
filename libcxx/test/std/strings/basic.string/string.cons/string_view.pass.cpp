@@ -20,23 +20,24 @@
 #include "min_allocator.h"
 #include "test_allocator.h"
 #include "test_macros.h"
-#include "asan_testing.h"
 
 static_assert(!std::is_convertible<std::string_view, std::string const&>::value, "");
 static_assert(!std::is_convertible<std::string_view, std::string>::value, "");
 
-template <class Alloc, class CharT>
-TEST_CONSTEXPR_CXX20 void test(std::basic_string_view<CharT> sv) {
-  typedef std::basic_string<CharT, std::char_traits<CharT>, Alloc> S;
-  typedef typename S::traits_type T;
+template <class charT>
+TEST_CONSTEXPR_CXX20 void
+test(std::basic_string_view<charT> sv)
+{
+    typedef std::basic_string<charT, std::char_traits<charT>, test_allocator<charT> > S;
+    typedef typename S::traits_type T;
+    typedef typename S::allocator_type A;
   {
     S s2(sv);
     LIBCPP_ASSERT(s2.__invariants());
     assert(s2.size() == sv.size());
     assert(T::compare(s2.data(), sv.data(), sv.size()) == 0);
-    assert(s2.get_allocator() == Alloc());
+    assert(s2.get_allocator() == A());
     assert(s2.capacity() >= s2.size());
-    LIBCPP_ASSERT(is_string_asan_correct(s2));
   }
   {
     S s2;
@@ -44,16 +45,17 @@ TEST_CONSTEXPR_CXX20 void test(std::basic_string_view<CharT> sv) {
     LIBCPP_ASSERT(s2.__invariants());
     assert(s2.size() == sv.size());
     assert(T::compare(s2.data(), sv.data(), sv.size()) == 0);
-    assert(s2.get_allocator() == Alloc());
+    assert(s2.get_allocator() == A());
     assert(s2.capacity() >= s2.size());
-    LIBCPP_ASSERT(is_string_asan_correct(s2));
   }
 }
 
-template <class Alloc, class CharT>
-TEST_CONSTEXPR_CXX20 void test(std::basic_string_view<CharT> sv, const Alloc& a) {
-  typedef std::basic_string<CharT, std::char_traits<CharT>, Alloc> S;
-  typedef typename S::traits_type T;
+template <class charT, class A>
+TEST_CONSTEXPR_CXX20 void
+test(std::basic_string_view<charT> sv, const A& a)
+{
+    typedef std::basic_string<charT, std::char_traits<charT>, A> S;
+    typedef typename S::traits_type T;
   {
     S s2(sv, a);
     LIBCPP_ASSERT(s2.__invariants());
@@ -61,7 +63,6 @@ TEST_CONSTEXPR_CXX20 void test(std::basic_string_view<CharT> sv, const Alloc& a)
     assert(T::compare(s2.data(), sv.data(), sv.size()) == 0);
     assert(s2.get_allocator() == a);
     assert(s2.capacity() >= s2.size());
-    LIBCPP_ASSERT(is_string_asan_correct(s2));
   }
   {
     S s2(a);
@@ -71,40 +72,50 @@ TEST_CONSTEXPR_CXX20 void test(std::basic_string_view<CharT> sv, const Alloc& a)
     assert(T::compare(s2.data(), sv.data(), sv.size()) == 0);
     assert(s2.get_allocator() == a);
     assert(s2.capacity() >= s2.size());
-    LIBCPP_ASSERT(is_string_asan_correct(s2));
   }
 }
 
-template <class Alloc>
-TEST_CONSTEXPR_CXX20 void test_string(const Alloc& a) {
-  typedef std::basic_string_view<char, std::char_traits<char> > SV;
-
-  test<Alloc>(SV(""));
-  test<Alloc>(SV(""), Alloc(a));
-
-  test<Alloc>(SV("1"));
-  test<Alloc>(SV("1"), Alloc(a));
-
-  test<Alloc>(SV("1234567980"));
-  test<Alloc>(SV("1234567980"), Alloc(a));
-
-  test<Alloc>(SV("123456798012345679801234567980123456798012345679801234567980"));
-  test<Alloc>(SV("123456798012345679801234567980123456798012345679801234567980"), Alloc(a));
-}
-
 TEST_CONSTEXPR_CXX20 bool test() {
-  test_string(std::allocator<char>());
-  test_string(test_allocator<char>());
-  test_string(test_allocator<char>(2));
+  {
+    typedef test_allocator<char> A;
+    typedef std::basic_string_view<char, std::char_traits<char> > SV;
+
+    test(SV(""));
+    test(SV(""), A(2));
+
+    test(SV("1"));
+    test(SV("1") ,A(2));
+
+    test(SV("1234567980"));
+    test(SV("1234567980"), A(2));
+
+    test(SV("123456798012345679801234567980123456798012345679801234567980"));
+    test(SV("123456798012345679801234567980123456798012345679801234567980"), A(2));
+  }
 #if TEST_STD_VER >= 11
-  test_string(min_allocator<char>());
-  test_string(safe_allocator<char>());
+  {
+    typedef min_allocator<char> A;
+    typedef std::basic_string_view<char, std::char_traits<char> > SV;
+
+    test(SV(""));
+    test(SV(""), A());
+
+    test(SV("1"));
+    test(SV("1") ,A());
+
+    test(SV("1234567980"));
+    test(SV("1234567980"), A());
+
+    test(SV("123456798012345679801234567980123456798012345679801234567980"));
+    test(SV("123456798012345679801234567980123456798012345679801234567980"), A());
+  }
 #endif
 
   return true;
 }
 
-int main(int, char**) {
+int main(int, char**)
+{
   test();
 #if TEST_STD_VER > 17
   static_assert(test());

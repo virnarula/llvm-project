@@ -33,9 +33,10 @@
 #include "support/Logger.h"
 #include "support/Path.h"
 #include "support/Trace.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -45,7 +46,6 @@
 #include "llvm/Support/SourceMgr.h"
 #include <algorithm>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -103,7 +103,7 @@ struct FragmentCompiler {
   std::string FragmentDirectory;
   bool Trusted = false;
 
-  std::optional<llvm::Regex>
+  llvm::Optional<llvm::Regex>
   compileRegex(const Located<std::string> &Text,
                llvm::Regex::RegexFlags Flags = llvm::Regex::NoFlags) {
     std::string Anchored = "^(" + *Text + ")$";
@@ -111,14 +111,14 @@ struct FragmentCompiler {
     std::string RegexError;
     if (!Result.isValid(RegexError)) {
       diag(Error, "Invalid regex " + Anchored + ": " + RegexError, Text.Range);
-      return std::nullopt;
+      return llvm::None;
     }
-    return std::move(Result);
+    return Result;
   }
 
-  std::optional<std::string> makeAbsolute(Located<std::string> Path,
-                                          llvm::StringLiteral Description,
-                                          llvm::sys::path::Style Style) {
+  llvm::Optional<std::string> makeAbsolute(Located<std::string> Path,
+                                           llvm::StringLiteral Description,
+                                           llvm::sys::path::Style Style) {
     if (llvm::sys::path::is_absolute(*Path))
       return *Path;
     if (FragmentDirectory.empty()) {
@@ -129,7 +129,7 @@ struct FragmentCompiler {
                Description)
                .str(),
            Path.Range);
-      return std::nullopt;
+      return llvm::None;
     }
     llvm::SmallString<256> AbsPath = llvm::StringRef(*Path);
     llvm::sys::fs::make_absolute(FragmentDirectory, AbsPath);
@@ -142,7 +142,7 @@ struct FragmentCompiler {
     FragmentCompiler &Outer;
     llvm::StringRef EnumName;
     const Located<std::string> &Input;
-    std::optional<T> Result;
+    llvm::Optional<T> Result;
     llvm::SmallVector<llvm::StringLiteral> ValidValues;
 
   public:
@@ -158,7 +158,7 @@ struct FragmentCompiler {
       return *this;
     }
 
-    std::optional<T> value() {
+    llvm::Optional<T> value() {
       if (!Result)
         Outer.diag(
             Warning,
@@ -171,9 +171,9 @@ struct FragmentCompiler {
   };
 
   // Attempt to parse a specified string into an enum.
-  // Yields std::nullopt and produces a diagnostic on failure.
+  // Yields llvm::None and produces a diagnostic on failure.
   //
-  // std::optional<T> Value = compileEnum<En>("Foo", Frag.Foo)
+  // Optional<T> Value = compileEnum<En>("Foo", Frag.Foo)
   //    .map("Foo", Enum::Foo)
   //    .map("Bar", Enum::Bar)
   //    .value();
@@ -197,7 +197,6 @@ struct FragmentCompiler {
     compile(std::move(F.Completion));
     compile(std::move(F.Hover));
     compile(std::move(F.InlayHints));
-    compile(std::move(F.SemanticTokens));
     compile(std::move(F.Style));
   }
 
@@ -292,7 +291,7 @@ struct FragmentCompiler {
     }
 
     if (F.CompilationDatabase) {
-      std::optional<Config::CDBSearchSpec> Spec;
+      llvm::Optional<Config::CDBSearchSpec> Spec;
       if (**F.CompilationDatabase == "Ancestors") {
         Spec.emplace();
         Spec->Policy = Config::CDBSearchSpec::Ancestors;
@@ -324,11 +323,11 @@ struct FragmentCompiler {
 
   void compile(Fragment::IndexBlock &&F) {
     if (F.Background) {
-      if (auto Val =
-              compileEnum<Config::BackgroundPolicy>("Background", *F.Background)
-                  .map("Build", Config::BackgroundPolicy::Build)
-                  .map("Skip", Config::BackgroundPolicy::Skip)
-                  .value())
+      if (auto Val = compileEnum<Config::BackgroundPolicy>("Background",
+                                                           **F.Background)
+                         .map("Build", Config::BackgroundPolicy::Build)
+                         .map("Skip", Config::BackgroundPolicy::Skip)
+                         .value())
         Out.Apply.push_back(
             [Val](const Params &, Config &C) { C.Index.Background = *Val; });
     }
@@ -432,36 +431,17 @@ struct FragmentCompiler {
               C.Diagnostics.Suppress.insert(N);
           });
 
-    if (F.UnusedIncludes) {
-      auto Val = compileEnum<Config::IncludesPolicy>("UnusedIncludes",
-                                                     **F.UnusedIncludes)
-                     .map("Strict", Config::IncludesPolicy::Strict)
-                     .map("None", Config::IncludesPolicy::None)
-                     .value();
-      if (!Val && **F.UnusedIncludes == "Experiment") {
-        diag(Warning,
-             "Experiment is deprecated for UnusedIncludes, use Strict instead.",
-             F.UnusedIncludes->Range);
-        Val = Config::IncludesPolicy::Strict;
-      }
-      if (Val) {
+    if (F.UnusedIncludes)
+      if (auto Val = compileEnum<Config::UnusedIncludesPolicy>(
+                         "UnusedIncludes", **F.UnusedIncludes)
+                         .map("Strict", Config::UnusedIncludesPolicy::Strict)
+                         .map("None", Config::UnusedIncludesPolicy::None)
+                         .value())
         Out.Apply.push_back([Val](const Params &, Config &C) {
           C.Diagnostics.UnusedIncludes = *Val;
         });
-      }
-    }
-
-    if (F.MissingIncludes)
-      if (auto Val = compileEnum<Config::IncludesPolicy>("MissingIncludes",
-                                                         **F.MissingIncludes)
-                         .map("Strict", Config::IncludesPolicy::Strict)
-                         .map("None", Config::IncludesPolicy::None)
-                         .value())
-        Out.Apply.push_back([Val](const Params &, Config &C) {
-          C.Diagnostics.MissingIncludes = *Val;
-        });
-
     compile(std::move(F.Includes));
+
     compile(std::move(F.ClangTidy));
   }
 
@@ -490,35 +470,15 @@ struct FragmentCompiler {
     StringRef Str = StringRef(*Arg).trim();
     // Don't support negating here, its handled if the item is in the Add or
     // Remove list.
-    if (Str.starts_with("-") || Str.contains(',')) {
+    if (Str.startswith("-") || Str.contains(',')) {
       diag(Error, "Invalid clang-tidy check name", Arg.Range);
       return;
     }
-    if (!Str.contains('*')) {
-      if (!isRegisteredTidyCheck(Str)) {
-        diag(Warning,
-             llvm::formatv("clang-tidy check '{0}' was not found", Str).str(),
-             Arg.Range);
-        return;
-      }
-      auto Fast = isFastTidyCheck(Str);
-      if (!Fast.has_value()) {
-        diag(Warning,
-             llvm::formatv(
-                 "Latency of clang-tidy check '{0}' is not known. "
-                 "It will only run if ClangTidy.FastCheckFilter is Loose or None",
-                 Str)
-                 .str(),
-             Arg.Range);
-      } else if (!*Fast) {
-        diag(Warning,
-             llvm::formatv(
-                 "clang-tidy check '{0}' is slow. "
-                 "It will only run if ClangTidy.FastCheckFilter is None",
-                 Str)
-                 .str(),
-             Arg.Range);
-      }
+    if (!Str.contains('*') && !isRegisteredTidyCheck(Str)) {
+      diag(Warning,
+           llvm::formatv("clang-tidy check '{0}' was not found", Str).str(),
+           Arg.Range);
+      return;
     }
     CurSpec += ',';
     if (!IsPositive)
@@ -554,16 +514,6 @@ struct FragmentCompiler {
                   StringPair.first, StringPair.second);
           });
     }
-    if (F.FastCheckFilter.has_value())
-      if (auto Val = compileEnum<Config::FastCheckPolicy>("FastCheckFilter",
-                                                          *F.FastCheckFilter)
-                         .map("Strict", Config::FastCheckPolicy::Strict)
-                         .map("Loose", Config::FastCheckPolicy::Loose)
-                         .map("None", Config::FastCheckPolicy::None)
-                         .value())
-        Out.Apply.push_back([Val](const Params &, Config &C) {
-          C.Diagnostics.ClangTidy.FastCheckFilter = *Val;
-        });
   }
 
   void compile(Fragment::DiagnosticsBlock::IncludesBlock &&F) {
@@ -636,46 +586,6 @@ struct FragmentCompiler {
       Out.Apply.push_back([Value(**F.Designators)](const Params &, Config &C) {
         C.InlayHints.Designators = Value;
       });
-    if (F.BlockEnd)
-      Out.Apply.push_back([Value(**F.BlockEnd)](const Params &, Config &C) {
-        C.InlayHints.BlockEnd = Value;
-      });
-    if (F.TypeNameLimit)
-      Out.Apply.push_back(
-          [Value(**F.TypeNameLimit)](const Params &, Config &C) {
-            C.InlayHints.TypeNameLimit = Value;
-          });
-  }
-
-  void compile(Fragment::SemanticTokensBlock &&F) {
-    if (!F.DisabledKinds.empty()) {
-      std::vector<std::string> DisabledKinds;
-      for (auto &Kind : F.DisabledKinds)
-        DisabledKinds.push_back(std::move(*Kind));
-
-      Out.Apply.push_back(
-          [DisabledKinds(std::move(DisabledKinds))](const Params &, Config &C) {
-            for (auto &Kind : DisabledKinds) {
-              auto It = llvm::find(C.SemanticTokens.DisabledKinds, Kind);
-              if (It == C.SemanticTokens.DisabledKinds.end())
-                C.SemanticTokens.DisabledKinds.push_back(std::move(Kind));
-            }
-          });
-    }
-    if (!F.DisabledModifiers.empty()) {
-      std::vector<std::string> DisabledModifiers;
-      for (auto &Kind : F.DisabledModifiers)
-        DisabledModifiers.push_back(std::move(*Kind));
-
-      Out.Apply.push_back([DisabledModifiers(std::move(DisabledModifiers))](
-                              const Params &, Config &C) {
-        for (auto &Kind : DisabledModifiers) {
-          auto It = llvm::find(C.SemanticTokens.DisabledModifiers, Kind);
-          if (It == C.SemanticTokens.DisabledModifiers.end())
-            C.SemanticTokens.DisabledModifiers.push_back(std::move(Kind));
-        }
-      });
-    }
   }
 
   constexpr static llvm::SourceMgr::DiagKind Error = llvm::SourceMgr::DK_Error;

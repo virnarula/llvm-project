@@ -58,22 +58,6 @@ def Linux : StandardSpec<"Linux"> {
       ]
   >;
 
-  HeaderSpec Sched = HeaderSpec<
-      "sched.h",
-      [
-        Macro<"SCHED_OTHER">,
-        Macro<"SCHED_FIFO">,
-        Macro<"SCHED_RR">,
-        Macro<"SCHED_BATCH">,
-        Macro<"SCHED_ISO">,
-        Macro<"SCHED_IDLE">,
-        Macro<"SCHED_DEADLINE">,
-      ],
-      [], // Types
-      [], // Enumerations
-      []  // Functions
-  >;
-
   HeaderSpec SysMMan = HeaderSpec<
       "sys/mman.h",
       [Macro<"MAP_ANONYMOUS">]

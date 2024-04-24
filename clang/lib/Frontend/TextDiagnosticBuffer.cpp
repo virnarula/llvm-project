@@ -32,20 +32,20 @@ void TextDiagnosticBuffer::HandleDiagnostic(DiagnosticsEngine::Level Level,
                          "Diagnostic not handled during diagnostic buffering!");
   case DiagnosticsEngine::Note:
     All.emplace_back(Level, Notes.size());
-    Notes.emplace_back(Info.getLocation(), std::string(Buf));
+    Notes.emplace_back(Info.getLocation(), std::string(Buf.str()));
     break;
   case DiagnosticsEngine::Warning:
     All.emplace_back(Level, Warnings.size());
-    Warnings.emplace_back(Info.getLocation(), std::string(Buf));
+    Warnings.emplace_back(Info.getLocation(), std::string(Buf.str()));
     break;
   case DiagnosticsEngine::Remark:
     All.emplace_back(Level, Remarks.size());
-    Remarks.emplace_back(Info.getLocation(), std::string(Buf));
+    Remarks.emplace_back(Info.getLocation(), std::string(Buf.str()));
     break;
   case DiagnosticsEngine::Error:
   case DiagnosticsEngine::Fatal:
     All.emplace_back(Level, Errors.size());
-    Errors.emplace_back(Info.getLocation(), std::string(Buf));
+    Errors.emplace_back(Info.getLocation(), std::string(Buf.str()));
     break;
   }
 }

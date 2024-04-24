@@ -18,15 +18,11 @@ namespace bolt {
 class X86MCSymbolizer : public MCSymbolizer {
 protected:
   BinaryFunction &Function;
-  bool CreateNewSymbols{true};
-
-  std::pair<MCSymbol *, uint64_t> handleGOTPC64(const Relocation &R,
-                                                uint64_t InstrAddr);
 
 public:
-  X86MCSymbolizer(BinaryFunction &Function, bool CreateNewSymbols = true)
+  X86MCSymbolizer(BinaryFunction &Function)
       : MCSymbolizer(*Function.getBinaryContext().Ctx.get(), nullptr),
-        Function(Function), CreateNewSymbols(CreateNewSymbols) {}
+        Function(Function) {}
 
   X86MCSymbolizer(const X86MCSymbolizer &) = delete;
   X86MCSymbolizer &operator=(const X86MCSymbolizer &) = delete;

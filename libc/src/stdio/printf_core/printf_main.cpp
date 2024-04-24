@@ -16,12 +16,12 @@
 
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 namespace printf_core {
 
 int printf_main(Writer *writer, const char *__restrict str,
                 internal::ArgList &args) {
-  Parser<internal::ArgList> parser(str, args);
+  Parser parser(str, args);
   int result = 0;
   for (FormatSection cur_section = parser.get_next_section();
        !cur_section.raw_string.empty();
@@ -39,4 +39,4 @@ int printf_main(Writer *writer, const char *__restrict str,
 }
 
 } // namespace printf_core
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

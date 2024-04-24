@@ -9,6 +9,7 @@
 #ifndef PYTHON_BINDINGS_SHAPE_OPS
 #define PYTHON_BINDINGS_SHAPE_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/Shape/IR/ShapeOps.td"
 
 #endif

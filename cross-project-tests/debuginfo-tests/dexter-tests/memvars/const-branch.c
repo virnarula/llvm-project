@@ -1,10 +1,10 @@
-// XFAIL: !system-darwin || !target-aarch64
+// XFAIL:*
 //// Suboptimal coverage, see inlined comments.
 
 // REQUIRES: lldb
 // UNSUPPORTED: system-windows
-// RUN: %clang -std=gnu11 -O3 -glldb %s -o %t
-// RUN: %dexter --fail-lt 1.0 -w --debugger lldb --binary %t -- %s
+// RUN: %dexter --fail-lt 1.0 -w --debugger lldb \
+// RUN:     --builder 'clang-c' --cflags "-O3 -glldb" -- %s
 
 //// Adapted from https://bugs.llvm.org/show_bug.cgi?id=34136#c4
 

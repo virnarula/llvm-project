@@ -4,13 +4,11 @@ struct T {
 };
 
 struct A {
-  T* operator->();
-                   // expected-note@-1 {{member found by ambiguous name lookup}}
+  T* operator->(); // expected-note{{candidate function}}
 };
 
 struct B {
-  T* operator->();
-                   // expected-note@-1 {{member found by ambiguous name lookup}}
+  T* operator->(); // expected-note{{candidate function}}
 };
 
 struct C : A, B {
@@ -21,12 +19,12 @@ struct D : A { };
 struct E; // expected-note {{forward declaration of 'E'}}
 
 void f(C &c, D& d, E& e) {
-  c->f();
-          // expected-error@-1 {{member 'operator->' found in multiple base classes of different types}}
+  c->f(); // expected-error{{use of overloaded operator '->' is ambiguous}}
   d->f();
   e->f(); // expected-error{{incomplete definition of type}}
 }
 
+// rdar://8875304
 namespace rdar8875304 {
 class Point {};
 class Line_Segment{ public: Line_Segment(const Point&){} };

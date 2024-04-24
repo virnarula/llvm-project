@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 void LimitedRandomnessCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(callExpr(callee(functionDecl(namedDecl(hasName("::rand")),
@@ -30,4 +32,6 @@ void LimitedRandomnessCheck::check(const MatchFinder::MatchResult &Result) {
   diag(MatchedDecl->getBeginLoc(), "rand() has limited randomness" + Msg);
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

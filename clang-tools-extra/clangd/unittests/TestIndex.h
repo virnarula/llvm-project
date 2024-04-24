@@ -27,8 +27,6 @@ Symbol func(llvm::StringRef Name);
 Symbol cls(llvm::StringRef Name);
 // Creates an enum symbol.
 Symbol enm(llvm::StringRef Name);
-// Creates an enum constant symbol.
-Symbol enmConstant(llvm::StringRef Name);
 // Creates a variable symbol.
 Symbol var(llvm::StringRef Name);
 // Creates a namespace symbol.

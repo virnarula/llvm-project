@@ -3,6 +3,6 @@
 # RUN: llvm-libtool-darwin -V -syslibroot foo | FileCheck %s
 # RUN: llvm-libtool-darwin -h | FileCheck --check-prefix=HELP %s
 
-# CHECK: LLVM version
+# CHECK: Default target:
 
 # HELP-NOT: syslibroot

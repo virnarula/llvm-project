@@ -75,21 +75,6 @@ bool FormatToken::isTypeOrIdentifier() const {
   return isSimpleTypeSpecifier() || Tok.isOneOf(tok::kw_auto, tok::identifier);
 }
 
-bool FormatToken::isBlockIndentedInitRBrace(const FormatStyle &Style) const {
-  assert(is(tok::r_brace));
-  if (!Style.Cpp11BracedListStyle ||
-      Style.AlignAfterOpenBracket != FormatStyle::BAS_BlockIndent) {
-    return false;
-  }
-  const auto *LBrace = MatchingParen;
-  assert(LBrace && LBrace->is(tok::l_brace));
-  if (LBrace->is(BK_BracedInit))
-    return true;
-  if (LBrace->Previous && LBrace->Previous->is(tok::equal))
-    return true;
-  return false;
-}
-
 bool FormatToken::opensBlockOrBlockTypeList(const FormatStyle &Style) const {
   // C# Does not indent object initialisers as continuations.
   if (is(tok::l_brace) && getBlockKind() == BK_BracedInit && Style.isCSharp())
@@ -100,7 +85,8 @@ bool FormatToken::opensBlockOrBlockTypeList(const FormatStyle &Style) const {
          (is(tok::l_brace) &&
           (getBlockKind() == BK_Block || is(TT_DictLiteral) ||
            (!Style.Cpp11BracedListStyle && NestingLevel == 0))) ||
-         (is(tok::less) && Style.isProto());
+         (is(tok::less) && (Style.Language == FormatStyle::LK_Proto ||
+                            Style.Language == FormatStyle::LK_TextProto));
 }
 
 TokenRole::~TokenRole() {}
@@ -110,11 +96,11 @@ void TokenRole::precomputeFormattingInfos(const FormatToken *Token) {}
 unsigned CommaSeparatedList::formatAfterToken(LineState &State,
                                               ContinuationIndenter *Indenter,
                                               bool DryRun) {
-  if (!State.NextToken || !State.NextToken->Previous)
+  if (State.NextToken == nullptr || !State.NextToken->Previous)
     return 0;
 
-  if (Formats.size() <= 1)
-    return 0; // Handled by formatFromToken (1) or avoid severe penalty (0).
+  if (Formats.size() == 1)
+    return 0; // Handled by formatFromToken
 
   // Ensure that we start on the opening brace.
   const FormatToken *LBrace =

@@ -36,7 +36,7 @@
 // RUN:   | FileCheck %s --check-prefix=CHECK-NULL
 
 // TODO(alekseyshl): win32 is disabled due to failing errno tests, fix it there.
-// UNSUPPORTED: ubsan, target={{.*windows-msvc.*}}
+// UNSUPPORTED: ubsan, windows-msvc
 
 #include <assert.h>
 #include <errno.h>
@@ -94,29 +94,21 @@ int main(int argc, char **argv) {
 }
 
 // CHECK-mCRASH: malloc:
-// CHECK-mCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-mCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*allocator_returns_null.cpp.*}} in main
+// CHECK-mCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-cCRASH: calloc:
-// CHECK-cCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-cCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*allocator_returns_null.cpp.*}} in main
+// CHECK-cCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-coCRASH: calloc-overflow:
-// CHECK-coCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-coCRASH: {{SUMMARY: .*Sanitizer: calloc-overflow.*allocator_returns_null.cpp.*}} in main
+// CHECK-coCRASH: {{SUMMARY: .*Sanitizer: calloc-overflow}}
 // CHECK-rCRASH: realloc:
-// CHECK-rCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-rCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*allocator_returns_null.cpp.*}} in main
+// CHECK-rCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-mrCRASH: realloc-after-malloc:
-// CHECK-mrCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-mrCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*allocator_returns_null.cpp.*}} in main
+// CHECK-mrCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-nCRASH: new:
-// CHECK-nCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-nCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*allocator_returns_null.cpp.*}} in main
+// CHECK-nCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-nCRASH-OOM: new:
-// CHECK-nCRASH-O#{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-nCRASH-OOM: {{SUMMARY: .*Sanitizer: out-of-memory.*allocator_returns_null.cpp.*}} in main
+// CHECK-nCRASH-OOM: {{SUMMARY: .*Sanitizer: out-of-memory}}
 // CHECK-nnCRASH: new-nothrow:
-// CHECK-nnCRASH: #{{[0-9]+.*}}allocator_returns_null.cpp
-// CHECK-nnCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*allocator_returns_null.cpp.*}} in main
+// CHECK-nnCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 
 // CHECK-NULL: {{malloc|calloc|calloc-overflow|realloc|realloc-after-malloc|new-nothrow}}
 // CHECK-NULL: errno: 12, x: 0

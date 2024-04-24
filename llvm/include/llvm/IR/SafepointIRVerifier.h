@@ -40,8 +40,6 @@ public:
   explicit SafepointIRVerifierPass() = default;
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-
-  static bool isRequired() { return true; }
 };
 }
 

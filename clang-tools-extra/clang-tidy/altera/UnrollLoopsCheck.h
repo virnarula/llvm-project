@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::altera {
+namespace clang {
+namespace tidy {
+namespace altera {
 
 /// Finds inner loops that have not been unrolled, as well as fully unrolled
 /// loops with unknown loop bounds or a large number of iterations.
@@ -56,7 +58,7 @@ private:
   /// bound on the number of loops is greater than max_loop_iterations or not.
   /// If the expression is not evaluatable or not an integer, returns false.
   bool exprHasLargeNumIterations(const Expr *Expression,
-                                 const ASTContext *Context) const;
+                                 const ASTContext *Context);
   /// Returns the type of unrolling, if any, associated with the given
   /// statement.
   enum UnrollType unrollType(const Stmt *Statement, ASTContext *Context);
@@ -69,6 +71,8 @@ private:
   void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
 };
 
-} // namespace clang::tidy::altera
+} // namespace altera
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ALTERA_UNROLLLOOPSCHECK_H

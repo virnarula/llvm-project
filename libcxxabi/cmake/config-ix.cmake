@@ -33,9 +33,7 @@ else()
   endif()
 endif()
 
-# Only link against compiler-rt manually if we use -nodefaultlibs, since
-# otherwise the compiler will do the right thing on its own.
-if (NOT CXX_SUPPORTS_NOSTDLIBXX_FLAG AND C_SUPPORTS_NODEFAULTLIBS_FLAG)
+if (CXX_SUPPORTS_NOSTDLIBXX_FLAG OR C_SUPPORTS_NODEFAULTLIBS_FLAG)
   if (LIBCXXABI_HAS_C_LIB)
     list(APPEND CMAKE_REQUIRED_LIBRARIES c)
   endif ()
@@ -69,9 +67,6 @@ if (NOT CXX_SUPPORTS_NOSTDLIBXX_FLAG AND C_SUPPORTS_NODEFAULTLIBS_FLAG)
                         moldname mingwex msvcrt)
     list(APPEND CMAKE_REQUIRED_LIBRARIES ${MINGW_LIBRARIES})
   endif()
-endif()
-
-if (CXX_SUPPORTS_NOSTDLIBXX_FLAG OR C_SUPPORTS_NODEFAULTLIBS_FLAG)
   if (CMAKE_C_FLAGS MATCHES -fsanitize OR CMAKE_CXX_FLAGS MATCHES -fsanitize)
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fno-sanitize=all")
   endif ()
@@ -86,7 +81,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -Werror=unknown-pragmas")
   check_c_source_compiles("
 #pragma comment(lib, \"c\")
-int main(void) { return 0; }
+int main() { return 0; }
 " C_SUPPORTS_COMMENT_LIB_PRAGMA)
   cmake_pop_check_state()
 endif()
@@ -100,14 +95,11 @@ if(FUCHSIA)
   set(LIBCXXABI_HAS_PTHREAD_LIB NO)
   check_library_exists(c __cxa_thread_atexit_impl ""
     LIBCXXABI_HAS_CXA_THREAD_ATEXIT_IMPL)
-elseif(ANDROID)
-  set(LIBCXXABI_HAS_DL_LIB YES)
-  set(LIBCXXABI_HAS_PTHREAD_LIB NO)
-  check_library_exists(c __cxa_thread_atexit_impl ""
-    LIBCXXABI_HAS_CXA_THREAD_ATEXIT_IMPL)
+  set(LIBCXXABI_HAS_SYSTEM_LIB NO)
 else()
   check_library_exists(dl dladdr "" LIBCXXABI_HAS_DL_LIB)
   check_library_exists(pthread pthread_once "" LIBCXXABI_HAS_PTHREAD_LIB)
   check_library_exists(c __cxa_thread_atexit_impl ""
     LIBCXXABI_HAS_CXA_THREAD_ATEXIT_IMPL)
+  check_library_exists(System write "" LIBCXXABI_HAS_SYSTEM_LIB)
 endif()

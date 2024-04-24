@@ -138,7 +138,7 @@ bool canonicalizePacketImpl(MCInstrInfo const &MCII, MCSubtargetInfo const &STI,
   HexagonMCShuffle(Context, false, MCII, STI, MCB);
 
   const SmallVector<DuplexCandidate, 8> possibleDuplexes =
-      (STI.hasFeature(Hexagon::FeatureDuplex))
+      (STI.getFeatureBits()[Hexagon::FeatureDuplex])
           ? HexagonMCInstrInfo::getDuplexPossibilties(MCII, STI, MCB)
           : SmallVector<DuplexCandidate, 8>();
 
@@ -568,20 +568,12 @@ bool HexagonMCInstrInfo::isConstExtended(MCInstrInfo const &MCII,
   if (isa<HexagonMCExpr>(MO.getExpr()) &&
       HexagonMCInstrInfo::mustNotExtend(*MO.getExpr()))
     return false;
-
   int64_t Value;
   if (!MO.getExpr()->evaluateAsAbsolute(Value))
     return true;
-  if (HexagonMCInstrInfo::isExtentSigned(MCII, MCI)) {
-    int32_t SValue = Value;
-    int32_t MinValue = HexagonMCInstrInfo::getMinValue(MCII, MCI);
-    int32_t MaxValue = HexagonMCInstrInfo::getMaxValue(MCII, MCI);
-    return SValue < MinValue || SValue > MaxValue;
-  }
-  uint32_t UValue = Value;
-  uint32_t MinValue = HexagonMCInstrInfo::getMinValue(MCII, MCI);
-  uint32_t MaxValue = HexagonMCInstrInfo::getMaxValue(MCII, MCI);
-  return UValue < MinValue || UValue > MaxValue;
+  int MinValue = HexagonMCInstrInfo::getMinValue(MCII, MCI);
+  int MaxValue = HexagonMCInstrInfo::getMaxValue(MCII, MCI);
+  return (MinValue > Value || Value > MaxValue);
 }
 
 bool HexagonMCInstrInfo::isCanon(MCInstrInfo const &MCII, MCInst const &MCI) {
@@ -770,7 +762,7 @@ bool HexagonMCInstrInfo::isPredRegister(MCInstrInfo const &MCII,
   MCInstrDesc const &Desc = HexagonMCInstrInfo::getDesc(MCII, Inst);
 
   return Inst.getOperand(I).isReg() &&
-         Desc.operands()[I].RegClass == Hexagon::PredRegsRegClassID;
+         Desc.OpInfo[I].RegClass == Hexagon::PredRegsRegClassID;
 }
 
 /// Return whether the insn can be packaged only with A and X-type insns.
@@ -915,7 +907,7 @@ bool HexagonMCInstrInfo::s27_2_reloc(MCExpr const &Expr) {
 }
 
 unsigned HexagonMCInstrInfo::packetSizeSlots(MCSubtargetInfo const &STI) {
-  const bool IsTiny = STI.hasFeature(Hexagon::ProcTinyCore);
+  const bool IsTiny = STI.getFeatureBits()[Hexagon::ProcTinyCore];
 
   return IsTiny ? (HEXAGON_PACKET_SIZE - 1) : HEXAGON_PACKET_SIZE;
 }
@@ -940,7 +932,7 @@ HexagonMCInstrInfo::predicateInfo(MCInstrInfo const &MCII, MCInst const &MCI) {
     return {0, 0, false};
   MCInstrDesc const &Desc = getDesc(MCII, MCI);
   for (auto I = Desc.getNumDefs(), N = Desc.getNumOperands(); I != N; ++I)
-    if (Desc.operands()[I].RegClass == Hexagon::PredRegsRegClassID)
+    if (Desc.OpInfo[I].RegClass == Hexagon::PredRegsRegClassID)
       return {MCI.getOperand(I).getReg(), I, isPredicatedTrue(MCII, MCI)};
   return {0, 0, false};
 }
@@ -1036,10 +1028,8 @@ unsigned HexagonMCInstrInfo::SubregisterBit(unsigned Consumer,
                                             unsigned Producer2) {
   // If we're a single vector consumer of a double producer, set subreg bit
   // based on if we're accessing the lower or upper register component
-  if (IsVecRegPair(Producer) && IsVecRegSingle(Consumer)) {
-    unsigned Rev = IsReverseVecRegPair(Producer);
-    return ((Consumer - Hexagon::V0) & 0x1) ^ Rev;
-  }
+  if (IsVecRegPair(Producer) && IsVecRegSingle(Consumer))
+    return (Consumer - Hexagon::V0) & 0x1;
   if (Producer2 != Hexagon::NoRegister)
     return Consumer == Producer;
   return 0;

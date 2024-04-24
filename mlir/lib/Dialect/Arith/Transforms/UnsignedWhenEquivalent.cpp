@@ -31,7 +31,7 @@ using namespace mlir::dataflow;
 /// non-negative.
 static LogicalResult staticallyNonNegative(DataFlowSolver &solver, Value v) {
   auto *result = solver.lookupState<IntegerValueRangeLattice>(v);
-  if (!result || result->getValue().isUninitialized())
+  if (!result)
     return failure();
   const ConstantIntRanges &range = result->getValue().getValue();
   return success(range.smin().isNonNegative());
@@ -128,11 +128,11 @@ struct ArithUnsignedWhenEquivalentPass
     target
         .addDynamicallyLegalOp<DivSIOp, CeilDivSIOp, CeilDivUIOp, FloorDivSIOp,
                                RemSIOp, MinSIOp, MaxSIOp, ExtSIOp>(
-            [&solver](Operation *op) -> std::optional<bool> {
+            [&solver](Operation *op) -> Optional<bool> {
               return failed(staticallyNonNegative(solver, op));
             });
     target.addDynamicallyLegalOp<CmpIOp>(
-        [&solver](CmpIOp op) -> std::optional<bool> {
+        [&solver](CmpIOp op) -> Optional<bool> {
           return failed(isCmpIConvertable(solver, op));
         });
 

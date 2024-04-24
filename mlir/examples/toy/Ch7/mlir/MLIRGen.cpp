@@ -12,10 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "toy/MLIRGen.h"
-#include "mlir/IR/Block.h"
-#include "mlir/IR/Diagnostics.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Support/LogicalResult.h"
 #include "toy/AST.h"
 #include "toy/Dialect.h"
 
@@ -25,24 +21,11 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
-#include "toy/Lexer.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
+#include "llvm/Support/raw_ostream.h"
 #include <numeric>
-#include <optional>
-#include <tuple>
-#include <utility>
-#include <vector>
 
 using namespace mlir::toy;
 using namespace toy;
@@ -51,6 +34,7 @@ using llvm::ArrayRef;
 using llvm::cast;
 using llvm::dyn_cast;
 using llvm::isa;
+using llvm::makeArrayRef;
 using llvm::ScopedHashTableScope;
 using llvm::SmallVector;
 using llvm::StringRef;
@@ -183,7 +167,7 @@ private:
         return nullptr;
       argTypes.push_back(type);
     }
-    auto funcType = builder.getFunctionType(argTypes, std::nullopt);
+    auto funcType = builder.getFunctionType(argTypes, llvm::None);
     return builder.create<mlir::toy::FuncOp>(location, proto.getName(),
                                              funcType);
   }
@@ -287,25 +271,25 @@ private:
   }
 
   /// Return the numeric member index of the given struct access expression.
-  std::optional<size_t> getMemberIndex(BinaryExprAST &accessOp) {
+  llvm::Optional<size_t> getMemberIndex(BinaryExprAST &accessOp) {
     assert(accessOp.getOp() == '.' && "expected access operation");
 
     // Lookup the struct node for the LHS.
     StructAST *structAST = getStructFor(accessOp.getLHS());
     if (!structAST)
-      return std::nullopt;
+      return llvm::None;
 
     // Get the name from the RHS.
     VariableExprAST *name = llvm::dyn_cast<VariableExprAST>(accessOp.getRHS());
     if (!name)
-      return std::nullopt;
+      return llvm::None;
 
     auto structVars = structAST->getVariables();
     const auto *it = llvm::find_if(structVars, [&](auto &var) {
       return var->getName() == name->getName();
     });
     if (it == structVars.end())
-      return std::nullopt;
+      return llvm::None;
     return it - structVars.begin();
   }
 
@@ -329,7 +313,7 @@ private:
 
     // If this is an access operation, handle it immediately.
     if (binop.getOp() == '.') {
-      std::optional<size_t> accessIndex = getMemberIndex(binop);
+      llvm::Optional<size_t> accessIndex = getMemberIndex(binop);
       if (!accessIndex) {
         emitError(location, "invalid access into struct expression");
         return nullptr;
@@ -374,13 +358,13 @@ private:
     // 'return' takes an optional expression, handle that case here.
     mlir::Value expr = nullptr;
     if (ret.getExpr().has_value()) {
-      if (!(expr = mlirGen(**ret.getExpr())))
+      if (!(expr = mlirGen(*ret.getExpr().value())))
         return mlir::failure();
     }
 
     // Otherwise, this return operation has zero operands.
-    builder.create<ReturnOp>(location,
-                             expr ? ArrayRef(expr) : ArrayRef<mlir::Value>());
+    builder.create<ReturnOp>(location, expr ? makeArrayRef(expr)
+                                            : ArrayRef<mlir::Value>());
     return mlir::success();
   }
 
@@ -417,7 +401,7 @@ private:
 
     // This is the actual attribute that holds the list of values for this
     // tensor literal.
-    return mlir::DenseElementsAttr::get(dataType, llvm::ArrayRef(data));
+    return mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(data));
   }
   mlir::DenseElementsAttr getConstantAttr(NumberExprAST &lit) {
     // The type of this attribute is tensor of 64-bit floating-point with no
@@ -428,7 +412,7 @@ private:
     // This is the actual attribute that holds the list of values for this
     // tensor literal.
     return mlir::DenseElementsAttr::get(dataType,
-                                        llvm::ArrayRef(lit.getValue()));
+                                        llvm::makeArrayRef(lit.getValue()));
   }
   /// Emit a constant for a struct literal. It will be emitted as an array of
   /// other literals in an Attribute attached to a `toy.struct_constant`
@@ -442,10 +426,10 @@ private:
     for (auto &var : lit.getValues()) {
       if (auto *number = llvm::dyn_cast<NumberExprAST>(var.get())) {
         attrElements.push_back(getConstantAttr(*number));
-        typeElements.push_back(getType(std::nullopt));
+        typeElements.push_back(getType(llvm::None));
       } else if (auto *lit = llvm::dyn_cast<LiteralExprAST>(var.get())) {
         attrElements.push_back(getConstantAttr(*lit));
-        typeElements.push_back(getType(std::nullopt));
+        typeElements.push_back(getType(llvm::None));
       } else {
         auto *structLit = llvm::cast<StructLiteralExprAST>(var.get());
         auto attrTypePair = getConstantAttr(*structLit);

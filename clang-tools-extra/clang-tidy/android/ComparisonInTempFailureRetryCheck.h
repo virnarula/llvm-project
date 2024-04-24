@@ -14,7 +14,9 @@
 #include "llvm/ADT/StringRef.h"
 #include <string>
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 /// Attempts to catch calls to TEMP_FAILURE_RETRY with a top-level comparison
 /// operation, like `TEMP_FAILURE_RETRY(read(...) != N)`. In these cases, the
@@ -33,6 +35,8 @@ private:
   SmallVector<StringRef, 5> RetryMacros;
 };
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_COMPARISONINTEMPFAILURERETRYCHECK_H

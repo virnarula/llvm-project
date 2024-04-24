@@ -30,43 +30,27 @@ class MLIRContext;
 class AbstractType {
 public:
   using HasTraitFn = llvm::unique_function<bool(TypeID) const>;
-  using WalkImmediateSubElementsFn = function_ref<void(
-      Type, function_ref<void(Attribute)>, function_ref<void(Type)>)>;
-  using ReplaceImmediateSubElementsFn =
-      function_ref<Type(Type, ArrayRef<Attribute>, ArrayRef<Type>)>;
 
   /// Look up the specified abstract type in the MLIRContext and return a
   /// reference to it.
   static const AbstractType &lookup(TypeID typeID, MLIRContext *context);
-
-  /// Look up the specified abstract type in the MLIRContext and return a
-  /// reference to it if it exists.
-  static std::optional<std::reference_wrapper<const AbstractType>>
-  lookup(StringRef name, MLIRContext *context);
 
   /// This method is used by Dialect objects when they register the list of
   /// types they contain.
   template <typename T>
   static AbstractType get(Dialect &dialect) {
     return AbstractType(dialect, T::getInterfaceMap(), T::getHasTraitFn(),
-                        T::getWalkImmediateSubElementsFn(),
-                        T::getReplaceImmediateSubElementsFn(), T::getTypeID(),
-                        T::name);
+                        T::getTypeID());
   }
 
   /// This method is used by Dialect objects to register types with
   /// custom TypeIDs.
   /// The use of this method is in general discouraged in favor of
   /// 'get<CustomType>(dialect)';
-  static AbstractType
-  get(Dialect &dialect, detail::InterfaceMap &&interfaceMap,
-      HasTraitFn &&hasTrait,
-      WalkImmediateSubElementsFn walkImmediateSubElementsFn,
-      ReplaceImmediateSubElementsFn replaceImmediateSubElementsFn,
-      TypeID typeID, StringRef name) {
+  static AbstractType get(Dialect &dialect, detail::InterfaceMap &&interfaceMap,
+                          HasTraitFn &&hasTrait, TypeID typeID) {
     return AbstractType(dialect, std::move(interfaceMap), std::move(hasTrait),
-                        walkImmediateSubElementsFn,
-                        replaceImmediateSubElementsFn, typeID, name);
+                        typeID);
   }
 
   /// Return the dialect this type was registered to.
@@ -94,32 +78,14 @@ public:
   /// Returns true if the type has a particular trait.
   bool hasTrait(TypeID traitID) const { return hasTraitFn(traitID); }
 
-  /// Walk the immediate sub-elements of the given type.
-  void walkImmediateSubElements(Type type,
-                                function_ref<void(Attribute)> walkAttrsFn,
-                                function_ref<void(Type)> walkTypesFn) const;
-
-  /// Replace the immediate sub-elements of the given type.
-  Type replaceImmediateSubElements(Type type, ArrayRef<Attribute> replAttrs,
-                                   ArrayRef<Type> replTypes) const;
-
   /// Return the unique identifier representing the concrete type class.
   TypeID getTypeID() const { return typeID; }
 
-  /// Return the unique name representing the type.
-  StringRef getName() const { return name; }
-
 private:
   AbstractType(Dialect &dialect, detail::InterfaceMap &&interfaceMap,
-               HasTraitFn &&hasTrait,
-               WalkImmediateSubElementsFn walkImmediateSubElementsFn,
-               ReplaceImmediateSubElementsFn replaceImmediateSubElementsFn,
-               TypeID typeID, StringRef name)
+               HasTraitFn &&hasTrait, TypeID typeID)
       : dialect(dialect), interfaceMap(std::move(interfaceMap)),
-        hasTraitFn(std::move(hasTrait)),
-        walkImmediateSubElementsFn(walkImmediateSubElementsFn),
-        replaceImmediateSubElementsFn(replaceImmediateSubElementsFn),
-        typeID(typeID), name(name) {}
+        hasTraitFn(std::move(hasTrait)), typeID(typeID) {}
 
   /// Give StorageUserBase access to the mutable lookup.
   template <typename ConcreteT, typename BaseT, typename StorageT,
@@ -140,18 +106,8 @@ private:
   /// Function to check if the type has a particular trait.
   HasTraitFn hasTraitFn;
 
-  /// Function to walk the immediate sub-elements of this type.
-  WalkImmediateSubElementsFn walkImmediateSubElementsFn;
-
-  /// Function to replace the immediate sub-elements of this type.
-  ReplaceImmediateSubElementsFn replaceImmediateSubElementsFn;
-
   /// The unique identifier of the derived Type class.
   const TypeID typeID;
-
-  /// The unique name of this type. The string is not owned by the context, so
-  /// The lifetime of this string should outlive the MLIR context.
-  const StringRef name;
 };
 
 //===----------------------------------------------------------------------===//

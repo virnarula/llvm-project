@@ -4080,6 +4080,7 @@ void PrimaryExpressions(int a) {
 // CHECK-NEXT:    "isUsed": true,
 // CHECK-NEXT:    "name": "b",
 // CHECK-NEXT:    "type": {
+// CHECK-NEXT:     "desugaredQualType": "struct S",
 // CHECK-NEXT:     "qualType": "struct S"
 // CHECK-NEXT:    }
 // CHECK-NEXT:   },
@@ -4529,6 +4530,7 @@ void PrimaryExpressions(int a) {
 // CHECK-NEXT:           }
 // CHECK-NEXT:          },
 // CHECK-NEXT:          "type": {
+// CHECK-NEXT:           "desugaredQualType": "struct S",
 // CHECK-NEXT:           "qualType": "struct S"
 // CHECK-NEXT:          },
 // CHECK-NEXT:          "valueCategory": "lvalue",
@@ -4537,6 +4539,7 @@ void PrimaryExpressions(int a) {
 // CHECK-NEXT:           "kind": "ParmVarDecl",
 // CHECK-NEXT:           "name": "b",
 // CHECK-NEXT:           "type": {
+// CHECK-NEXT:            "desugaredQualType": "struct S",
 // CHECK-NEXT:            "qualType": "struct S"
 // CHECK-NEXT:           }
 // CHECK-NEXT:          }
@@ -4814,6 +4817,7 @@ void PrimaryExpressions(int a) {
 // CHECK-NEXT:       }
 // CHECK-NEXT:      },
 // CHECK-NEXT:      "type": {
+// CHECK-NEXT:       "desugaredQualType": "struct S",
 // CHECK-NEXT:       "qualType": "struct S"
 // CHECK-NEXT:      },
 // CHECK-NEXT:      "valueCategory": "prvalue",
@@ -4835,6 +4839,7 @@ void PrimaryExpressions(int a) {
 // CHECK-NEXT:         }
 // CHECK-NEXT:        },
 // CHECK-NEXT:        "type": {
+// CHECK-NEXT:         "desugaredQualType": "struct S",
 // CHECK-NEXT:         "qualType": "struct S"
 // CHECK-NEXT:        },
 // CHECK-NEXT:        "valueCategory": "lvalue",
@@ -4855,6 +4860,7 @@ void PrimaryExpressions(int a) {
 // CHECK-NEXT:           }
 // CHECK-NEXT:          },
 // CHECK-NEXT:          "type": {
+// CHECK-NEXT:           "desugaredQualType": "struct S",
 // CHECK-NEXT:           "qualType": "struct S"
 // CHECK-NEXT:          },
 // CHECK-NEXT:          "valueCategory": "prvalue",

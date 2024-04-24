@@ -76,7 +76,8 @@ bool IndexingContext::handleReference(const NamedDecl *D, SourceLocation Loc,
                                       const DeclContext *DC,
                                       SymbolRoleSet Roles,
                                       ArrayRef<SymbolRelation> Relations,
-                                      const Expr *RefE) {
+                                      const Expr *RefE,
+                                      const Decl *RefD) {
   if (!shouldIndexFunctionLocalSymbols() && isFunctionLocalSymbol(D))
     return true;
 
@@ -86,7 +87,7 @@ bool IndexingContext::handleReference(const NamedDecl *D, SourceLocation Loc,
     return true;
   }
   return handleDeclOccurrence(D, Loc, /*IsRef=*/true, Parent, Roles, Relations,
-                              RefE, nullptr, DC);
+                              RefE, RefD, DC);
 }
 
 static void reportModuleReferences(const Module *Mod,

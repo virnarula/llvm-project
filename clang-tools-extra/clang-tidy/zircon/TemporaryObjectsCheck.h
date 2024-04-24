@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "../utils/OptionsUtils.h"
 
-namespace clang::tidy::zircon {
+namespace clang {
+namespace tidy {
+namespace zircon {
 
 /// Construction of specific temporary objects in the Zircon kernel is
 /// discouraged.
@@ -32,6 +34,8 @@ private:
   std::vector<StringRef> Names;
 };
 
-} // namespace clang::tidy::zircon
+} // namespace zircon
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ZIRCON_TEMPORARYOBJECTSCHECK_H

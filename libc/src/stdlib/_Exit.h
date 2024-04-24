@@ -6,13 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC_STDLIB__EXIT_H
-#define LLVM_LIBC_SRC_STDLIB__EXIT_H
+#ifndef LLVM_LIBC_SRC__EXIT_H
+#define LLVM_LIBC_SRC__EXIT_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 [[noreturn]] void _Exit(int status);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC_STDLIB__EXIT_H
+#endif // LLVM_LIBC_SRC__EXIT_H

@@ -12,6 +12,6 @@ Header:
   PartCount:       1
   PartOffsets:     [ 0 ]
 Parts:
-  - Name:            FKE0
+  - Name:            SFI0
     Size:            8
 ...

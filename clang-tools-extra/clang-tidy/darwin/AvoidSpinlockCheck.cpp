@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::darwin {
+namespace clang {
+namespace tidy {
+namespace darwin {
 
 void AvoidSpinlockCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -29,4 +31,6 @@ void AvoidSpinlockCheck::check(const MatchFinder::MatchResult &Result) {
        "deprecated OSSpinLock");
 }
 
-} // namespace clang::tidy::darwin
+}  // namespace darwin
+}  // namespace tidy
+}  // namespace clang

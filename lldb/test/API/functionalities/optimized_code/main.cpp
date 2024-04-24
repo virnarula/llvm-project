@@ -11,9 +11,8 @@ struct S1 {
 };
 
 struct S2 {
-  char a = 0;
-  char b = 0;
-  int pad = 0;
+  char a, b;
+  int pad;
   S2(int x) {
     a = x & 0xff;
     b = x & 0xff00;

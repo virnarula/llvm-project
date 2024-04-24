@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -16,31 +14,34 @@
 
 // recursive_recursive_directory_iterator(recursive_recursive_directory_iterator const&);
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <set>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void test_constructor_signature()
+TEST_SUITE(recursive_directory_iterator_copy_construct_tests)
+
+TEST_CASE(test_constructor_signature)
 {
     using D = recursive_directory_iterator;
     static_assert(std::is_copy_constructible<D>::value, "");
     //static_assert(!std::is_nothrow_copy_constructible<D>::value, "");
 }
 
-static void test_copy_end_iterator()
+TEST_CASE(test_copy_end_iterator)
 {
     const recursive_directory_iterator endIt;
     recursive_directory_iterator it(endIt);
-    assert(it == endIt);
+    TEST_CHECK(it == endIt);
 }
 
-static void test_copy_valid_iterator()
+TEST_CASE(test_copy_valid_iterator)
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -53,32 +54,26 @@ static void test_copy_valid_iterator()
     //  it.recursion_pending() != true
     const directory_options opts = directory_options::skip_permission_denied;
     recursive_directory_iterator it(testDir, opts);
-    assert(it != endIt);
+    TEST_REQUIRE(it != endIt);
     while (it.depth() == 0) {
         ++it;
-        assert(it != endIt);
+        TEST_REQUIRE(it != endIt);
     }
     it.disable_recursion_pending();
-    assert(it.options() == opts);
-    assert(it.depth() == 1);
-    assert(it.recursion_pending() == false);
+    TEST_CHECK(it.options() == opts);
+    TEST_CHECK(it.depth() == 1);
+    TEST_CHECK(it.recursion_pending() == false);
     const path entry = *it;
 
     // OPERATION UNDER TEST //
     const recursive_directory_iterator it2(it);
     // ------------------- //
 
-    assert(it2 == it);
-    assert(*it2 == entry);
-    assert(it2.depth() == 1);
-    assert(it2.recursion_pending() == false);
-    assert(it != endIt);
+    TEST_REQUIRE(it2 == it);
+    TEST_CHECK(*it2 == entry);
+    TEST_CHECK(it2.depth() == 1);
+    TEST_CHECK(it2.recursion_pending() == false);
+    TEST_CHECK(it != endIt);
 }
 
-int main(int, char**) {
-    test_constructor_signature();
-    test_copy_end_iterator();
-    test_copy_valid_iterator();
-
-    return 0;
-}
+TEST_SUITE_END()

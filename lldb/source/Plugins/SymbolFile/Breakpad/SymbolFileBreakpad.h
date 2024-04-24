@@ -10,12 +10,11 @@
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_BREAKPAD_SYMBOLFILEBREAKPAD_H
 
 #include "Plugins/ObjectFile/Breakpad/BreakpadRecords.h"
+#include "lldb/Core/FileSpecList.h"
 #include "lldb/Symbol/LineTable.h"
 #include "lldb/Symbol/PostfixExpression.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/UnwindPlan.h"
-#include "lldb/Utility/FileSpecList.h"
-#include <optional>
 
 namespace lldb_private {
 
@@ -73,7 +72,7 @@ public:
   bool ParseDebugMacros(CompileUnit &comp_unit) override { return false; }
 
   bool ParseSupportFiles(CompileUnit &comp_unit,
-                         SupportFileList &support_files) override;
+                         FileSpecList &support_files) override;
   size_t ParseTypes(CompileUnit &cu) override { return 0; }
 
   bool ParseImportedModules(
@@ -93,10 +92,10 @@ public:
     return 0;
   }
   Type *ResolveTypeUID(lldb::user_id_t type_uid) override { return nullptr; }
-  std::optional<ArrayInfo> GetDynamicArrayInfoForUID(
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
       lldb::user_id_t type_uid,
       const lldb_private::ExecutionContext *exe_ctx) override {
-    return std::nullopt;
+    return llvm::None;
   }
 
   bool CompleteType(CompilerType &compiler_type) override { return false; }
@@ -118,16 +117,25 @@ public:
   void FindFunctions(const RegularExpression &regex, bool include_inlines,
                      SymbolContextList &sc_list) override;
 
-  llvm::Expected<lldb::TypeSystemSP>
+  void FindTypes(ConstString name, const CompilerDeclContext &parent_decl_ctx,
+                 uint32_t max_matches,
+                 llvm::DenseSet<SymbolFile *> &searched_symbol_files,
+                 TypeMap &types) override;
+
+  void FindTypes(llvm::ArrayRef<CompilerContext> pattern, LanguageSet languages,
+                 llvm::DenseSet<SymbolFile *> &searched_symbol_files,
+                 TypeMap &types) override;
+
+  llvm::Expected<TypeSystem &>
   GetTypeSystemForLanguage(lldb::LanguageType language) override {
     return llvm::make_error<llvm::StringError>(
         "SymbolFileBreakpad does not support GetTypeSystemForLanguage",
         llvm::inconvertibleErrorCode());
   }
 
-  CompilerDeclContext FindNamespace(ConstString name,
-                                    const CompilerDeclContext &parent_decl_ctx,
-                                    bool only_root_namespaces) override {
+  CompilerDeclContext
+  FindNamespace(ConstString name,
+                const CompilerDeclContext &parent_decl_ctx) override {
     return CompilerDeclContext();
   }
 
@@ -193,8 +201,9 @@ private:
     }
 
     Bookmark bookmark;
-    std::optional<FileSpecList> support_files;
+    llvm::Optional<FileSpecList> support_files;
     std::unique_ptr<LineTable> line_table_up;
+
   };
 
   uint32_t CalculateNumCompileUnits() override;
@@ -217,16 +226,16 @@ private:
 
   using CompUnitMap = RangeDataVector<lldb::addr_t, lldb::addr_t, CompUnitData>;
 
-  std::optional<std::vector<FileSpec>> m_files;
-  std::optional<CompUnitMap> m_cu_data;
-  std::optional<std::vector<llvm::StringRef>> m_inline_origins;
+  llvm::Optional<std::vector<FileSpec>> m_files;
+  llvm::Optional<CompUnitMap> m_cu_data;
+  llvm::Optional<std::vector<llvm::StringRef>> m_inline_origins;
 
   using UnwindMap = RangeDataVector<lldb::addr_t, lldb::addr_t, Bookmark>;
   struct UnwindData {
     UnwindMap cfi;
     UnwindMap win;
   };
-  std::optional<UnwindData> m_unwind_data;
+  llvm::Optional<UnwindData> m_unwind_data;
   llvm::BumpPtrAllocator m_allocator;
 };
 

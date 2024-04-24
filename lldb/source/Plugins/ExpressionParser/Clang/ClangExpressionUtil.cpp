@@ -18,7 +18,7 @@ lldb::ValueObjectSP GetLambdaValueObject(StackFrame *frame) {
   assert(frame);
 
   if (auto this_val_sp = frame->FindVariable(ConstString("this")))
-    if (this_val_sp->GetChildMemberWithName("this"))
+    if (this_val_sp->GetChildMemberWithName(ConstString("this"), true))
       return this_val_sp;
 
   return nullptr;

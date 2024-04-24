@@ -16,7 +16,6 @@
 #include "lldb/Core/Communication.h"
 #include "lldb/Host/MainLoop.h"
 #include "lldb/Host/common/NativeProcessProtocol.h"
-#include "lldb/Utility/RegisterValue.h"
 #include "lldb/lldb-private-forward.h"
 
 #include "GDBRemoteCommunicationServerCommon.h"
@@ -36,7 +35,7 @@ public:
   // Constructors and Destructors
   GDBRemoteCommunicationServerLLGS(
       MainLoop &mainloop,
-      NativeProcessProtocol::Manager &process_manager);
+      const NativeProcessProtocol::Factory &process_factory);
 
   void SetLaunchInfo(const ProcessLaunchInfo &info);
 
@@ -100,7 +99,7 @@ public:
 protected:
   MainLoop &m_mainloop;
   MainLoop::ReadHandleUP m_network_handle_up;
-  NativeProcessProtocol::Manager &m_process_manager;
+  const NativeProcessProtocol::Factory &m_process_factory;
   lldb::tid_t m_current_tid = LLDB_INVALID_THREAD_ID;
   lldb::tid_t m_continue_tid = LLDB_INVALID_THREAD_ID;
   NativeProcessProtocol *m_current_process;
@@ -123,11 +122,6 @@ protected:
   std::deque<std::string> m_stop_notification_queue;
 
   NativeProcessProtocol::Extension m_extensions_supported = {};
-
-  // Typically we would use a SmallVector for this data but in this context we
-  // don't know how much data we're recieving so we would have to heap allocate
-  // a lot, or have a very large stack frame. So it's a member instead.
-  uint8_t m_reg_bytes[RegisterValue::kMaxRegisterByteSize];
 
   PacketResult SendONotification(const char *buffer, uint32_t len);
 

@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes='inline,sroa' -S | FileCheck %s
+; RUN: opt < %s -inline -sroa -S | FileCheck %s
 ; RUN: opt < %s -passes='cgscc(inline,function(sroa))' -S | FileCheck %s
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
@@ -22,24 +22,26 @@ define i32 @test1(i32 %W) {
 %T = type { i32, i32 }
 
 ; CHECK-NOT: @test2f(
-define internal ptr @test2f(i1 %cond, ptr %P) {
+define internal %T* @test2f(i1 %cond, %T* %P) {
   br i1 %cond, label %T, label %F
-
+  
 T:
-  store i32 42, ptr %P
-  ret ptr %P
-
+  %A = getelementptr %T, %T* %P, i32 0, i32 0
+  store i32 42, i32* %A
+  ret %T* %P
+  
 F:
-  ret ptr %P
+  ret %T* %P
 }
 
 define i32 @test2(i1 %cond) {
   %A = alloca %T
-
-  %B = call ptr @test2f(i1 %cond, ptr %A)
-  %D = load i32, ptr %B
+  
+  %B = call %T* @test2f(i1 %cond, %T* %A)
+  %C = getelementptr %T, %T* %B, i32 0, i32 0
+  %D = load i32, i32* %C
   ret i32 %D
-
+  
 ; CHECK-LABEL: @test2(
 ; CHECK-NOT: = alloca
 ; CHECK: ret i32
@@ -92,7 +94,7 @@ define i32 @test() {
 
 ; Inliner shouldn't delete calls it can't inline, even if they're trivially dead
 ; CHECK-LABEL: @outer4(
-define void @outer4(ptr %inner4) {
+define void @outer4(void ()* %inner4) {
 entry:
 ; CHECK: call void %inner4()
   call void %inner4() nounwind readnone
@@ -101,7 +103,7 @@ entry:
 
 declare void @inner5_inner()
 
-define void @inner5(ptr %x) {
+define void @inner5(void ()* %x) {
   call void %x() nounwind readnone
   ret void
 }
@@ -110,6 +112,6 @@ define void @inner5(ptr %x) {
 ; CHECK-LABEL: @outer5(
 define void @outer5() {
 ; CHECK: call void @inner5_inner(
-  call void @inner5(ptr @inner5_inner)
+  call void @inner5(void ()* @inner5_inner)
   ret void
 }

@@ -319,7 +319,7 @@ static void collectStatsForDie(DWARFDie Die, const std::string &FnPrefix,
         auto Offset = Die.find(dwarf::DW_AT_abstract_origin);
         // Do not track this variable any more, since it has location
         // coverage.
-        llvm::erase(*AbstractOriginVariables, (*Offset).getRawUValue());
+        llvm::erase_value(*AbstractOriginVariables, (*Offset).getRawUValue());
       }
     } else {
       // The locstats will be handled at the end of
@@ -500,8 +500,7 @@ static void collectStatsRecursive(
     return;
 
   // Handle any kind of lexical scope.
-  const bool HasAbstractOrigin =
-      Die.find(dwarf::DW_AT_abstract_origin) != std::nullopt;
+  const bool HasAbstractOrigin = Die.find(dwarf::DW_AT_abstract_origin) != None;
   const bool IsFunction = Tag == dwarf::DW_TAG_subprogram;
   const bool IsBlock = Tag == dwarf::DW_TAG_lexical_block;
   const bool IsInlinedFunction = Tag == dwarf::DW_TAG_inlined_subroutine;
@@ -743,7 +742,7 @@ static void updateVarsWithAbstractOriginLocCovInfo(
          Child.find(dwarf::DW_AT_const_value))) {
       auto OffsetVar = Child.find(dwarf::DW_AT_abstract_origin);
       if (OffsetVar)
-        llvm::erase(AbstractOriginVars, (*OffsetVar).getRawUValue());
+        llvm::erase_value(AbstractOriginVars, (*OffsetVar).getRawUValue());
     } else if (ChildTag == dwarf::DW_TAG_lexical_block)
       updateVarsWithAbstractOriginLocCovInfo(Child, AbstractOriginVars);
     Child = Child.getSibling();
@@ -792,7 +791,7 @@ static void collectZeroLocCovForVarsWithAbstractOrigin(
     ProcessedFns.push_back(FnOffset);
   }
   for (auto ProcessedFn : ProcessedFns)
-    llvm::erase(FnsWithAbstractOriginToBeProcessed, ProcessedFn);
+    llvm::erase_value(FnsWithAbstractOriginToBeProcessed, ProcessedFn);
 }
 
 /// Collect zero location coverage for inlined variables which refer to

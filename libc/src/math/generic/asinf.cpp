@@ -13,14 +13,12 @@
 #include "src/__support/FPUtil/except_value_utils.h"
 #include "src/__support/FPUtil/multiply_add.h"
 #include "src/__support/FPUtil/sqrt.h"
-#include "src/__support/macros/optimization.h"            // LIBC_UNLIKELY
-#include "src/__support/macros/properties/cpu_features.h" // LIBC_TARGET_CPU_HAS_FMA
 
 #include <errno.h>
 
 #include "inv_trigf_utils.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 static constexpr size_t N_EXCEPTS = 2;
 
@@ -44,7 +42,6 @@ static constexpr fputil::ExceptValues<float, N_EXCEPTS> ASINF_EXCEPTS_HI = {{
 
 LLVM_LIBC_FUNCTION(float, asinf, (float x)) {
   using FPBits = typename fputil::FPBits<float>;
-  using Sign = fputil::Sign;
   FPBits xbits(x);
   uint32_t x_uint = xbits.uintval();
   uint32_t x_abs = xbits.uintval() & 0x7fff'ffffU;
@@ -54,7 +51,7 @@ LLVM_LIBC_FUNCTION(float, asinf, (float x)) {
   // |x| <= 0.5-ish
   if (x_abs < 0x3f04'471dU) {
     // |x| < 0x1.d12edp-12
-    if (LIBC_UNLIKELY(x_abs < 0x39e8'9768U)) {
+    if (unlikely(x_abs < 0x39e8'9768U)) {
       // When |x| < 2^-12, the relative error of the approximation asin(x) ~ x
       // is:
       //   |asin(x) - x| / |asin(x)| < |x^3| / (6|x|)
@@ -75,17 +72,17 @@ LLVM_LIBC_FUNCTION(float, asinf, (float x)) {
       // |x| < 2^-125. For targets without FMA instructions, we simply use
       // double for intermediate results as it is more efficient than using an
       // emulated version of FMA.
-#if defined(LIBC_TARGET_CPU_HAS_FMA)
+#if defined(LIBC_TARGET_HAS_FMA)
       return fputil::multiply_add(x, 0x1.0p-25f, x);
 #else
       double xd = static_cast<double>(x);
       return static_cast<float>(fputil::multiply_add(xd, 0x1.0p-25, xd));
-#endif // LIBC_TARGET_CPU_HAS_FMA
+#endif // LIBC_TARGET_HAS_FMA
     }
 
     // Check for exceptional values
     if (auto r = ASINF_EXCEPTS_LO.lookup_odd(x_abs, x_sign);
-        LIBC_UNLIKELY(r.has_value()))
+        unlikely(r.has_value()))
       return r.value();
 
     // For |x| <= 0.5, we approximate asinf(x) by:
@@ -100,21 +97,22 @@ LLVM_LIBC_FUNCTION(float, asinf, (float x)) {
     double xsq = xd * xd;
     double x3 = xd * xsq;
     double r = asin_eval(xsq);
-    return static_cast<float>(fputil::multiply_add(x3, r, xd));
+    return fputil::multiply_add(x3, r, xd);
   }
 
   // |x| > 1, return NaNs.
-  if (LIBC_UNLIKELY(x_abs > 0x3f80'0000U)) {
+  if (unlikely(x_abs > 0x3f80'0000U)) {
     if (x_abs <= 0x7f80'0000U) {
-      fputil::set_errno_if_required(EDOM);
-      fputil::raise_except_if_required(FE_INVALID);
+      errno = EDOM;
+      fputil::set_except(FE_INVALID);
     }
-    return x + FPBits::build_nan(Sign::POS, FPBits::FRACTION_MASK).get_val();
+    return x +
+           FPBits::build_nan(1 << (fputil::MantissaWidth<float>::VALUE - 1));
   }
 
   // Check for exceptional values
   if (auto r = ASINF_EXCEPTS_HI.lookup_odd(x_abs, x_sign);
-      LIBC_UNLIKELY(r.has_value()))
+      unlikely(r.has_value()))
     return r.value();
 
   // When |x| > 0.5, we perform range reduction as follow:
@@ -140,7 +138,7 @@ LLVM_LIBC_FUNCTION(float, asinf, (float x)) {
   // |x| <= 0.5:
   //   asin(x) ~ pi/2 - 2 * sqrt(u) * P(u),
 
-  xbits.set_sign(Sign::POS);
+  xbits.set_sign(false);
   double sign = SIGN[x_sign];
   double xd = static_cast<double>(xbits.get_val());
   double u = fputil::multiply_add(-0.5, xd, 0.5);
@@ -149,7 +147,7 @@ LLVM_LIBC_FUNCTION(float, asinf, (float x)) {
   double c3 = c1 * u;
 
   double r = asin_eval(u);
-  return static_cast<float>(fputil::multiply_add(c3, r, c2));
+  return fputil::multiply_add(c3, r, c2);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

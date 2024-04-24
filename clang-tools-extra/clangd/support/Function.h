@@ -97,6 +97,7 @@ private:
                 "use a plain type: event values are always passed by const&");
 
   std::recursive_mutex ListenersMu;
+  bool IsBroadcasting = false;
   std::vector<std::pair<Listener, unsigned>> Listeners;
   unsigned ListenerCount = 0;
 };

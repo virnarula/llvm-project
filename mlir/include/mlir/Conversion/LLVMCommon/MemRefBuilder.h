@@ -40,14 +40,9 @@ public:
   /// Builds IR creating a MemRef descriptor that represents `type` and
   /// populates it with static shape and stride information extracted from the
   /// type.
-  static MemRefDescriptor
-  fromStaticShape(OpBuilder &builder, Location loc,
-                  const LLVMTypeConverter &typeConverter, MemRefType type,
-                  Value memory);
-  static MemRefDescriptor
-  fromStaticShape(OpBuilder &builder, Location loc,
-                  const LLVMTypeConverter &typeConverter, MemRefType type,
-                  Value memory, Value alignedMemory);
+  static MemRefDescriptor fromStaticShape(OpBuilder &builder, Location loc,
+                                          LLVMTypeConverter &typeConverter,
+                                          MemRefType type, Value memory);
 
   /// Builds IR extracting the allocated pointer from the descriptor.
   Value allocatedPtr(OpBuilder &builder, Location loc);
@@ -90,14 +85,6 @@ public:
   /// Returns the (LLVM) pointer type this descriptor contains.
   LLVM::LLVMPointerType getElementPtrType();
 
-  /// Builds IR for getting the start address of the buffer represented
-  /// by this memref:
-  /// `memref.alignedPtr + memref.offset * sizeof(type.getElementType())`.
-  /// \note there is no setter for this one since it is derived from alignedPtr
-  /// and offset.
-  Value bufferPtr(OpBuilder &builder, Location loc,
-                  const LLVMTypeConverter &converter, MemRefType type);
-
   /// Builds IR populating a MemRef descriptor structure from a list of
   /// individual values composing that descriptor, in the following order:
   /// - allocated pointer;
@@ -107,7 +94,7 @@ public:
   /// - <rank> shapes;
   /// where <rank> is the MemRef rank as provided in `type`.
   static Value pack(OpBuilder &builder, Location loc,
-                    const LLVMTypeConverter &converter, MemRefType type,
+                    LLVMTypeConverter &converter, MemRefType type,
                     ValueRange values);
 
   /// Builds IR extracting individual elements of a MemRef descriptor structure
@@ -164,11 +151,11 @@ public:
                                         Type descriptorType);
 
   /// Builds IR extracting the rank from the descriptor
-  Value rank(OpBuilder &builder, Location loc) const;
+  Value rank(OpBuilder &builder, Location loc);
   /// Builds IR setting the rank in the descriptor
   void setRank(OpBuilder &builder, Location loc, Value value);
   /// Builds IR extracting ranked memref descriptor ptr
-  Value memRefDescPtr(OpBuilder &builder, Location loc) const;
+  Value memRefDescPtr(OpBuilder &builder, Location loc);
   /// Builds IR setting ranked memref descriptor ptr
   void setMemRefDescPtr(OpBuilder &builder, Location loc, Value value);
 
@@ -177,7 +164,7 @@ public:
   /// - rank of the memref;
   /// - pointer to the memref descriptor.
   static Value pack(OpBuilder &builder, Location loc,
-                    const LLVMTypeConverter &converter, UnrankedMemRefType type,
+                    LLVMTypeConverter &converter, UnrankedMemRefType type,
                     ValueRange values);
 
   /// Builds IR extracting individual elements that compose an unranked memref
@@ -190,13 +177,10 @@ public:
   static unsigned getNumUnpackedValues() { return 2; }
 
   /// Builds IR computing the sizes in bytes (suitable for opaque allocation)
-  /// and appends the corresponding values into `sizes`. `addressSpaces`
-  /// which must have the same length as `values`, is needed to handle layouts
-  /// where sizeof(ptr addrspace(N)) != sizeof(ptr addrspace(0)).
+  /// and appends the corresponding values into `sizes`.
   static void computeSizes(OpBuilder &builder, Location loc,
-                           const LLVMTypeConverter &typeConverter,
+                           LLVMTypeConverter &typeConverter,
                            ArrayRef<UnrankedMemRefDescriptor> values,
-                           ArrayRef<unsigned> addressSpaces,
                            SmallVectorImpl<Value> &sizes);
 
   /// TODO: The following accessors don't take alignment rules between elements
@@ -206,69 +190,57 @@ public:
 
   /// Builds IR extracting the allocated pointer from the descriptor.
   static Value allocatedPtr(OpBuilder &builder, Location loc,
-                            Value memRefDescPtr,
-                            LLVM::LLVMPointerType elemPtrType);
+                            Value memRefDescPtr, Type elemPtrPtrType);
   /// Builds IR inserting the allocated pointer into the descriptor.
   static void setAllocatedPtr(OpBuilder &builder, Location loc,
-                              Value memRefDescPtr,
-                              LLVM::LLVMPointerType elemPtrType,
+                              Value memRefDescPtr, Type elemPtrPtrType,
                               Value allocatedPtr);
 
   /// Builds IR extracting the aligned pointer from the descriptor.
   static Value alignedPtr(OpBuilder &builder, Location loc,
-                          const LLVMTypeConverter &typeConverter,
-                          Value memRefDescPtr,
-                          LLVM::LLVMPointerType elemPtrType);
+                          LLVMTypeConverter &typeConverter, Value memRefDescPtr,
+                          Type elemPtrPtrType);
   /// Builds IR inserting the aligned pointer into the descriptor.
   static void setAlignedPtr(OpBuilder &builder, Location loc,
-                            const LLVMTypeConverter &typeConverter,
-                            Value memRefDescPtr,
-                            LLVM::LLVMPointerType elemPtrType,
+                            LLVMTypeConverter &typeConverter,
+                            Value memRefDescPtr, Type elemPtrPtrType,
                             Value alignedPtr);
 
-  /// Builds IR for getting the pointer to the offset's location.
-  /// Returns a pointer to a convertType(index), which points to the beggining
-  /// of a struct {index, index[rank], index[rank]}.
-  static Value offsetBasePtr(OpBuilder &builder, Location loc,
-                             const LLVMTypeConverter &typeConverter,
-                             Value memRefDescPtr,
-                             LLVM::LLVMPointerType elemPtrType);
   /// Builds IR extracting the offset from the descriptor.
   static Value offset(OpBuilder &builder, Location loc,
-                      const LLVMTypeConverter &typeConverter,
-                      Value memRefDescPtr, LLVM::LLVMPointerType elemPtrType);
+                      LLVMTypeConverter &typeConverter, Value memRefDescPtr,
+                      Type elemPtrPtrType);
   /// Builds IR inserting the offset into the descriptor.
   static void setOffset(OpBuilder &builder, Location loc,
-                        const LLVMTypeConverter &typeConverter,
-                        Value memRefDescPtr, LLVM::LLVMPointerType elemPtrType,
-                        Value offset);
+                        LLVMTypeConverter &typeConverter, Value memRefDescPtr,
+                        Type elemPtrPtrType, Value offset);
 
   /// Builds IR extracting the pointer to the first element of the size array.
   static Value sizeBasePtr(OpBuilder &builder, Location loc,
-                           const LLVMTypeConverter &typeConverter,
+                           LLVMTypeConverter &typeConverter,
                            Value memRefDescPtr,
-                           LLVM::LLVMPointerType elemPtrType);
+                           LLVM::LLVMPointerType elemPtrPtrType);
   /// Builds IR extracting the size[index] from the descriptor.
   static Value size(OpBuilder &builder, Location loc,
-                    const LLVMTypeConverter &typeConverter, Value sizeBasePtr,
+                    LLVMTypeConverter &typeConverter, Value sizeBasePtr,
                     Value index);
   /// Builds IR inserting the size[index] into the descriptor.
   static void setSize(OpBuilder &builder, Location loc,
-                      const LLVMTypeConverter &typeConverter, Value sizeBasePtr,
+                      LLVMTypeConverter &typeConverter, Value sizeBasePtr,
                       Value index, Value size);
 
   /// Builds IR extracting the pointer to the first element of the stride array.
   static Value strideBasePtr(OpBuilder &builder, Location loc,
-                             const LLVMTypeConverter &typeConverter,
+                             LLVMTypeConverter &typeConverter,
                              Value sizeBasePtr, Value rank);
   /// Builds IR extracting the stride[index] from the descriptor.
   static Value stride(OpBuilder &builder, Location loc,
-                      const LLVMTypeConverter &typeConverter,
-                      Value strideBasePtr, Value index, Value stride);
+                      LLVMTypeConverter &typeConverter, Value strideBasePtr,
+                      Value index, Value stride);
   /// Builds IR inserting the stride[index] into the descriptor.
   static void setStride(OpBuilder &builder, Location loc,
-                        const LLVMTypeConverter &typeConverter,
-                        Value strideBasePtr, Value index, Value stride);
+                        LLVMTypeConverter &typeConverter, Value strideBasePtr,
+                        Value index, Value stride);
 };
 
 } // namespace mlir

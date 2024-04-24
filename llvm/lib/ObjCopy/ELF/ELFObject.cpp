@@ -429,13 +429,6 @@ Error Section::accept(MutableSectionVisitor &Visitor) {
   return Visitor.visit(*this);
 }
 
-void Section::restoreSymTabLink(SymbolTableSection &SymTab) {
-  if (HasSymTabLink) {
-    assert(LinkSection == nullptr);
-    LinkSection = &SymTab;
-  }
-}
-
 Error SectionWriter::visit(const OwnedDataSection &Sec) {
   llvm::copy(Sec.Data, Out.getBufferStart() + Sec.Offset);
   return Error::success();
@@ -687,11 +680,8 @@ bool Symbol::isCommon() const { return getShndx() == SHN_COMMON; }
 
 void SymbolTableSection::assignIndices() {
   uint32_t Index = 0;
-  for (auto &Sym : Symbols) {
-    if (Sym->Index != Index)
-      IndicesChanged = true;
+  for (auto &Sym : Symbols)
     Sym->Index = Index++;
-  }
 }
 
 void SymbolTableSection::addSymbol(Twine Name, uint8_t Bind, uint8_t Type,
@@ -751,10 +741,7 @@ Error SymbolTableSection::removeSymbols(
       std::remove_if(std::begin(Symbols) + 1, std::end(Symbols),
                      [ToRemove](const SymPtr &Sym) { return ToRemove(*Sym); }),
       std::end(Symbols));
-  auto PrevSize = Size;
   Size = Symbols.size() * EntrySize;
-  if (Size < PrevSize)
-    IndicesChanged = true;
   assignIndices();
   return Error::success();
 }
@@ -1119,10 +1106,8 @@ Error Section::initialize(SectionTableRef SecTable) {
 
   LinkSection = *Sec;
 
-  if (LinkSection->Type == ELF::SHT_SYMTAB) {
-    HasSymTabLink = true;
+  if (LinkSection->Type == ELF::SHT_SYMTAB)
     LinkSection = nullptr;
-  }
 
   return Error::success();
 }
@@ -1377,7 +1362,7 @@ Expected<std::unique_ptr<Object>> IHexELFBuilder::build() {
 
 template <class ELFT>
 ELFBuilder<ELFT>::ELFBuilder(const ELFObjectFile<ELFT> &ElfObj, Object &Obj,
-                             std::optional<StringRef> ExtractPartition)
+                             Optional<StringRef> ExtractPartition)
     : ElfFile(ElfObj.getELFFile()), Obj(Obj),
       ExtractPartition(ExtractPartition) {
   Obj.IsMips64EL = ElfFile.isMips64EL();
@@ -1719,10 +1704,6 @@ Expected<SectionBase &> ELFBuilder<ELFT>::makeSection(const Elf_Shdr &Shdr) {
     else
       return Data.takeError();
   case SHT_SYMTAB: {
-    // Multiple SHT_SYMTAB sections are forbidden by the ELF gABI.
-    if (Obj.SymbolTable != nullptr)
-      return createStringError(llvm::errc::invalid_argument,
-                               "found multiple SHT_SYMTAB sections");
     auto &SymTab = Obj.addSection<SymbolTableSection>();
     Obj.SymbolTable = &SymTab;
     return SymTab;
@@ -1987,9 +1968,8 @@ template <class ELFT> void ELFWriter<ELFT>::writeEhdr() {
   Ehdr.e_ident[EI_MAG2] = 'L';
   Ehdr.e_ident[EI_MAG3] = 'F';
   Ehdr.e_ident[EI_CLASS] = ELFT::Is64Bits ? ELFCLASS64 : ELFCLASS32;
-  Ehdr.e_ident[EI_DATA] = ELFT::TargetEndianness == llvm::endianness::big
-                              ? ELFDATA2MSB
-                              : ELFDATA2LSB;
+  Ehdr.e_ident[EI_DATA] =
+      ELFT::TargetEndianness == support::big ? ELFDATA2MSB : ELFDATA2LSB;
   Ehdr.e_ident[EI_VERSION] = EV_CURRENT;
   Ehdr.e_ident[EI_OSABI] = Obj.OSABI;
   Ehdr.e_ident[EI_ABIVERSION] = Obj.ABIVersion;
@@ -2090,7 +2070,7 @@ template <class ELFT> void ELFWriter<ELFT>::writeSegmentData() {
                 Size);
   }
 
-  for (const auto &it : Obj.getUpdatedSections()) {
+  for (auto it : Obj.getUpdatedSections()) {
     SectionBase *Sec = it.first;
     ArrayRef<uint8_t> Data = it.second;
 
@@ -2135,7 +2115,7 @@ Error Object::updateSection(StringRef Name, ArrayRef<uint8_t> Data) {
   if (Data.size() > OldSec->Size && OldSec->ParentSegment)
     return createStringError(errc::invalid_argument,
                              "cannot fit data of size %zu into section '%s' "
-                             "with size %" PRIu64 " that is part of a segment",
+                             "with size %zu that is part of a segment",
                              Data.size(), Name.str().c_str(), OldSec->Size);
 
   if (!OldSec->ParentSegment) {
@@ -2318,7 +2298,7 @@ static uint64_t layoutSections(Range Sections, uint64_t Offset) {
   for (auto &Sec : Sections) {
     Sec.Index = Index++;
     if (Sec.ParentSegment != nullptr) {
-      const Segment &Segment = *Sec.ParentSegment;
+      auto Segment = *Sec.ParentSegment;
       Sec.Offset =
           Segment.Offset + (Sec.OriginalOffset - Segment.OriginalOffset);
     } else
@@ -2531,12 +2511,6 @@ template <class ELFT> Error ELFWriter<ELFT>::finalize() {
   if (Error E = removeUnneededSections(Obj))
     return E;
 
-  // If the .symtab indices have not been changed, restore the sh_link to
-  // .symtab for sections that were linked to .symtab.
-  if (Obj.SymbolTable && !Obj.SymbolTable->indicesChanged())
-    for (SectionBase &Sec : Obj.sections())
-      Sec.restoreSymTabLink(*Obj.SymbolTable);
-
   // We need to assign indexes before we perform layout because we need to know
   // if we need large indexes or not. We can assign indexes first and check as
   // we go to see if we will actully need large indexes.
@@ -2636,36 +2610,9 @@ template <class ELFT> Error ELFWriter<ELFT>::finalize() {
 }
 
 Error BinaryWriter::write() {
-  SmallVector<const SectionBase *, 30> SectionsToWrite;
-  for (const SectionBase &Sec : Obj.allocSections()) {
-    if (Sec.Type != SHT_NOBITS && Sec.Size > 0)
-      SectionsToWrite.push_back(&Sec);
-  }
-
-  if (SectionsToWrite.empty())
-    return Error::success();
-
-  llvm::stable_sort(SectionsToWrite,
-                    [](const SectionBase *LHS, const SectionBase *RHS) {
-                      return LHS->Offset < RHS->Offset;
-                    });
-
-  assert(SectionsToWrite.front()->Offset == 0);
-
-  for (size_t i = 0; i != SectionsToWrite.size(); ++i) {
-    const SectionBase &Sec = *SectionsToWrite[i];
+  for (const SectionBase &Sec : Obj.allocSections())
     if (Error Err = Sec.accept(*SecWriter))
       return Err;
-    if (GapFill == 0)
-      continue;
-    uint64_t PadOffset = (i < SectionsToWrite.size() - 1)
-                             ? SectionsToWrite[i + 1]->Offset
-                             : Buf->getBufferSize();
-    assert(PadOffset <= Buf->getBufferSize());
-    assert(Sec.Offset + Sec.Size <= PadOffset);
-    std::fill(Buf->getBufferStart() + Sec.Offset + Sec.Size,
-              Buf->getBufferStart() + PadOffset, GapFill);
-  }
 
   // TODO: Implement direct writing to the output stream (without intermediate
   // memory buffer Buf).
@@ -2680,9 +2627,12 @@ Error BinaryWriter::finalize() {
   // MinAddr will be skipped.
   uint64_t MinAddr = UINT64_MAX;
   for (SectionBase &Sec : Obj.allocSections()) {
+    // If Sec's type is changed from SHT_NOBITS due to --set-section-flags,
+    // Offset may not be aligned. Align it to max(Align, 1).
     if (Sec.ParentSegment != nullptr)
-      Sec.Addr =
-          Sec.Offset - Sec.ParentSegment->Offset + Sec.ParentSegment->PAddr;
+      Sec.Addr = alignTo(Sec.Offset - Sec.ParentSegment->Offset +
+                             Sec.ParentSegment->PAddr,
+                         std::max(Sec.Align, uint64_t(1)));
     if (Sec.Type != SHT_NOBITS && Sec.Size > 0)
       MinAddr = std::min(MinAddr, Sec.Addr);
   }
@@ -2691,7 +2641,7 @@ Error BinaryWriter::finalize() {
   // file size. This might not be the same as the offset returned by
   // layoutSections, because we want to truncate the last segment to the end of
   // its last non-empty section, to match GNU objcopy's behaviour.
-  TotalSize = PadTo > MinAddr ? PadTo - MinAddr : 0;
+  TotalSize = 0;
   for (SectionBase &Sec : Obj.allocSections())
     if (Sec.Type != SHT_NOBITS && Sec.Size > 0) {
       Sec.Offset = Sec.Addr - MinAddr;
@@ -2723,11 +2673,11 @@ uint64_t IHexWriter::writeEntryPointRecord(uint8_t *Buf) {
   if (Obj.Entry <= 0xFFFFFU) {
     Data[0] = ((Obj.Entry & 0xF0000U) >> 12) & 0xFF;
     support::endian::write(&Data[2], static_cast<uint16_t>(Obj.Entry),
-                           llvm::endianness::big);
+                           support::big);
     HexData = IHexRecord::getLine(IHexRecord::StartAddr80x86, 0, Data);
   } else {
     support::endian::write(Data, static_cast<uint32_t>(Obj.Entry),
-                           llvm::endianness::big);
+                           support::big);
     HexData = IHexRecord::getLine(IHexRecord::StartAddr, 0, Data);
   }
   memcpy(Buf, HexData.data(), HexData.size());

@@ -10,13 +10,18 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 
 // Returns true if GlobList starts with the negative indicator ('-'), removes it
 // from the GlobList.
 static bool consumeNegativeIndicator(StringRef &GlobList) {
   GlobList = GlobList.trim();
-  return GlobList.consume_front("-");
+  if (GlobList.startswith("-")) {
+    GlobList = GlobList.substr(1);
+    return true;
+  }
+  return false;
 }
 
 // Converts first glob from the comma-separated list of globs to Regex and
@@ -35,7 +40,7 @@ static llvm::Regex consumeGlob(StringRef &GlobList) {
     RegexText.push_back(C);
   }
   RegexText.push_back('$');
-  return {RegexText.str()};
+  return llvm::Regex(RegexText);
 }
 
 GlobList::GlobList(StringRef Globs, bool KeepNegativeGlobs /* =true */) {
@@ -68,4 +73,5 @@ bool CachedGlobList::contains(StringRef S) const {
   return Value;
 }
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

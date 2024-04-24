@@ -26,9 +26,10 @@
 
 // UNSUPPORTED: c++03
 
-#include <cassert>
-#include <type_traits>
 #include <vector>
+#include <cassert>
+
+#include "test_macros.h"
 
 template <class T>
 using IsTrivialForCall = std::integral_constant<bool,

@@ -2,8 +2,7 @@
 // RUN: %run %t
 
 // REQUIRES: cxxabi
-// FIXME: Should pass on Android, but started failing around 2023-11-05 for unknown reasons.
-// UNSUPPORTED: target={{.*(windows-msvc|android).*}}
+// UNSUPPORTED: windows-msvc
 
 int volatile n;
 

@@ -66,7 +66,7 @@ static void ParseBuildInfo(PdbIndex &index, const CVSymbol &sym,
   // S_BUILDINFO just points to an LF_BUILDINFO in the IPI stream.  Let's do
   // a little extra work to pull out the LF_BUILDINFO.
   LazyRandomTypeCollection &types = index.ipi().typeCollection();
-  std::optional<CVType> cvt = types.tryGetType(bis.BuildId);
+  llvm::Optional<CVType> cvt = types.tryGetType(bis.BuildId);
 
   if (!cvt || cvt->kind() != LF_BUILDINFO)
     return;
@@ -162,13 +162,9 @@ CompilandIndexItem &CompileUnitIndex::GetOrCreateCompiland(uint16_t modi) {
   ParseExtendedInfo(m_index, *cci);
   ParseInlineeLineTableForCompileUnit(*cci);
 
-  auto strings = m_index.pdb().getStringTable();
-  if (strings) {
-    cci->m_strings.initialize(cci->m_debug_stream.getSubsectionsArray());
-    cci->m_strings.setStrings(strings->getStringTable());
-  } else {
-    consumeError(strings.takeError());
-  }
+  cci->m_strings.initialize(cci->m_debug_stream.getSubsectionsArray());
+  PDBStringTable &strings = cantFail(m_index.pdb().getStringTable());
+  cci->m_strings.setStrings(strings.getStringTable());
 
   // We want the main source file to always comes first.  Note that we can't
   // just push_back the main file onto the front because `GetMainSourceFile`
@@ -236,7 +232,7 @@ CompileUnitIndex::GetMainSourceFile(const CompilandIndexItem &item) const {
   llvm::cantFail(
       TypeDeserializer::deserializeAs<StringIdRecord>(file_cvt, file_name));
 
-  llvm::sys::path::Style style = working_dir.String.starts_with("/")
+  llvm::sys::path::Style style = working_dir.String.startswith("/")
                                      ? llvm::sys::path::Style::posix
                                      : llvm::sys::path::Style::windows;
   if (llvm::sys::path::is_absolute(file_name.String, style))

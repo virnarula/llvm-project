@@ -13,11 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "AMDGPUTargetMachine.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/UniformityAnalysis.h"
+#include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
@@ -48,7 +46,7 @@ class AMDGPULateCodeGenPrepare
   const DataLayout *DL = nullptr;
 
   AssumptionCache *AC = nullptr;
-  UniformityInfo *UA = nullptr;
+  LegacyDivergenceAnalysis *DA = nullptr;
 
 public:
   static char ID;
@@ -60,9 +58,8 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetPassConfig>();
     AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<UniformityInfoWrapperPass>();
+    AU.addRequired<LegacyDivergenceAnalysis>();
     AU.setPreservesAll();
   }
 
@@ -93,14 +90,8 @@ bool AMDGPULateCodeGenPrepare::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
 
-  const TargetPassConfig &TPC = getAnalysis<TargetPassConfig>();
-  const TargetMachine &TM = TPC.getTM<TargetMachine>();
-  const GCNSubtarget &ST = TM.getSubtarget<GCNSubtarget>(F);
-  if (ST.hasScalarSubwordLoads())
-    return false;
-
   AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  UA = &getAnalysis<UniformityInfoWrapperPass>().getUniformityInfo();
+  DA = &getAnalysis<LegacyDivergenceAnalysis>();
 
   bool Changed = false;
   for (auto &BB : F)
@@ -131,7 +122,7 @@ bool AMDGPULateCodeGenPrepare::canWidenScalarExtLoad(LoadInst &LI) const {
   if (LI.getAlign() < DL->getABITypeAlign(Ty))
     return false;
   // It should be uniform, i.e. a scalar load.
-  return UA->isUniform(&LI);
+  return DA->isUniform(&LI);
 }
 
 bool AMDGPULateCodeGenPrepare::visitLoadInst(LoadInst &LI) {
@@ -165,14 +156,18 @@ bool AMDGPULateCodeGenPrepare::visitLoadInst(LoadInst &LI) {
   IRBuilder<> IRB(&LI);
   IRB.SetCurrentDebugLocation(LI.getDebugLoc());
 
-  unsigned LdBits = DL->getTypeStoreSizeInBits(LI.getType());
+  unsigned AS = LI.getPointerAddressSpace();
+  unsigned LdBits = DL->getTypeStoreSize(LI.getType()) * 8;
   auto IntNTy = Type::getIntNTy(LI.getContext(), LdBits);
 
-  auto *NewPtr = IRB.CreateConstGEP1_64(
-      IRB.getInt8Ty(),
-      IRB.CreateAddrSpaceCast(Base, LI.getPointerOperand()->getType()),
-      Offset - Adjust);
-
+  PointerType *Int32PtrTy = Type::getInt32PtrTy(LI.getContext(), AS);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(LI.getContext(), AS);
+  auto *NewPtr = IRB.CreateBitCast(
+      IRB.CreateConstGEP1_64(
+          IRB.getInt8Ty(),
+          IRB.CreatePointerBitCastOrAddrSpaceCast(Base, Int8PtrTy),
+          Offset - Adjust),
+      Int32PtrTy);
   LoadInst *NewLd = IRB.CreateAlignedLoad(IRB.getInt32Ty(), NewPtr, Align(4));
   NewLd->copyMetadata(LI);
   NewLd->setMetadata(LLVMContext::MD_range, nullptr);
@@ -188,9 +183,8 @@ bool AMDGPULateCodeGenPrepare::visitLoadInst(LoadInst &LI) {
 
 INITIALIZE_PASS_BEGIN(AMDGPULateCodeGenPrepare, DEBUG_TYPE,
                       "AMDGPU IR late optimizations", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(UniformityInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LegacyDivergenceAnalysis)
 INITIALIZE_PASS_END(AMDGPULateCodeGenPrepare, DEBUG_TYPE,
                     "AMDGPU IR late optimizations", false, false)
 

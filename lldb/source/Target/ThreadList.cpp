@@ -726,19 +726,17 @@ bool ThreadList::SetSelectedThreadByIndexID(uint32_t index_id, bool notify) {
 void ThreadList::NotifySelectedThreadChanged(lldb::tid_t tid) {
   ThreadSP selected_thread_sp(FindThreadByID(tid));
   if (selected_thread_sp->EventTypeHasListeners(
-          Thread::eBroadcastBitThreadSelected)) {
-    auto data_sp =
-        std::make_shared<Thread::ThreadEventData>(selected_thread_sp);
-    selected_thread_sp->BroadcastEvent(Thread::eBroadcastBitThreadSelected,
-                                       data_sp);
-  }
+          Thread::eBroadcastBitThreadSelected))
+    selected_thread_sp->BroadcastEvent(
+        Thread::eBroadcastBitThreadSelected,
+        new Thread::ThreadEventData(selected_thread_sp));
 }
 
 void ThreadList::Update(ThreadList &rhs) {
   if (this != &rhs) {
     // Lock both mutexes to make sure neither side changes anyone on us while
     // the assignment occurs
-    std::scoped_lock<std::recursive_mutex, std::recursive_mutex> guard(GetMutex(), rhs.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(GetMutex());
 
     m_process = rhs.m_process;
     m_stop_id = rhs.m_stop_id;

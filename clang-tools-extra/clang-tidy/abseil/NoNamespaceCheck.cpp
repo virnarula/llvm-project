@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 void NoNamespaceCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -31,4 +33,6 @@ void NoNamespaceCheck::check(const MatchFinder::MatchResult &Result) {
        "and should not be opened in user code");
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

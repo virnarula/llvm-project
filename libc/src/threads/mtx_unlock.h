@@ -9,12 +9,12 @@
 #ifndef LLVM_LIBC_SRC_THREADS_MTX_UNLOCK_H
 #define LLVM_LIBC_SRC_THREADS_MTX_UNLOCK_H
 
-#include <threads.h>
+#include "include/threads.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int mtx_unlock(mtx_t *mutex);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_MTX_UNLOCK_H

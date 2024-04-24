@@ -21,7 +21,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include <limits>
-#include <optional>
 #include <tuple>
 
 #define DEBUG_TYPE "FindSymbols"
@@ -41,8 +40,8 @@ struct ScoredSymbolGreater {
 
 // Returns true if \p Query can be found as a sub-sequence inside \p Scope.
 bool approximateScopeMatch(llvm::StringRef Scope, llvm::StringRef Query) {
-  assert(Scope.empty() || Scope.ends_with("::"));
-  assert(Query.empty() || Query.ends_with("::"));
+  assert(Scope.empty() || Scope.endswith("::"));
+  assert(Query.empty() || Query.endswith("::"));
   while (!Scope.empty() && !Query.empty()) {
     auto Colons = Scope.find("::");
     assert(Colons != llvm::StringRef::npos);
@@ -220,15 +219,15 @@ std::string getSymbolDetail(ASTContext &Ctx, const NamedDecl &ND) {
   return std::move(OS.str());
 }
 
-std::optional<DocumentSymbol> declToSym(ASTContext &Ctx, const NamedDecl &ND) {
+llvm::Optional<DocumentSymbol> declToSym(ASTContext &Ctx, const NamedDecl &ND) {
   auto &SM = Ctx.getSourceManager();
 
-  SourceLocation BeginLoc = SM.getFileLoc(ND.getBeginLoc());
-  SourceLocation EndLoc = SM.getFileLoc(ND.getEndLoc());
+  SourceLocation BeginLoc = SM.getSpellingLoc(SM.getFileLoc(ND.getBeginLoc()));
+  SourceLocation EndLoc = SM.getSpellingLoc(SM.getFileLoc(ND.getEndLoc()));
   const auto SymbolRange =
       toHalfOpenFileRange(SM, Ctx.getLangOpts(), {BeginLoc, EndLoc});
   if (!SymbolRange)
-    return std::nullopt;
+    return llvm::None;
 
   index::SymbolInfo SymInfo = index::getSymbolInfo(&ND);
   // FIXME: This is not classifying constructors, destructors and operators
@@ -326,7 +325,7 @@ class DocumentOutline {
     //  - a macro symbol child of this (either new or previously created)
     //  - this scope itself, if it *is* the macro symbol or is nested within it
     SymBuilder &inMacro(const syntax::Token &Tok, const SourceManager &SM,
-                        std::optional<syntax::TokenBuffer::Expansion> Exp) {
+                        llvm::Optional<syntax::TokenBuffer::Expansion> Exp) {
       if (llvm::is_contained(EnclosingMacroLoc, Tok.location()))
         return *this;
       // If there's an existing child for this macro, we expect it to be last.
@@ -644,7 +643,7 @@ std::vector<DocumentSymbol> collectDocSymbols(ParsedAST &AST) {
   DocumentSymbol Root;
   Root.children = std::move(Syms);
   Root.range = EntireFile;
-  mergePragmas(Root, llvm::ArrayRef(Pragmas));
+  mergePragmas(Root, llvm::makeArrayRef(Pragmas));
   return Root.children;
 }
 

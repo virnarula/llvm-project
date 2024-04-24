@@ -48,20 +48,8 @@ static void replaceBranchTerminator(BasicBlock &BB,
   bool IsBranch = isa<BranchInst>(Term);
   if (InvokeInst *Invoke = dyn_cast<InvokeInst>(Term)) {
     LandingPadInst *LP = Invoke->getLandingPadInst();
-    // Remove landingpad instruction if the containing block isn't used by other
-    // invokes.
-    if (none_of(LP->getParent()->users(), [Invoke](User *U) {
-          return U != Invoke && isa<InvokeInst>(U);
-        })) {
-      LP->replaceAllUsesWith(getDefaultValue(LP->getType()));
-      LP->eraseFromParent();
-    } else if (!ChunkSuccessors.empty() &&
-               ChunkSuccessors[0] == LP->getParent()) {
-      // If the selected successor is the landing pad, clear the chunk
-      // successors to avoid creating a regular branch to the landing pad which
-      // would result in invalid IR.
-      ChunkSuccessors.clear();
-    }
+    LP->replaceAllUsesWith(getDefaultValue(LP->getType()));
+    LP->eraseFromParent();
     IsBranch = true;
   }
 
@@ -132,11 +120,11 @@ removeUninterestingBBsFromSwitch(SwitchInst &SwInst,
 
 /// Removes out-of-chunk arguments from functions, and modifies their calls
 /// accordingly. It also removes allocations of out-of-chunk arguments.
-static void extractBasicBlocksFromModule(Oracle &O, ReducerWorkItem &WorkItem) {
+static void extractBasicBlocksFromModule(Oracle &O, Module &Program) {
   DenseSet<BasicBlock *> BBsToDelete;
   df_iterator_default_set<BasicBlock *> Reachable;
 
-  for (auto &F : WorkItem.getModule()) {
+  for (auto &F : Program) {
     if (F.empty())
       continue;
 
@@ -183,12 +171,11 @@ void llvm::reduceBasicBlocksDeltaPass(TestRunner &Test) {
   runDeltaPass(Test, extractBasicBlocksFromModule, "Reducing Basic Blocks");
 }
 
-static void removeUnreachableBasicBlocksFromModule(Oracle &O,
-                                                   ReducerWorkItem &WorkItem) {
+static void removeUnreachableBasicBlocksFromModule(Oracle &O, Module &M) {
   std::vector<BasicBlock *> DeadBlocks;
   df_iterator_default_set<BasicBlock *> Reachable;
 
-  for (Function &F : WorkItem.getModule()) {
+  for (Function &F : M) {
     if (F.empty())
       continue;
 

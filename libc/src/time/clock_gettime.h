@@ -11,10 +11,10 @@
 
 #include <time.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int clock_gettime(clockid_t clockid, struct timespec *tp);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_TIME_CLOCK_GETTIME_H

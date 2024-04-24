@@ -58,7 +58,7 @@ protected:
     TargetOptions Options;
     TM = std::unique_ptr<LLVMTargetMachine>(
         static_cast<LLVMTargetMachine *>(T->createTargetMachine(
-            "amdgcn--amdpal", "gfx1010", "", Options, std::nullopt)));
+            "amdgcn--amdpal", "gfx1010", "", Options, None)));
     if (!TM)
       GTEST_SKIP();
 
@@ -70,7 +70,7 @@ protected:
     PM.add(new AddMetadataPass(PalMDString));
     raw_svector_ostream OutStream(Elf);
     if (TM->addPassesToEmitFile(PM, OutStream, nullptr,
-                                CodeGenFileType::ObjectFile))
+                                CodeGenFileType::CGFT_ObjectFile))
       report_fatal_error("Target machine cannot emit a file of this type");
 
     PM.run(*M);

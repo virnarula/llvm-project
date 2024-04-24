@@ -10,9 +10,9 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Path.h"
-#include <optional>
 
 namespace clang {
 namespace tooling {
@@ -58,7 +58,7 @@ unsigned getOffsetAfterTokenSequence(
 // (second) raw_identifier name is checked.
 bool checkAndConsumeDirectiveWithName(
     Lexer &Lex, StringRef Name, Token &Tok,
-    std::optional<StringRef> RawIDName = std::nullopt) {
+    llvm::Optional<StringRef> RawIDName = llvm::None) {
   bool Matched = Tok.is(tok::hash) && !Lex.LexFromRawLexer(Tok) &&
                  Tok.is(tok::raw_identifier) &&
                  Tok.getRawIdentifier() == Name && !Lex.LexFromRawLexer(Tok) &&
@@ -196,10 +196,10 @@ IncludeCategoryManager::IncludeCategoryManager(const IncludeStyle &Style,
                                                     ? llvm::Regex::NoFlags
                                                     : llvm::Regex::IgnoreCase);
   }
-  IsMainFile = FileName.ends_with(".c") || FileName.ends_with(".cc") ||
-               FileName.ends_with(".cpp") || FileName.ends_with(".c++") ||
-               FileName.ends_with(".cxx") || FileName.ends_with(".m") ||
-               FileName.ends_with(".mm");
+  IsMainFile = FileName.endswith(".c") || FileName.endswith(".cc") ||
+               FileName.endswith(".cpp") || FileName.endswith(".c++") ||
+               FileName.endswith(".cxx") || FileName.endswith(".m") ||
+               FileName.endswith(".mm");
   if (!Style.IncludeIsMainSourceRegex.empty()) {
     llvm::Regex MainFileRegex(Style.IncludeIsMainSourceRegex);
     IsMainFile |= MainFileRegex.match(FileName);
@@ -234,7 +234,7 @@ int IncludeCategoryManager::getSortIncludePriority(StringRef IncludeName,
   return Ret;
 }
 bool IncludeCategoryManager::isMainHeader(StringRef IncludeName) const {
-  if (!IncludeName.starts_with("\""))
+  if (!IncludeName.startswith("\""))
     return false;
 
   IncludeName =
@@ -253,7 +253,7 @@ bool IncludeCategoryManager::isMainHeader(StringRef IncludeName) const {
   //  1) foo.h => bar.cc
   //  2) foo.proto.h => foo.cc
   StringRef Matching;
-  if (MatchingFileStem.starts_with_insensitive(HeaderStem))
+  if (MatchingFileStem.startswith_insensitive(HeaderStem))
     Matching = MatchingFileStem; // example 1), 2)
   else if (FileStem.equals_insensitive(HeaderStem))
     Matching = FileStem; // example 3)
@@ -276,7 +276,6 @@ HeaderIncludes::HeaderIncludes(StringRef FileName, StringRef Code,
       MaxInsertOffset(MinInsertOffset +
                       getMaxHeaderInsertionOffset(
                           FileName, Code.drop_front(MinInsertOffset), Style)),
-      MainIncludeFound(false),
       Categories(Style, FileName) {
   // Add 0 for main header and INT_MAX for headers that are not in any
   // category.
@@ -297,9 +296,7 @@ HeaderIncludes::HeaderIncludes(StringRef FileName, StringRef Code,
       addExistingInclude(
           Include(Matches[2],
                   tooling::Range(
-                      Offset, std::min(Line.size() + 1, Code.size() - Offset)),
-                  Matches[1] == "import" ? tooling::IncludeDirective::Import
-                                         : tooling::IncludeDirective::Include),
+                      Offset, std::min(Line.size() + 1, Code.size() - Offset))),
           NextLineOffset);
     }
     Offset = NextLineOffset;
@@ -336,9 +333,7 @@ void HeaderIncludes::addExistingInclude(Include IncludeToAdd,
   // Only record the offset of current #include if we can insert after it.
   if (CurInclude.R.getOffset() <= MaxInsertOffset) {
     int Priority = Categories.getIncludePriority(
-        CurInclude.Name, /*CheckMainHeader=*/!MainIncludeFound);
-    if (Priority == 0)
-      MainIncludeFound = true;
+        CurInclude.Name, /*CheckMainHeader=*/FirstIncludeOffset < 0);
     CategoryEndOffsets[Priority] = NextLineOffset;
     IncludesByPriority[Priority].push_back(&CurInclude);
     if (FirstIncludeOffset < 0)
@@ -346,26 +341,23 @@ void HeaderIncludes::addExistingInclude(Include IncludeToAdd,
   }
 }
 
-std::optional<tooling::Replacement>
-HeaderIncludes::insert(llvm::StringRef IncludeName, bool IsAngled,
-                       IncludeDirective Directive) const {
+llvm::Optional<tooling::Replacement>
+HeaderIncludes::insert(llvm::StringRef IncludeName, bool IsAngled) const {
   assert(IncludeName == trimInclude(IncludeName));
   // If a <header> ("header") already exists in code, "header" (<header>) with
-  // different quotation and/or directive will still be inserted.
+  // different quotation will still be inserted.
   // FIXME: figure out if this is the best behavior.
   auto It = ExistingIncludes.find(IncludeName);
-  if (It != ExistingIncludes.end()) {
+  if (It != ExistingIncludes.end())
     for (const auto &Inc : It->second)
-      if (Inc.Directive == Directive &&
-          ((IsAngled && StringRef(Inc.Name).starts_with("<")) ||
-           (!IsAngled && StringRef(Inc.Name).starts_with("\""))))
-        return std::nullopt;
-  }
+      if ((IsAngled && StringRef(Inc.Name).startswith("<")) ||
+          (!IsAngled && StringRef(Inc.Name).startswith("\"")))
+        return llvm::None;
   std::string Quoted =
       std::string(llvm::formatv(IsAngled ? "<{0}>" : "\"{0}\"", IncludeName));
   StringRef QuotedName = Quoted;
   int Priority = Categories.getIncludePriority(
-      QuotedName, /*CheckMainHeader=*/!MainIncludeFound);
+      QuotedName, /*CheckMainHeader=*/FirstIncludeOffset < 0);
   auto CatOffset = CategoryEndOffsets.find(Priority);
   assert(CatOffset != CategoryEndOffsets.end());
   unsigned InsertOffset = CatOffset->second; // Fall back offset
@@ -379,10 +371,8 @@ HeaderIncludes::insert(llvm::StringRef IncludeName, bool IsAngled,
     }
   }
   assert(InsertOffset <= Code.size());
-  llvm::StringRef DirectiveSpelling =
-      Directive == IncludeDirective::Include ? "include" : "import";
   std::string NewInclude =
-      llvm::formatv("#{0} {1}\n", DirectiveSpelling, QuotedName);
+      std::string(llvm::formatv("#include {0}\n", QuotedName));
   // When inserting headers at end of the code, also append '\n' to the code
   // if it does not end with '\n'.
   // FIXME: when inserting multiple #includes at the end of code, only one
@@ -400,8 +390,8 @@ tooling::Replacements HeaderIncludes::remove(llvm::StringRef IncludeName,
   if (Iter == ExistingIncludes.end())
     return Result;
   for (const auto &Inc : Iter->second) {
-    if ((IsAngled && StringRef(Inc.Name).starts_with("\"")) ||
-        (!IsAngled && StringRef(Inc.Name).starts_with("<")))
+    if ((IsAngled && StringRef(Inc.Name).startswith("\"")) ||
+        (!IsAngled && StringRef(Inc.Name).startswith("<")))
       continue;
     llvm::Error Err = Result.add(tooling::Replacement(
         FileName, Inc.R.getOffset(), Inc.R.getLength(), ""));

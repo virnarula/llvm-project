@@ -17,7 +17,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 llvm::BumpPtrAllocator *&NestedMatch::allocator() {
   thread_local llvm::BumpPtrAllocator *allocator = nullptr;
@@ -131,7 +130,6 @@ static bool isAffineForOp(Operation &op) { return isa<AffineForOp>(op); }
 static bool isAffineIfOp(Operation &op) { return isa<AffineIfOp>(op); }
 
 namespace mlir {
-namespace affine {
 namespace matcher {
 
 NestedPattern Op(FilterFunctionType filter) {
@@ -178,5 +176,4 @@ bool isLoadOrStore(Operation &op) {
 }
 
 } // namespace matcher
-} // namespace affine
 } // namespace mlir

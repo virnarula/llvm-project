@@ -9,16 +9,24 @@
 #include "src/string/strncmp.h"
 
 #include "src/__support/common.h"
-#include "src/string/memory_utils/inline_strcmp.h"
-
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
+// TODO: Look at benefits for comparing words at a time.
 LLVM_LIBC_FUNCTION(int, strncmp,
                    (const char *left, const char *right, size_t n)) {
-  auto comp = [](char l, char r) -> int { return l - r; };
-  return inline_strncmp(left, right, n, comp);
+
+  if (n == 0)
+    return 0;
+
+  for (; n > 1; --n, ++left, ++right) {
+    char lc = *left;
+    if (lc == '\0' || lc != *right)
+      break;
+  }
+  return *reinterpret_cast<const unsigned char *>(left) -
+         *reinterpret_cast<const unsigned char *>(right);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

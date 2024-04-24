@@ -8,7 +8,6 @@
 #include "StdLib.h"
 #include <fstream>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,8 +21,8 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "clang/Tooling/Inclusions/StandardLibrary.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -47,8 +46,8 @@ llvm::StringLiteral mandatoryHeader(Lang L) {
 
 LangStandard::Kind standardFromOpts(const LangOptions &LO) {
   if (LO.CPlusPlus) {
-    if (LO.CPlusPlus23)
-      return LangStandard::lang_cxx23;
+    if (LO.CPlusPlus2b)
+      return LangStandard::lang_cxx2b;
     if (LO.CPlusPlus20)
       return LangStandard::lang_cxx20;
     if (LO.CPlusPlus17)
@@ -59,8 +58,8 @@ LangStandard::Kind standardFromOpts(const LangOptions &LO) {
       return LangStandard::lang_cxx11;
     return LangStandard::lang_cxx98;
   }
-  if (LO.C23)
-    return LangStandard::lang_c23;
+  if (LO.C2x)
+    return LangStandard::lang_c2x;
   // C17 has no new features, so treat {C11,C17} as C17.
   if (LO.C11)
     return LangStandard::lang_c17;
@@ -68,7 +67,7 @@ LangStandard::Kind standardFromOpts(const LangOptions &LO) {
 }
 
 std::string buildUmbrella(llvm::StringLiteral Mandatory,
-                          llvm::ArrayRef<tooling::stdlib::Header> Headers) {
+                          std::vector<llvm::StringLiteral> Headers) {
   std::string Result;
   llvm::raw_string_ostream OS(Result);
 
@@ -81,11 +80,13 @@ std::string buildUmbrella(llvm::StringLiteral Mandatory,
       "#endif\n",
       Mandatory);
 
-  for (auto Header : Headers) {
+  llvm::sort(Headers);
+  auto Last = std::unique(Headers.begin(), Headers.end());
+  for (auto Header = Headers.begin(); Header != Last; ++Header) {
     OS << llvm::formatv("#if __has_include({0})\n"
                         "#include {0}\n"
                         "#endif\n",
-                        Header);
+                        *Header);
   }
   OS.flush();
   return Result;
@@ -101,14 +102,20 @@ llvm::StringRef getStdlibUmbrellaHeader(const LangOptions &LO) {
   Lang L = langFromOpts(LO);
   switch (L) {
   case CXX:
-    static std::string *UmbrellaCXX = new std::string(buildUmbrella(
-        mandatoryHeader(L),
-        tooling::stdlib::Header::all(tooling::stdlib::Lang::CXX)));
+    static std::string *UmbrellaCXX =
+        new std::string(buildUmbrella(mandatoryHeader(L), {
+#define SYMBOL(Name, NameSpace, Header) #Header,
+#include "clang/Tooling/Inclusions/StdSymbolMap.inc"
+#undef SYMBOL
+                                                          }));
     return *UmbrellaCXX;
   case C:
-    static std::string *UmbrellaC = new std::string(
-        buildUmbrella(mandatoryHeader(L),
-                      tooling::stdlib::Header::all(tooling::stdlib::Lang::C)));
+    static std::string *UmbrellaC =
+        new std::string(buildUmbrella(mandatoryHeader(L), {
+#define SYMBOL(Name, NameSpace, Header) #Header,
+#include "clang/Tooling/Inclusions/CSymbolMap.inc"
+#undef SYMBOL
+                                                          }));
     return *UmbrellaC;
   }
   llvm_unreachable("invalid Lang in langFromOpts");
@@ -134,10 +141,13 @@ SymbolSlab filter(SymbolSlab Slab, const StdLibLocation &Loc) {
 
   static auto &StandardHeaders = *[] {
     auto *Set = new llvm::DenseSet<llvm::StringRef>();
-    for (auto Header : tooling::stdlib::Header::all(tooling::stdlib::Lang::CXX))
-      Set->insert(Header.name());
-    for (auto Header : tooling::stdlib::Header::all(tooling::stdlib::Lang::C))
-      Set->insert(Header.name());
+    for (llvm::StringRef Header : {
+#define SYMBOL(Name, NameSpace, Header) #Header,
+#include "clang/Tooling/Inclusions/CSymbolMap.inc"
+#include "clang/Tooling/Inclusions/StdSymbolMap.inc"
+#undef SYMBOL
+         })
+      Set->insert(Header);
     return Set;
   }();
 
@@ -167,7 +177,7 @@ SymbolSlab filter(SymbolSlab Slab, const StdLibLocation &Loc) {
         R.first->second = llvm::any_of(
             StdLibURIPrefixes,
             [&, URIStr(llvm::StringRef(URI))](const std::string &Prefix) {
-              return URIStr.starts_with(Prefix);
+              return URIStr.startswith(Prefix);
             });
       }
     }
@@ -207,7 +217,7 @@ SymbolSlab indexStandardLibrary(llvm::StringRef HeaderSources,
   }
   const FrontendInputFile &Input = CI->getFrontendOpts().Inputs.front();
   trace::Span Tracer("StandardLibraryIndex");
-  LangStandard::Kind LangStd = standardFromOpts(CI->getLangOpts());
+  LangStandard::Kind LangStd = standardFromOpts(*CI->getLangOpts());
   log("Indexing {0} standard library in the context of {1}",
       LangStandard::getLangStandardForKind(LangStd).getName(), Input.getFile());
 
@@ -218,7 +228,7 @@ SymbolSlab indexStandardLibrary(llvm::StringRef HeaderSources,
   auto Clang = prepareCompilerInstance(
       std::move(CI), /*Preamble=*/nullptr,
       llvm::MemoryBuffer::getMemBuffer(HeaderSources, Input.getFile()),
-      TFS.view(/*CWD=*/std::nullopt), IgnoreDiags);
+      TFS.view(/*CWD=*/llvm::None), IgnoreDiags);
   if (!Clang) {
     elog("Standard Library Index: Couldn't build compiler instance");
     return Symbols;
@@ -267,7 +277,7 @@ SymbolSlab indexStandardLibrary(llvm::StringRef HeaderSources,
 SymbolSlab indexStandardLibrary(std::unique_ptr<CompilerInvocation> Invocation,
                                 const StdLibLocation &Loc,
                                 const ThreadsafeFS &TFS) {
-  llvm::StringRef Header = getStdlibUmbrellaHeader(Invocation->getLangOpts());
+  llvm::StringRef Header = getStdlibUmbrellaHeader(*Invocation->getLangOpts());
   return indexStandardLibrary(Header, std::move(Invocation), Loc, TFS);
 }
 
@@ -276,8 +286,8 @@ bool StdLibSet::isBest(const LangOptions &LO) const {
          Best[langFromOpts(LO)].load(std::memory_order_acquire);
 }
 
-std::optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
-                                             const HeaderSearch &HS) {
+llvm::Optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
+                                              const HeaderSearch &HS) {
   Lang L = langFromOpts(LO);
   int OldVersion = Best[L].load(std::memory_order_acquire);
   int NewVersion = standardFromOpts(LO);
@@ -286,7 +296,7 @@ std::optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
 
   if (!Config::current().Index.StandardLibrary) {
     dlog("No: disabled in config");
-    return std::nullopt;
+    return llvm::None;
   }
 
   if (NewVersion <= OldVersion) {
@@ -295,7 +305,7 @@ std::optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
              static_cast<LangStandard::Kind>(NewVersion))
              .getName(),
          OldVersion, NewVersion);
-    return std::nullopt;
+    return llvm::None;
   }
 
   // We'd like to index a standard library here if there is one.
@@ -314,7 +324,7 @@ std::optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
        llvm::make_range(HS.search_dir_begin(), HS.search_dir_end())) {
     switch (DL.getLookupType()) {
     case DirectoryLookup::LT_NormalDir: {
-      Path = DL.getDirRef()->getName();
+      Path = DL.getDir()->getName();
       llvm::sys::path::append(Path, ProbeHeader);
       llvm::vfs::Status Stat;
       if (!HS.getFileMgr().getNoncachedStatValue(Path, Stat) &&
@@ -334,7 +344,7 @@ std::optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
     }
   }
   if (SearchPaths.empty())
-    return std::nullopt;
+    return llvm::None;
 
   dlog("Found standard library in {0}", llvm::join(SearchPaths, ", "));
 
@@ -342,8 +352,7 @@ std::optional<StdLibLocation> StdLibSet::add(const LangOptions &LO,
                                         std::memory_order_acq_rel))
     if (OldVersion >= NewVersion) {
       dlog("No: lost the race");
-      return std::nullopt; // Another thread won the race while we were
-                           // checking.
+      return llvm::None; // Another thread won the race while we were checking.
     }
 
   dlog("Yes, index stdlib!");

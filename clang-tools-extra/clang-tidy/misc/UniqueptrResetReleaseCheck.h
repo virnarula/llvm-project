@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "../utils/IncludeInserter.h"
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 /// Find and replace `unique_ptr::reset(release())` with `std::move()`.
 ///
@@ -45,6 +47,8 @@ private:
   utils::IncludeInserter Inserter;
 };
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MISC_UNIQUEPTRRESETRELEASECHECK_H

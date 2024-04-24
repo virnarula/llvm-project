@@ -1,7 +1,6 @@
 import("//llvm/tools/binutils_symlinks.gni")
 import("//llvm/tools/cctools_symlinks.gni")
 import("//llvm/utils/TableGen/tablegen.gni")
-import("//llvm/utils/gn/build/driver_executable.gni")
 import("//llvm/utils/gn/build/symlink_or_copy.gni")
 
 tablegen("ObjdumpOpts") {
@@ -38,7 +37,7 @@ group("symlinks") {
   }
 }
 
-driver_executable("llvm-objdump") {
+executable("llvm-objdump") {
   deps = [
     ":ObjdumpOpts",
     ":OtoolOpts",
@@ -57,7 +56,6 @@ driver_executable("llvm-objdump") {
     "//llvm/lib/Target:AllTargetsDescs",
     "//llvm/lib/Target:AllTargetsDisassemblers",
     "//llvm/lib/Target:AllTargetsInfos",
-    "//llvm/lib/TargetParser",
     "//llvm/utils/gn/build/libs/xar",
   ]
   sources = [

@@ -14,4 +14,3 @@ HLSL Design and Implementation
    HLSLIRReference
    ResourceTypes
    EntryFunctions
-   FunctionCalls

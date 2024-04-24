@@ -48,11 +48,9 @@ module m
     call s04(cov[1]) ! ok
     !ERROR: ALLOCATABLE dummy argument 'x=' must have INTENT(IN) to be associated with a coindexed actual argument
     call s01(cov[1])
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-    !BECAUSE: 'x' is an INTENT(IN) dummy argument
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
     call s05(x)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' is not definable
-    !BECAUSE: 'x' is an INTENT(IN) dummy argument
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' must be definable
     call s06(x)
   end subroutine
 end module

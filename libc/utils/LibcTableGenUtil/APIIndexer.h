@@ -12,7 +12,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/TableGen/Record.h"
 
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -21,7 +20,7 @@ namespace llvm_libc {
 
 class APIIndexer {
 private:
-  std::optional<llvm::StringRef> StdHeader;
+  llvm::Optional<llvm::StringRef> StdHeader;
 
   // TableGen classes in spec.td.
   llvm::Record *NamedTypeClass;
@@ -49,7 +48,7 @@ public:
   using NameSet = std::unordered_set<std::string>;
 
   // This indexes all headers, not just a specified one.
-  explicit APIIndexer(llvm::RecordKeeper &Records) : StdHeader(std::nullopt) {
+  explicit APIIndexer(llvm::RecordKeeper &Records) : StdHeader(llvm::None) {
     index(Records);
   }
 

@@ -9,9 +9,9 @@ subroutine s()
   class(parentType), allocatable :: avar
   class(*), allocatable :: starAllocatableVar
   class(*), pointer :: starPointerVar
-  !ERROR: CLASS entity 'barevar' must be a dummy argument, allocatable, or object pointer
+  !ERROR: CLASS entity 'barevar' must be a dummy argument or have ALLOCATABLE or POINTER attribute
   class(parentType) :: bareVar
-  !ERROR: CLASS entity 'starvar' must be a dummy argument, allocatable, or object pointer
+  !ERROR: CLASS entity 'starvar' must be a dummy argument or have ALLOCATABLE or POINTER attribute
   class(*) :: starVar
 
     contains

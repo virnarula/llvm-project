@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 void InterfacesGlobalInitCheck::registerMatchers(MatchFinder *Finder) {
   const auto GlobalVarDecl =
@@ -52,4 +54,6 @@ void InterfacesGlobalInitCheck::check(const MatchFinder::MatchResult &Result) {
       << Referencee;
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

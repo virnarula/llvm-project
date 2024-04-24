@@ -1,4 +1,4 @@
-REQUIRES: system-linux,bolt-runtime
+REQUIRES: system-linux
 
 RUN: %clangxx %cxxflags -pie -fPIC %p/Inputs/pie-exceptions-failed-split.s \
 RUN:   -Wl,-q -o %t

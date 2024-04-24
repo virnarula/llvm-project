@@ -1,8 +1,9 @@
 // RUN: %clangxx %target_itanium_abi_host_triple -O0 -g %s -o %t -c
 // RUN: %clangxx %target_itanium_abi_host_triple %t -o %t.out
 // RUN: %test_debuginfo %s %t.out
-// XFAIL: gdb-clang-incompatibility
-// XFAIL: system-darwin && target-aarch64
+
+// FIXME: LLDB finds the wrong symbol for "C". rdar://problem/14933867
+// XFAIL: darwin, gdb-clang-incompatibility
 
 // DEBUGGER: delete breakpoints
 // DEBUGGER: break static-member.cpp:33

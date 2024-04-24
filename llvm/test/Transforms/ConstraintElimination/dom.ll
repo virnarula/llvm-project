@@ -12,6 +12,7 @@ define i1 @test1(i8 %x) {
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ule i8 [[X:%.*]], 10
 ; CHECK-NEXT:    br i1 [[C_1]], label [[BB1:%.*]], label [[BB2:%.*]]
 ; CHECK:       bb1:
+; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 true)
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb2:
@@ -38,6 +39,7 @@ define i1 @test_chain_1(i8 %x) {
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ule i8 [[X:%.*]], 10
 ; CHECK-NEXT:    br i1 [[C_1]], label [[THEN:%.*]], label [[ELSE:%.*]]
 ; CHECK:       then:
+; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 true)
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       else:
@@ -71,6 +73,7 @@ define i1 @test_chain_2(i8 %x) {
 ; CHECK:       then:
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       else:
+; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 false)
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
@@ -103,6 +106,7 @@ define i1 @test2(i8 %x) {
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp ugt i8 [[X]], 10
 ; CHECK-NEXT:    ret i1 [[C_2]]
 ; CHECK:       bb2:
+; CHECK-NEXT:    [[C_3:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 true)
 ; CHECK-NEXT:    br label [[BB1]]
 ;
@@ -132,6 +136,7 @@ define i1 @test3(i8 %x, i1 %c) {
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    ret i1 [[C_2]]
 ; CHECK:       bb2:
+; CHECK-NEXT:    [[C_3:%.*]] = icmp ugt i8 [[X]], 10
 ; CHECK-NEXT:    ret i1 true
 ;
 entry:
@@ -158,6 +163,7 @@ define i1 @test4(i8 %x, i1 %c) {
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ule i8 [[X:%.*]], 10
 ; CHECK-NEXT:    br i1 [[C_1]], label [[BB1:%.*]], label [[BB2]]
 ; CHECK:       bb1:
+; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    ret i1 true
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[C_3:%.*]] = icmp ugt i8 [[X]], 10
@@ -188,7 +194,9 @@ define i1 @test_cond_from_preheader(i8 %x, i1 %c) {
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ule i8 [[X:%.*]], 10
 ; CHECK-NEXT:    br i1 [[C_1]], label [[LOOP:%.*]], label [[BB2]]
 ; CHECK:       loop:
+; CHECK-NEXT:    [[T_1:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 true)
+; CHECK-NEXT:    [[F_1:%.*]] = icmp ugt i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 false)
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 9
 ; CHECK-NEXT:    call void @use(i1 [[C_2]])
@@ -196,6 +204,7 @@ define i1 @test_cond_from_preheader(i8 %x, i1 %c) {
 ; CHECK-NEXT:    call void @use(i1 [[C_3]])
 ; CHECK-NEXT:    br i1 true, label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
+; CHECK-NEXT:    [[C_4:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    ret i1 true
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[C_5:%.*]] = icmp ugt i8 [[X]], 10
@@ -238,7 +247,9 @@ define i1 @test_cond_from_preheader_successors_flipped(i8 %x, i1 %c) {
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ule i8 [[X:%.*]], 10
 ; CHECK-NEXT:    br i1 [[C_1]], label [[BB2]], label [[LOOP:%.*]]
 ; CHECK:       loop:
+; CHECK-NEXT:    [[F_1:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 false)
+; CHECK-NEXT:    [[T_1:%.*]] = icmp ugt i8 [[X]], 10
 ; CHECK-NEXT:    call void @use(i1 true)
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 11
 ; CHECK-NEXT:    call void @use(i1 [[C_2]])
@@ -246,6 +257,7 @@ define i1 @test_cond_from_preheader_successors_flipped(i8 %x, i1 %c) {
 ; CHECK-NEXT:    call void @use(i1 [[C_3]])
 ; CHECK-NEXT:    br i1 true, label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
+; CHECK-NEXT:    [[F_2:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    ret i1 false
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[C_5:%.*]] = icmp ugt i8 [[X]], 10
@@ -293,12 +305,16 @@ define i1 @test_cond_from_preheader_and(i8 %x, i8 %y, i1 %c) {
 ; CHECK-NEXT:    [[AND:%.*]] = and i1 [[X_1]], [[Y_1]]
 ; CHECK-NEXT:    br i1 [[AND]], label [[LOOP:%.*]], label [[EXIT_1:%.*]]
 ; CHECK:       loop:
+; CHECK-NEXT:    [[T_1:%.*]] = icmp ule i8 [[X]], 10
+; CHECK-NEXT:    [[F_1:%.*]] = icmp ugt i8 [[X]], 10
 ; CHECK-NEXT:    [[R_1:%.*]] = xor i1 true, false
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ule i8 [[X]], 9
 ; CHECK-NEXT:    [[R_2:%.*]] = xor i1 [[R_1]], [[C_1]]
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp ugt i8 [[X]], 9
 ; CHECK-NEXT:    [[R_3:%.*]] = xor i1 [[R_2]], [[C_2]]
+; CHECK-NEXT:    [[T_2:%.*]] = icmp ugt i8 [[Y]], 99
 ; CHECK-NEXT:    [[R_4:%.*]] = xor i1 [[R_3]], true
+; CHECK-NEXT:    [[F_2:%.*]] = icmp ule i8 [[Y]], 99
 ; CHECK-NEXT:    [[R_5:%.*]] = xor i1 [[R_4]], false
 ; CHECK-NEXT:    [[C_3:%.*]] = icmp ugt i8 [[Y]], 100
 ; CHECK-NEXT:    [[R_6:%.*]] = xor i1 [[R_5]], [[C_3]]
@@ -386,6 +402,7 @@ define i1 @test_cond_from_preheader_and_successors_flipped(i8 %x, i8 %y, i1 %c) 
 ; CHECK-NEXT:    call void @use(i1 [[R_7]])
 ; CHECK-NEXT:    br i1 true, label [[EXIT]], label [[LOOP]]
 ; CHECK:       exit.1:
+; CHECK-NEXT:    [[T_1:%.*]] = icmp ugt i8 [[Y]], 10
 ; CHECK-NEXT:    ret i1 true
 ;
 entry:
@@ -441,12 +458,16 @@ define i1 @test_cond_from_preheader_or(i8 %x, i8 %y, i1 %c) {
 ; CHECK-NEXT:    [[OR:%.*]] = or i1 [[X_1]], [[Y_1]]
 ; CHECK-NEXT:    br i1 [[OR]], label [[EXIT_1:%.*]], label [[LOOP:%.*]]
 ; CHECK:       loop:
+; CHECK-NEXT:    [[T_1:%.*]] = icmp ugt i8 [[X]], 10
+; CHECK-NEXT:    [[F_1:%.*]] = icmp ule i8 [[X]], 10
 ; CHECK-NEXT:    [[R_1:%.*]] = xor i1 true, false
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp ugt i8 [[X]], 11
 ; CHECK-NEXT:    [[R_2:%.*]] = xor i1 [[R_1]], [[C_1]]
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp ule i8 [[X]], 11
 ; CHECK-NEXT:    [[R_3:%.*]] = xor i1 [[R_2]], [[C_2]]
+; CHECK-NEXT:    [[T_2:%.*]] = icmp ule i8 [[Y]], 99
 ; CHECK-NEXT:    [[R_4:%.*]] = xor i1 [[R_3]], true
+; CHECK-NEXT:    [[F_2:%.*]] = icmp ugt i8 [[Y]], 99
 ; CHECK-NEXT:    [[R_5:%.*]] = xor i1 [[R_4]], false
 ; CHECK-NEXT:    [[C_3:%.*]] = icmp ule i8 [[Y]], 98
 ; CHECK-NEXT:    [[R_6:%.*]] = xor i1 [[R_5]], [[C_3]]
@@ -529,6 +550,7 @@ define i1 @test_cond_from_preheader_or_successor_flipped(i8 %x, i8 %y, i1 %c) {
 ; CHECK-NEXT:    call void @use(i1 [[R_7]])
 ; CHECK-NEXT:    br i1 true, label [[EXIT]], label [[LOOP]]
 ; CHECK:       exit.1:
+; CHECK-NEXT:    [[T_1:%.*]] = icmp ule i8 [[Y]], 100
 ; CHECK-NEXT:    ret i1 true
 ;
 entry:

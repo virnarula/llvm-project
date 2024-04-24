@@ -3,7 +3,6 @@ add_mlir_library(MLIRSCFTestPasses
   TestLoopParametricTiling.cpp
   TestLoopUnrolling.cpp
   TestSCFUtils.cpp
-  TestWhileOpBuilder.cpp
 
   EXCLUDE_FROM_LIBMLIR
 

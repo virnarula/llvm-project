@@ -1,18 +1,18 @@
-# This test currently uses too much memory to be made hermetic.
-add_libc_test(
+add_libc_unittest(
   utils_test
   SUITE
-    libc-string-tests
+    libc_string_unittests
   SRCS
+    elements_test.cpp
+    memory_access_test.cpp
     op_tests.cpp
     utils_test.cpp
   COMPILE_OPTIONS
     ${LIBC_COMPILE_OPTIONS_NATIVE}
+    -ffreestanding
   DEPENDS
-    libc.src.__support.CPP.array
-    libc.src.__support.CPP.cstddef
-    libc.src.__support.CPP.span
-    libc.src.__support.macros.sanitizer
     libc.src.string.memory_utils.memory_utils
-  UNIT_TEST_ONLY
+    libc.src.__support.CPP.array
+    libc.src.__support.CPP.span
+    libc.src.__support.CPP.cstddef
 )

@@ -9,8 +9,10 @@
 
 // CHECK-LABEL: define dso_local void @testm128
 // CHECK-LABEL: %argp.cur = load ptr, ptr %args, align 4
-// CHECK-NEXT: %0 = getelementptr inbounds i8, ptr %argp.cur, i32 15
-// CHECK-NEXT: %argp.cur.aligned = call ptr @llvm.ptrmask.p0.i32(ptr %0, i32 -16)
+// CHECK-NEXT:  %0 = ptrtoint ptr %argp.cur to i32
+// CHECK-NEXT:  %1 = add i32 %0, 15
+// CHECK-NEXT:  %2 = and i32 %1, -16
+// CHECK-NEXT:  %argp.cur.aligned = inttoptr i32 %2 to ptr
 void testm128(int argCount, ...) {
   __m128 res;
   __builtin_va_list args;
@@ -21,8 +23,10 @@ void testm128(int argCount, ...) {
 
 // CHECK-LABEL: define dso_local void @testm256
 // CHECK-LABEL: %argp.cur = load ptr, ptr %args, align 4
-// CHECK-NEXT: %0 = getelementptr inbounds i8, ptr %argp.cur, i32 31
-// CHECK-NEXT: %argp.cur.aligned = call ptr @llvm.ptrmask.p0.i32(ptr %0, i32 -32)
+// CHECK-NEXT:  %0 = ptrtoint ptr %argp.cur to i32
+// CHECK-NEXT:  %1 = add i32 %0, 31
+// CHECK-NEXT:  %2 = and i32 %1, -32
+// CHECK-NEXT:  %argp.cur.aligned = inttoptr i32 %2 to ptr
 void testm256(int argCount, ...) {
   __m256 res;
   __builtin_va_list args;
@@ -33,8 +37,10 @@ void testm256(int argCount, ...) {
 
 // CHECK-LABEL: define dso_local void @testm512
 // CHECK-LABEL: %argp.cur = load ptr, ptr %args, align 4
-// CHECK-NEXT: %0 = getelementptr inbounds i8, ptr %argp.cur, i32 63
-// CHECK-NEXT: %argp.cur.aligned = call ptr @llvm.ptrmask.p0.i32(ptr %0, i32 -64)
+// CHECK-NEXT:  %0 = ptrtoint ptr %argp.cur to i32
+// CHECK-NEXT:  %1 = add i32 %0, 63
+// CHECK-NEXT:  %2 = and i32 %1, -64
+// CHECK-NEXT:  %argp.cur.aligned = inttoptr i32 %2 to ptr
 void testm512(int argCount, ...) {
   __m512 res;
   __builtin_va_list args;

@@ -28,8 +28,6 @@ class SystemZTTIImpl : public BasicTTIImplBase<SystemZTTIImpl> {
 
   unsigned const LIBCALL_COST = 30;
 
-  bool isInt128InVR(Type *Ty) { return Ty->isIntegerTy(128) && ST->hasVector(); }
-
 public:
   explicit SystemZTTIImpl(const SystemZTargetMachine *TM, const Function &F)
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl(F)),
@@ -38,7 +36,7 @@ public:
   /// \name Scalar TTI Implementations
   /// @{
 
-  unsigned getInliningThresholdMultiplier() const { return 3; }
+  unsigned getInliningThresholdMultiplier() { return 3; }
   unsigned adjustInliningThreshold(const CallBase *CB) const;
 
   InstructionCost getIntImmCost(const APInt &Imm, Type *Ty,
@@ -95,7 +93,7 @@ public:
                                  ArrayRef<int> Mask,
                                  TTI::TargetCostKind CostKind, int Index,
                                  VectorType *SubTp,
-                                 ArrayRef<const Value *> Args = std::nullopt);
+                                 ArrayRef<const Value *> Args = None);
   unsigned getVectorTruncCost(Type *SrcTy, Type *DstTy);
   unsigned getVectorBitmaskConversionCost(Type *SrcTy, Type *DstTy);
   unsigned getBoolVecToIntConversionCost(unsigned Opcode, Type *Dst,
@@ -110,8 +108,7 @@ public:
                                      const Instruction *I = nullptr);
   using BaseT::getVectorInstrCost;
   InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
-                                     TTI::TargetCostKind CostKind,
-                                     unsigned Index, Value *Op0, Value *Op1);
+                                     unsigned Index);
   bool isFoldableLoad(const LoadInst *Ld, const Instruction *&FoldedValue);
   InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,

@@ -13,11 +13,11 @@
 
 #include "mlir/IR/BuiltinDialect.h"
 #include "BuiltinDialectBytecode.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
-#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
@@ -48,28 +48,23 @@ struct BuiltinOpAsmDialectInterface : public OpAsmDialectInterface {
       : OpAsmDialectInterface(dialect), blobManager(mgr) {}
 
   AliasResult getAlias(Attribute attr, raw_ostream &os) const override {
-    if (llvm::isa<AffineMapAttr>(attr)) {
+    if (attr.isa<AffineMapAttr>()) {
       os << "map";
       return AliasResult::OverridableAlias;
     }
-    if (llvm::isa<IntegerSetAttr>(attr)) {
+    if (attr.isa<IntegerSetAttr>()) {
       os << "set";
       return AliasResult::OverridableAlias;
     }
-    if (llvm::isa<LocationAttr>(attr)) {
+    if (attr.isa<LocationAttr>()) {
       os << "loc";
       return AliasResult::OverridableAlias;
     }
-    if (auto distinct = llvm::dyn_cast<DistinctAttr>(attr))
-      if (!llvm::isa<UnitAttr>(distinct.getReferencedAttr())) {
-        os << "distinct";
-        return AliasResult::OverridableAlias;
-      }
     return AliasResult::NoAlias;
   }
 
   AliasResult getAlias(Type type, raw_ostream &os) const final {
-    if (auto tupleType = llvm::dyn_cast<TupleType>(type)) {
+    if (auto tupleType = type.dyn_cast<TupleType>()) {
       if (tupleType.size() > 16) {
         os << "tuple";
         return AliasResult::OverridableAlias;
@@ -131,7 +126,7 @@ void BuiltinDialect::initialize() {
 //===----------------------------------------------------------------------===//
 
 void ModuleOp::build(OpBuilder &builder, OperationState &state,
-                     std::optional<StringRef> name) {
+                     Optional<StringRef> name) {
   state.addRegion()->emplaceBlock();
   if (name) {
     state.attributes.push_back(builder.getNamedAttr(
@@ -140,7 +135,7 @@ void ModuleOp::build(OpBuilder &builder, OperationState &state,
 }
 
 /// Construct a module from the given context.
-ModuleOp ModuleOp::create(Location loc, std::optional<StringRef> name) {
+ModuleOp ModuleOp::create(Location loc, Optional<StringRef> name) {
   OpBuilder builder(loc->getContext());
   return builder.create<ModuleOp>(loc, name);
 }
@@ -150,7 +145,7 @@ DataLayoutSpecInterface ModuleOp::getDataLayoutSpec() {
   // interface. This needs a linear search, but is called only once per data
   // layout object construction that is used for repeated queries.
   for (NamedAttribute attr : getOperation()->getAttrs())
-    if (auto spec = llvm::dyn_cast<DataLayoutSpecInterface>(attr.getValue()))
+    if (auto spec = attr.getValue().dyn_cast<DataLayoutSpecInterface>())
       return spec;
   return {};
 }
@@ -173,7 +168,7 @@ LogicalResult ModuleOp::verify() {
   StringRef layoutSpecAttrName;
   DataLayoutSpecInterface layoutSpec;
   for (const NamedAttribute &na : (*this)->getAttrs()) {
-    if (auto spec = llvm::dyn_cast<DataLayoutSpecInterface>(na.getValue())) {
+    if (auto spec = na.getValue().dyn_cast<DataLayoutSpecInterface>()) {
       if (layoutSpec) {
         InFlightDiagnostic diag =
             emitOpError() << "expects at most one data layout attribute";
@@ -195,7 +190,7 @@ LogicalResult ModuleOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult
-UnrealizedConversionCastOp::fold(FoldAdaptor adaptor,
+UnrealizedConversionCastOp::fold(ArrayRef<Attribute> attrOperands,
                                  SmallVectorImpl<OpFoldResult> &foldResults) {
   OperandRange operands = getInputs();
   ResultRange results = getOutputs();
@@ -222,12 +217,10 @@ UnrealizedConversionCastOp::fold(FoldAdaptor adaptor,
   return success();
 }
 
-LogicalResult UnrealizedConversionCastOp::verify() {
-  // TODO: The verifier of external models is not called. This op verifier can
-  // be removed when that is fixed.
-  if (getNumResults() == 0)
-    return emitOpError() << "expected at least one result for cast operation";
-  return success();
+bool UnrealizedConversionCastOp::areCastCompatible(TypeRange inputs,
+                                                   TypeRange outputs) {
+  // `UnrealizedConversionCastOp` is agnostic of the input/output types.
+  return true;
 }
 
 //===----------------------------------------------------------------------===//

@@ -81,9 +81,9 @@ static bool testAttributeInt(unsigned Tag, unsigned Value, unsigned ExpectedTag,
                           OS.str().size());
 
   CSKYAttributeParser Parser;
-  cantFail(Parser.parse(Bytes, llvm::endianness::little));
+  cantFail(Parser.parse(Bytes, support::little));
 
-  std::optional<unsigned> Attr = Parser.getAttributeValue(ExpectedTag);
+  Optional<unsigned> Attr = Parser.getAttributeValue(ExpectedTag);
   return Attr && *Attr == ExpectedValue;
 }
 
@@ -98,9 +98,9 @@ static bool testAttributeString(unsigned Tag, const char *Value,
                           OS.str().size());
 
   CSKYAttributeParser Parser;
-  cantFail(Parser.parse(Bytes, llvm::endianness::little));
+  cantFail(Parser.parse(Bytes, support::little));
 
-  std::optional<StringRef> Attr = Parser.getAttributeString(ExpectedTag);
+  Optional<StringRef> Attr = Parser.getAttributeString(ExpectedTag);
   return Attr && *Attr == ExpectedValue;
 }
 
@@ -113,7 +113,7 @@ static void testParseError(unsigned Tag, unsigned Value, const char *msg) {
                           OS.str().size());
 
   CSKYAttributeParser Parser;
-  Error e = Parser.parse(Bytes, llvm::endianness::little);
+  Error e = Parser.parse(Bytes, support::little);
   EXPECT_STREQ(toString(std::move(e)).c_str(), msg);
 }
 

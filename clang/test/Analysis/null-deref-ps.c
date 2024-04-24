@@ -232,6 +232,7 @@ int* f10(int* p, signed char x, int y) {
   return p;
 }
 
+// Test case from <rdar://problem/6407949>
 void f11(unsigned i) {
   int *x = 0;
   if (i >= 0) { // expected-warning{{always true}}
@@ -289,7 +290,7 @@ void pr4759(void) {
 }
 
 // Relax function call arguments invalidation to be aware of const
-// arguments. Test with function pointers.
+// arguments. Test with function pointers. radar://10595327
 void ttt(const int *nptr);
 void ttt2(const int *nptr);
 typedef void (*NoConstType)(int*);

@@ -249,14 +249,8 @@ struct __sanitizer_dirent {
   unsigned int d_fileno;
 #  endif
   unsigned short d_reclen;
-  u8 d_type;
-  u8 d_pad0;
-  u16 d_namlen;
-  u16 d_pad1;
-  char d_name[256];
+  // more fields that we don't care about
 };
-
-u16 __sanitizer_dirsiz(const __sanitizer_dirent *dp);
 
 // 'clock_t' is 32 bits wide on x64 FreeBSD
 typedef int __sanitizer_clock_t;
@@ -715,19 +709,6 @@ extern unsigned struct_cap_rights_sz;
 
 extern unsigned struct_fstab_sz;
 extern unsigned struct_StringList_sz;
-
-struct __sanitizer_cpuset {
-#if __FreeBSD_version >= 1400090
-  long __bits[(1024 + (sizeof(long) * 8) - 1) / (sizeof(long) * 8)];
-#else
-  long __bits[(256 + (sizeof(long) * 8) - 1) / (sizeof(long) * 8)];
-#endif
-};
-
-typedef struct __sanitizer_cpuset __sanitizer_cpuset_t;
-extern unsigned struct_cpuset_sz;
-
-typedef unsigned long long __sanitizer_eventfd_t;
 }  // namespace __sanitizer
 
 #  define CHECK_TYPE_SIZE(TYPE) \

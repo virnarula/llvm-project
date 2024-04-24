@@ -66,10 +66,6 @@ struct Foo { int a; };
         {
           "kind": "identifier",
           "spelling": "num"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -82,8 +78,8 @@ struct Foo { int a; };
       },
       "location": {
         "position": {
-          "character": 4,
-          "line": 0
+          "character": 5,
+          "line": 1
         },
         "uri": "file://INPUT_DIR/input1.h"
       },

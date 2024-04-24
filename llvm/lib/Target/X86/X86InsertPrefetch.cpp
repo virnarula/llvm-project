@@ -28,7 +28,6 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/ProfileData/SampleProf.h"
 #include "llvm/ProfileData/SampleProfReader.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Transforms/IPO/SampleProfile.h"
 using namespace llvm;
 using namespace sampleprof;
@@ -69,8 +68,8 @@ using PrefetchHints = SampleRecord::CallTargetMap;
 
 // Return any prefetching hints for the specified MachineInstruction. The hints
 // are returned as pairs (name, delta).
-ErrorOr<const PrefetchHints &>
-getPrefetchHints(const FunctionSamples *TopSamples, const MachineInstr &MI) {
+ErrorOr<PrefetchHints> getPrefetchHints(const FunctionSamples *TopSamples,
+                                        const MachineInstr &MI) {
   if (const auto &Loc = MI.getDebugLoc())
     if (const auto *Samples = TopSamples->findFunctionSamples(Loc))
       return Samples->findCallTargetMapAt(FunctionSamples::getOffset(Loc),
@@ -110,11 +109,6 @@ bool X86InsertPrefetch::findPrefetchInfo(const FunctionSamples *TopSamples,
                                          Prefetches &Prefetches) const {
   assert(Prefetches.empty() &&
          "Expected caller passed empty PrefetchInfo vector.");
-
-  // There is no point to match prefetch hints if the profile is using MD5.
-  if (FunctionSamples::UseMD5)
-    return false;
-
   static constexpr std::pair<StringLiteral, unsigned> HintTypes[] = {
       {"_nta_", X86::PREFETCHNTA},
       {"_t0_", X86::PREFETCHT0},
@@ -123,19 +117,20 @@ bool X86InsertPrefetch::findPrefetchInfo(const FunctionSamples *TopSamples,
   };
   static const char *SerializedPrefetchPrefix = "__prefetch";
 
-  auto T = getPrefetchHints(TopSamples, MI);
+  const ErrorOr<PrefetchHints> T = getPrefetchHints(TopSamples, MI);
   if (!T)
     return false;
   int16_t max_index = -1;
   // Convert serialized prefetch hints into PrefetchInfo objects, and populate
   // the Prefetches vector.
   for (const auto &S_V : *T) {
-    StringRef Name = S_V.first.stringRef();
+    StringRef Name = S_V.getKey();
     if (Name.consume_front(SerializedPrefetchPrefix)) {
       int64_t D = static_cast<int64_t>(S_V.second);
       unsigned IID = 0;
       for (const auto &HintType : HintTypes) {
-        if (Name.consume_front(HintType.first)) {
+        if (Name.startswith(HintType.first)) {
+          Name = Name.drop_front(HintType.first.size());
           IID = HintType.second;
           break;
         }
@@ -164,10 +159,8 @@ bool X86InsertPrefetch::doInitialization(Module &M) {
     return false;
 
   LLVMContext &Ctx = M.getContext();
-  // TODO: Propagate virtual file system into LLVM targets.
-  auto FS = vfs::getRealFileSystem();
   ErrorOr<std::unique_ptr<SampleProfileReader>> ReaderOrErr =
-      SampleProfileReader::create(Filename, Ctx, *FS);
+      SampleProfileReader::create(Filename, Ctx);
   if (std::error_code EC = ReaderOrErr.getError()) {
     std::string Msg = "Could not open profile: " + EC.message();
     Ctx.diagnose(DiagnosticInfoSampleProfile(Filename, Msg,

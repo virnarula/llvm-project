@@ -1,8 +1,8 @@
-; RUN: not opt -passes=verify < %s 2>&1 | FileCheck %s
+; RUN: not opt -verify < %s 2>&1 | FileCheck %s
 
 declare void @g()
 
-define void @test_ptrauth_bundle(i64 %arg0, i32 %arg1, ptr %arg2) {
+define void @test_ptrauth_bundle(i64 %arg0, i32 %arg1, void()* %arg2) {
 
 ; CHECK: Multiple ptrauth operand bundles
 ; CHECK-NEXT: call void %arg2() [ "ptrauth"(i32 42, i64 100), "ptrauth"(i32 42, i64 %arg0) ]
@@ -24,7 +24,7 @@ define void @test_ptrauth_bundle(i64 %arg0, i32 %arg1, ptr %arg2) {
 ; CHECK-NEXT: call void @g() [ "ptrauth"(i32 42, i64 120) ]
   call void @g() [ "ptrauth"(i32 42, i64 120) ]
 
-; CHECK-NOT: call void
+; CHECK-NOT: call
   call void %arg2() [ "ptrauth"(i32 42, i64 120) ]   ; OK
   call void %arg2() [ "ptrauth"(i32 42, i64 %arg0) ] ; OK
   ret void

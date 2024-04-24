@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -std=c++11 -fsyntax-only %s
-// RUN: %clang_cc1 -std=c++11 -fsyntax-only -fexperimental-new-constant-interpreter %s
 // PR13197
 
 struct type1

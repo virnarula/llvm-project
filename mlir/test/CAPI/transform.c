@@ -84,6 +84,5 @@ int main(void) {
   mlirDialectHandleRegisterDialect(mlirGetDialectHandle__transform__(), ctx);
   testAnyOpType(ctx);
   testOperationType(ctx);
-  mlirContextDestroy(ctx);
   return EXIT_SUCCESS;
 }

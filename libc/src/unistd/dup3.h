@@ -11,10 +11,10 @@
 
 #include <unistd.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int dup3(int oldfd, int newfd, int flags);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_DUP3_H

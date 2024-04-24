@@ -171,7 +171,6 @@ const Decoder::RingEntry Decoder::Ring64[] = {
     {0xff, 0xe8, 1, &Decoder::opcode_trap_frame},
     {0xff, 0xe9, 1, &Decoder::opcode_machine_frame},
     {0xff, 0xea, 1, &Decoder::opcode_context},
-    {0xff, 0xeb, 1, &Decoder::opcode_ec_context},
     {0xff, 0xec, 1, &Decoder::opcode_clear_unwound_to_call},
     {0xff, 0xfc, 1, &Decoder::opcode_pac_sign_lr},
 };
@@ -970,13 +969,6 @@ bool Decoder::opcode_context(const uint8_t *OC, unsigned &Offset,
   return false;
 }
 
-bool Decoder::opcode_ec_context(const uint8_t *OC, unsigned &Offset,
-                                unsigned Length, bool Prologue) {
-  SW.startLine() << format("0x%02x                ; EC context\n", OC[Offset]);
-  ++Offset;
-  return false;
-}
-
 bool Decoder::opcode_clear_unwound_to_call(const uint8_t *OC, unsigned &Offset,
                                            unsigned Length, bool Prologue) {
   SW.startLine() << format("0x%02x                ; clear unwound to call\n",
@@ -1256,7 +1248,7 @@ bool Decoder::dumpPackedEntry(const object::COFFObjectFile &COFF,
     }
     if (RF.C()) {
       // Count the number of registers pushed below R11
-      int FpOffset = 4 * llvm::popcount(GPRMask & ((1U << 11) - 1));
+      int FpOffset = 4 * countPopulation(GPRMask & ((1U << 11) - 1));
       if (FpOffset)
         SW.startLine() << "add.w r11, sp, #" << FpOffset << "\n";
       else
@@ -1476,7 +1468,7 @@ Error Decoder::dumpProcedureData(const COFFObjectFile &COFF) {
     if (!NameOrErr)
       return NameOrErr.takeError();
 
-    if (NameOrErr->starts_with(".pdata"))
+    if (NameOrErr->startswith(".pdata"))
       dumpProcedureData(COFF, Section);
   }
   return Error::success();

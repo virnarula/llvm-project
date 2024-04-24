@@ -8,10 +8,9 @@
 
 # Module Files
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 Module files hold information from a module that is necessary to compile 

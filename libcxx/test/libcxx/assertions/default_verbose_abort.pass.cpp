@@ -7,9 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 // Test that the default verbose termination function aborts the program.
-// XFAIL: availability-verbose_abort-missing
 
-#include <__verbose_abort>
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_ENABLE_ASSERTIONS=1
+
 #include <csignal>
 #include <cstdlib>
 
@@ -21,6 +21,6 @@ void signal_handler(int signal) {
 
 int main(int, char**) {
   if (std::signal(SIGABRT, signal_handler) != SIG_ERR)
-    std::__libcpp_verbose_abort("%s", "foo");
+    _LIBCPP_ASSERT(false, "foo");
   return EXIT_FAILURE;
 }

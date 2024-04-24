@@ -13,4 +13,4 @@
 // EXTABI-SAME:  "-mabi=vec-extabi"
 
 // DFLTABI:      "-cc1"
-// DFLTABI-NOT:  "-mabi=vec-extabi"
+// DFLTABI-SAME: "-mabi=vec-default"

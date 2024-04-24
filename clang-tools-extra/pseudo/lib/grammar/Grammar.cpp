@@ -13,7 +13,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 
 namespace clang {
 namespace pseudo {
@@ -32,7 +31,7 @@ llvm::ArrayRef<Rule> Grammar::rulesFor(SymbolID SID) const {
   assert(isNonterminal(SID));
   const auto &R = T->Nonterminals[SID].RuleRange;
   assert(R.End <= T->Rules.size());
-  return llvm::ArrayRef(&T->Rules[R.Start], R.End - R.Start);
+  return llvm::makeArrayRef(&T->Rules[R.Start], R.End - R.Start);
 }
 
 const Rule &Grammar::lookupRule(RuleID RID) const {
@@ -46,13 +45,13 @@ llvm::StringRef Grammar::symbolName(SymbolID SID) const {
   return T->Nonterminals[SID].Name;
 }
 
-std::optional<SymbolID> Grammar::findNonterminal(llvm::StringRef Name) const {
+llvm::Optional<SymbolID> Grammar::findNonterminal(llvm::StringRef Name) const {
   auto It = llvm::partition_point(
       T->Nonterminals,
       [&](const GrammarTable::Nonterminal &X) { return X.Name < Name; });
   if (It != T->Nonterminals.end() && It->Name == Name)
     return It - T->Nonterminals.begin();
-  return std::nullopt;
+  return llvm::None;
 }
 
 std::string Grammar::dumpRule(RuleID RID) const {
@@ -180,7 +179,7 @@ static llvm::ArrayRef<std::string> getTerminalNames() {
   TerminalNames[tok::kw_##Keyword] = llvm::StringRef(#Keyword).upper();
 #define TOK(Tok) TerminalNames[tok::Tok] = llvm::StringRef(#Tok).upper();
 #include "clang/Basic/TokenKinds.def"
-    return llvm::ArrayRef(TerminalNames, NumTerminals);
+    return llvm::makeArrayRef(TerminalNames, NumTerminals);
   }();
   return TerminalNames;
 }

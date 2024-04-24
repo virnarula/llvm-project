@@ -10,9 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/ArmSVE/IR/ArmSVEDialect.h"
+#include "mlir/Dialect/ArmSVE/ArmSVEDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpImplementation.h"
@@ -29,9 +28,9 @@ using namespace mlir::arm_sve;
 /// Return the scalable vector of the same shape and containing i1.
 static Type getI1SameShape(Type type) {
   auto i1Type = IntegerType::get(type.getContext(), 1);
-  if (auto sVectorType = llvm::dyn_cast<VectorType>(type))
+  if (auto sVectorType = type.dyn_cast<VectorType>())
     return VectorType::get(sVectorType.getShape(), i1Type,
-                           sVectorType.getScalableDims());
+                           sVectorType.getNumScalableDims());
   return nullptr;
 }
 
@@ -39,17 +38,17 @@ static Type getI1SameShape(Type type) {
 // Tablegen Definitions
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/ArmSVE/IR/ArmSVEDialect.cpp.inc"
+#include "mlir/Dialect/ArmSVE/ArmSVEDialect.cpp.inc"
 
 #define GET_OP_CLASSES
-#include "mlir/Dialect/ArmSVE/IR/ArmSVE.cpp.inc"
+#include "mlir/Dialect/ArmSVE/ArmSVE.cpp.inc"
 
 #define GET_TYPEDEF_CLASSES
-#include "mlir/Dialect/ArmSVE/IR/ArmSVETypes.cpp.inc"
+#include "mlir/Dialect/ArmSVE/ArmSVETypes.cpp.inc"
 
 void ArmSVEDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
-#include "mlir/Dialect/ArmSVE/IR/ArmSVE.cpp.inc"
+#include "mlir/Dialect/ArmSVE/ArmSVE.cpp.inc"
       >();
 }

@@ -14,7 +14,6 @@
 
 // FreeBSD still provides the old ABI for std::pair.
 // XFAIL: freebsd
-// ADDITIONAL_COMPILE_FLAGS: -Wno-invalid-offsetof
 
 #include <utility>
 #include <type_traits>

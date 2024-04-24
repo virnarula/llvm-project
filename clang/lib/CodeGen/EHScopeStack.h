@@ -148,12 +148,6 @@ public:
   public:
     Cleanup(const Cleanup &) = default;
     Cleanup(Cleanup &&) {}
-
-    // The copy and move assignment operator is defined as deleted pending
-    // further motivation.
-    Cleanup &operator=(const Cleanup &) = delete;
-    Cleanup &operator=(Cleanup &&) = delete;
-
     Cleanup() = default;
 
     virtual bool isRedundantBeforeReturn() { return false; }
@@ -166,10 +160,10 @@ public:
         F_IsEHCleanupKind = 0x4,
         F_HasExitSwitch = 0x8,
       };
-      unsigned flags = 0;
+      unsigned flags;
 
     public:
-      Flags() = default;
+      Flags() : flags(0) {}
 
       /// isForEH - true if the current emission is for an EH cleanup.
       bool isForEHCleanup() const { return flags & F_IsForEH; }
@@ -277,9 +271,6 @@ public:
       InnermostNormalCleanup(stable_end()), InnermostEHScope(stable_end()),
       CGF(nullptr) {}
   ~EHScopeStack() { delete[] StartOfBuffer; }
-
-  EHScopeStack(const EHScopeStack &) = delete;
-  EHScopeStack &operator=(const EHScopeStack &) = delete;
 
   /// Push a lazily-created cleanup on the stack.
   template <class T, class... As> void pushCleanup(CleanupKind Kind, As... A) {

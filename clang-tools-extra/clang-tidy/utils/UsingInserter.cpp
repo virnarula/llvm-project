@@ -12,9 +12,10 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Lex/Lexer.h"
-#include <optional>
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 using namespace ast_matchers;
 
@@ -28,22 +29,22 @@ static StringRef getUnqualifiedName(StringRef QualifiedName) {
 UsingInserter::UsingInserter(const SourceManager &SourceMgr)
     : SourceMgr(SourceMgr) {}
 
-std::optional<FixItHint> UsingInserter::createUsingDeclaration(
+Optional<FixItHint> UsingInserter::createUsingDeclaration(
     ASTContext &Context, const Stmt &Statement, StringRef QualifiedName) {
   StringRef UnqualifiedName = getUnqualifiedName(QualifiedName);
   const FunctionDecl *Function = getSurroundingFunction(Context, Statement);
   if (!Function)
-    return std::nullopt;
+    return None;
 
   if (AddedUsing.count(std::make_pair(Function, QualifiedName.str())) != 0)
-    return std::nullopt;
+    return None;
 
   SourceLocation InsertLoc = Lexer::getLocForEndOfToken(
       Function->getBody()->getBeginLoc(), 0, SourceMgr, Context.getLangOpts());
 
   // Only use using declarations in the main file, not in includes.
   if (SourceMgr.getFileID(InsertLoc) != SourceMgr.getMainFileID())
-    return std::nullopt;
+    return None;
 
   // FIXME: This declaration could be masked. Investigate if
   // there is a way to avoid using Sema.
@@ -53,8 +54,8 @@ std::optional<FixItHint> UsingInserter::createUsingDeclaration(
              Statement, Context)
            .empty();
   if (AlreadyHasUsingDecl) {
-    AddedUsing.emplace(Function, QualifiedName.str());
-    return std::nullopt;
+    AddedUsing.emplace(NameInFunction(Function, QualifiedName.str()));
+    return None;
   }
   // Find conflicting declarations and references.
   auto ConflictingDecl = namedDecl(hasName(UnqualifiedName));
@@ -64,12 +65,12 @@ std::optional<FixItHint> UsingInserter::createUsingDeclaration(
       !match(findAll(declRefExpr(to(ConflictingDecl))), *Function, Context)
            .empty();
   if (HasConflictingDeclaration || HasConflictingDeclRef)
-    return std::nullopt;
+    return None;
 
   std::string Declaration =
       (llvm::Twine("\nusing ") + QualifiedName + ";").str();
 
-  AddedUsing.emplace(Function, QualifiedName.str());
+  AddedUsing.emplace(std::make_pair(Function, QualifiedName.str()));
   return FixItHint::CreateInsertion(InsertLoc, Declaration);
 }
 
@@ -82,4 +83,6 @@ StringRef UsingInserter::getShortName(ASTContext &Context,
   return QualifiedName;
 }
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang

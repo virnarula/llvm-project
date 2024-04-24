@@ -14,19 +14,21 @@
 
 #include <map>
 
-namespace clang::tidy::llvm_check {
+namespace clang {
+namespace tidy {
+namespace llvm_check {
 
 namespace {
 class IncludeOrderPPCallbacks : public PPCallbacks {
 public:
   explicit IncludeOrderPPCallbacks(ClangTidyCheck &Check,
                                    const SourceManager &SM)
-      : Check(Check), SM(SM) {}
+      : LookForMainModule(true), Check(Check), SM(SM) {}
 
   void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
                           StringRef FileName, bool IsAngled,
                           CharSourceRange FilenameRange,
-                          OptionalFileEntryRef File, StringRef SearchPath,
+                          Optional<FileEntryRef> File, StringRef SearchPath,
                           StringRef RelativePath, const Module *Imported,
                           SrcMgr::CharacteristicKind FileType) override;
   void EndOfMainFile() override;
@@ -40,9 +42,9 @@ private:
     bool IsMainModule;     ///< true if this was the first include in a file
   };
 
-  using FileIncludes = std::vector<IncludeDirective>;
+  typedef std::vector<IncludeDirective> FileIncludes;
   std::map<clang::FileID, FileIncludes> IncludeDirectives;
-  bool LookForMainModule = true;
+  bool LookForMainModule;
 
   ClangTidyCheck &Check;
   const SourceManager &SM;
@@ -61,13 +63,13 @@ static int getPriority(StringRef Filename, bool IsAngled, bool IsMainModule) {
     return 0;
 
   // LLVM and clang headers are in the penultimate position.
-  if (Filename.starts_with("llvm/") || Filename.starts_with("llvm-c/") ||
-      Filename.starts_with("clang/") || Filename.starts_with("clang-c/"))
+  if (Filename.startswith("llvm/") || Filename.startswith("llvm-c/") ||
+      Filename.startswith("clang/") || Filename.startswith("clang-c/"))
     return 2;
 
   // Put these between system and llvm headers to be consistent with LLVM
   // clang-format style.
-  if (Filename.starts_with("gtest/") || Filename.starts_with("gmock/"))
+  if (Filename.startswith("gtest/") || Filename.startswith("gmock/"))
     return 3;
 
   // System headers are sorted to the end.
@@ -80,7 +82,7 @@ static int getPriority(StringRef Filename, bool IsAngled, bool IsMainModule) {
 
 void IncludeOrderPPCallbacks::InclusionDirective(
     SourceLocation HashLoc, const Token &IncludeTok, StringRef FileName,
-    bool IsAngled, CharSourceRange FilenameRange, OptionalFileEntryRef File,
+    bool IsAngled, CharSourceRange FilenameRange, Optional<FileEntryRef> File,
     StringRef SearchPath, StringRef RelativePath, const Module *Imported,
     SrcMgr::CharacteristicKind FileType) {
   // We recognize the first include as a special main module header and want
@@ -143,7 +145,7 @@ void IncludeOrderPPCallbacks::EndOfMainFile() {
     // block.
     for (unsigned BI = 0, BE = Blocks.size() - 1; BI != BE; ++BI) {
       // Find the first include that's not in the right position.
-      unsigned I = 0, E = 0;
+      unsigned I, E;
       for (I = Blocks[BI], E = Blocks[BI + 1]; I != E; ++I)
         if (IncludeIndices[I] != I)
           break;
@@ -181,4 +183,6 @@ void IncludeOrderPPCallbacks::EndOfMainFile() {
   IncludeDirectives.clear();
 }
 
-} // namespace clang::tidy::llvm_check
+} // namespace llvm_check
+} // namespace tidy
+} // namespace clang

@@ -21,7 +21,9 @@ define void @test_dec_select(ptr nocapture %0, ptr readnone %1) {
 ; CHECK-NEXT:    jne .LBB0_2
 ; CHECK-NEXT:  # %bb.1:
 ; CHECK-NEXT:    testq %rsi, %rsi
-; CHECK-NEXT:    jne func2 # TAILCALL
+; CHECK-NEXT:    je .LBB0_2
+; CHECK-NEXT:  # %bb.3:
+; CHECK-NEXT:    jmp func2 # TAILCALL
 ; CHECK-NEXT:  .LBB0_2:
 ; CHECK-NEXT:    retq
   %3 = atomicrmw sub ptr %0, i64 1 seq_cst
@@ -41,13 +43,15 @@ define void @test_dec_select(ptr nocapture %0, ptr readnone %1) {
 define void @test_dec_select_commute(ptr nocapture %0, ptr readnone %1) {
 ; CHECK-LABEL: test_dec_select_commute:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    lock decq (%rdi)
-; CHECK-NEXT:    sete %al
+; CHECK-NEXT:    movq $-1, %rax
+; CHECK-NEXT:    lock xaddq %rax, (%rdi)
 ; CHECK-NEXT:    testq %rsi, %rsi
 ; CHECK-NEXT:    je .LBB1_2
 ; CHECK-NEXT:  # %bb.1:
-; CHECK-NEXT:    testb %al, %al
-; CHECK-NEXT:    jne func2 # TAILCALL
+; CHECK-NEXT:    cmpq $1, %rax
+; CHECK-NEXT:    jne .LBB1_2
+; CHECK-NEXT:  # %bb.3:
+; CHECK-NEXT:    jmp func2 # TAILCALL
 ; CHECK-NEXT:  .LBB1_2:
 ; CHECK-NEXT:    retq
   %3 = atomicrmw sub ptr %0, i64 1 seq_cst
@@ -67,13 +71,15 @@ define void @test_dec_select_commute(ptr nocapture %0, ptr readnone %1) {
 define void @test_dec_and(ptr nocapture %0, ptr readnone %1) {
 ; CHECK-LABEL: test_dec_and:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    lock decq (%rdi)
-; CHECK-NEXT:    sete %al
+; CHECK-NEXT:    movq $-1, %rax
+; CHECK-NEXT:    lock xaddq %rax, (%rdi)
 ; CHECK-NEXT:    testq %rsi, %rsi
 ; CHECK-NEXT:    je .LBB2_2
 ; CHECK-NEXT:  # %bb.1:
-; CHECK-NEXT:    testb %al, %al
-; CHECK-NEXT:    jne func2 # TAILCALL
+; CHECK-NEXT:    cmpq $1, %rax
+; CHECK-NEXT:    jne .LBB2_2
+; CHECK-NEXT:  # %bb.3:
+; CHECK-NEXT:    jmp func2 # TAILCALL
 ; CHECK-NEXT:  .LBB2_2:
 ; CHECK-NEXT:    retq
   %3 = atomicrmw sub ptr %0, i64 1 seq_cst
@@ -97,7 +103,9 @@ define void @test_dec_and_commute(ptr nocapture %0, ptr readnone %1) {
 ; CHECK-NEXT:    jne .LBB3_2
 ; CHECK-NEXT:  # %bb.1:
 ; CHECK-NEXT:    testq %rsi, %rsi
-; CHECK-NEXT:    jne func2 # TAILCALL
+; CHECK-NEXT:    je .LBB3_2
+; CHECK-NEXT:  # %bb.3:
+; CHECK-NEXT:    jmp func2 # TAILCALL
 ; CHECK-NEXT:  .LBB3_2:
 ; CHECK-NEXT:    retq
   %3 = atomicrmw sub ptr %0, i64 1 seq_cst

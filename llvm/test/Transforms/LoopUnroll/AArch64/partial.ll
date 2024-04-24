@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes=loop-unroll -mtriple aarch64 -mcpu=cortex-a57 | FileCheck %s
+; RUN: opt < %s -S -loop-unroll -mtriple aarch64 -mcpu=cortex-a57 | FileCheck %s
 
 ; Partial unroll 8 times for this loop.
 define void @unroll1() nounwind {
@@ -15,7 +15,14 @@ exit:
   ret void
 }
 
-; CHECK: add{{.*}}, 8
+; CHECK:      add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
 ; CHECK-NEXT: icmp
 
 ; Partial unroll 16 times for this loop.
@@ -50,5 +57,20 @@ exit:
 
 
 
-; CHECK: add{{.*}}, 16
+; CHECK:      add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
+; CHECK-NEXT: add
 ; CHECK-NEXT: icmp

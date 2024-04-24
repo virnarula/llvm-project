@@ -23,9 +23,6 @@ using std::optional;
 struct X
 {
     static bool dtor_called;
-    X() = default;
-    X(const X&) = default;
-    X& operator=(const X&) = default;
     ~X() {dtor_called = true;}
 };
 

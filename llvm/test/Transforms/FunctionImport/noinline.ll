@@ -14,10 +14,10 @@
 define i32 @main() #0 {
 entry:
   %f = alloca i64, align 8
-  call void @foo(ptr %f)
+  call void @foo(i64* %f)
   ret i32 0
 }
 
-; NOIMPORT: declare void @foo(ptr)
+; NOIMPORT: declare void @foo(i64*)
 ; IMPORT: define available_externally void @foo
-declare void @foo(ptr) #1
+declare void @foo(i64*) #1

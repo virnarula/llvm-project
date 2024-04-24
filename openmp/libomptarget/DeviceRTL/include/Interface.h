@@ -12,8 +12,6 @@
 #ifndef OMPTARGET_DEVICERTL_INTERFACE_H
 #define OMPTARGET_DEVICERTL_INTERFACE_H
 
-#include "Shared/Environment.h"
-
 #include "Types.h"
 
 /// External API
@@ -216,34 +214,31 @@ uint32_t __kmpc_get_warp_size();
 /// Kernel
 ///
 ///{
-// Forward declaration
-struct KernelEnvironmentTy;
-
 int8_t __kmpc_is_spmd_exec_mode();
 
-int32_t __kmpc_target_init(KernelEnvironmentTy &KernelEnvironment,
-                           KernelLaunchEnvironmentTy &KernelLaunchEnvironment);
+int32_t __kmpc_target_init(IdentTy *Ident, int8_t Mode,
+                           bool UseGenericStateMachine, bool);
 
-void __kmpc_target_deinit();
+void __kmpc_target_deinit(IdentTy *Ident, int8_t Mode, bool);
 
 ///}
 
 /// Reduction
 ///
 ///{
-void *__kmpc_reduction_get_fixed_buffer();
+void __kmpc_nvptx_end_reduce(int32_t TId);
 
-int32_t __kmpc_nvptx_parallel_reduce_nowait_v2(IdentTy *Loc,
-                                               uint64_t reduce_data_size,
-                                               void *reduce_data,
-                                               ShuffleReductFnTy shflFct,
-                                               InterWarpCopyFnTy cpyFct);
+void __kmpc_nvptx_end_reduce_nowait(int32_t TId);
+
+int32_t __kmpc_nvptx_parallel_reduce_nowait_v2(
+    IdentTy *Loc, int32_t TId, int32_t num_vars, uint64_t reduce_size,
+    void *reduce_data, ShuffleReductFnTy shflFct, InterWarpCopyFnTy cpyFct);
 
 int32_t __kmpc_nvptx_teams_reduce_nowait_v2(
-    IdentTy *Loc, void *GlobalBuffer, uint32_t num_of_records,
-    uint64_t reduce_data_size, void *reduce_data, ShuffleReductFnTy shflFct,
-    InterWarpCopyFnTy cpyFct, ListGlobalFnTy lgcpyFct, ListGlobalFnTy lgredFct,
-    ListGlobalFnTy glcpyFct, ListGlobalFnTy glredFct);
+    IdentTy *Loc, int32_t TId, void *GlobalBuffer, uint32_t num_of_records,
+    void *reduce_data, ShuffleReductFnTy shflFct, InterWarpCopyFnTy cpyFct,
+    ListGlobalFnTy lgcpyFct, ListGlobalFnTy lgredFct, ListGlobalFnTy glcpyFct,
+    ListGlobalFnTy glredFct);
 ///}
 
 /// Synchronization
@@ -264,10 +259,6 @@ void __kmpc_barrier_simple_generic(IdentTy *Loc_ref, int32_t TId);
 int32_t __kmpc_master(IdentTy *Loc, int32_t TId);
 
 void __kmpc_end_master(IdentTy *Loc, int32_t TId);
-
-int32_t __kmpc_masked(IdentTy *Loc, int32_t TId, int32_t Filter);
-
-void __kmpc_end_masked(IdentTy *Loc, int32_t TId);
 
 int32_t __kmpc_single(IdentTy *Loc, int32_t TId);
 
@@ -311,9 +302,9 @@ uint16_t __kmpc_parallel_level(IdentTy *Loc, uint32_t);
 /// Tasking
 ///
 ///{
-TaskDescriptorTy *__kmpc_omp_task_alloc(IdentTy *, int32_t, int32_t,
-                                        size_t TaskSizeInclPrivateValues,
-                                        size_t SharedValuesSize,
+TaskDescriptorTy *__kmpc_omp_task_alloc(IdentTy *, uint32_t, int32_t,
+                                        uint32_t TaskSizeInclPrivateValues,
+                                        uint32_t SharedValuesSize,
                                         TaskFnTy TaskFn);
 
 int32_t __kmpc_omp_task(IdentTy *Loc, uint32_t TId,

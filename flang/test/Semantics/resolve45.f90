@@ -1,24 +1,22 @@
 ! RUN: %python %S/test_errors.py %s %flang_fc1
-!ERROR: The function result variable 'f1' may not have an explicit SAVE attribute
 function f1(x, y)
-  !ERROR: The dummy argument 'x' may not have an explicit SAVE attribute
   integer x
+  !ERROR: SAVE attribute may not be applied to dummy argument 'x'
+  !ERROR: SAVE attribute may not be applied to dummy argument 'y'
   save x,y
-  !ERROR: The dummy argument 'y' may not have an explicit SAVE attribute
   integer y
+  !ERROR: SAVE attribute may not be applied to function result 'f1'
   save f1
 end
 
-!ERROR: The entity 'f2' with an explicit SAVE attribute must be a variable, procedure pointer, or COMMON block
-function f2(x, y) result(r)
-  save f2
-  !ERROR: The function result variable 'r' may not have an explicit SAVE attribute
-  real, save :: r
-  !ERROR: The dummy argument 'x' may not have an explicit SAVE attribute
+function f2(x, y)
+  !ERROR: SAVE attribute may not be applied to function result 'f2'
+  real, save :: f2
+  !ERROR: SAVE attribute may not be applied to dummy argument 'x'
   complex, save :: x
   allocatable :: y
-  !ERROR: The dummy argument 'y' may not have an explicit SAVE attribute
   integer :: y
+  !ERROR: SAVE attribute may not be applied to dummy argument 'y'
   save :: y
 end
 
@@ -29,9 +27,9 @@ function f2b(x, y)
 end
 
 subroutine s3(x)
-  !ERROR: The dummy argument 'x' may not have an explicit SAVE attribute
+  !ERROR: SAVE attribute may not be applied to dummy argument 'x'
   procedure(integer), pointer, save :: x
-  !ERROR: The entity 'y' with an explicit SAVE attribute must be a variable, procedure pointer, or COMMON block
+  !ERROR: Procedure 'y' with SAVE attribute must also have POINTER attribute
   procedure(integer), save :: y
 end
 
@@ -67,6 +65,6 @@ subroutine s8a(n)
 end
 subroutine s8b(n)
   integer :: n
-  !ERROR: The automatic object 'x' may not have an explicit SAVE attribute
+  !ERROR: SAVE attribute may not be applied to automatic data object 'x'
   real, save :: x(n)
 end

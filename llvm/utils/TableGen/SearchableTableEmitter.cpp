@@ -19,7 +19,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
-#include "llvm/TableGen/TableGenBackend.h"
 #include <algorithm>
 #include <set>
 #include <string>
@@ -31,12 +30,12 @@ using namespace llvm;
 
 namespace {
 
-int64_t getAsInt(Init *B) {
+int getAsInt(Init *B) {
   return cast<IntInit>(
              B->convertInitializerTo(IntRecTy::get(B->getRecordKeeper())))
       ->getValue();
 }
-int64_t getInt(Record *R, StringRef Field) {
+int getInt(Record *R, StringRef Field) {
   return getAsInt(R->getValueInit(Field));
 }
 
@@ -174,8 +173,6 @@ private:
                                      "' lookup method '" + Index.Name +
                                      "', key field '" + Field.Name +
                                      "' of type bits is too large");
-    } else if (isa<BitRecTy>(Field.RecType)) {
-      return "bool";
     } else if (Field.Enum || Field.IsIntrinsic || Field.IsInstruction)
       return "unsigned";
     PrintFatalError(Index.Loc,
@@ -381,7 +378,7 @@ void SearchableTableEmitter::emitLookupFunction(const GenericTable &Table,
   }
 
   if (IsContiguous) {
-    OS << "  auto Table = ArrayRef(" << IndexName << ");\n";
+    OS << "  auto Table = makeArrayRef(" << IndexName << ");\n";
     OS << "  size_t Idx = " << Index.Fields[0].Name << ";\n";
     OS << "  return Idx >= Table.size() ? nullptr : ";
     if (IsPrimary)
@@ -426,7 +423,7 @@ void SearchableTableEmitter::emitLookupFunction(const GenericTable &Table,
   }
   OS << "};\n";
 
-  OS << "  auto Table = ArrayRef(" << IndexName << ");\n";
+  OS << "  auto Table = makeArrayRef(" << IndexName << ");\n";
   OS << "  auto Idx = std::lower_bound(Table.begin(), Table.end(), Key,\n";
   OS << "    [](const " << IndexTypeName << " &LHS, const KeyType &RHS) {\n";
 
@@ -720,23 +717,7 @@ void SearchableTableEmitter::run(raw_ostream &OS) {
                       Twine("Table FilterClass '") +
                           FilterClass + "' does not exist");
 
-    RecordVal *FilterClassFieldVal = TableRec->getValue("FilterClassField");
-    std::vector<Record *> Definitions =
-        Records.getAllDerivedDefinitions(FilterClass);
-    if (auto *FilterClassFieldInit =
-            dyn_cast<StringInit>(FilterClassFieldVal->getValue())) {
-      StringRef FilterClassField = FilterClassFieldInit->getValue();
-      llvm::erase_if(Definitions, [&](const Record *R) {
-        const RecordVal *Filter = R->getValue(FilterClassField);
-        if (auto *BitV = dyn_cast<BitInit>(Filter->getValue()))
-          return !BitV->getValue();
-
-        PrintFatalError(Filter, Twine("FilterClassField '") + FilterClass +
-                                    "' should be a bit value");
-        return true;
-      });
-    }
-    collectTableEntries(*Table, Definitions);
+    collectTableEntries(*Table, Records.getAllDerivedDefinitions(FilterClass));
 
     if (!TableRec->isValueUnset("PrimaryKey")) {
       Table->PrimaryKey =
@@ -841,5 +822,10 @@ void SearchableTableEmitter::run(raw_ostream &OS) {
     OS << "#undef " << Guard << "\n";
 }
 
-static TableGen::Emitter::OptClass<SearchableTableEmitter>
-    X("gen-searchable-tables", "Generate generic binary-searchable table");
+namespace llvm {
+
+void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS) {
+  SearchableTableEmitter(RK).run(OS);
+}
+
+} // End llvm namespace.

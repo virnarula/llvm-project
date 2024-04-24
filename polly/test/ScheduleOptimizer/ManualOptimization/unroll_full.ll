@@ -2,7 +2,7 @@
 ;
 ; Full unroll of a loop with 5 iterations.
 ;
-define void @func(ptr noalias nonnull %A) {
+define void @func(double* noalias nonnull %A) {
 entry:
   br label %for
 
@@ -12,7 +12,7 @@ for:
   br i1 %j.cmp, label %body, label %exit
 
     body:
-      store double 42.0, ptr %A
+      store double 42.0, double* %A
       br label %inc
 
 inc:

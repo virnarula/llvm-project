@@ -30,8 +30,9 @@ define void @caller() sspreq {
 ; CHECK-NEXT:    .seh_endproc
 entry:
   %x = alloca i32, align 4
-  call void @callee(ptr nonnull %x)
+  %0 = bitcast i32* %x to i8*
+  call void @callee(i32* nonnull %x)
   ret void
 }
 
-declare void @callee(ptr)
+declare void @callee(i32*)

@@ -53,13 +53,6 @@ struct A {
   virtual void f();
 };
 
-// The page size of LoongArch is 16KiB, aligned to the memory page size.
-#ifdef __loongarch__
-#  define PAGESIZE 16384
-#else
-#  define PAGESIZE 4096
-#endif
-
 #ifdef SHARED_LIB
 
 #include "../../utils.h"
@@ -73,13 +66,13 @@ extern "C" void *create_B() {
   return (void *)(new B());
 }
 
-extern "C" __attribute__((aligned(PAGESIZE))) void do_nothing() {}
+extern "C" __attribute__((aligned(4096))) void do_nothing() {}
 
 #else
 
 void A::f() {}
 
-static const int kCodeAlign = PAGESIZE;
+static const int kCodeAlign = 4096;
 static const int kCodeSize = 4096;
 static char saved_code[kCodeSize];
 static char *real_start;

@@ -7,13 +7,12 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass custom lowers llvm.gather and llvm.scatter instructions to
-// RISC-V intrinsics.
+// RISCV intrinsics.
 //
 //===----------------------------------------------------------------------===//
 
 #include "RISCV.h"
 #include "RISCVTargetMachine.h"
-#include "llvm/Analysis/InstSimplifyFolder.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -24,7 +23,6 @@
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include <optional>
 
 using namespace llvm;
 using namespace PatternMatch;
@@ -60,19 +58,21 @@ public:
   }
 
   StringRef getPassName() const override {
-    return "RISC-V gather/scatter lowering";
+    return "RISCV gather/scatter lowering";
   }
 
 private:
+  bool isLegalTypeAndAlignment(Type *DataType, Value *AlignOp);
+
   bool tryCreateStridedLoadStore(IntrinsicInst *II, Type *DataType, Value *Ptr,
                                  Value *AlignOp);
 
-  std::pair<Value *, Value *> determineBaseAndStride(Instruction *Ptr,
-                                                     IRBuilderBase &Builder);
+  std::pair<Value *, Value *> determineBaseAndStride(GetElementPtrInst *GEP,
+                                                     IRBuilder<> &Builder);
 
   bool matchStridedRecurrence(Value *Index, Loop *L, Value *&Stride,
                               PHINode *&BasePtr, BinaryOperator *&Inc,
-                              IRBuilderBase &Builder);
+                              IRBuilder<> &Builder);
 };
 
 } // end anonymous namespace
@@ -80,17 +80,32 @@ private:
 char RISCVGatherScatterLowering::ID = 0;
 
 INITIALIZE_PASS(RISCVGatherScatterLowering, DEBUG_TYPE,
-                "RISC-V gather/scatter lowering pass", false, false)
+                "RISCV gather/scatter lowering pass", false, false)
 
 FunctionPass *llvm::createRISCVGatherScatterLoweringPass() {
   return new RISCVGatherScatterLowering();
 }
 
+bool RISCVGatherScatterLowering::isLegalTypeAndAlignment(Type *DataType,
+                                                         Value *AlignOp) {
+  Type *ScalarType = DataType->getScalarType();
+  if (!TLI->isLegalElementTypeForRVV(ScalarType))
+    return false;
+
+  MaybeAlign MA = cast<ConstantInt>(AlignOp)->getMaybeAlignValue();
+  if (MA && MA->value() < DL->getTypeStoreSize(ScalarType).getFixedSize())
+    return false;
+
+  // FIXME: Let the backend type legalize by splitting/widening?
+  EVT DataVT = TLI->getValueType(*DL, DataType);
+  if (!TLI->isTypeLegal(DataVT))
+    return false;
+
+  return true;
+}
+
 // TODO: Should we consider the mask when looking for a stride?
 static std::pair<Value *, Value *> matchStridedConstant(Constant *StartC) {
-  if (!isa<FixedVectorType>(StartC->getType()))
-    return std::make_pair(nullptr, nullptr);
-
   unsigned NumElts = cast<FixedVectorType>(StartC->getType())->getNumElements();
 
   // Check that the start value is a strided constant.
@@ -120,7 +135,7 @@ static std::pair<Value *, Value *> matchStridedConstant(Constant *StartC) {
 }
 
 static std::pair<Value *, Value *> matchStridedStart(Value *Start,
-                                                     IRBuilderBase &Builder) {
+                                                     IRBuilder<> &Builder) {
   // Base case, start is a strided constant.
   auto *StartC = dyn_cast<Constant>(Start);
   if (StartC)
@@ -132,25 +147,17 @@ static std::pair<Value *, Value *> matchStridedStart(Value *Start,
     return std::make_pair(ConstantInt::get(Ty, 0), ConstantInt::get(Ty, 1));
   }
 
-  // Not a constant, maybe it's a strided constant with a splat added or
-  // multipled.
+  // Not a constant, maybe it's a strided constant with a splat added to it.
   auto *BO = dyn_cast<BinaryOperator>(Start);
-  if (!BO || (BO->getOpcode() != Instruction::Add &&
-              BO->getOpcode() != Instruction::Or &&
-              BO->getOpcode() != Instruction::Shl &&
-              BO->getOpcode() != Instruction::Mul))
-    return std::make_pair(nullptr, nullptr);
-
-  if (BO->getOpcode() == Instruction::Or &&
-      !cast<PossiblyDisjointInst>(BO)->isDisjoint())
+  if (!BO || BO->getOpcode() != Instruction::Add)
     return std::make_pair(nullptr, nullptr);
 
   // Look for an operand that is splatted.
-  unsigned OtherIndex = 0;
-  Value *Splat = getSplatValue(BO->getOperand(1));
-  if (!Splat && Instruction::isCommutative(BO->getOpcode())) {
-    Splat = getSplatValue(BO->getOperand(0));
-    OtherIndex = 1;
+  unsigned OtherIndex = 1;
+  Value *Splat = getSplatValue(BO->getOperand(0));
+  if (!Splat) {
+    Splat = getSplatValue(BO->getOperand(1));
+    OtherIndex = 0;
   }
   if (!Splat)
     return std::make_pair(nullptr, nullptr);
@@ -161,30 +168,10 @@ static std::pair<Value *, Value *> matchStridedStart(Value *Start,
   if (!Start)
     return std::make_pair(nullptr, nullptr);
 
+  // Add the splat value to the start.
   Builder.SetInsertPoint(BO);
   Builder.SetCurrentDebugLocation(DebugLoc());
-  // Add the splat value to the start or multiply the start and stride by the
-  // splat.
-  switch (BO->getOpcode()) {
-  default:
-    llvm_unreachable("Unexpected opcode");
-  case Instruction::Or:
-    // TODO: We'd be better off creating disjoint or here, but we don't yet
-    // have an IRBuilder API for that.
-    [[fallthrough]];
-  case Instruction::Add:
-    Start = Builder.CreateAdd(Start, Splat);
-    break;
-  case Instruction::Mul:
-    Start = Builder.CreateMul(Start, Splat);
-    Stride = Builder.CreateMul(Stride, Splat);
-    break;
-  case Instruction::Shl:
-    Start = Builder.CreateShl(Start, Splat);
-    Stride = Builder.CreateShl(Stride, Splat);
-    break;
-  }
-
+  Start = Builder.CreateAdd(Start, Splat);
   return std::make_pair(Start, Stride);
 }
 
@@ -196,7 +183,7 @@ bool RISCVGatherScatterLowering::matchStridedRecurrence(Value *Index, Loop *L,
                                                         Value *&Stride,
                                                         PHINode *&BasePtr,
                                                         BinaryOperator *&Inc,
-                                                        IRBuilderBase &Builder) {
+                                                        IRBuilder<> &Builder) {
   // Our base case is a Phi.
   if (auto *Phi = dyn_cast<PHINode>(Index)) {
     // A phi node we want to perform this function on should be from the
@@ -245,21 +232,20 @@ bool RISCVGatherScatterLowering::matchStridedRecurrence(Value *Index, Loop *L,
   if (!BO)
     return false;
 
-  switch (BO->getOpcode()) {
-  default:
+  if (BO->getOpcode() != Instruction::Add &&
+      BO->getOpcode() != Instruction::Or &&
+      BO->getOpcode() != Instruction::Mul &&
+      BO->getOpcode() != Instruction::Shl)
     return false;
-  case Instruction::Or:
-    // We need to be able to treat Or as Add.
-    if (!cast<PossiblyDisjointInst>(BO)->isDisjoint())
-      return false;
-    break;
-  case Instruction::Add:
-    break;
-  case Instruction::Shl:
-    break;
-  case Instruction::Mul:
-    break;
-  }
+
+  // Only support shift by constant.
+  if (BO->getOpcode() == Instruction::Shl && !isa<Constant>(BO->getOperand(1)))
+    return false;
+
+  // We need to be able to treat Or as Add.
+  if (BO->getOpcode() == Instruction::Or &&
+      !haveNoCommonBitsSet(BO->getOperand(0), BO->getOperand(1), *DL))
+    return false;
 
   // We should have one operand in the loop and one splat.
   Value *OtherOp;
@@ -268,8 +254,7 @@ bool RISCVGatherScatterLowering::matchStridedRecurrence(Value *Index, Loop *L,
     Index = cast<Instruction>(BO->getOperand(0));
     OtherOp = BO->getOperand(1);
   } else if (isa<Instruction>(BO->getOperand(1)) &&
-             L->contains(cast<Instruction>(BO->getOperand(1))) &&
-             Instruction::isCommutative(BO->getOpcode())) {
+             L->contains(cast<Instruction>(BO->getOperand(1)))) {
     Index = cast<Instruction>(BO->getOperand(1));
     OtherOp = BO->getOperand(0);
   } else {
@@ -307,41 +292,49 @@ bool RISCVGatherScatterLowering::matchStridedRecurrence(Value *Index, Loop *L,
   case Instruction::Or: {
     // An add only affects the start value. It's ok to do this for Or because
     // we already checked that there are no common set bits.
-    Start = Builder.CreateAdd(Start, SplatOp, "start");
+
+    // If the start value is Zero, just take the SplatOp.
+    if (isa<ConstantInt>(Start) && cast<ConstantInt>(Start)->isZero())
+      Start = SplatOp;
+    else
+      Start = Builder.CreateAdd(Start, SplatOp, "start");
+    BasePtr->setIncomingValue(StartBlock, Start);
     break;
   }
   case Instruction::Mul: {
-    Start = Builder.CreateMul(Start, SplatOp, "start");
+    // If the start is zero we don't need to multiply.
+    if (!isa<ConstantInt>(Start) || !cast<ConstantInt>(Start)->isZero())
+      Start = Builder.CreateMul(Start, SplatOp, "start");
+
     Step = Builder.CreateMul(Step, SplatOp, "step");
-    Stride = Builder.CreateMul(Stride, SplatOp, "stride");
+
+    // If the Stride is 1 just take the SplatOpt.
+    if (isa<ConstantInt>(Stride) && cast<ConstantInt>(Stride)->isOne())
+      Stride = SplatOp;
+    else
+      Stride = Builder.CreateMul(Stride, SplatOp, "stride");
+    Inc->setOperand(StepIndex, Step);
+    BasePtr->setIncomingValue(StartBlock, Start);
     break;
   }
   case Instruction::Shl: {
-    Start = Builder.CreateShl(Start, SplatOp, "start");
+    // If the start is zero we don't need to shift.
+    if (!isa<ConstantInt>(Start) || !cast<ConstantInt>(Start)->isZero())
+      Start = Builder.CreateShl(Start, SplatOp, "start");
     Step = Builder.CreateShl(Step, SplatOp, "step");
     Stride = Builder.CreateShl(Stride, SplatOp, "stride");
+    Inc->setOperand(StepIndex, Step);
+    BasePtr->setIncomingValue(StartBlock, Start);
     break;
   }
   }
 
-  Inc->setOperand(StepIndex, Step);
-  BasePtr->setIncomingValue(StartBlock, Start);
   return true;
 }
 
 std::pair<Value *, Value *>
-RISCVGatherScatterLowering::determineBaseAndStride(Instruction *Ptr,
-                                                   IRBuilderBase &Builder) {
-
-  // A gather/scatter of a splat is a zero strided load/store.
-  if (auto *BasePtr = getSplatValue(Ptr)) {
-    Type *IntPtrTy = DL->getIntPtrType(BasePtr->getType());
-    return std::make_pair(BasePtr, ConstantInt::get(IntPtrTy, 0));
-  }
-
-  auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
-  if (!GEP)
-    return std::make_pair(nullptr, nullptr);
+RISCVGatherScatterLowering::determineBaseAndStride(GetElementPtrInst *GEP,
+                                                   IRBuilder<> &Builder) {
 
   auto I = StridedAddrs.find(GEP);
   if (I != StridedAddrs.end())
@@ -350,14 +343,10 @@ RISCVGatherScatterLowering::determineBaseAndStride(Instruction *Ptr,
   SmallVector<Value *, 2> Ops(GEP->operands());
 
   // Base pointer needs to be a scalar.
-  Value *ScalarBase = Ops[0];
-  if (ScalarBase->getType()->isVectorTy()) {
-    ScalarBase = getSplatValue(ScalarBase);
-    if (!ScalarBase)
-      return std::make_pair(nullptr, nullptr);
-  }
+  if (Ops[0]->getType()->isVectorTy())
+    return std::make_pair(nullptr, nullptr);
 
-  std::optional<unsigned> VecOperand;
+  Optional<unsigned> VecOperand;
   unsigned TypeScale = 0;
 
   // Look for a vector operand and scale.
@@ -371,11 +360,11 @@ RISCVGatherScatterLowering::determineBaseAndStride(Instruction *Ptr,
 
     VecOperand = i;
 
-    TypeSize TS = GTI.getSequentialElementStride(*DL);
+    TypeSize TS = DL->getTypeAllocSize(GTI.getIndexedType());
     if (TS.isScalable())
       return std::make_pair(nullptr, nullptr);
 
-    TypeScale = TS.getFixedValue();
+    TypeScale = TS.getFixedSize();
   }
 
   // We need to find a vector index to simplify.
@@ -385,19 +374,11 @@ RISCVGatherScatterLowering::determineBaseAndStride(Instruction *Ptr,
   // We can't extract the stride if the arithmetic is done at a different size
   // than the pointer type. Adding the stride later may not wrap correctly.
   // Technically we could handle wider indices, but I don't expect that in
-  // practice.  Handle one special case here - constants.  This simplifies
-  // writing test cases.
+  // practice.
   Value *VecIndex = Ops[*VecOperand];
   Type *VecIntPtrTy = DL->getIntPtrType(GEP->getType());
-  if (VecIndex->getType() != VecIntPtrTy) {
-    auto *VecIndexC = dyn_cast<Constant>(VecIndex);
-    if (!VecIndexC)
-      return std::make_pair(nullptr, nullptr);
-    if (VecIndex->getType()->getScalarSizeInBits() > VecIntPtrTy->getScalarSizeInBits())
-      VecIndex = ConstantFoldCastInstruction(Instruction::Trunc, VecIndexC, VecIntPtrTy);
-    else
-      VecIndex = ConstantFoldCastInstruction(Instruction::SExt, VecIndexC, VecIntPtrTy);
-  }
+  if (VecIndex->getType() != VecIntPtrTy)
+    return std::make_pair(nullptr, nullptr);
 
   // Handle the non-recursive case.  This is what we see if the vectorizer
   // decides to use a scalar IV + vid on demand instead of a vector IV.
@@ -410,7 +391,7 @@ RISCVGatherScatterLowering::determineBaseAndStride(Instruction *Ptr,
     Ops[*VecOperand] = Start;
     Type *SourceTy = GEP->getSourceElementType();
     Value *BasePtr =
-        Builder.CreateGEP(SourceTy, ScalarBase, ArrayRef(Ops).drop_front());
+      Builder.CreateGEP(SourceTy, Ops[0], makeArrayRef(Ops).drop_front());
 
     // Convert stride to pointer size if needed.
     Type *IntPtrTy = DL->getIntPtrType(BasePtr->getType());
@@ -446,7 +427,7 @@ RISCVGatherScatterLowering::determineBaseAndStride(Instruction *Ptr,
   Ops[*VecOperand] = BasePhi;
   Type *SourceTy = GEP->getSourceElementType();
   Value *BasePtr =
-      Builder.CreateGEP(SourceTy, ScalarBase, ArrayRef(Ops).drop_front());
+      Builder.CreateGEP(SourceTy, Ops[0], makeArrayRef(Ops).drop_front());
 
   // Final adjustments to stride should go in the start block.
   Builder.SetInsertPoint(
@@ -470,26 +451,18 @@ bool RISCVGatherScatterLowering::tryCreateStridedLoadStore(IntrinsicInst *II,
                                                            Value *Ptr,
                                                            Value *AlignOp) {
   // Make sure the operation will be supported by the backend.
-  MaybeAlign MA = cast<ConstantInt>(AlignOp)->getMaybeAlignValue();
-  EVT DataTypeVT = TLI->getValueType(*DL, DataType);
-  if (!MA || !TLI->isLegalStridedLoadStore(DataTypeVT, *MA))
+  if (!isLegalTypeAndAlignment(DataType, AlignOp))
     return false;
 
-  // FIXME: Let the backend type legalize by splitting/widening?
-  if (!TLI->isTypeLegal(DataTypeVT))
+  // Pointer should be a GEP.
+  auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
+  if (!GEP)
     return false;
 
-  // Pointer should be an instruction.
-  auto *PtrI = dyn_cast<Instruction>(Ptr);
-  if (!PtrI)
-    return false;
-
-  LLVMContext &Ctx = PtrI->getContext();
-  IRBuilder<InstSimplifyFolder> Builder(Ctx, *DL);
-  Builder.SetInsertPoint(PtrI);
+  IRBuilder<> Builder(GEP);
 
   Value *BasePtr, *Stride;
-  std::tie(BasePtr, Stride) = determineBaseAndStride(PtrI, Builder);
+  std::tie(BasePtr, Stride) = determineBaseAndStride(GEP, Builder);
   if (!BasePtr)
     return false;
   assert(Stride != nullptr);
@@ -512,8 +485,8 @@ bool RISCVGatherScatterLowering::tryCreateStridedLoadStore(IntrinsicInst *II,
   II->replaceAllUsesWith(Call);
   II->eraseFromParent();
 
-  if (PtrI->use_empty())
-    RecursivelyDeleteTriviallyDeadInstructions(PtrI);
+  if (GEP->use_empty())
+    RecursivelyDeleteTriviallyDeadInstructions(GEP);
 
   return true;
 }

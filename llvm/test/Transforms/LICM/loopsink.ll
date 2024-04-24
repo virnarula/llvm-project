@@ -1,4 +1,4 @@
-; RUN: opt -S -verify-memoryssa -passes=loop-sink < %s | FileCheck %s
+; RUN: opt -S -verify-memoryssa -loop-sink < %s | FileCheck %s
 ; RUN: opt -S -verify-memoryssa -aa-pipeline=basic-aa -passes=loop-sink < %s | FileCheck %s
 
 @g = global i32 0, align 4
@@ -195,27 +195,23 @@ define i32 @t3(i32, i32) #0 !prof !0 {
   ret i32 10
 }
 
-; For single-BB loop with <=1 avg trip count, sink load to body
+; For single-BB loop with <=1 avg trip count, sink load to b1
 ; CHECK: t4
-; CHECK: .header:
+; CHECK: .preheader:
 ; CHECK-NOT: load i32, ptr @g
-; CHECK: .body:
+; CHECK: .b1:
 ; CHECK: load i32, ptr @g
 ; CHECK: .exit:
 define i32 @t4(i32, i32) #0 !prof !0 {
-.entry:
+.preheader:
   %invariant = load i32, ptr @g
-  br label %.header
+  br label %.b1
 
-.header:
-  %iv = phi i32 [ %t1, %.body ], [ 0, %.entry ]
-  %c0 = icmp sgt i32 %iv, %0
-  br i1 %c0, label %.body, label %.exit, !prof !1
-
-.body:
+.b1:
+  %iv = phi i32 [ %t1, %.b1 ], [ 0, %.preheader ]
   %t1 = add nsw i32 %invariant, %iv
   %c1 = icmp sgt i32 %iv, %0
-  br label %.header
+  br i1 %c1, label %.b1, label %.exit, !prof !1
 
 .exit:
   ret i32 10

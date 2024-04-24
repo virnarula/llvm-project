@@ -8,14 +8,12 @@
 
 #include "lldb/Core/SourceLocationSpec.h"
 #include "lldb/Utility/StreamString.h"
-#include "llvm/ADT/StringExtras.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
 
 SourceLocationSpec::SourceLocationSpec(FileSpec file_spec, uint32_t line,
-                                       std::optional<uint16_t> column,
+                                       llvm::Optional<uint16_t> column,
                                        bool check_inlines, bool exact_match)
     : m_declaration(file_spec, line,
                     column.value_or(LLDB_INVALID_COLUMN_NUMBER)),
@@ -68,16 +66,16 @@ std::string SourceLocationSpec::GetString() const {
   return ss.GetString().str();
 }
 
-std::optional<uint32_t> SourceLocationSpec::GetLine() const {
+llvm::Optional<uint32_t> SourceLocationSpec::GetLine() const {
   uint32_t line = m_declaration.GetLine();
   if (line == 0 || line == LLDB_INVALID_LINE_NUMBER)
-    return std::nullopt;
+    return llvm::None;
   return line;
 }
 
-std::optional<uint16_t> SourceLocationSpec::GetColumn() const {
+llvm::Optional<uint16_t> SourceLocationSpec::GetColumn() const {
   uint16_t column = m_declaration.GetColumn();
   if (column == LLDB_INVALID_COLUMN_NUMBER)
-    return std::nullopt;
+    return llvm::None;
   return column;
 }

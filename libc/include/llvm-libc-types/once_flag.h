@@ -11,7 +11,7 @@
 
 #include <llvm-libc-types/__futex_word.h>
 
-#ifdef __linux__
+#ifdef __unix__
 typedef __futex_word once_flag;
 #else
 #error "Once flag type not defined for the target platform."

@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Index/IR/IndexDialect.h"
-#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 
 using namespace mlir;
 using namespace mlir::index;
@@ -19,7 +18,6 @@ using namespace mlir::index;
 void IndexDialect::initialize() {
   registerAttributes();
   registerOperations();
-  declarePromisedInterface<IndexDialect, ConvertToLLVMPatternInterface>();
 }
 
 //===----------------------------------------------------------------------===//

@@ -1,13 +1,13 @@
-// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -fopenmp-version=51 \
 // RUN:   -fsyntax-only -verify %s
 
-// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -fopenmp-version=51 \
 // RUN:   -ast-print %s | FileCheck %s
 
-// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -fopenmp-version=51 \
 // RUN:   -emit-pch -o %t %s
 
-// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -fopenmp-version=51 \
 // RUN:   -include-pch %t -ast-print %s | FileCheck %s
 
 // expected-no-diagnostics

@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// \brief Find and remove duplicate #include directives.
 ///
@@ -26,6 +28,8 @@ public:
                            Preprocessor *ModuleExpanderPP) override;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_DUPLICATE_INCLUDE_CHECK_H

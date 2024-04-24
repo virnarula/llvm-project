@@ -8,7 +8,7 @@
 # can be calculated.
 #
 # CHECK: Creating defined graph symbol for ELF symbol ""
-# CHECK: Creating defined graph symbol for ELF symbol "main"
+# CHECK: Creating defined graph symbol for ELF symbol ""
         .text
         .globl main
         .p2align 2

@@ -88,7 +88,7 @@ void Preprocessor::EnterCachingLexMode() {
          "entered caching lex mode while lexing something else");
 
   if (InCachingLexMode()) {
-    assert(CurLexerCallback == CLK_CachingLexer && "Unexpected lexer kind");
+    assert(CurLexerKind == CLK_CachingLexer && "Unexpected lexer kind");
     return;
   }
 
@@ -96,9 +96,9 @@ void Preprocessor::EnterCachingLexMode() {
 }
 
 void Preprocessor::EnterCachingLexModeUnchecked() {
-  assert(CurLexerCallback != CLK_CachingLexer && "already in caching lex mode");
+  assert(CurLexerKind != CLK_CachingLexer && "already in caching lex mode");
   PushIncludeMacroStack();
-  CurLexerCallback = CLK_CachingLexer;
+  CurLexerKind = CLK_CachingLexer;
 }
 
 

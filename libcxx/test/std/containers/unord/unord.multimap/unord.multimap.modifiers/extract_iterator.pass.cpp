@@ -22,7 +22,7 @@
 template <class Container>
 void test(Container& c)
 {
-    std::size_t sz = c.size();
+    size_t sz = c.size();
 
     auto some_key = c.cbegin()->first;
 

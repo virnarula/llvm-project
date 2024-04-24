@@ -19,6 +19,9 @@
 
 namespace mlir {
 namespace quant {
+
+class QuantizedIntegerType;
+
 namespace detail {
 
 struct QuantizedTypeStorage;
@@ -198,8 +201,6 @@ public:
   using Base::Base;
   using Base::getChecked;
 
-  static constexpr StringLiteral name = "quant.any";
-
   /// Gets an instance of the type with all parameters specified but not
   /// checked.
   static AnyQuantizedType get(unsigned flags, Type storageType,
@@ -259,8 +260,6 @@ public:
   using Base::Base;
   using Base::getChecked;
 
-  static constexpr StringLiteral name = "quant.uniform";
-
   /// Gets an instance of the type with all parameters specified but not
   /// checked.
   static UniformQuantizedType get(unsigned flags, Type storageType,
@@ -318,8 +317,6 @@ class UniformQuantizedPerAxisType
 public:
   using Base::Base;
   using Base::getChecked;
-
-  static constexpr StringLiteral name = "quant.uniform_per_axis";
 
   /// Gets an instance of the type with all parameters specified but not
   /// checked.
@@ -388,8 +385,6 @@ class CalibratedQuantizedType
 public:
   using Base::Base;
   using Base::getChecked;
-
-  static constexpr StringLiteral name = "quant.calibrated";
 
   /// Gets an instance of the type with all parameters specified but not
   /// checked.

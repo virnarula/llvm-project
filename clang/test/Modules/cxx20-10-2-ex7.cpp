@@ -2,10 +2,8 @@
 
 // RUN: %clang_cc1 -std=c++20 -emit-module-interface %s -verify -o %t
 
-// expected-no-diagnostics
-
 export module M;
 export namespace N {
 int x;                 // OK
-static_assert(1 == 1); // No diagnostic after P2615R1 DR
+static_assert(1 == 1); // expected-error {{static_assert declaration cannot be exported}}
 } // namespace N

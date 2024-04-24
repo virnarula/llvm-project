@@ -18,7 +18,6 @@
 
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -235,7 +234,7 @@ public:
   std::string toString() const {
     SmallString<40> S;
     toString(S);
-    return std::string(S);
+    return std::string(S.str());
   }
 
   void print(raw_ostream &) const;

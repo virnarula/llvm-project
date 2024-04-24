@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_UNISTD_CLOSE_H
 #define LLVM_LIBC_SRC_UNISTD_CLOSE_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int close(int fd);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_CLOSE_H

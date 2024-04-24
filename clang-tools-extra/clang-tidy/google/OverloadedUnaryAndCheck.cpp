@@ -13,7 +13,10 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::google::runtime {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace runtime {
 
 void OverloadedUnaryAndCheck::registerMatchers(
     ast_matchers::MatchFinder *Finder) {
@@ -36,4 +39,7 @@ void OverloadedUnaryAndCheck::check(const MatchFinder::MatchResult &Result) {
        "do not overload unary operator&, it is dangerous.");
 }
 
-} // namespace clang::tidy::google::runtime
+} // namespace runtime
+} // namespace google
+} // namespace tidy
+} // namespace clang

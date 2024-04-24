@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC_PTHREAD_PTHREAD_MUTEX_DESTROY_H
-#define LLVM_LIBC_SRC_PTHREAD_PTHREAD_MUTEX_DESTROY_H
+#ifndef LLVM_LIBC_SRC_PTHREAD_PTHREAD_MUTEX__DESTROY_H
+#define LLVM_LIBC_SRC_PTHREAD_PTHREAD_MUTEX__DESTROY_H
 
 #include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int pthread_mutex_destroy(pthread_mutex_t *mutex);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_PTHREAD_PTHREAD_MUTEX_DESTROY_H

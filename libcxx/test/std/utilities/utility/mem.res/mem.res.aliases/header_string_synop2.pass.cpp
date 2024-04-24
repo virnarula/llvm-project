@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
-// TODO: Change to XFAIL once https://github.com/llvm/llvm-project/issues/40340 is fixed
-// UNSUPPORTED: availability-pmr-missing
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx10.{{9|10|11|12|13|14|15}}
+// XFAIL: use_system_cxx_lib && target={{.+}}-apple-macosx{{11.0|12.0}}
 
 // <string>
 
@@ -23,15 +23,11 @@
 
 #include <string>
 
-#include "test_macros.h"
-
 int main(int, char**) {
   {
     // Check that std::pmr::string is usable without <memory_resource>.
     std::pmr::string s;
-#ifndef TEST_HAS_NO_WIDE_CHARACTERS
     std::pmr::wstring ws;
-#endif
     std::pmr::u16string u16s;
     std::pmr::u32string u32s;
   }

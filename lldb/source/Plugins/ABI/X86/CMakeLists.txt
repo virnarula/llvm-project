@@ -12,5 +12,4 @@ add_lldb_library(lldbPluginABIX86 PLUGIN
     lldbTarget
   LINK_COMPONENTS
     Support
-    TargetParser
   )

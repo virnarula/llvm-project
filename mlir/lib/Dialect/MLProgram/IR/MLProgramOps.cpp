@@ -8,7 +8,7 @@
 
 #include "mlir/Dialect/MLProgram/IR/MLProgram.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/Interfaces/FunctionImplementation.h"
+#include "mlir/IR/FunctionImplementation.h"
 
 using namespace mlir;
 using namespace mlir::ml_program;
@@ -152,15 +152,11 @@ ParseResult FuncOp::parse(OpAsmParser &parser, OperationState &result) {
          std::string &) { return builder.getFunctionType(argTypes, results); };
 
   return function_interface_impl::parseFunctionOp(
-      parser, result, /*allowVariadic=*/false,
-      getFunctionTypeAttrName(result.name), buildFuncType,
-      getArgAttrsAttrName(result.name), getResAttrsAttrName(result.name));
+      parser, result, /*allowVariadic=*/false, buildFuncType);
 }
 
 void FuncOp::print(OpAsmPrinter &p) {
-  function_interface_impl::printFunctionOp(
-      p, *this, /*isVariadic=*/false, getFunctionTypeAttrName(),
-      getArgAttrsAttrName(), getResAttrsAttrName());
+  function_interface_impl::printFunctionOp(p, *this, /*isVariadic=*/false);
 }
 
 //===----------------------------------------------------------------------===//
@@ -178,14 +174,8 @@ LogicalResult GlobalOp::verify() {
 //===----------------------------------------------------------------------===//
 
 GlobalOp GlobalLoadOp::getGlobalOp(SymbolTableCollection &symbolTable) {
-  for (auto parent = getOperation()->getParentOp(); parent;
-       parent = parent->getParentOp()) {
-    if (auto nearest = symbolTable.lookupNearestSymbolFrom<GlobalOp>(
-            parent, getGlobalAttr())) {
-      return nearest;
-    }
-  }
-  return {};
+  return symbolTable.lookupNearestSymbolFrom<GlobalOp>(
+      getOperation()->getParentOp(), getGlobalAttr());
 }
 
 LogicalResult
@@ -259,14 +249,8 @@ GlobalLoadGraphOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 //===----------------------------------------------------------------------===//
 
 GlobalOp GlobalStoreOp::getGlobalOp(SymbolTableCollection &symbolTable) {
-  for (auto parent = getOperation()->getParentOp(); parent;) {
-    if (auto nearest = symbolTable.lookupNearestSymbolFrom<GlobalOp>(
-            parent, getGlobalAttr())) {
-      return nearest;
-    }
-    parent = parent->getParentOp();
-  }
-  return {};
+  return symbolTable.lookupNearestSymbolFrom<GlobalOp>(
+      getOperation()->getParentOp(), getGlobalAttr());
 }
 
 LogicalResult
@@ -329,15 +313,11 @@ ParseResult SubgraphOp::parse(OpAsmParser &parser, OperationState &result) {
          std::string &) { return builder.getFunctionType(argTypes, results); };
 
   return function_interface_impl::parseFunctionOp(
-      parser, result, /*allowVariadic=*/false,
-      getFunctionTypeAttrName(result.name), buildFuncType,
-      getArgAttrsAttrName(result.name), getResAttrsAttrName(result.name));
+      parser, result, /*allowVariadic=*/false, buildFuncType);
 }
 
 void SubgraphOp::print(OpAsmPrinter &p) {
-  function_interface_impl::printFunctionOp(
-      p, *this, /*isVariadic=*/false, getFunctionTypeAttrName(),
-      getArgAttrsAttrName(), getResAttrsAttrName());
+  function_interface_impl::printFunctionOp(p, *this, /*isVariadic=*/false);
 }
 
 //===----------------------------------------------------------------------===//

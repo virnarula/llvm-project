@@ -13,15 +13,18 @@
 #include "llvm/ADT/StringRef.h"
 #include <memory>
 
-namespace clang::tooling {
+namespace clang {
+namespace tooling {
 struct Diagnostic;
-} // namespace clang::tooling
+} // namespace tooling
+} // namespace clang
 
 namespace llvm {
 template <typename T> class SmallVectorImpl;
 } // namespace llvm
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 
 /// This class is used to locate NOLINT comments in the file being analyzed, to
 /// decide whether a diagnostic should be suppressed.
@@ -42,6 +45,7 @@ private:
   std::unique_ptr<Impl> PImpl;
 };
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_NOLINTDIRECTIVEHANDLER_H

@@ -11,10 +11,10 @@
 
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 size_t strnlen(const char *src, size_t n);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_STRNLEN_H

@@ -19,7 +19,6 @@
 #include <memory>
 
 namespace llvm {
-class BasicBlock;
 class BitcodeReaderValueList;
 class BitstreamCursor;
 class DISubprogram;
@@ -29,20 +28,6 @@ class Metadata;
 class Module;
 class Type;
 template <typename T> class ArrayRef;
-
-typedef std::function<Type *(unsigned)> GetTypeByIDTy;
-
-typedef std::function<unsigned(unsigned, unsigned)> GetContainedTypeIDTy;
-
-typedef std::function<void(Metadata **, unsigned, GetTypeByIDTy,
-                           GetContainedTypeIDTy)>
-    MDTypeCallbackTy;
-
-struct MetadataLoaderCallbacks {
-  GetTypeByIDTy GetTypeByID;
-  GetContainedTypeIDTy GetContainedTypeID;
-  std::optional<MDTypeCallbackTy> MDType;
-};
 
 /// Helper class that handles loading Metadatas and keeping them available.
 class MetadataLoader {
@@ -54,7 +39,7 @@ public:
   ~MetadataLoader();
   MetadataLoader(BitstreamCursor &Stream, Module &TheModule,
                  BitcodeReaderValueList &ValueList, bool IsImporting,
-                 MetadataLoaderCallbacks Callbacks);
+                 std::function<Type *(unsigned)> getTypeByID);
   MetadataLoader &operator=(MetadataLoader &&);
   MetadataLoader(MetadataLoader &&);
 

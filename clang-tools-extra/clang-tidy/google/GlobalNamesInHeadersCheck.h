@@ -12,7 +12,10 @@
 #include "../ClangTidyCheck.h"
 #include "../utils/FileExtensionsUtils.h"
 
-namespace clang::tidy::google::readability {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace readability {
 
 /// Flag global namespace pollution in header files.
 /// Right now it only triggers on using declarations and directives.
@@ -35,10 +38,13 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
 private:
-  StringRef RawStringHeaderFileExtensions;
-  FileExtensionsSet HeaderFileExtensions;
+  const StringRef RawStringHeaderFileExtensions;
+  utils::FileExtensionsSet HeaderFileExtensions;
 };
 
-} // namespace clang::tidy::google::readability
+} // namespace readability
+} // namespace google
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_GOOGLE_GLOBALNAMESINHEADERSCHECK_H

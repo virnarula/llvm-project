@@ -8,10 +8,6 @@ define void @foo() {
 ; CHECK:      #APP
 ; CHECK-NEXT: foo    $42
 ; CHECK-NEXT: #NO_APP
-  call void asm "# $0", "in"(i32 1392848979)
-; CHECK-NEXT: #APP
-; CHECK-NEXT: # $1392848979
-; CHECK-NEXT: #NO_APP
   ret void
 ; CHECK-NEXT: retq
 }

@@ -17,7 +17,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::openmp {
+namespace clang {
+namespace tidy {
+namespace openmp {
 
 ExceptionEscapeCheck::ExceptionEscapeCheck(StringRef Name,
                                            ClangTidyContext *Context)
@@ -69,4 +71,6 @@ void ExceptionEscapeCheck::check(const MatchFinder::MatchResult &Result) {
       << getOpenMPDirectiveName(Directive->getDirectiveKind());
 }
 
-} // namespace clang::tidy::openmp
+} // namespace openmp
+} // namespace tidy
+} // namespace clang

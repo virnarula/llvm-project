@@ -51,7 +51,7 @@ public:
         {return int_ == x.int_ && double_ == x.double_;}
     bool operator<(const Moveable& x) const
         {return int_ < x.int_ || (int_ == x.int_ && double_ < x.double_);}
-    std::size_t hash () const { return std::hash<int>()(int_) + std::hash<double>()(double_); }
+    size_t hash () const { return std::hash<int>()(int_) + std::hash<double>()(double_); }
 
     int get() const {return int_;}
     bool moved() const {return int_ == -1;}
@@ -59,7 +59,7 @@ public:
 
 namespace std {
     template <> struct hash<Moveable> {
-        std::size_t operator () (const Moveable &m) const { return m.hash(); }
+        size_t operator () (const Moveable &m) const { return m.hash(); }
     };
 }
 

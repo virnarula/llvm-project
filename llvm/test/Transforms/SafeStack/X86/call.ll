@@ -1,7 +1,5 @@
 ; RUN: opt -safe-stack -S -mtriple=i386-pc-linux-gnu < %s -o - | FileCheck %s
 ; RUN: opt -safe-stack -S -mtriple=x86_64-pc-linux-gnu < %s -o - | FileCheck %s
-; RUN: opt -passes=safe-stack -S -mtriple=i386-pc-linux-gnu < %s -o - | FileCheck %s
-; RUN: opt -passes=safe-stack -S -mtriple=x86_64-pc-linux-gnu < %s -o - | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -11,19 +9,19 @@ target triple = "x86_64-unknown-linux-gnu"
 ; no arrays / no nested arrays
 ; Requires no protector.
 
-define void @foo(ptr %a) nounwind uwtable safestack {
+define void @foo(i8* %a) nounwind uwtable safestack {
 entry:
   ; CHECK-LABEL: define void @foo(
   ; CHECK-NOT: __safestack_unsafe_stack_ptr
   ; CHECK: ret void
-  %a.addr = alloca ptr, align 8
-  store ptr %a, ptr %a.addr, align 8
-  %0 = load ptr, ptr %a.addr, align 8
-  %call = call i32 (ptr, ...) @printf(ptr @.str, ptr %0)
+  %a.addr = alloca i8*, align 8
+  store i8* %a, i8** %a.addr, align 8
+  %0 = load i8*, i8** %a.addr, align 8
+  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0), i8* %0)
   ret void
 }
 
-declare i32 @printf(ptr, ...)
+declare i32 @printf(i8*, ...)
 
 define void @call_memset(i64 %len) safestack {
 entry:
@@ -31,7 +29,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @llvm.memset.p0.i64(ptr %q, i8 1, i64 %len, i1 false)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @llvm.memset.p0i8.i64(i8* %arraydecay, i8 1, i64 %len, i1 false)
   ret void
 }
 
@@ -41,8 +40,8 @@ entry:
   ; CHECK-NOT: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  %arraydecay = getelementptr inbounds [10 x i8], ptr %q, i32 0, i32 2
-  call void @llvm.memset.p0.i64(ptr %arraydecay, i8 1, i64 7, i1 false)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 2
+  call void @llvm.memset.p0i8.i64(i8* %arraydecay, i8 1, i64 7, i1 false)
   ret void
 }
 
@@ -52,8 +51,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  %arraydecay = getelementptr inbounds [10 x i8], ptr %q, i32 0, i32 7
-  call void @llvm.memset.p0.i64(ptr %arraydecay, i8 1, i64 5, i1 false)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 7
+  call void @llvm.memset.p0i8.i64(i8* %arraydecay, i8 1, i64 5, i1 false)
   ret void
 }
 
@@ -63,8 +62,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  %arraydecay = getelementptr [10 x i8], ptr %q, i32 0, i32 -1
-  call void @llvm.memset.p0.i64(ptr %arraydecay, i8 1, i64 3, i1 false)
+  %arraydecay = getelementptr [10 x i8], [10 x i8]* %q, i32 0, i32 -1
+  call void @llvm.memset.p0i8.i64(i8* %arraydecay, i8 1, i64 3, i1 false)
   ret void
 }
 
@@ -75,7 +74,8 @@ entry:
   ; CHECK-NOT: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @readnone(ptr %q)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @readnone(i8* %arraydecay)
   ret void
 }
 
@@ -86,7 +86,8 @@ entry:
   ; CHECK-NOT: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @readnone0(ptr %q, ptr zeroinitializer)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @readnone0(i8* %arraydecay, i8* zeroinitializer)
   ret void
 }
 
@@ -97,7 +98,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @readnone0(ptr zeroinitializer, ptr %q)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @readnone0(i8 *zeroinitializer, i8* %arraydecay)
   ret void
 }
 
@@ -108,7 +110,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @readonly(ptr %q)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @readonly(i8* %arraydecay)
   ret void
 }
 
@@ -119,7 +122,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @arg_readonly(ptr %q)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @arg_readonly(i8* %arraydecay)
   ret void
 }
 
@@ -130,7 +134,8 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @readwrite(ptr %q)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @readwrite(i8* %arraydecay)
   ret void
 }
 
@@ -141,31 +146,33 @@ entry:
   ; CHECK: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
   %q = alloca [10 x i8], align 1
-  call void @capture(ptr %q)
+  %arraydecay = getelementptr inbounds [10 x i8], [10 x i8]* %q, i32 0, i32 0
+  call void @capture(i8* %arraydecay)
   ret void
 }
 
 ; Lifetime intrinsics are always safe.
-define void @call_lifetime(ptr %p) {
+define void @call_lifetime(i32* %p) {
   ; CHECK-LABEL: define void @call_lifetime
   ; CHECK-NOT: @__safestack_unsafe_stack_ptr
   ; CHECK: ret void
 entry:
   %q = alloca [100 x i8], align 16
-  call void @llvm.lifetime.start.p0(i64 100, ptr %q)
-  call void @llvm.lifetime.end.p0(i64 100, ptr %q)
+  %0 = bitcast [100 x i8]* %q to i8*
+  call void @llvm.lifetime.start.p0i8(i64 100, i8* %0)
+  call void @llvm.lifetime.end.p0i8(i64 100, i8* %0)
   ret void
 }
 
-declare void @readonly(ptr nocapture) readonly
-declare void @arg_readonly(ptr readonly nocapture)
-declare void @readwrite(ptr nocapture)
-declare void @capture(ptr readnone) readnone
+declare void @readonly(i8* nocapture) readonly
+declare void @arg_readonly(i8* readonly nocapture)
+declare void @readwrite(i8* nocapture)
+declare void @capture(i8* readnone) readnone
 
-declare void @readnone(ptr nocapture) readnone
-declare void @readnone0(ptr nocapture readnone, ptr nocapture)
+declare void @readnone(i8* nocapture) readnone
+declare void @readnone0(i8* nocapture readnone, i8* nocapture)
 
-declare void @llvm.memset.p0.i64(ptr nocapture, i8, i64, i1) nounwind argmemonly
+declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i1) nounwind argmemonly
 
-declare void @llvm.lifetime.start.p0(i64, ptr nocapture) nounwind argmemonly
-declare void @llvm.lifetime.end.p0(i64, ptr nocapture) nounwind argmemonly
+declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) nounwind argmemonly
+declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) nounwind argmemonly

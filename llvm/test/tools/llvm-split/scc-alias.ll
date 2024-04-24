@@ -17,7 +17,7 @@
 ; CHECK1: define i32 @funExternal2
 
 
-@funInternalAlias = internal alias i32 (), ptr @funInternal
+@funInternalAlias = internal alias i32 (), i32 ()* @funInternal
 
 define internal i32 @funInternal() {
 entry:

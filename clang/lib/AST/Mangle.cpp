@@ -147,7 +147,7 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
 
     // If the label isn't literal, or if this is an alias for an LLVM intrinsic,
     // do not add a "\01" prefix.
-    if (!ALA->getIsLiteralLabel() || ALA->getLabel().starts_with("llvm.")) {
+    if (!ALA->getIsLiteralLabel() || ALA->getLabel().startswith("llvm.")) {
       Out << ALA->getLabel();
       return;
     }
@@ -198,12 +198,8 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     Out << '_';
   else if (CC == CCM_Fast)
     Out << '@';
-  else if (CC == CCM_RegCall) {
-    if (getASTContext().getLangOpts().RegCall4)
-      Out << "__regcall4__";
-    else
-      Out << "__regcall3__";
-  }
+  else if (CC == CCM_RegCall)
+    Out << "__regcall3__";
 
   if (!MCXX)
     Out << D->getIdentifier()->getName();
@@ -225,9 +221,8 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   assert(!Proto->isVariadic());
   unsigned ArgWords = 0;
   if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD))
-    if (MD->isImplicitObjectMemberFunction())
+    if (!MD->isStatic())
       ++ArgWords;
-  uint64_t DefaultPtrWidth = TI.getPointerWidth(LangAS::Default);
   for (const auto &AT : Proto->param_types()) {
     // If an argument type is incomplete there is no way to get its size to
     // correctly encode into the mangling scheme.
@@ -235,10 +230,11 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     if (AT->isIncompleteType())
       break;
     // Size should be aligned to pointer size.
-    ArgWords += llvm::alignTo(ASTContext.getTypeSize(AT), DefaultPtrWidth) /
-                DefaultPtrWidth;
+    ArgWords +=
+        llvm::alignTo(ASTContext.getTypeSize(AT), TI.getPointerWidth(0)) /
+        TI.getPointerWidth(0);
   }
-  Out << ((DefaultPtrWidth / 8) * ArgWords);
+  Out << ((TI.getPointerWidth(0) / 8) * ArgWords);
 }
 
 void MangleContext::mangleMSGuidDecl(const MSGuidDecl *GD, raw_ostream &Out) {
@@ -464,7 +460,7 @@ public:
       SmallString<40> Mangled;
       auto Prefix = getClassSymbolPrefix(Kind, OCD->getASTContext());
       llvm::Mangler::getNameWithPrefix(Mangled, Prefix + ClassName, DL);
-      return std::string(Mangled);
+      return std::string(Mangled.str());
     };
 
     return {

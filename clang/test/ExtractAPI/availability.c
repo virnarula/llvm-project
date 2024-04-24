@@ -26,9 +26,6 @@ void e(void) __attribute__((deprecated)) __attribute__((availability(macos, intr
 void f(void) __attribute__((unavailable)) __attribute__((availability(macos, introduced=11.0)));
 
 void d(void) __attribute__((availability(tvos, introduced=15.0)));
-
-void e(void) __attribute__((availability(tvos, unavailable)));
-
 ///expected-no-diagnostics
 
 //--- reference.output.json.in
@@ -76,7 +73,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
         },
         {
           "kind": "text",
-          "spelling": "();"
+          "spelling": "()"
         }
       ],
       "functionSignature": {
@@ -98,8 +95,8 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 0
+          "character": 6,
+          "line": 1
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -127,7 +124,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       "availability": [
         {
           "domain": "macos",
-          "introduced": {
+          "introducedVersion": {
             "major": 12,
             "minor": 0,
             "patch": 0
@@ -150,7 +147,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
         },
         {
           "kind": "text",
-          "spelling": "();"
+          "spelling": "()"
         }
       ],
       "functionSignature": {
@@ -172,8 +169,8 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 2
+          "character": 6,
+          "line": 3
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -200,18 +197,18 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       "accessLevel": "public",
       "availability": [
         {
-          "deprecated": {
+          "deprecatedVersion": {
             "major": 12,
             "minor": 0,
             "patch": 0
           },
           "domain": "macos",
-          "introduced": {
+          "introducedVersion": {
             "major": 11,
             "minor": 0,
             "patch": 0
           },
-          "obsoleted": {
+          "obsoletedVersion": {
             "major": 20,
             "minor": 0,
             "patch": 0
@@ -234,7 +231,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
         },
         {
           "kind": "text",
-          "spelling": "();"
+          "spelling": "()"
         }
       ],
       "functionSignature": {
@@ -256,8 +253,8 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 4
+          "character": 6,
+          "line": 5
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -284,19 +281,35 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       "accessLevel": "public",
       "availability": [
         {
-          "deprecated": {
+          "deprecatedVersion": {
             "major": 12,
             "minor": 0,
             "patch": 0
           },
           "domain": "macos",
-          "introduced": {
+          "introducedVersion": {
             "major": 11,
             "minor": 0,
             "patch": 0
           },
-          "obsoleted": {
+          "obsoletedVersion": {
             "major": 20,
+            "minor": 0,
+            "patch": 0
+          }
+        },
+        {
+          "domain": "ios",
+          "introducedVersion": {
+            "major": 13,
+            "minor": 0,
+            "patch": 0
+          }
+        },
+        {
+          "domain": "tvos",
+          "introducedVersion": {
+            "major": 15,
             "minor": 0,
             "patch": 0
           }
@@ -318,7 +331,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
         },
         {
           "kind": "text",
-          "spelling": "();"
+          "spelling": "()"
         }
       ],
       "functionSignature": {
@@ -340,8 +353,8 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 6
+          "character": 6,
+          "line": 7
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -373,7 +386,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
         },
         {
           "domain": "macos",
-          "introduced": {
+          "introducedVersion": {
             "major": 11,
             "minor": 0,
             "patch": 0
@@ -396,7 +409,7 @@ void e(void) __attribute__((availability(tvos, unavailable)));
         },
         {
           "kind": "text",
-          "spelling": "();"
+          "spelling": "()"
         }
       ],
       "functionSignature": {
@@ -418,8 +431,8 @@ void e(void) __attribute__((availability(tvos, unavailable)));
       },
       "location": {
         "position": {
-          "character": 5,
-          "line": 8
+          "character": 6,
+          "line": 9
         },
         "uri": "file://INPUT_DIR/input.h"
       },

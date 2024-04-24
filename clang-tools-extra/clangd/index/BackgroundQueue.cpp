@@ -8,7 +8,6 @@
 
 #include "index/Background.h"
 #include "support/Logger.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -21,7 +20,7 @@ void BackgroundQueue::preventThreadStarvationInTests() {
 
 void BackgroundQueue::work(std::function<void()> OnIdle) {
   while (true) {
-    std::optional<Task> Task;
+    llvm::Optional<Task> Task;
     {
       std::unique_lock<std::mutex> Lock(Mu);
       CV.wait(Lock, [&] { return ShouldStop || !Queue.empty(); });
@@ -134,7 +133,7 @@ void BackgroundQueue::boost(llvm::StringRef Tag, unsigned NewPriority) {
 }
 
 bool BackgroundQueue::blockUntilIdleForTest(
-    std::optional<double> TimeoutSeconds) {
+    llvm::Optional<double> TimeoutSeconds) {
   std::unique_lock<std::mutex> Lock(Mu);
   return wait(Lock, CV, timeoutSeconds(TimeoutSeconds),
               [&] { return Queue.empty() && Stat.Active == 0; });

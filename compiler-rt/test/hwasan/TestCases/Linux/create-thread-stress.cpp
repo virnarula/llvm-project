@@ -20,7 +20,6 @@ constexpr int kProcessIterations = 20;
 void Thread() {
   for (int i = 0; i < kChildIterations; ++i) {
     std::vector<std::thread> threads;
-    threads.reserve(kChildThreads);
     for (int i = 0; i < kChildThreads; ++i)
       threads.emplace_back([]() {});
     for (auto &t : threads)
@@ -30,7 +29,6 @@ void Thread() {
 
 void run() {
   std::vector<std::thread> threads;
-  threads.reserve(kTopThreads);
   for (int i = 0; i < kTopThreads; ++i)
     threads.emplace_back(Thread);
   for (auto &t : threads)

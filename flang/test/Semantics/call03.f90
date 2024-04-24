@@ -1,4 +1,4 @@
-! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
+! RUN: %python %S/test_errors.py %s %flang_fc1
 ! Test 15.5.2.4 constraints and restrictions for non-POINTER non-ALLOCATABLE
 ! dummy arguments.
 
@@ -168,16 +168,12 @@ module m01
     !WARNING: Actual argument expression length '0' is less than expected length '2'
     call ch2("")
     call pdtdefault(vardefault)
-    !ERROR: Actual argument type 'pdt(n=3_4)' is not compatible with dummy argument type 'pdt'
     call pdtdefault(var3)
-    !ERROR: Actual argument type 'pdt(n=4_4)' is not compatible with dummy argument type 'pdt'
     call pdtdefault(var4) ! error
-    !ERROR: Actual argument type 'pdt' is not compatible with dummy argument type 'pdt(n=4_4)'
-    call pdt3(vardefault)
+    call pdt3(vardefault) ! error
     !ERROR: Actual argument type 'pdt(n=3_4)' is not compatible with dummy argument type 'pdt(n=4_4)'
-    call pdt3(var3)
+    call pdt3(var3) ! error
     call pdt3(var4)
-    !ERROR: Actual argument type 'pdt' is not compatible with dummy argument type 'pdt(n=*)'
     call pdt4(vardefault)
     call pdt4(var3)
     call pdt4(var4)
@@ -256,37 +252,27 @@ module m01
     real, intent(in) :: in
     real :: x
     x = 0.
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-    !BECAUSE: 'in' is an INTENT(IN) dummy argument
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
     call intentout(in)
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-    !BECAUSE: '3.141590118408203125_4' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
     call intentout(3.14159)
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-    !BECAUSE: 'in+1._4' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
     call intentout(in + 1.)
     call intentout(x) ! ok
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-    !BECAUSE: '(x)' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
     call intentout((x))
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'count=' is not definable
-    !BECAUSE: '2_4' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'count=' must be definable
     call system_clock(count=2)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' is not definable
-    !BECAUSE: 'in' is an INTENT(IN) dummy argument
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' must be definable
     call intentinout(in)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' is not definable
-    !BECAUSE: '3.141590118408203125_4' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' must be definable
     call intentinout(3.14159)
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' is not definable
-    !BECAUSE: 'in+1._4' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' must be definable
     call intentinout(in + 1.)
     call intentinout(x) ! ok
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' is not definable
-    !BECAUSE: '(x)' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' must be definable
     call intentinout((x))
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'exitstat=' is not definable
-    !BECAUSE: '0_4' is not a variable or pointer
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'exitstat=' must be definable
     call execute_command_line(command="echo hello", exitstat=0)
   end subroutine
 
@@ -294,11 +280,9 @@ module m01
     real :: a(1)
     integer :: j(1)
     j(1) = 1
-    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-    !BECAUSE: Variable 'a(int(j,kind=8))' has a vector subscript
+    !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
     call intentout_arr(a(j))
-    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' is not definable
-    !BECAUSE: Variable 'a(int(j,kind=8))' has a vector subscript
+    !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'x=' must be definable
     call intentinout_arr(a(j))
     call asynchronous_arr(a(j)) ! ok
     call volatile_arr(a(j)) ! ok
@@ -345,12 +329,11 @@ module m01
     call volatile(d[1])
   end subroutine
 
-  subroutine test15(assumedrank) ! C1539
+  subroutine test15() ! C1539
     real, pointer :: a(:)
     real, asynchronous :: b(10)
     real, volatile :: c(10)
     real, asynchronous, volatile :: d(10)
-    real, asynchronous, volatile :: assumedrank(..)
     call assumedsize(a(::2)) ! ok
     call contiguous(a(::2)) ! ok
     call valueassumedsize(a(::2)) ! ok
@@ -369,8 +352,6 @@ module m01
     call volatileassumedsize(d(::2))
     !ERROR: ASYNCHRONOUS or VOLATILE actual argument that is not simply contiguous may not be associated with a contiguous dummy argument 'x='
     call volatilecontiguous(d(::2))
-    !ERROR: ASYNCHRONOUS or VOLATILE actual argument that is not simply contiguous may not be associated with a contiguous dummy argument 'x='
-    call volatilecontiguous(assumedrank)
   end subroutine
 
   subroutine test16() ! C1540

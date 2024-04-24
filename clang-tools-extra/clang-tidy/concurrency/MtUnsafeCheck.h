@@ -11,12 +11,14 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::concurrency {
+namespace clang {
+namespace tidy {
+namespace concurrency {
 
 /// Checks that non-thread-safe functions are not used.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/concurrency/mt-unsafe.html
+/// http://clang.llvm.org/extra/clang-tidy/checks/threads/mt-unsafe.html
 class MtUnsafeCheck : public ClangTidyCheck {
 public:
   MtUnsafeCheck(StringRef Name, ClangTidyContext *Context);
@@ -34,6 +36,8 @@ private:
   const FunctionSet FuncSet;
 };
 
-} // namespace clang::tidy::concurrency
+} // namespace concurrency
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CONCURRENCY_MTUNSAFECHECK_H

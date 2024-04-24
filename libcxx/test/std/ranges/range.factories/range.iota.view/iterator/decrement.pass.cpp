@@ -11,9 +11,8 @@
 // constexpr iterator& operator--() requires decrementable<W>;
 // constexpr iterator operator--(int) requires decrementable<W>;
 
-#include <cassert>
 #include <ranges>
-#include <type_traits>
+#include <cassert>
 
 #include "test_macros.h"
 #include "../types.h"

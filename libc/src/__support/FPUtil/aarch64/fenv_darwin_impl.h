@@ -6,13 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_FPUTIL_AARCH64_FENV_DARWIN_IMPL_H
-#define LLVM_LIBC_SRC___SUPPORT_FPUTIL_AARCH64_FENV_DARWIN_IMPL_H
+#ifndef LLVM_LIBC_SRC_SUPPORT_FPUTIL_AARCH64_FENV_DARWIN_IMPL_H
+#define LLVM_LIBC_SRC_SUPPORT_FPUTIL_AARCH64_FENV_DARWIN_IMPL_H
 
-#include "src/__support/macros/attributes.h" // LIBC_INLINE
-#include "src/__support/macros/properties/architectures.h"
+#include "src/__support/architectures.h"
 
-#if !defined(LIBC_TARGET_ARCH_IS_AARCH64) || !defined(__APPLE__)
+#if !defined(LLVM_LIBC_ARCH_AARCH64) || !defined(__APPLE__)
 #error "Invalid include"
 #endif
 
@@ -22,7 +21,7 @@
 
 #include "src/__support/FPUtil/FPBits.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 namespace fputil {
 
 struct FEnv {
@@ -61,7 +60,7 @@ struct FEnv {
   // __fpcr_flush_to_zero bit in the FPCR register.  This control bit is
   // located in a different place from FE_FLUSHTOZERO status bit relative to
   // the other exceptions.
-  LIBC_INLINE static uint32_t exception_value_from_status(int status) {
+  static inline uint32_t exception_value_from_status(int status) {
     return (status & FE_INVALID ? EX_INVALID : 0) |
            (status & FE_DIVBYZERO ? EX_DIVBYZERO : 0) |
            (status & FE_OVERFLOW ? EX_OVERFLOW : 0) |
@@ -70,7 +69,7 @@ struct FEnv {
            (status & FE_FLUSHTOZERO ? EX_FLUSHTOZERO : 0);
   }
 
-  LIBC_INLINE static uint32_t exception_value_from_control(int control) {
+  static inline uint32_t exception_value_from_control(int control) {
     return (control & __fpcr_trap_invalid ? EX_INVALID : 0) |
            (control & __fpcr_trap_divbyzero ? EX_DIVBYZERO : 0) |
            (control & __fpcr_trap_overflow ? EX_OVERFLOW : 0) |
@@ -79,7 +78,7 @@ struct FEnv {
            (control & __fpcr_flush_to_zero ? EX_FLUSHTOZERO : 0);
   }
 
-  LIBC_INLINE static int exception_value_to_status(uint32_t excepts) {
+  static inline int exception_value_to_status(uint32_t excepts) {
     return (excepts & EX_INVALID ? FE_INVALID : 0) |
            (excepts & EX_DIVBYZERO ? FE_DIVBYZERO : 0) |
            (excepts & EX_OVERFLOW ? FE_OVERFLOW : 0) |
@@ -88,7 +87,7 @@ struct FEnv {
            (excepts & EX_FLUSHTOZERO ? FE_FLUSHTOZERO : 0);
   }
 
-  LIBC_INLINE static int exception_value_to_control(uint32_t excepts) {
+  static inline int exception_value_to_control(uint32_t excepts) {
     return (excepts & EX_INVALID ? __fpcr_trap_invalid : 0) |
            (excepts & EX_DIVBYZERO ? __fpcr_trap_divbyzero : 0) |
            (excepts & EX_OVERFLOW ? __fpcr_trap_overflow : 0) |
@@ -97,20 +96,16 @@ struct FEnv {
            (excepts & EX_FLUSHTOZERO ? __fpcr_flush_to_zero : 0);
   }
 
-  LIBC_INLINE static uint32_t get_control_word() { return __arm_rsr("fpcr"); }
+  static uint32_t get_control_word() { return __arm_rsr("fpcr"); }
 
-  LIBC_INLINE static void set_control_word(uint32_t fpcr) {
-    __arm_wsr("fpcr", fpcr);
-  }
+  static void set_control_word(uint32_t fpcr) { __arm_wsr("fpcr", fpcr); }
 
-  LIBC_INLINE static uint32_t get_status_word() { return __arm_rsr("fpsr"); }
+  static uint32_t get_status_word() { return __arm_rsr("fpsr"); }
 
-  LIBC_INLINE static void set_status_word(uint32_t fpsr) {
-    __arm_wsr("fpsr", fpsr);
-  }
+  static void set_status_word(uint32_t fpsr) { __arm_wsr("fpsr", fpsr); }
 };
 
-LIBC_INLINE int enable_except(int excepts) {
+static inline int enable_except(int excepts) {
   uint32_t new_excepts = FEnv::exception_value_from_status(excepts);
   uint32_t control_word = FEnv::get_control_word();
   uint32_t old_excepts = FEnv::exception_value_from_control(control_word);
@@ -121,7 +116,7 @@ LIBC_INLINE int enable_except(int excepts) {
   return FEnv::exception_value_to_status(old_excepts);
 }
 
-LIBC_INLINE int disable_except(int excepts) {
+static inline int disable_except(int excepts) {
   uint32_t disabled_excepts = FEnv::exception_value_from_status(excepts);
   uint32_t control_word = FEnv::get_control_word();
   uint32_t old_excepts = FEnv::exception_value_from_control(control_word);
@@ -130,13 +125,13 @@ LIBC_INLINE int disable_except(int excepts) {
   return FEnv::exception_value_to_status(old_excepts);
 }
 
-LIBC_INLINE int get_except() {
+static inline int get_except() {
   uint32_t control_word = FEnv::get_control_word();
   uint32_t enabled_excepts = FEnv::exception_value_from_control(control_word);
   return FEnv::exception_value_to_status(enabled_excepts);
 }
 
-LIBC_INLINE int clear_except(int excepts) {
+static inline int clear_except(int excepts) {
   uint32_t status_word = FEnv::get_status_word();
   uint32_t except_value = FEnv::exception_value_from_status(excepts);
   status_word &= ~FEnv::exception_value_to_status(except_value);
@@ -144,13 +139,13 @@ LIBC_INLINE int clear_except(int excepts) {
   return 0;
 }
 
-LIBC_INLINE int test_except(int excepts) {
+static inline int test_except(int excepts) {
   uint32_t statusWord = FEnv::get_status_word();
   uint32_t ex_value = FEnv::exception_value_from_status(excepts);
   return statusWord & FEnv::exception_value_to_status(ex_value);
 }
 
-LIBC_INLINE int set_except(int excepts) {
+static inline int set_except(int excepts) {
   uint32_t status_word = FEnv::get_status_word();
   uint32_t new_exceptions = FEnv::exception_value_from_status(excepts);
   status_word |= FEnv::exception_value_to_status(new_exceptions);
@@ -158,11 +153,11 @@ LIBC_INLINE int set_except(int excepts) {
   return 0;
 }
 
-LIBC_INLINE int raise_except(int excepts) {
+static inline int raise_except(int excepts) {
   float zero = 0.0f;
   float one = 1.0f;
-  float large_value = FPBits<float>::max_normal();
-  float small_value = FPBits<float>::min_normal();
+  float large_value = float(FPBits<float>(FPBits<float>::MAX_NORMAL));
+  float small_value = float(FPBits<float>(FPBits<float>::MIN_NORMAL));
   auto divfunc = [](float a, float b) {
     __asm__ __volatile__("ldr  s0, %0\n\t"
                          "ldr  s1, %1\n\t"
@@ -217,7 +212,7 @@ LIBC_INLINE int raise_except(int excepts) {
   return result;
 }
 
-LIBC_INLINE int get_round() {
+static inline int get_round() {
   uint32_t rounding_mode =
       (FEnv::get_control_word() >> FEnv::ROUNDING_CONTROL_BIT_POSITION) & 0x3;
   switch (rounding_mode) {
@@ -234,7 +229,7 @@ LIBC_INLINE int get_round() {
   }
 }
 
-LIBC_INLINE int set_round(int mode) {
+static inline int set_round(int mode) {
   uint16_t bit_value;
   switch (mode) {
   case FE_TONEAREST:
@@ -261,14 +256,14 @@ LIBC_INLINE int set_round(int mode) {
   return 0;
 }
 
-LIBC_INLINE int get_env(fenv_t *envp) {
+static inline int get_env(fenv_t *envp) {
   FEnv::FPState *state = reinterpret_cast<FEnv::FPState *>(envp);
   state->ControlWord = FEnv::get_control_word();
   state->StatusWord = FEnv::get_status_word();
   return 0;
 }
 
-LIBC_INLINE int set_env(const fenv_t *envp) {
+static inline int set_env(const fenv_t *envp) {
   if (envp == FE_DFL_ENV) {
     // Default status and control words bits are all zeros so we just
     // write zeros.
@@ -283,6 +278,6 @@ LIBC_INLINE int set_env(const fenv_t *envp) {
 }
 
 } // namespace fputil
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC___SUPPORT_FPUTIL_AARCH64_FENV_DARWIN_IMPL_H
+#endif // LLVM_LIBC_SRC_SUPPORT_FPUTIL_AARCH64_FENV_DARWIN_IMPL_H

@@ -70,89 +70,83 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
-  SingleInputSingleOutputDiff<float>(&LIBC_NAMESPACE::ceilf, &::ceilf, data,
-                                     size);
-  SingleInputSingleOutputDiff<double>(&LIBC_NAMESPACE::ceil, &::ceil, data,
-                                      size);
-  SingleInputSingleOutputDiff<long double>(&LIBC_NAMESPACE::ceill, &::ceill,
-                                           data, size);
-
-  SingleInputSingleOutputDiff<float>(&LIBC_NAMESPACE::floorf, &::floorf, data,
-                                     size);
-  SingleInputSingleOutputDiff<double>(&LIBC_NAMESPACE::floor, &::floor, data,
-                                      size);
-  SingleInputSingleOutputDiff<long double>(&LIBC_NAMESPACE::floorl, &::floorl,
-                                           data, size);
-
-  SingleInputSingleOutputDiff<float>(&LIBC_NAMESPACE::roundf, &::roundf, data,
-                                     size);
-  SingleInputSingleOutputDiff<double>(&LIBC_NAMESPACE::round, &::round, data,
-                                      size);
-  SingleInputSingleOutputDiff<long double>(&LIBC_NAMESPACE::roundl, &::roundl,
-                                           data, size);
-
-  SingleInputSingleOutputDiff<float>(&LIBC_NAMESPACE::truncf, &::truncf, data,
-                                     size);
-  SingleInputSingleOutputDiff<double>(&LIBC_NAMESPACE::trunc, &::trunc, data,
-                                      size);
-  SingleInputSingleOutputDiff<long double>(&LIBC_NAMESPACE::truncl, &::truncl,
-                                           data, size);
-
-  SingleInputSingleOutputDiff<float>(&LIBC_NAMESPACE::logbf, &::logbf, data,
-                                     size);
-  SingleInputSingleOutputDiff<double>(&LIBC_NAMESPACE::logb, &::logb, data,
-                                      size);
-  SingleInputSingleOutputDiff<long double>(&LIBC_NAMESPACE::logbl, &::logbl,
-                                           data, size);
-
-  TwoInputSingleOutputDiff<float, float>(&LIBC_NAMESPACE::hypotf, &::hypotf,
-                                         data, size);
-
-  TwoInputSingleOutputDiff<float, float>(&LIBC_NAMESPACE::remainderf,
-                                         &::remainderf, data, size);
-  TwoInputSingleOutputDiff<double, double>(&LIBC_NAMESPACE::remainder,
-                                           &::remainder, data, size);
-  TwoInputSingleOutputDiff<long double, long double>(
-      &LIBC_NAMESPACE::remainderl, &::remainderl, data, size);
-
-  TwoInputSingleOutputDiff<float, float>(&LIBC_NAMESPACE::fdimf, &::fdimf, data,
-                                         size);
-  TwoInputSingleOutputDiff<double, double>(&LIBC_NAMESPACE::fdim, &::fdim, data,
+  SingleInputSingleOutputDiff<float>(&__llvm_libc::ceilf, &::ceilf, data, size);
+  SingleInputSingleOutputDiff<double>(&__llvm_libc::ceil, &::ceil, data, size);
+  SingleInputSingleOutputDiff<long double>(&__llvm_libc::ceill, &::ceill, data,
                                            size);
-  TwoInputSingleOutputDiff<long double, long double>(&LIBC_NAMESPACE::fdiml,
+
+  SingleInputSingleOutputDiff<float>(&__llvm_libc::floorf, &::floorf, data,
+                                     size);
+  SingleInputSingleOutputDiff<double>(&__llvm_libc::floor, &::floor, data,
+                                      size);
+  SingleInputSingleOutputDiff<long double>(&__llvm_libc::floorl, &::floorl,
+                                           data, size);
+
+  SingleInputSingleOutputDiff<float>(&__llvm_libc::roundf, &::roundf, data,
+                                     size);
+  SingleInputSingleOutputDiff<double>(&__llvm_libc::round, &::round, data,
+                                      size);
+  SingleInputSingleOutputDiff<long double>(&__llvm_libc::roundl, &::roundl,
+                                           data, size);
+
+  SingleInputSingleOutputDiff<float>(&__llvm_libc::truncf, &::truncf, data,
+                                     size);
+  SingleInputSingleOutputDiff<double>(&__llvm_libc::trunc, &::trunc, data,
+                                      size);
+  SingleInputSingleOutputDiff<long double>(&__llvm_libc::truncl, &::truncl,
+                                           data, size);
+
+  SingleInputSingleOutputDiff<float>(&__llvm_libc::logbf, &::logbf, data, size);
+  SingleInputSingleOutputDiff<double>(&__llvm_libc::logb, &::logb, data, size);
+  SingleInputSingleOutputDiff<long double>(&__llvm_libc::logbl, &::logbl, data,
+                                           size);
+
+  TwoInputSingleOutputDiff<float, float>(&__llvm_libc::hypotf, &::hypotf, data,
+                                         size);
+
+  TwoInputSingleOutputDiff<float, float>(&__llvm_libc::remainderf,
+                                         &::remainderf, data, size);
+  TwoInputSingleOutputDiff<double, double>(&__llvm_libc::remainder,
+                                           &::remainder, data, size);
+  TwoInputSingleOutputDiff<long double, long double>(&__llvm_libc::remainderl,
+                                                     &::remainderl, data, size);
+
+  TwoInputSingleOutputDiff<float, float>(&__llvm_libc::fdimf, &::fdimf, data,
+                                         size);
+  TwoInputSingleOutputDiff<double, double>(&__llvm_libc::fdim, &::fdim, data,
+                                           size);
+  TwoInputSingleOutputDiff<long double, long double>(&__llvm_libc::fdiml,
                                                      &::fdiml, data, size);
 
-  SingleInputSingleOutputDiff<float>(&LIBC_NAMESPACE::sqrtf, &::sqrtf, data,
-                                     size);
-  SingleInputSingleOutputDiff<double>(&LIBC_NAMESPACE::sqrt, &::sqrt, data,
-                                      size);
-  SingleInputSingleOutputDiff<long double>(&LIBC_NAMESPACE::sqrtl, &::sqrtl,
-                                           data, size);
+  SingleInputSingleOutputDiff<float>(&__llvm_libc::sqrtf, &::sqrtf, data, size);
+  SingleInputSingleOutputDiff<double>(&__llvm_libc::sqrt, &::sqrt, data, size);
+  SingleInputSingleOutputDiff<long double>(&__llvm_libc::sqrtl, &::sqrtl, data,
+                                           size);
 
-  SingleInputSingleOutputWithSideEffectDiff<float, int>(&LIBC_NAMESPACE::frexpf,
+  SingleInputSingleOutputWithSideEffectDiff<float, int>(&__llvm_libc::frexpf,
                                                         &::frexpf, data, size);
-  SingleInputSingleOutputWithSideEffectDiff<double, int>(&LIBC_NAMESPACE::frexp,
+  SingleInputSingleOutputWithSideEffectDiff<double, int>(&__llvm_libc::frexp,
                                                          &::frexp, data, size);
   SingleInputSingleOutputWithSideEffectDiff<long double, int>(
-      &LIBC_NAMESPACE::frexpl, &::frexpl, data, size);
+      &__llvm_libc::frexpl, &::frexpl, data, size);
 
-  SingleInputSingleOutputWithSideEffectDiff<float, float>(
-      &LIBC_NAMESPACE::modff, &::modff, data, size);
+  SingleInputSingleOutputWithSideEffectDiff<float, float>(&__llvm_libc::modff,
+                                                          &::modff, data, size);
   SingleInputSingleOutputWithSideEffectDiff<double, double>(
-      &LIBC_NAMESPACE::modf, &::modf, data, size);
+      &__llvm_libc::modf, &::modf, data, size);
   SingleInputSingleOutputWithSideEffectDiff<long double, long double>(
-      &LIBC_NAMESPACE::modfl, &::modfl, data, size);
+      &__llvm_libc::modfl, &::modfl, data, size);
 
-  TwoInputSingleOutputDiff<float, int>(&LIBC_NAMESPACE::ldexpf, &::ldexpf, data,
+  TwoInputSingleOutputDiff<float, int>(&__llvm_libc::ldexpf, &::ldexpf, data,
                                        size);
-  TwoInputSingleOutputDiff<double, int>(&LIBC_NAMESPACE::ldexp, &::ldexp, data,
+  TwoInputSingleOutputDiff<double, int>(&__llvm_libc::ldexp, &::ldexp, data,
                                         size);
-  TwoInputSingleOutputDiff<long double, int>(&LIBC_NAMESPACE::ldexpl, &::ldexpl,
+  TwoInputSingleOutputDiff<long double, int>(&__llvm_libc::ldexpl, &::ldexpl,
                                              data, size);
 
-  RemQuoDiff<float>(&LIBC_NAMESPACE::remquof, &::remquof, data, size);
-  RemQuoDiff<double>(&LIBC_NAMESPACE::remquo, &::remquo, data, size);
-  RemQuoDiff<long double>(&LIBC_NAMESPACE::remquol, &::remquol, data, size);
+  RemQuoDiff<float>(&__llvm_libc::remquof, &::remquof, data, size);
+  RemQuoDiff<double>(&__llvm_libc::remquo, &::remquo, data, size);
+  RemQuoDiff<long double>(&__llvm_libc::remquol, &::remquol, data, size);
 
   return 0;
 }

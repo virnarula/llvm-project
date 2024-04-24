@@ -26,6 +26,7 @@
 #include "lldb/lldb-types.h"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -33,7 +34,6 @@
 #include <initializer_list>
 #include <map>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -357,7 +357,7 @@ public:
   virtual bool CanProvideValue();
 
   // Subclasses must implement the functions below.
-  virtual std::optional<uint64_t> GetByteSize() = 0;
+  virtual llvm::Optional<uint64_t> GetByteSize() = 0;
 
   virtual lldb::ValueType GetValueType() const = 0;
 
@@ -370,26 +370,26 @@ public:
     return GetCompilerType().GetTypeName();
   }
 
-  lldb::LanguageType GetObjectRuntimeLanguage() {
+  virtual lldb::LanguageType GetObjectRuntimeLanguage() {
     return GetCompilerType().GetMinimumLanguage();
   }
 
-  uint32_t
+  virtual uint32_t
   GetTypeInfo(CompilerType *pointee_or_element_compiler_type = nullptr) {
     return GetCompilerType().GetTypeInfo(pointee_or_element_compiler_type);
   }
 
-  bool IsPointerType() { return GetCompilerType().IsPointerType(); }
+  virtual bool IsPointerType() { return GetCompilerType().IsPointerType(); }
 
-  bool IsArrayType() { return GetCompilerType().IsArrayType(); }
+  virtual bool IsArrayType() { return GetCompilerType().IsArrayType(); }
 
-  bool IsScalarType() { return GetCompilerType().IsScalarType(); }
+  virtual bool IsScalarType() { return GetCompilerType().IsScalarType(); }
 
-  bool IsPointerOrReferenceType() {
+  virtual bool IsPointerOrReferenceType() {
     return GetCompilerType().IsPointerOrReferenceType();
   }
 
-  bool IsPossibleDynamicType();
+  virtual bool IsPossibleDynamicType();
 
   bool IsNilReference();
 
@@ -429,6 +429,10 @@ public:
     return (GetBitfieldBitSize() != 0) || (GetBitfieldBitOffset() != 0);
   }
 
+  virtual bool IsArrayItemForPointer() {
+    return m_flags.m_is_array_item_for_pointer;
+  }
+
   virtual const char *GetValueAsCString();
 
   virtual bool GetValueAsCString(const lldb_private::TypeFormatImpl &format,
@@ -465,16 +469,28 @@ public:
   /// Returns a unique id for this ValueObject.
   lldb::user_id_t GetID() const { return m_id.GetID(); }
 
-  virtual lldb::ValueObjectSP GetChildAtIndex(size_t idx,
-                                              bool can_create = true);
+  virtual lldb::ValueObjectSP GetChildAtIndex(size_t idx, bool can_create);
 
-  // The method always creates missing children in the path, if necessary.
-  lldb::ValueObjectSP GetChildAtNamePath(llvm::ArrayRef<llvm::StringRef> names);
+  // this will always create the children if necessary
+  lldb::ValueObjectSP GetChildAtIndexPath(llvm::ArrayRef<size_t> idxs,
+                                          size_t *index_of_error = nullptr);
 
-  virtual lldb::ValueObjectSP GetChildMemberWithName(llvm::StringRef name,
-                                                     bool can_create = true);
+  lldb::ValueObjectSP
+  GetChildAtIndexPath(llvm::ArrayRef<std::pair<size_t, bool>> idxs,
+                      size_t *index_of_error = nullptr);
 
-  virtual size_t GetIndexOfChildWithName(llvm::StringRef name);
+  // this will always create the children if necessary
+  lldb::ValueObjectSP GetChildAtNamePath(llvm::ArrayRef<ConstString> names,
+                                         ConstString *name_of_error = nullptr);
+
+  lldb::ValueObjectSP
+  GetChildAtNamePath(llvm::ArrayRef<std::pair<ConstString, bool>> names,
+                     ConstString *name_of_error = nullptr);
+
+  virtual lldb::ValueObjectSP GetChildMemberWithName(ConstString name,
+                                                     bool can_create);
+
+  virtual size_t GetIndexOfChildWithName(ConstString name);
 
   size_t GetNumChildren(uint32_t max = UINT32_MAX);
 
@@ -602,9 +618,7 @@ public:
   virtual void SetLiveAddress(lldb::addr_t addr = LLDB_INVALID_ADDRESS,
                               AddressType address_type = eAddressTypeLoad) {}
 
-  lldb::ValueObjectSP Cast(const CompilerType &compiler_type);
-
-  virtual lldb::ValueObjectSP DoCast(const CompilerType &compiler_type);
+  virtual lldb::ValueObjectSP Cast(const CompilerType &compiler_type);
 
   virtual lldb::ValueObjectSP CastPointerType(const char *name,
                                               CompilerType &ast_type);
@@ -612,13 +626,9 @@ public:
   virtual lldb::ValueObjectSP CastPointerType(const char *name,
                                               lldb::TypeSP &type_sp);
 
-  /// If this object represents a C++ class with a vtable, return an object
-  /// that represents the virtual function table. If the object isn't a class
-  /// with a vtable, return a valid ValueObject with the error set correctly.
-  lldb::ValueObjectSP GetVTable();
   // The backing bits of this value object were updated, clear any descriptive
   // string, so we know we have to refetch them.
-  void ValueUpdated() {
+  virtual void ValueUpdated() {
     ClearUserVisibleData(eClearUserVisibleDataItemsValue |
                          eClearUserVisibleDataItemsSummary |
                          eClearUserVisibleDataItemsDescription);
@@ -670,7 +680,8 @@ public:
 
   std::pair<size_t, bool>
   ReadPointedString(lldb::WritableDataBufferSP &buffer_sp, Status &error,
-                    bool honor_array);
+                    uint32_t max_length = 0, bool honor_array = true,
+                    lldb::Format item_format = lldb::eFormatCharArray);
 
   virtual size_t GetPointeeData(DataExtractor &data, uint32_t item_idx = 0,
                                 uint32_t item_count = 1);

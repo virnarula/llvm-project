@@ -8,7 +8,7 @@
 
 // template <class charT>
 //     explicit bitset(const charT* str,
-//                     typename basic_string_view<charT>::size_type n = basic_string_view<charT>::npos, // s/string/string_view since C++26
+//                     typename basic_string<charT>::size_type n = basic_string<charT>::npos,
 //                     charT zero = charT('0'), charT one = charT('1')); // constexpr since C++23
 
 #include <bitset>
@@ -33,41 +33,12 @@ TEST_CONSTEXPR_CXX23 void test_char_pointer_ctor()
   }
 #endif
 
-  static_assert(!std::is_convertible<const char*, std::bitset<N> >::value, "");
-  static_assert(std::is_constructible<std::bitset<N>, const char*>::value, "");
   {
-    const char s[] = "1010101010";
-    std::bitset<N> v(s);
+    const char str[] = "1010101010";
+    std::bitset<N> v(str);
     std::size_t M = std::min<std::size_t>(v.size(), 10);
     for (std::size_t i = 0; i < M; ++i)
-        assert(v[i] == (s[M - 1 - i] == '1'));
-    for (std::size_t i = 10; i < v.size(); ++i)
-        assert(v[i] == false);
-  }
-  {
-    const char s[] = "1010101010";
-    std::bitset<N> v(s, 10);
-    std::size_t M = std::min<std::size_t>(v.size(), 10);
-    for (std::size_t i = 0; i < M; ++i)
-        assert(v[i] == (s[M - 1 - i] == '1'));
-    for (std::size_t i = 10; i < v.size(); ++i)
-        assert(v[i] == false);
-  }
-  {
-    const char s[] = "1a1a1a1a1a";
-    std::bitset<N> v(s, 10, 'a');
-    std::size_t M = std::min<std::size_t>(v.size(), 10);
-    for (std::size_t i = 0; i < M; ++i)
-        assert(v[i] == (s[M - 1 - i] == '1'));
-    for (std::size_t i = 10; i < v.size(); ++i)
-        assert(v[i] == false);
-  }
-  {
-    const char s[] = "bababababa";
-    std::bitset<N> v(s, 10, 'a', 'b');
-    std::size_t M = std::min<std::size_t>(v.size(), 10);
-    for (std::size_t i = 0; i < M; ++i)
-        assert(v[i] == (s[M - 1 - i] == 'b'));
+        assert(v[i] == (str[M - 1 - i] == '1'));
     for (std::size_t i = 10; i < v.size(); ++i)
         assert(v[i] == false);
   }

@@ -7,54 +7,41 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/Presburger/Matrix.h"
-#include "mlir/Analysis/Presburger/Fraction.h"
-#include "mlir/Analysis/Presburger/MPInt.h"
 #include "mlir/Analysis/Presburger/Utils.h"
-#include "mlir/Support/LLVM.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
-#include <algorithm>
-#include <cassert>
-#include <utility>
 
 using namespace mlir;
 using namespace presburger;
 
-template <typename T>
-Matrix<T>::Matrix(unsigned rows, unsigned columns, unsigned reservedRows,
-                  unsigned reservedColumns)
+Matrix::Matrix(unsigned rows, unsigned columns, unsigned reservedRows,
+               unsigned reservedColumns)
     : nRows(rows), nColumns(columns),
       nReservedColumns(std::max(nColumns, reservedColumns)),
       data(nRows * nReservedColumns) {
   data.reserve(std::max(nRows, reservedRows) * nReservedColumns);
 }
 
-template <typename T>
-Matrix<T> Matrix<T>::identity(unsigned dimension) {
+Matrix Matrix::identity(unsigned dimension) {
   Matrix matrix(dimension, dimension);
   for (unsigned i = 0; i < dimension; ++i)
     matrix(i, i) = 1;
   return matrix;
 }
 
-template <typename T>
-unsigned Matrix<T>::getNumReservedRows() const {
+unsigned Matrix::getNumReservedRows() const {
   return data.capacity() / nReservedColumns;
 }
 
-template <typename T>
-void Matrix<T>::reserveRows(unsigned rows) {
+void Matrix::reserveRows(unsigned rows) {
   data.reserve(rows * nReservedColumns);
 }
 
-template <typename T>
-unsigned Matrix<T>::appendExtraRow() {
+unsigned Matrix::appendExtraRow() {
   resizeVertically(nRows + 1);
   return nRows - 1;
 }
 
-template <typename T>
-unsigned Matrix<T>::appendExtraRow(ArrayRef<T> elems) {
+unsigned Matrix::appendExtraRow(ArrayRef<MPInt> elems) {
   assert(elems.size() == nColumns && "elems must match row length!");
   unsigned row = appendExtraRow();
   for (unsigned col = 0; col < nColumns; ++col)
@@ -62,38 +49,24 @@ unsigned Matrix<T>::appendExtraRow(ArrayRef<T> elems) {
   return row;
 }
 
-template <typename T>
-Matrix<T> Matrix<T>::transpose() const {
-  Matrix<T> transp(nColumns, nRows);
-  for (unsigned row = 0; row < nRows; ++row)
-    for (unsigned col = 0; col < nColumns; ++col)
-      transp(col, row) = at(row, col);
-
-  return transp;
-}
-
-template <typename T>
-void Matrix<T>::resizeHorizontally(unsigned newNColumns) {
+void Matrix::resizeHorizontally(unsigned newNColumns) {
   if (newNColumns < nColumns)
     removeColumns(newNColumns, nColumns - newNColumns);
   if (newNColumns > nColumns)
     insertColumns(nColumns, newNColumns - nColumns);
 }
 
-template <typename T>
-void Matrix<T>::resize(unsigned newNRows, unsigned newNColumns) {
+void Matrix::resize(unsigned newNRows, unsigned newNColumns) {
   resizeHorizontally(newNColumns);
   resizeVertically(newNRows);
 }
 
-template <typename T>
-void Matrix<T>::resizeVertically(unsigned newNRows) {
+void Matrix::resizeVertically(unsigned newNRows) {
   nRows = newNRows;
   data.resize(nRows * nReservedColumns);
 }
 
-template <typename T>
-void Matrix<T>::swapRows(unsigned row, unsigned otherRow) {
+void Matrix::swapRows(unsigned row, unsigned otherRow) {
   assert((row < getNumRows() && otherRow < getNumRows()) &&
          "Given row out of bounds");
   if (row == otherRow)
@@ -102,8 +75,7 @@ void Matrix<T>::swapRows(unsigned row, unsigned otherRow) {
     std::swap(at(row, col), at(otherRow, col));
 }
 
-template <typename T>
-void Matrix<T>::swapColumns(unsigned column, unsigned otherColumn) {
+void Matrix::swapColumns(unsigned column, unsigned otherColumn) {
   assert((column < getNumColumns() && otherColumn < getNumColumns()) &&
          "Given column out of bounds");
   if (column == otherColumn)
@@ -112,30 +84,23 @@ void Matrix<T>::swapColumns(unsigned column, unsigned otherColumn) {
     std::swap(at(row, column), at(row, otherColumn));
 }
 
-template <typename T>
-MutableArrayRef<T> Matrix<T>::getRow(unsigned row) {
+MutableArrayRef<MPInt> Matrix::getRow(unsigned row) {
   return {&data[row * nReservedColumns], nColumns};
 }
 
-template <typename T>
-ArrayRef<T> Matrix<T>::getRow(unsigned row) const {
+ArrayRef<MPInt> Matrix::getRow(unsigned row) const {
   return {&data[row * nReservedColumns], nColumns};
 }
 
-template <typename T>
-void Matrix<T>::setRow(unsigned row, ArrayRef<T> elems) {
+void Matrix::setRow(unsigned row, ArrayRef<MPInt> elems) {
   assert(elems.size() == getNumColumns() &&
          "elems size must match row length!");
   for (unsigned i = 0, e = getNumColumns(); i < e; ++i)
     at(row, i) = elems[i];
 }
 
-template <typename T>
-void Matrix<T>::insertColumn(unsigned pos) {
-  insertColumns(pos, 1);
-}
-template <typename T>
-void Matrix<T>::insertColumns(unsigned pos, unsigned count) {
+void Matrix::insertColumn(unsigned pos) { insertColumns(pos, 1); }
+void Matrix::insertColumns(unsigned pos, unsigned count) {
   if (count == 0)
     return;
   assert(pos <= nColumns);
@@ -150,7 +115,7 @@ void Matrix<T>::insertColumns(unsigned pos, unsigned count) {
     for (int ci = nReservedColumns - 1; ci >= 0; --ci) {
       unsigned r = ri;
       unsigned c = ci;
-      T &dest = data[r * nReservedColumns + c];
+      MPInt &dest = data[r * nReservedColumns + c];
       if (c >= nColumns) { // NOLINT
         // Out of bounds columns are zero-initialized. NOLINT because clang-tidy
         // complains about this branch being the same as the c >= pos one.
@@ -176,12 +141,8 @@ void Matrix<T>::insertColumns(unsigned pos, unsigned count) {
   }
 }
 
-template <typename T>
-void Matrix<T>::removeColumn(unsigned pos) {
-  removeColumns(pos, 1);
-}
-template <typename T>
-void Matrix<T>::removeColumns(unsigned pos, unsigned count) {
+void Matrix::removeColumn(unsigned pos) { removeColumns(pos, 1); }
+void Matrix::removeColumns(unsigned pos, unsigned count) {
   if (count == 0)
     return;
   assert(pos + count - 1 < nColumns);
@@ -194,12 +155,8 @@ void Matrix<T>::removeColumns(unsigned pos, unsigned count) {
   nColumns -= count;
 }
 
-template <typename T>
-void Matrix<T>::insertRow(unsigned pos) {
-  insertRows(pos, 1);
-}
-template <typename T>
-void Matrix<T>::insertRows(unsigned pos, unsigned count) {
+void Matrix::insertRow(unsigned pos) { insertRows(pos, 1); }
+void Matrix::insertRows(unsigned pos, unsigned count) {
   if (count == 0)
     return;
 
@@ -212,12 +169,8 @@ void Matrix<T>::insertRows(unsigned pos, unsigned count) {
       at(r, c) = 0;
 }
 
-template <typename T>
-void Matrix<T>::removeRow(unsigned pos) {
-  removeRows(pos, 1);
-}
-template <typename T>
-void Matrix<T>::removeRows(unsigned pos, unsigned count) {
+void Matrix::removeRow(unsigned pos) { removeRows(pos, 1); }
+void Matrix::removeRows(unsigned pos, unsigned count) {
   if (count == 0)
     return;
   assert(pos + count - 1 <= nRows);
@@ -226,113 +179,73 @@ void Matrix<T>::removeRows(unsigned pos, unsigned count) {
   resizeVertically(nRows - count);
 }
 
-template <typename T>
-void Matrix<T>::copyRow(unsigned sourceRow, unsigned targetRow) {
+void Matrix::copyRow(unsigned sourceRow, unsigned targetRow) {
   if (sourceRow == targetRow)
     return;
   for (unsigned c = 0; c < nColumns; ++c)
     at(targetRow, c) = at(sourceRow, c);
 }
 
-template <typename T>
-void Matrix<T>::fillRow(unsigned row, const T &value) {
+void Matrix::fillRow(unsigned row, const MPInt &value) {
   for (unsigned col = 0; col < nColumns; ++col)
     at(row, col) = value;
 }
 
-// moveColumns is implemented by moving the columns adjacent to the source range
-// to their final position. When moving right (i.e. dstPos > srcPos), the range
-// of the adjacent columns is [srcPos + num, dstPos + num). When moving left
-// (i.e. dstPos < srcPos) the range of the adjacent columns is [dstPos, srcPos).
-// First, zeroed out columns are inserted in the final positions of the adjacent
-// columns. Then, the adjacent columns are moved to their final positions by
-// swapping them with the zeroed columns. Finally, the now zeroed adjacent
-// columns are deleted.
-template <typename T>
-void Matrix<T>::moveColumns(unsigned srcPos, unsigned num, unsigned dstPos) {
-  if (num == 0)
-    return;
-
-  int offset = dstPos - srcPos;
-  if (offset == 0)
-    return;
-
-  assert(srcPos + num <= getNumColumns() &&
-         "move source range exceeds matrix columns");
-  assert(dstPos + num <= getNumColumns() &&
-         "move destination range exceeds matrix columns");
-
-  unsigned insertCount = offset > 0 ? offset : -offset;
-  unsigned finalAdjStart = offset > 0 ? srcPos : srcPos + num;
-  unsigned curAdjStart = offset > 0 ? srcPos + num : dstPos;
-  // TODO: This can be done using std::rotate.
-  // Insert new zero columns in the positions where the adjacent columns are to
-  // be moved.
-  insertColumns(finalAdjStart, insertCount);
-  // Update curAdjStart if insertion of new columns invalidates it.
-  if (finalAdjStart < curAdjStart)
-    curAdjStart += insertCount;
-
-  // Swap the adjacent columns with inserted zero columns.
-  for (unsigned i = 0; i < insertCount; ++i)
-    swapColumns(finalAdjStart + i, curAdjStart + i);
-
-  // Delete the now redundant zero columns.
-  removeColumns(curAdjStart, insertCount);
-}
-
-template <typename T>
-void Matrix<T>::addToRow(unsigned sourceRow, unsigned targetRow,
-                         const T &scale) {
+void Matrix::addToRow(unsigned sourceRow, unsigned targetRow,
+                      const MPInt &scale) {
   addToRow(targetRow, getRow(sourceRow), scale);
 }
 
-template <typename T>
-void Matrix<T>::addToRow(unsigned row, ArrayRef<T> rowVec, const T &scale) {
+void Matrix::addToRow(unsigned row, ArrayRef<MPInt> rowVec,
+                      const MPInt &scale) {
   if (scale == 0)
     return;
   for (unsigned col = 0; col < nColumns; ++col)
     at(row, col) += scale * rowVec[col];
 }
 
-template <typename T>
-void Matrix<T>::addToColumn(unsigned sourceColumn, unsigned targetColumn,
-                            const T &scale) {
+void Matrix::addToColumn(unsigned sourceColumn, unsigned targetColumn,
+                         const MPInt &scale) {
   if (scale == 0)
     return;
   for (unsigned row = 0, e = getNumRows(); row < e; ++row)
     at(row, targetColumn) += scale * at(row, sourceColumn);
 }
 
-template <typename T>
-void Matrix<T>::negateColumn(unsigned column) {
+void Matrix::negateColumn(unsigned column) {
   for (unsigned row = 0, e = getNumRows(); row < e; ++row)
     at(row, column) = -at(row, column);
 }
 
-template <typename T>
-void Matrix<T>::negateRow(unsigned row) {
+void Matrix::negateRow(unsigned row) {
   for (unsigned column = 0, e = getNumColumns(); column < e; ++column)
     at(row, column) = -at(row, column);
 }
 
-template <typename T>
-SmallVector<T, 8> Matrix<T>::preMultiplyWithRow(ArrayRef<T> rowVec) const {
+MPInt Matrix::normalizeRow(unsigned row, unsigned cols) {
+  return normalizeRange(getRow(row).slice(0, cols));
+}
+
+MPInt Matrix::normalizeRow(unsigned row) {
+  return normalizeRow(row, getNumColumns());
+}
+
+SmallVector<MPInt, 8> Matrix::preMultiplyWithRow(ArrayRef<MPInt> rowVec) const {
   assert(rowVec.size() == getNumRows() && "Invalid row vector dimension!");
 
-  SmallVector<T, 8> result(getNumColumns(), T(0));
+  SmallVector<MPInt, 8> result(getNumColumns(), MPInt(0));
   for (unsigned col = 0, e = getNumColumns(); col < e; ++col)
     for (unsigned i = 0, e = getNumRows(); i < e; ++i)
       result[col] += rowVec[i] * at(i, col);
   return result;
 }
 
-template <typename T>
-SmallVector<T, 8> Matrix<T>::postMultiplyWithColumn(ArrayRef<T> colVec) const {
+SmallVector<MPInt, 8>
+Matrix::postMultiplyWithColumn(ArrayRef<MPInt> colVec) const {
   assert(getNumColumns() == colVec.size() &&
          "Invalid column vector dimension!");
 
-  SmallVector<T, 8> result(getNumRows(), T(0));
+  SmallVector<MPInt, 8> result(getNumRows(), MPInt(0));
   for (unsigned row = 0, e = getNumRows(); row < e; row++)
     for (unsigned i = 0, e = getNumColumns(); i < e; i++)
       result[row] += at(row, i) * colVec[i];
@@ -344,9 +257,8 @@ SmallVector<T, 8> Matrix<T>::postMultiplyWithColumn(ArrayRef<T> colVec) const {
 /// sourceCol. This brings M(row, targetCol) to the range [0, M(row,
 /// sourceCol)). Apply the same column operation to otherMatrix, with the same
 /// integer multiple.
-static void modEntryColumnOperation(Matrix<MPInt> &m, unsigned row,
-                                    unsigned sourceCol, unsigned targetCol,
-                                    Matrix<MPInt> &otherMatrix) {
+static void modEntryColumnOperation(Matrix &m, unsigned row, unsigned sourceCol,
+                                    unsigned targetCol, Matrix &otherMatrix) {
   assert(m(row, sourceCol) != 0 && "Cannot divide by zero!");
   assert(m(row, sourceCol) > 0 && "Source must be positive!");
   MPInt ratio = -floorDiv(m(row, targetCol), m(row, sourceCol));
@@ -354,55 +266,12 @@ static void modEntryColumnOperation(Matrix<MPInt> &m, unsigned row,
   otherMatrix.addToColumn(sourceCol, targetCol, ratio);
 }
 
-template <typename T>
-void Matrix<T>::print(raw_ostream &os) const {
-  for (unsigned row = 0; row < nRows; ++row) {
-    for (unsigned column = 0; column < nColumns; ++column)
-      os << at(row, column) << ' ';
-    os << '\n';
-  }
-}
-
-template <typename T>
-void Matrix<T>::dump() const {
-  print(llvm::errs());
-}
-
-template <typename T>
-bool Matrix<T>::hasConsistentState() const {
-  if (data.size() != nRows * nReservedColumns)
-    return false;
-  if (nColumns > nReservedColumns)
-    return false;
-#ifdef EXPENSIVE_CHECKS
-  for (unsigned r = 0; r < nRows; ++r)
-    for (unsigned c = nColumns; c < nReservedColumns; ++c)
-      if (data[r * nReservedColumns + c] != 0)
-        return false;
-#endif
-  return true;
-}
-
-namespace mlir {
-namespace presburger {
-template class Matrix<MPInt>;
-template class Matrix<Fraction>;
-} // namespace presburger
-} // namespace mlir
-
-IntMatrix IntMatrix::identity(unsigned dimension) {
-  IntMatrix matrix(dimension, dimension);
-  for (unsigned i = 0; i < dimension; ++i)
-    matrix(i, i) = 1;
-  return matrix;
-}
-
-std::pair<IntMatrix, IntMatrix> IntMatrix::computeHermiteNormalForm() const {
+std::pair<Matrix, Matrix> Matrix::computeHermiteNormalForm() const {
   // We start with u as an identity matrix and perform operations on h until h
   // is in hermite normal form. We apply the same sequence of operations on u to
   // obtain a transform that takes h to hermite normal form.
-  IntMatrix h = *this;
-  IntMatrix u = IntMatrix::identity(h.getNumColumns());
+  Matrix h = *this;
+  Matrix u = Matrix::identity(h.getNumColumns());
 
   unsigned echelonCol = 0;
   // Invariant: in all rows above row, all columns from echelonCol onwards
@@ -483,217 +352,24 @@ std::pair<IntMatrix, IntMatrix> IntMatrix::computeHermiteNormalForm() const {
   return {h, u};
 }
 
-MPInt IntMatrix::normalizeRow(unsigned row, unsigned cols) {
-  return normalizeRange(getRow(row).slice(0, cols));
-}
-
-MPInt IntMatrix::normalizeRow(unsigned row) {
-  return normalizeRow(row, getNumColumns());
-}
-
-MPInt IntMatrix::determinant(IntMatrix *inverse) const {
-  assert(nRows == nColumns &&
-         "determinant can only be calculated for square matrices!");
-
-  FracMatrix m(*this);
-
-  FracMatrix fracInverse(nRows, nColumns);
-  MPInt detM = m.determinant(&fracInverse).getAsInteger();
-
-  if (detM == 0)
-    return MPInt(0);
-
-  if (!inverse)
-    return detM;
-
-  *inverse = IntMatrix(nRows, nColumns);
-  for (unsigned i = 0; i < nRows; i++)
-    for (unsigned j = 0; j < nColumns; j++)
-      inverse->at(i, j) = (fracInverse.at(i, j) * detM).getAsInteger();
-
-  return detM;
-}
-
-FracMatrix FracMatrix::identity(unsigned dimension) {
-  return Matrix::identity(dimension);
-}
-
-FracMatrix::FracMatrix(IntMatrix m)
-    : FracMatrix(m.getNumRows(), m.getNumColumns()) {
-  for (unsigned i = 0, r = m.getNumRows(); i < r; i++)
-    for (unsigned j = 0, c = m.getNumColumns(); j < c; j++)
-      this->at(i, j) = m.at(i, j);
-}
-
-Fraction FracMatrix::determinant(FracMatrix *inverse) const {
-  assert(nRows == nColumns &&
-         "determinant can only be calculated for square matrices!");
-
-  FracMatrix m(*this);
-  FracMatrix tempInv(nRows, nColumns);
-  if (inverse)
-    tempInv = FracMatrix::identity(nRows);
-
-  Fraction a, b;
-  // Make the matrix into upper triangular form using
-  // gaussian elimination with row operations.
-  // If inverse is required, we apply more operations
-  // to turn the matrix into diagonal form. We apply
-  // the same operations to the inverse matrix,
-  // which is initially identity.
-  // Either way, the product of the diagonal elements
-  // is then the determinant.
-  for (unsigned i = 0; i < nRows; i++) {
-    if (m(i, i) == 0)
-      // First ensure that the diagonal
-      // element is nonzero, by swapping
-      // it with a nonzero row.
-      for (unsigned j = i + 1; j < nRows; j++) {
-        if (m(j, i) != 0) {
-          m.swapRows(j, i);
-          if (inverse)
-            tempInv.swapRows(j, i);
-          break;
-        }
-      }
-
-    b = m.at(i, i);
-    if (b == 0)
-      return 0;
-
-    // Set all elements above the
-    // diagonal to zero.
-    if (inverse) {
-      for (unsigned j = 0; j < i; j++) {
-        if (m.at(j, i) == 0)
-          continue;
-        a = m.at(j, i);
-        // Set element (j, i) to zero
-        // by subtracting the ith row,
-        // appropriately scaled.
-        m.addToRow(i, j, -a / b);
-        tempInv.addToRow(i, j, -a / b);
-      }
-    }
-
-    // Set all elements below the
-    // diagonal to zero.
-    for (unsigned j = i + 1; j < nRows; j++) {
-      if (m.at(j, i) == 0)
-        continue;
-      a = m.at(j, i);
-      // Set element (j, i) to zero
-      // by subtracting the ith row,
-      // appropriately scaled.
-      m.addToRow(i, j, -a / b);
-      if (inverse)
-        tempInv.addToRow(i, j, -a / b);
-    }
+void Matrix::print(raw_ostream &os) const {
+  for (unsigned row = 0; row < nRows; ++row) {
+    for (unsigned column = 0; column < nColumns; ++column)
+      os << at(row, column) << ' ';
+    os << '\n';
   }
-
-  // Now only diagonal elements of m are nonzero, but they are
-  // not necessarily 1. To get the true inverse, we should
-  // normalize them and apply the same scale to the inverse matrix.
-  // For efficiency we skip scaling m and just scale tempInv appropriately.
-  if (inverse) {
-    for (unsigned i = 0; i < nRows; i++)
-      for (unsigned j = 0; j < nRows; j++)
-        tempInv.at(i, j) = tempInv.at(i, j) / m(i, i);
-
-    *inverse = std::move(tempInv);
-  }
-
-  Fraction determinant = 1;
-  for (unsigned i = 0; i < nRows; i++)
-    determinant *= m.at(i, i);
-
-  return determinant;
 }
 
-FracMatrix FracMatrix::gramSchmidt() const {
-  // Create a copy of the argument to store
-  // the orthogonalised version.
-  FracMatrix orth(*this);
+void Matrix::dump() const { print(llvm::errs()); }
 
-  // For each vector (row) in the matrix, subtract its unit
-  // projection along each of the previous vectors.
-  // This ensures that it has no component in the direction
-  // of any of the previous vectors.
-  for (unsigned i = 1, e = getNumRows(); i < e; i++) {
-    for (unsigned j = 0; j < i; j++) {
-      Fraction jNormSquared = dotProduct(orth.getRow(j), orth.getRow(j));
-      assert(jNormSquared != 0 && "some row became zero! Inputs to this "
-                                  "function must be linearly independent.");
-      Fraction projectionScale =
-          dotProduct(orth.getRow(i), orth.getRow(j)) / jNormSquared;
-      orth.addToRow(j, i, -projectionScale);
-    }
-  }
-  return orth;
-}
-
-// Convert the matrix, interpreted (row-wise) as a basis
-// to an LLL-reduced basis.
-//
-// This is an implementation of the algorithm described in
-// "Factoring polynomials with rational coefficients" by
-// A. K. Lenstra, H. W. Lenstra Jr., L. Lovasz.
-//
-// Let {b_1,  ..., b_n}  be the current basis and
-//     {b_1*, ..., b_n*} be the Gram-Schmidt orthogonalised
-//                          basis (unnormalized).
-// Define the Gram-Schmidt coefficients μ_ij as
-// (b_i • b_j*) / (b_j* • b_j*), where (•) represents the inner product.
-//
-// We iterate starting from the second row to the last row.
-//
-// For the kth row, we first check μ_kj for all rows j < k.
-// We subtract b_j (scaled by the integer nearest to μ_kj)
-// from b_k.
-//
-// Now, we update k.
-// If b_k and b_{k-1} satisfy the Lovasz condition
-//    |b_k|^2 ≥ (δ - μ_k{k-1}^2) |b_{k-1}|^2,
-// we are done and we increment k.
-// Otherwise, we swap b_k and b_{k-1} and decrement k.
-//
-// We repeat this until k = n and return.
-void FracMatrix::LLL(Fraction delta) {
-  MPInt nearest;
-  Fraction mu;
-
-  // `gsOrth` holds the Gram-Schmidt orthogonalisation
-  // of the matrix at all times. It is recomputed every
-  // time the matrix is modified during the algorithm.
-  // This is naive and can be optimised.
-  FracMatrix gsOrth = gramSchmidt();
-
-  // We start from the second row.
-  unsigned k = 1;
-  while (k < getNumRows()) {
-    for (unsigned j = k - 1; j < k; j--) {
-      // Compute the Gram-Schmidt coefficient μ_jk.
-      mu = dotProduct(getRow(k), gsOrth.getRow(j)) /
-           dotProduct(gsOrth.getRow(j), gsOrth.getRow(j));
-      nearest = round(mu);
-      // Subtract b_j scaled by the integer nearest to μ_jk from b_k.
-      addToRow(k, getRow(j), -Fraction(nearest, 1));
-      gsOrth = gramSchmidt(); // Update orthogonalization.
-    }
-    mu = dotProduct(getRow(k), gsOrth.getRow(k - 1)) /
-         dotProduct(gsOrth.getRow(k - 1), gsOrth.getRow(k - 1));
-    // Check the Lovasz condition for b_k and b_{k-1}.
-    if (dotProduct(gsOrth.getRow(k), gsOrth.getRow(k)) >
-        (delta - mu * mu) *
-            dotProduct(gsOrth.getRow(k - 1), gsOrth.getRow(k - 1))) {
-      // If it is satisfied, proceed to the next k.
-      k += 1;
-    } else {
-      // If it is not satisfied, decrement k (without
-      // going beyond the second row).
-      swapRows(k, k - 1);
-      gsOrth = gramSchmidt(); // Update orthogonalization.
-      k = k > 1 ? k - 1 : 1;
-    }
-  }
+bool Matrix::hasConsistentState() const {
+  if (data.size() != nRows * nReservedColumns)
+    return false;
+  if (nColumns > nReservedColumns)
+    return false;
+  for (unsigned r = 0; r < nRows; ++r)
+    for (unsigned c = nColumns; c < nReservedColumns; ++c)
+      if (data[r * nReservedColumns + c] != 0)
+        return false;
+  return true;
 }

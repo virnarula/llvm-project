@@ -21,7 +21,7 @@
 #include "clang/Analysis/FlowSensitive/DataflowEnvironment.h"
 #include "clang/Analysis/FlowSensitive/NoopLattice.h"
 #include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/SmallVector.h"
+#include <vector>
 
 namespace clang {
 namespace dataflow {
@@ -30,12 +30,11 @@ namespace dataflow {
 // analysis are always enabled and additional constructs are enabled through the
 // `Options`.
 struct UncheckedOptionalAccessModelOptions {
-  /// In generating diagnostics, ignore optionals reachable through overloaded
-  /// `operator*` or `operator->` (other than those of the optional type
-  /// itself). The analysis does not equate the results of such calls, so it
-  /// can't identify when their results are used safely (across calls),
-  /// resulting in false positives in all such cases. Note: this option does not
-  /// cover access through `operator[]`.
+  /// Ignore optionals reachable through overloaded `operator*` or `operator->`
+  /// (other than those of the optional type itself). The analysis does not
+  /// equate the results of such calls, so it can't identify when their results
+  /// are used safely (across calls), resulting in false positives in all such
+  /// cases. Note: this option does not cover access through `operator[]`.
   bool IgnoreSmartPointerDereference = false;
 };
 
@@ -45,14 +44,23 @@ struct UncheckedOptionalAccessModelOptions {
 class UncheckedOptionalAccessModel
     : public DataflowAnalysis<UncheckedOptionalAccessModel, NoopLattice> {
 public:
-  UncheckedOptionalAccessModel(ASTContext &Ctx, dataflow::Environment &Env);
+  UncheckedOptionalAccessModel(
+      ASTContext &Ctx, UncheckedOptionalAccessModelOptions Options = {});
 
   /// Returns a matcher for the optional classes covered by this model.
   static ast_matchers::DeclarationMatcher optionalClassDecl();
 
   static NoopLattice initialElement() { return {}; }
 
-  void transfer(const CFGElement &Elt, NoopLattice &L, Environment &Env);
+  void transfer(const CFGElement *Elt, NoopLattice &L, Environment &Env);
+
+  bool compareEquivalent(QualType Type, const Value &Val1,
+                         const Environment &Env1, const Value &Val2,
+                         const Environment &Env2) override;
+
+  bool merge(QualType Type, const Value &Val1, const Environment &Env1,
+             const Value &Val2, const Environment &Env2, Value &MergedVal,
+             Environment &MergedEnv) override;
 
 private:
   CFGMatchSwitch<TransferState<NoopLattice>> TransferMatchSwitch;
@@ -63,14 +71,11 @@ public:
   UncheckedOptionalAccessDiagnoser(
       UncheckedOptionalAccessModelOptions Options = {});
 
-  llvm::SmallVector<SourceLocation>
-  operator()(const CFGElement &Elt, ASTContext &Ctx,
-             const TransferStateForDiagnostics<NoopLattice> &State) {
-    return DiagnoseMatchSwitch(Elt, Ctx, State.Env);
-  }
+  std::vector<SourceLocation> diagnose(ASTContext &Ctx, const CFGElement *Elt,
+                                       const Environment &Env);
 
 private:
-  CFGMatchSwitch<const Environment, llvm::SmallVector<SourceLocation>>
+  CFGMatchSwitch<const Environment, std::vector<SourceLocation>>
       DiagnoseMatchSwitch;
 };
 

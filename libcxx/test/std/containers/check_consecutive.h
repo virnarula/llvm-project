@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef CHECK_CONSECUTIVE_H
 #define CHECK_CONSECUTIVE_H
 
@@ -18,9 +17,9 @@
 
 // Check consecutive equal values in an unordered_multiset iterator
 template <typename Iter>
-void CheckConsecutiveValues(Iter pos, Iter end, typename Iter::value_type value, std::size_t count)
+void CheckConsecutiveValues(Iter pos, Iter end, typename Iter::value_type value, size_t count)
 {
-    for ( std::size_t i = 0; i < count; ++i )
+    for ( size_t i = 0; i < count; ++i )
     {
         assert(pos != end);
         assert(*pos == value);

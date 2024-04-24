@@ -16,7 +16,6 @@
 
 #include "hwasan_flags.h"
 #include "hwasan_interface_internal.h"
-#include "hwasan_mapping.h"
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_internal_defs.h"
@@ -79,23 +78,12 @@ const unsigned kRecordFPShift = 48;
 const unsigned kRecordFPLShift = 4;
 const unsigned kRecordFPModulus = 1 << (64 - kRecordFPShift + kRecordFPLShift);
 
-static inline bool InTaggableRegion(uptr addr) {
-#if defined(HWASAN_ALIASING_MODE)
-  // Aliases are mapped next to shadow so that the upper bits match the shadow
-  // base.
-  return (addr >> kTaggableRegionCheckShift) ==
-         (__hwasan::GetShadowOffset() >> kTaggableRegionCheckShift);
-#endif
-  return true;
-}
-
 static inline tag_t GetTagFromPointer(uptr p) {
-  return InTaggableRegion(p) ? ((p >> kAddressTagShift) & kTagMask) : 0;
+  return (p >> kAddressTagShift) & kTagMask;
 }
 
 static inline uptr UntagAddr(uptr tagged_addr) {
-  return InTaggableRegion(tagged_addr) ? (tagged_addr & ~kAddressTagMask)
-                                       : tagged_addr;
+  return tagged_addr & ~kAddressTagMask;
 }
 
 static inline void *UntagPtr(const void *tagged_ptr) {
@@ -104,9 +92,7 @@ static inline void *UntagPtr(const void *tagged_ptr) {
 }
 
 static inline uptr AddTagToPointer(uptr p, tag_t tag) {
-  return InTaggableRegion(p) ? ((p & ~kAddressTagMask) |
-                                ((uptr)(tag & kTagMask) << kAddressTagShift))
-                             : p;
+  return (p & ~kAddressTagMask) | ((uptr)tag << kAddressTagShift);
 }
 
 namespace __hwasan {
@@ -157,8 +143,6 @@ void HwasanAtExit();
 void HwasanOnDeadlySignal(int signo, void *info, void *context);
 
 void HwasanInstallAtForkHandler();
-
-void InstallAtExitCheckLeaks();
 
 void UpdateMemoryUsage();
 

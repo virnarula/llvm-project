@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -std=c++1y -S -o - -emit-llvm -verify %s
-// RUN: %clang_cc1 -std=c++1y -fexperimental-new-constant-interpreter -S -o - -emit-llvm -verify %s
 
 namespace default_arg_temporary {
 
@@ -34,6 +33,6 @@ void test_default_arg2() {
 // Check that multiple CXXDefaultInitExprs don't cause an assertion failure.
 struct A { int &&r = 0; }; // expected-note 2{{default member initializer}}
 struct B { A x, y; };
-B b = {}; // expected-warning 2{{lifetime extension of temporary created by aggregate initialization using a default member initializer is not yet supported}}
+B b = {}; // expected-warning 2{{not supported}}
 
 }

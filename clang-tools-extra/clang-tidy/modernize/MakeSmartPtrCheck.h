@@ -16,7 +16,9 @@
 #include "llvm/ADT/StringRef.h"
 #include <string>
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 /// Base class for MakeSharedCheck and MakeUniqueCheck.
 class MakeSmartPtrCheck : public ClangTidyCheck {
@@ -54,7 +56,7 @@ private:
                       const CXXConstructExpr *Construct, const QualType *Type,
                       const CXXNewExpr *New);
   void checkReset(SourceManager &SM, ASTContext *Ctx,
-                  const CXXMemberCallExpr *Reset, const CXXNewExpr *New);
+                  const CXXMemberCallExpr *Member, const CXXNewExpr *New);
 
   /// Returns true when the fixes for replacing CXXNewExpr are generated.
   bool replaceNew(DiagnosticBuilder &Diag, const CXXNewExpr *New,
@@ -62,6 +64,8 @@ private:
   void insertHeader(DiagnosticBuilder &Diag, FileID FD);
 };
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_MAKE_SMART_PTR_H

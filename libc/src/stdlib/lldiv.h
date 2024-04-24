@@ -5,15 +5,16 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_LIBC_SRC_STDLIB_LLDIV_H
-#define LLVM_LIBC_SRC_STDLIB_LLDIV_H
 
 #include <stdlib.h>
 
-namespace LIBC_NAMESPACE {
+#ifndef LLVM_LIBC_SRC_STDLIB_LLDIV_H
+#define LLVM_LIBC_SRC_STDLIB_LLDIV_H
+
+namespace __llvm_libc {
 
 lldiv_t lldiv(long long x, long long y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC_STDLIB_LLDIV_H
+#endif // LLVM_LIBC_SRC_STDLIB_LDIV_H

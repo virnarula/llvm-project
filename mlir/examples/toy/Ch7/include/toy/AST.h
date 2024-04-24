@@ -22,7 +22,6 @@
 #include "llvm/Support/Casting.h"
 #include <utility>
 #include <vector>
-#include <optional>
 
 namespace toy {
 
@@ -149,16 +148,16 @@ public:
 
 /// Expression class for a return operator.
 class ReturnExprAST : public ExprAST {
-  std::optional<std::unique_ptr<ExprAST>> expr;
+  llvm::Optional<std::unique_ptr<ExprAST>> expr;
 
 public:
-  ReturnExprAST(Location loc, std::optional<std::unique_ptr<ExprAST>> expr)
+  ReturnExprAST(Location loc, llvm::Optional<std::unique_ptr<ExprAST>> expr)
       : ExprAST(Expr_Return, std::move(loc)), expr(std::move(expr)) {}
 
-  std::optional<ExprAST *> getExpr() {
+  llvm::Optional<ExprAST *> getExpr() {
     if (expr.has_value())
       return expr->get();
-    return std::nullopt;
+    return llvm::None;
   }
 
   /// LLVM style RTTI

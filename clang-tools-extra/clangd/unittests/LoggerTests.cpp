@@ -10,7 +10,6 @@
 #include "llvm/Support/Error.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -41,7 +40,7 @@ TEST(ErrorTest, Overloads) {
 }
 
 TEST(ErrorTest, Lifetimes) {
-  std::optional<llvm::Error> Err;
+  llvm::Optional<llvm::Error> Err;
   {
     // Check the error contains the value when error() was called.
     std::string S = "hello, world";

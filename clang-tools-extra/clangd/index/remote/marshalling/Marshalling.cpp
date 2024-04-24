@@ -406,7 +406,6 @@ llvm::Expected<HeaderWithReferences> Marshaller::toProtobuf(
     const clangd::Symbol::IncludeHeaderWithReferences &IncludeHeader) {
   HeaderWithReferences Result;
   Result.set_references(IncludeHeader.References);
-  Result.set_supported_directives(IncludeHeader.SupportedDirectives);
   const std::string Header = IncludeHeader.IncludeHeader.str();
   if (isLiteralInclude(Header)) {
     Result.set_header(Header);
@@ -428,12 +427,8 @@ Marshaller::fromProtobuf(const HeaderWithReferences &Message) {
       return URIString.takeError();
     Header = *URIString;
   }
-  auto Directives = clangd::Symbol::IncludeDirective::Include;
-  if (Message.has_supported_directives())
-    Directives = static_cast<clangd::Symbol::IncludeDirective>(
-        Message.supported_directives());
-  return clangd::Symbol::IncludeHeaderWithReferences{
-      Strings.save(Header), Message.references(), Directives};
+  return clangd::Symbol::IncludeHeaderWithReferences{Strings.save(Header),
+                                                     Message.references()};
 }
 
 } // namespace remote

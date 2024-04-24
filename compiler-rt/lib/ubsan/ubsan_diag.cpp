@@ -88,7 +88,7 @@ static void MaybeReportErrorSummary(Location Loc, ErrorType Type) {
       AI.file = internal_strdup(SLoc.getFilename());
       AI.line = SLoc.getLine();
       AI.column = SLoc.getColumn();
-      AI.function = nullptr;
+      AI.function = internal_strdup("");  // Avoid printing ?? as function name.
       ReportErrorSummary(ErrorKind, AI, GetSanititizerToolName());
       AI.Clear();
       return;
@@ -134,9 +134,9 @@ Diag &Diag::operator<<(const Value &V) {
 /// Hexadecimal printing for numbers too large for Printf to handle directly.
 static void RenderHex(InternalScopedString *Buffer, UIntMax Val) {
 #if HAVE_INT128_T
-  Buffer->AppendF("0x%08x%08x%08x%08x", (unsigned int)(Val >> 96),
-                  (unsigned int)(Val >> 64), (unsigned int)(Val >> 32),
-                  (unsigned int)(Val));
+  Buffer->append("0x%08x%08x%08x%08x", (unsigned int)(Val >> 96),
+                 (unsigned int)(Val >> 64), (unsigned int)(Val >> 32),
+                 (unsigned int)(Val));
 #else
   UNREACHABLE("long long smaller than 64 bits?");
 #endif
@@ -147,34 +147,31 @@ static void RenderLocation(InternalScopedString *Buffer, Location Loc) {
   case Location::LK_Source: {
     SourceLocation SLoc = Loc.getSourceLocation();
     if (SLoc.isInvalid())
-      Buffer->AppendF("<unknown>");
+      Buffer->append("<unknown>");
     else
-      StackTracePrinter::GetOrInit()->RenderSourceLocation(
-          Buffer, SLoc.getFilename(), SLoc.getLine(), SLoc.getColumn(),
-          common_flags()->symbolize_vs_style,
-          common_flags()->strip_path_prefix);
+      RenderSourceLocation(Buffer, SLoc.getFilename(), SLoc.getLine(),
+                           SLoc.getColumn(), common_flags()->symbolize_vs_style,
+                           common_flags()->strip_path_prefix);
     return;
   }
   case Location::LK_Memory:
-    Buffer->AppendF("%p", reinterpret_cast<void *>(Loc.getMemoryLocation()));
+    Buffer->append("%p", reinterpret_cast<void *>(Loc.getMemoryLocation()));
     return;
   case Location::LK_Symbolized: {
     const AddressInfo &Info = Loc.getSymbolizedStack()->info;
     if (Info.file)
-      StackTracePrinter::GetOrInit()->RenderSourceLocation(
-          Buffer, Info.file, Info.line, Info.column,
-          common_flags()->symbolize_vs_style,
-          common_flags()->strip_path_prefix);
+      RenderSourceLocation(Buffer, Info.file, Info.line, Info.column,
+                           common_flags()->symbolize_vs_style,
+                           common_flags()->strip_path_prefix);
     else if (Info.module)
-      StackTracePrinter::GetOrInit()->RenderModuleLocation(
-          Buffer, Info.module, Info.module_offset, Info.module_arch,
-          common_flags()->strip_path_prefix);
+      RenderModuleLocation(Buffer, Info.module, Info.module_offset,
+                           Info.module_arch, common_flags()->strip_path_prefix);
     else
-      Buffer->AppendF("%p", reinterpret_cast<void *>(Info.address));
+      Buffer->append("%p", reinterpret_cast<void *>(Info.address));
     return;
   }
   case Location::LK_Null:
-    Buffer->AppendF("<unknown>");
+    Buffer->append("<unknown>");
     return;
   }
 }
@@ -183,32 +180,32 @@ static void RenderText(InternalScopedString *Buffer, const char *Message,
                        const Diag::Arg *Args) {
   for (const char *Msg = Message; *Msg; ++Msg) {
     if (*Msg != '%') {
-      Buffer->AppendF("%c", *Msg);
+      Buffer->append("%c", *Msg);
       continue;
     }
     const Diag::Arg &A = Args[*++Msg - '0'];
     switch (A.Kind) {
     case Diag::AK_String:
-      Buffer->AppendF("%s", A.String);
+      Buffer->append("%s", A.String);
       break;
     case Diag::AK_TypeName: {
       if (SANITIZER_WINDOWS)
         // The Windows implementation demangles names early.
-        Buffer->AppendF("'%s'", A.String);
+        Buffer->append("'%s'", A.String);
       else
-        Buffer->AppendF("'%s'", Symbolizer::GetOrInit()->Demangle(A.String));
+        Buffer->append("'%s'", Symbolizer::GetOrInit()->Demangle(A.String));
       break;
     }
     case Diag::AK_SInt:
       // 'long long' is guaranteed to be at least 64 bits wide.
       if (A.SInt >= INT64_MIN && A.SInt <= INT64_MAX)
-        Buffer->AppendF("%lld", (long long)A.SInt);
+        Buffer->append("%lld", (long long)A.SInt);
       else
         RenderHex(Buffer, A.SInt);
       break;
     case Diag::AK_UInt:
       if (A.UInt <= UINT64_MAX)
-        Buffer->AppendF("%llu", (unsigned long long)A.UInt);
+        Buffer->append("%llu", (unsigned long long)A.UInt);
       else
         RenderHex(Buffer, A.UInt);
       break;
@@ -217,20 +214,15 @@ static void RenderText(InternalScopedString *Buffer, const char *Message,
       //        printf, and stop using snprintf here.
       char FloatBuffer[32];
 #if SANITIZER_WINDOWS
-      // On MSVC platforms, long doubles are equal to regular doubles.
-      // In MinGW environments on x86, long doubles are 80 bit, but here,
-      // we're calling an MS CRT provided printf function which considers
-      // long doubles to be 64 bit. Just cast the float value to a regular
-      // double to avoid the potential ambiguity in MinGW mode.
-      sprintf_s(FloatBuffer, sizeof(FloatBuffer), "%g", (double)A.Float);
+      sprintf_s(FloatBuffer, sizeof(FloatBuffer), "%Lg", (long double)A.Float);
 #else
       snprintf(FloatBuffer, sizeof(FloatBuffer), "%Lg", (long double)A.Float);
 #endif
-      Buffer->Append(FloatBuffer);
+      Buffer->append("%s", FloatBuffer);
       break;
     }
     case Diag::AK_Pointer:
-      Buffer->AppendF("%p", A.Pointer);
+      Buffer->append("%p", A.Pointer);
       break;
     }
   }
@@ -287,12 +279,12 @@ static void PrintMemorySnippet(const Decorator &Decor, MemoryLocation Loc,
   InternalScopedString Buffer;
   for (uptr P = Min; P != Max; ++P) {
     unsigned char C = *reinterpret_cast<const unsigned char*>(P);
-    Buffer.AppendF("%s%02x", (P % 8 == 0) ? "  " : " ", C);
+    Buffer.append("%s%02x", (P % 8 == 0) ? "  " : " ", C);
   }
-  Buffer.AppendF("\n");
+  Buffer.append("\n");
 
   // Emit highlights.
-  Buffer.Append(Decor.Highlight());
+  Buffer.append("%s", Decor.Highlight());
   Range *InRange = upperBound(Min, Ranges, NumRanges);
   for (uptr P = Min; P != Max; ++P) {
     char Pad = ' ', Byte = ' ';
@@ -305,12 +297,12 @@ static void PrintMemorySnippet(const Decorator &Decor, MemoryLocation Loc,
     if (InRange && InRange->getStart().getMemoryLocation() <= P)
       Byte = '~';
     if (P % 8 == 0)
-      Buffer.AppendF("%c", Pad);
-    Buffer.AppendF("%c", Pad);
-    Buffer.AppendF("%c", P == Loc ? '^' : Byte);
-    Buffer.AppendF("%c", Byte);
+      Buffer.append("%c", Pad);
+    Buffer.append("%c", Pad);
+    Buffer.append("%c", P == Loc ? '^' : Byte);
+    Buffer.append("%c", Byte);
   }
-  Buffer.AppendF("%s\n", Decor.Default());
+  Buffer.append("%s\n", Decor.Default());
 
   // Go over the line again, and print names for the ranges.
   InRange = 0;
@@ -325,9 +317,9 @@ static void PrintMemorySnippet(const Decorator &Decor, MemoryLocation Loc,
 
     if (InRange && InRange->getStart().getMemoryLocation() == P) {
       while (Spaces--)
-        Buffer.AppendF(" ");
+        Buffer.append(" ");
       RenderText(&Buffer, InRange->getText(), Args);
-      Buffer.AppendF("\n");
+      Buffer.append("\n");
       // FIXME: We only support naming one range for now!
       break;
     }
@@ -361,24 +353,24 @@ Diag::~Diag() {
     Buffer.clear();
   }
 
-  Buffer.Append(Decor.Bold());
+  Buffer.append("%s", Decor.Bold());
   RenderLocation(&Buffer, Loc);
-  Buffer.AppendF(":");
+  Buffer.append(":");
 
   switch (Level) {
   case DL_Error:
-    Buffer.AppendF("%s runtime error: %s%s", Decor.Warning(), Decor.Default(),
-                   Decor.Bold());
+    Buffer.append("%s runtime error: %s%s", Decor.Warning(), Decor.Default(),
+                  Decor.Bold());
     break;
 
   case DL_Note:
-    Buffer.AppendF("%s note: %s", Decor.Note(), Decor.Default());
+    Buffer.append("%s note: %s", Decor.Note(), Decor.Default());
     break;
   }
 
   RenderText(&Buffer, Message, Args);
 
-  Buffer.AppendF("%s\n", Decor.Default());
+  Buffer.append("%s\n", Decor.Default());
   Printf("%s", Buffer.data());
 
   if (Loc.isMemoryLocation())

@@ -37,11 +37,11 @@
 
 #include "automemcpy/CodeGen.h"
 #include <cassert>
+#include <llvm/ADT/Optional.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/StringSet.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <llvm/Support/raw_ostream.h>
-#include <optional>
 #include <set>
 
 namespace llvm {
@@ -62,7 +62,7 @@ namespace functions {
 // static void memcpy_0xB20D4702493C397E(char *__restrict dst,
 //                                       const char *__restrict src,
 //                                       size_t size) {
-//   using namespace LIBC_NAMESPACE::x86;
+//   using namespace __llvm_libc::x86;
 //   if(size == 0) return;
 //   if(size == 1) return copy<_1>(dst, src);
 //   if(size < 4) return copy<HeadTail<_2>>(dst, src, size);
@@ -126,9 +126,9 @@ struct FunctionImplementation {
   StringRef Name;
   std::vector<Individual> Individuals;
   std::vector<Overlap> Overlaps;
-  std::optional<Loop> Loop;
-  std::optional<AlignedLoop> AlignedLoop;
-  std::optional<Accelerator> Accelerator;
+  Optional<Loop> Loop;
+  Optional<AlignedLoop> AlignedLoop;
+  Optional<Accelerator> Accelerator;
   ElementTypeClass ElementClass;
 };
 
@@ -249,7 +249,7 @@ static raw_ostream &operator<<(raw_ostream &Stream,
   const auto &Ctx = FI.Ctx;
   Stream << "static " << Ctx.FunctionReturnType << ' ' << FI.Name
          << Ctx.FunctionArgs << " {\n";
-  Stream << kIndent << "using namespace LIBC_NAMESPACE::" << FI.ElementClass
+  Stream << kIndent << "using namespace __llvm_libc::" << FI.ElementClass
          << ";\n";
   for (const auto &I : FI.Individuals)
     if (I.Element.Size == 0)
@@ -310,11 +310,11 @@ namespace descriptors {
 // e.g.
 // ArrayRef<NamedFunctionDescriptor> getFunctionDescriptors() {
 //   static constexpr NamedFunctionDescriptor kDescriptors[] = {
-//     {"memcpy_0xE00E29EE73994E2B",{FunctionType::MEMCPY,std::nullopt,std::nullopt,std::nullopt,std::nullopt,Accelerator{{0,kMaxSize}},ElementTypeClass::NATIVE}},
-//     {"memcpy_0x8661D80472487AB5",{FunctionType::MEMCPY,Contiguous{{0,1}},std::nullopt,std::nullopt,std::nullopt,Accelerator{{1,kMaxSize}},ElementTypeClass::NATIVE}},
+//     {"memcpy_0xE00E29EE73994E2B",{FunctionType::MEMCPY,llvm::None,llvm::None,llvm::None,llvm::None,Accelerator{{0,kMaxSize}},ElementTypeClass::NATIVE}},
+//     {"memcpy_0x8661D80472487AB5",{FunctionType::MEMCPY,Contiguous{{0,1}},llvm::None,llvm::None,llvm::None,Accelerator{{1,kMaxSize}},ElementTypeClass::NATIVE}},
 //     ...
 //   };
-//   return ArrayRef(kDescriptors);
+//   return makeArrayRef(kDescriptors);
 // }
 
 static raw_ostream &operator<<(raw_ostream &Stream, const SizeSpan &SS) {
@@ -377,10 +377,10 @@ static raw_ostream &operator<<(raw_ostream &Stream, const FunctionType &T) {
 }
 template <typename T>
 static raw_ostream &operator<<(raw_ostream &Stream,
-                               const std::optional<T> &MaybeT) {
+                               const llvm::Optional<T> &MaybeT) {
   if (MaybeT)
     return Stream << *MaybeT;
-  return Stream << "std::nullopt";
+  return Stream << "llvm::None";
 }
 static raw_ostream &operator<<(raw_ostream &Stream,
                                const FunctionDescriptor &FD) {
@@ -415,7 +415,7 @@ static void Serialize(raw_ostream &Stream,
     Stream << kIndent << kIndent << Descriptors[I] << ",\n";
   }
   Stream << R"(  };
-  return ArrayRef(kDescriptors);
+  return makeArrayRef(kDescriptors);
 }
 )";
 }
@@ -428,13 +428,13 @@ namespace configurations {
 // ------------------------------------------------------------
 // e.g.
 // llvm::ArrayRef<MemcpyConfiguration> getMemcpyConfigurations() {
-//   using namespace LIBC_NAMESPACE;
+//   using namespace __llvm_libc;
 //   static constexpr MemcpyConfiguration kConfigurations[] = {
 //     {Wrap<memcpy_0xE00E29EE73994E2B>, "memcpy_0xE00E29EE73994E2B"},
 //     {Wrap<memcpy_0x8661D80472487AB5>, "memcpy_0x8661D80472487AB5"},
 //     ...
 //   };
-//   return llvm::ArrayRef(kConfigurations);
+//   return llvm::makeArrayRef(kConfigurations);
 // }
 
 // The `Wrap` template function is provided in the `Main` function below.
@@ -504,12 +504,12 @@ static raw_ostream &operator<<(raw_ostream &Stream, const Configuration &C) {
   if (C.Descriptors.empty())
     Stream << kIndent << "return {};\n";
   else {
-    Stream << kIndent << "using namespace LIBC_NAMESPACE;\n";
+    Stream << kIndent << "using namespace __llvm_libc;\n";
     Stream << kIndent << "static constexpr " << C.Type
            << " kConfigurations[] = {\n";
     Stream << C.Descriptors;
     Stream << kIndent << "};\n";
-    Stream << kIndent << "return llvm::ArrayRef(kConfigurations);\n";
+    Stream << kIndent << "return llvm::makeArrayRef(kConfigurations);\n";
   }
   Stream << "}\n";
   return Stream;
@@ -542,11 +542,11 @@ static void Serialize(raw_ostream &Stream,
   Stream << "using llvm::libc_benchmarks::MemmoveConfiguration;\n";
   Stream << "using llvm::libc_benchmarks::MemsetConfiguration;\n";
   Stream << "\n";
-  Stream << "namespace LIBC_NAMESPACE {\n";
+  Stream << "namespace __llvm_libc {\n";
   Stream << "\n";
   codegen::functions::Serialize(Stream, Descriptors);
   Stream << "\n";
-  Stream << "} // namespace LIBC_NAMESPACE\n";
+  Stream << "} // namespace __llvm_libc\n";
   Stream << "\n";
   Stream << "namespace llvm {\n";
   Stream << "namespace automemcpy {\n";

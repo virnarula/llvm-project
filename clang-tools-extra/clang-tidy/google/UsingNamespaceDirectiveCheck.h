@@ -11,7 +11,10 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::google::build {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace build {
 
 /// Finds using namespace directives.
 ///
@@ -45,6 +48,9 @@ private:
   static bool isStdLiteralsNamespace(const NamespaceDecl *NS);
 };
 
-} // namespace clang::tidy::google::build
+} // namespace build
+} // namespace google
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_GOOGLE_USINGNAMESPACEDIRECTIVECHECK_H

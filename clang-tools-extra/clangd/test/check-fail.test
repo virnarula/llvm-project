@@ -7,7 +7,7 @@
 // CHECK: [pp_file_not_found] Line {{.*}}: 'missing.h' file not found
 // CHECK: Building AST...
 // CHECK: Testing features at each token
-// CHECK: tweak: ExpandDeducedType ==> FAIL
+// CHECK: tweak: ExpandAutoType ==> FAIL
 // CHECK: All checks completed, 2 errors
 
 #include "missing.h"

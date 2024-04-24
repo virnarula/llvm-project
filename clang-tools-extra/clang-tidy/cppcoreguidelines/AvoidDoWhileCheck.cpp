@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 AvoidDoWhileCheck::AvoidDoWhileCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
@@ -34,4 +36,6 @@ void AvoidDoWhileCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

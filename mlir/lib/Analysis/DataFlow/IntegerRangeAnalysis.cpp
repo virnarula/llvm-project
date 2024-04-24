@@ -14,22 +14,9 @@
 
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
-#include "mlir/Analysis/DataFlow/SparseAnalysis.h"
-#include "mlir/Analysis/DataFlowFramework.h"
-#include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/InferIntRangeInterface.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
-#include "mlir/Support/LLVM.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
-#include <cassert>
-#include <optional>
-#include <utility>
 
 #define DEBUG_TYPE "int-range-analysis"
 
@@ -38,8 +25,6 @@ using namespace mlir::dataflow;
 
 IntegerValueRange IntegerValueRange::getMaxRange(Value value) {
   unsigned width = ConstantIntRanges::getStorageBitwidth(value.getType());
-  if (width == 0)
-    return {};
   APInt umin = APInt::getMinValue(width);
   APInt umax = APInt::getMaxValue(width);
   APInt smin = width != 0 ? APInt::getSignedMinValue(width) : umin;
@@ -52,7 +37,7 @@ void IntegerValueRangeLattice::onUpdate(DataFlowSolver *solver) const {
 
   // If the integer range can be narrowed to a constant, update the constant
   // value of the SSA value.
-  std::optional<APInt> constant = getValue().getValue().getConstantValue();
+  Optional<APInt> constant = getValue().getValue().getConstantValue();
   auto value = point.get<Value>();
   auto *cv = solver->getOrCreateState<Lattice<ConstantValue>>(value);
   if (!constant)
@@ -79,6 +64,22 @@ void IntegerRangeAnalysis::visitOperation(
     return;
   }
 
+  // Ignore non-integer outputs - return early if the op has no scalar
+  // integer results
+  bool hasIntegerResult = false;
+  for (auto it : llvm::zip(results, op->getResults())) {
+    Value value = std::get<1>(it);
+    if (value.getType().isIntOrIndex()) {
+      hasIntegerResult = true;
+    } else {
+      IntegerValueRangeLattice *lattice = std::get<0>(it);
+      propagateIfChanged(lattice,
+                         lattice->join(IntegerValueRange::getMaxRange(value)));
+    }
+  }
+  if (!hasIntegerResult)
+    return;
+
   auto inferrable = dyn_cast<InferIntRangeInterface>(op);
   if (!inferrable)
     return setAllToEntryStates(results);
@@ -90,7 +91,7 @@ void IntegerRangeAnalysis::visitOperation(
       }));
 
   auto joinCallback = [&](Value v, const ConstantIntRanges &attrs) {
-    auto result = dyn_cast<OpResult>(v);
+    auto result = v.dyn_cast<OpResult>();
     if (!result)
       return;
     assert(llvm::is_contained(op->getResults(), result));
@@ -124,18 +125,13 @@ void IntegerRangeAnalysis::visitNonControlFlowArguments(
     ArrayRef<IntegerValueRangeLattice *> argLattices, unsigned firstIndex) {
   if (auto inferrable = dyn_cast<InferIntRangeInterface>(op)) {
     LLVM_DEBUG(llvm::dbgs() << "Inferring ranges for " << *op << "\n");
-    // If the lattice on any operand is unitialized, bail out.
-    if (llvm::any_of(op->getOperands(), [&](Value value) {
-          return getLatticeElementFor(op, value)->getValue().isUninitialized();
-        }))
-      return;
     SmallVector<ConstantIntRanges> argRanges(
         llvm::map_range(op->getOperands(), [&](Value value) {
           return getLatticeElementFor(op, value)->getValue().getValue();
         }));
 
     auto joinCallback = [&](Value v, const ConstantIntRanges &attrs) {
-      auto arg = dyn_cast<BlockArgument>(v);
+      auto arg = v.dyn_cast<BlockArgument>();
       if (!arg)
         return;
       if (!llvm::is_contained(successor.getSuccessor()->getArguments(), arg))
@@ -169,18 +165,18 @@ void IntegerRangeAnalysis::visitNonControlFlowArguments(
   /// Given the results of getConstant{Lower,Upper}Bound() or getConstantStep()
   /// on a LoopLikeInterface return the lower/upper bound for that result if
   /// possible.
-  auto getLoopBoundFromFold = [&](std::optional<OpFoldResult> loopBound,
+  auto getLoopBoundFromFold = [&](Optional<OpFoldResult> loopBound,
                                   Type boundType, bool getUpper) {
     unsigned int width = ConstantIntRanges::getStorageBitwidth(boundType);
     if (loopBound.has_value()) {
       if (loopBound->is<Attribute>()) {
         if (auto bound =
-                dyn_cast_or_null<IntegerAttr>(loopBound->get<Attribute>()))
+                loopBound->get<Attribute>().dyn_cast_or_null<IntegerAttr>())
           return bound.getValue();
-      } else if (auto value = llvm::dyn_cast_if_present<Value>(*loopBound)) {
+      } else if (auto value = loopBound->dyn_cast<Value>()) {
         const IntegerValueRangeLattice *lattice =
             getLatticeElementFor(op, value);
-        if (lattice != nullptr && !lattice->getValue().isUninitialized())
+        if (lattice != nullptr)
           return getUpper ? lattice->getValue().getValue().smax()
                           : lattice->getValue().getValue().smin();
       }
@@ -194,14 +190,14 @@ void IntegerRangeAnalysis::visitNonControlFlowArguments(
 
   // Infer bounds for loop arguments that have static bounds
   if (auto loop = dyn_cast<LoopLikeOpInterface>(op)) {
-    std::optional<Value> iv = loop.getSingleInductionVar();
+    Optional<Value> iv = loop.getSingleInductionVar();
     if (!iv) {
-      return SparseForwardDataFlowAnalysis ::visitNonControlFlowArguments(
+      return SparseDataFlowAnalysis ::visitNonControlFlowArguments(
           op, successor, argLattices, firstIndex);
     }
-    std::optional<OpFoldResult> lowerBound = loop.getSingleLowerBound();
-    std::optional<OpFoldResult> upperBound = loop.getSingleUpperBound();
-    std::optional<OpFoldResult> step = loop.getSingleStep();
+    Optional<OpFoldResult> lowerBound = loop.getSingleLowerBound();
+    Optional<OpFoldResult> upperBound = loop.getSingleUpperBound();
+    Optional<OpFoldResult> step = loop.getSingleStep();
     APInt min = getLoopBoundFromFold(lowerBound, iv->getType(),
                                      /*getUpper=*/false);
     APInt max = getLoopBoundFromFold(upperBound, iv->getType(),
@@ -224,6 +220,6 @@ void IntegerRangeAnalysis::visitNonControlFlowArguments(
     return;
   }
 
-  return SparseForwardDataFlowAnalysis::visitNonControlFlowArguments(
+  return SparseDataFlowAnalysis::visitNonControlFlowArguments(
       op, successor, argLattices, firstIndex);
 }

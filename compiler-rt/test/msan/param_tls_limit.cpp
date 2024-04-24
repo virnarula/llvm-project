@@ -5,15 +5,15 @@
 // RUN: %clangxx_msan -fno-sanitize-memory-param-retval -fsanitize-memory-track-origins -O0 %s -o %t && %run %t
 // RUN: %clangxx_msan -fno-sanitize-memory-param-retval -fsanitize-memory-track-origins=2 -O0 %s -o %t && %run %t
 //
-// AArch64 and LoongArch64 fail with:
+// AArch64 fails with:
 // void f801(S<801>): Assertion `__msan_test_shadow(&s, sizeof(s)) == -1' failed
-// XFAIL: target={{(aarch64|loongarch64).*}}
+// XFAIL: aarch64
 // When passing huge structs by value, SystemZ uses pointers, therefore this
 // test in its present form is unfortunately not applicable.
 // ABI says: "A struct or union of any other size <snip>. Replace such an
 // argument by a pointer to the object, or to a copy where necessary to enforce
 // call-by-value semantics."
-// XFAIL: target=s390x{{.*}}
+// XFAIL: s390x
 
 #include <sanitizer/msan_interface.h>
 #include <assert.h>

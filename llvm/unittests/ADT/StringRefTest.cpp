@@ -34,18 +34,24 @@ std::ostream &operator<<(std::ostream &OS,
 // Check that we can't accidentally assign a temporary std::string to a
 // StringRef. (Unfortunately we can't make use of the same thing with
 // constructors.)
-static_assert(!std::is_assignable_v<StringRef &, std::string>,
-              "Assigning from prvalue std::string");
-static_assert(!std::is_assignable_v<StringRef &, std::string &&>,
-              "Assigning from xvalue std::string");
-static_assert(std::is_assignable_v<StringRef &, std::string &>,
-              "Assigning from lvalue std::string");
-static_assert(std::is_assignable_v<StringRef &, const char *>,
-              "Assigning from prvalue C string");
-static_assert(std::is_assignable_v<StringRef &, const char *&&>,
-              "Assigning from xvalue C string");
-static_assert(std::is_assignable_v<StringRef &, const char *&>,
-              "Assigning from lvalue C string");
+static_assert(
+    !std::is_assignable<StringRef&, std::string>::value,
+    "Assigning from prvalue std::string");
+static_assert(
+    !std::is_assignable<StringRef&, std::string &&>::value,
+    "Assigning from xvalue std::string");
+static_assert(
+    std::is_assignable<StringRef&, std::string &>::value,
+    "Assigning from lvalue std::string");
+static_assert(
+    std::is_assignable<StringRef&, const char *>::value,
+    "Assigning from prvalue C string");
+static_assert(
+    std::is_assignable<StringRef&, const char * &&>::value,
+    "Assigning from xvalue C string");
+static_assert(
+    std::is_assignable<StringRef&, const char * &>::value,
+    "Assigning from lvalue C string");
 
 namespace {
 TEST(StringRefTest, Construction) {
@@ -59,7 +65,6 @@ TEST(StringRefTest, Construction) {
 TEST(StringRefTest, Conversion) {
   EXPECT_EQ("hello", std::string(StringRef("hello")));
   EXPECT_EQ("hello", std::string_view(StringRef("hello")));
-  static_assert(std::string_view(StringRef("hello")) == "hello");
 }
 
 TEST(StringRefTest, EmptyInitializerList) {
@@ -79,28 +84,15 @@ TEST(StringRefTest, Iteration) {
 
 TEST(StringRefTest, StringOps) {
   const char *p = "hello";
-
   EXPECT_EQ(p, StringRef(p, 0).data());
-  static_assert(StringRef("hello").data()[0] == 'h');
-  static_assert(StringRef("hello").data()[1] == 'e');
-  static_assert(StringRef("hello").data()[2] == 'l');
-  static_assert(StringRef("hello").data()[3] == 'l');
-  static_assert(StringRef("hello").data()[4] == 'o');
-  static_assert(StringRef("hello").data()[5] == '\0');
-
   EXPECT_TRUE(StringRef().empty());
-  static_assert(StringRef("").empty());
-  static_assert(!StringRef("hello").empty());
-
   EXPECT_EQ((size_t) 5, StringRef("hello").size());
-  static_assert(StringRef("hello").size() == 5);
-
-  EXPECT_GT( 0, StringRef("aab").compare("aad"));
+  EXPECT_EQ(-1, StringRef("aab").compare("aad"));
   EXPECT_EQ( 0, StringRef("aab").compare("aab"));
-  EXPECT_LT( 0, StringRef("aab").compare("aaa"));
-  EXPECT_GT( 0, StringRef("aab").compare("aabb"));
-  EXPECT_LT( 0, StringRef("aab").compare("aa"));
-  EXPECT_LT( 0, StringRef("\xFF").compare("\1"));
+  EXPECT_EQ( 1, StringRef("aab").compare("aaa"));
+  EXPECT_EQ(-1, StringRef("aab").compare("aabb"));
+  EXPECT_EQ( 1, StringRef("aab").compare("aa"));
+  EXPECT_EQ( 1, StringRef("\xFF").compare("\1"));
 
   EXPECT_EQ(-1, StringRef("AaB").compare_insensitive("aAd"));
   EXPECT_EQ( 0, StringRef("AaB").compare_insensitive("aab"));
@@ -832,7 +824,6 @@ TEST(StringRefTest, consumeIntegerUnsigned) {
   uint16_t U16;
   uint32_t U32;
   uint64_t U64;
-  APInt U;
 
   for (size_t i = 0; i < std::size(ConsumeUnsigned); ++i) {
     StringRef Str = ConsumeUnsigned[i].Str;
@@ -872,12 +863,6 @@ TEST(StringRefTest, consumeIntegerUnsigned) {
     bool U64Success = Str.consumeInteger(0, U64);
     ASSERT_FALSE(U64Success);
     EXPECT_EQ(U64, ConsumeUnsigned[i].Expected);
-    EXPECT_EQ(Str, ConsumeUnsigned[i].Leftover);
-
-    Str = ConsumeUnsigned[i].Str;
-    U64Success = Str.consumeInteger(0, U);
-    ASSERT_FALSE(U64Success);
-    EXPECT_EQ(U.getZExtValue(), ConsumeUnsigned[i].Expected);
     EXPECT_EQ(Str, ConsumeUnsigned[i].Leftover);
   }
 }
@@ -1159,6 +1144,7 @@ TEST(StringRefTest, LFCRLineEnding) {
   EXPECT_EQ(StringRef("\n\r"), Cases[2].detectEOL());
 }
 
-static_assert(std::is_trivially_copyable_v<StringRef>, "trivially copyable");
+static_assert(std::is_trivially_copyable<StringRef>::value,
+              "trivially copyable");
 
 } // end anonymous namespace

@@ -55,10 +55,10 @@ int main() {
                                             "addresult");
 
   // explicitly insert it into the basic block...
-  Add->insertInto(BB, BB->end());
+  BB->getInstList().push_back(Add);
 
   // Create the return instruction and add it to the basic block
-  ReturnInst::Create(Context, Add)->insertInto(BB, BB->end());
+  BB->getInstList().push_back(ReturnInst::Create(Context, Add));
 
   // Output the bitcode file to stdout
   WriteBitcodeToFile(*M, outs());

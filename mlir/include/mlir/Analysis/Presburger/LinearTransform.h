@@ -22,8 +22,8 @@ namespace presburger {
 
 class LinearTransform {
 public:
-  explicit LinearTransform(IntMatrix &&oMatrix);
-  explicit LinearTransform(const IntMatrix &oMatrix);
+  explicit LinearTransform(Matrix &&oMatrix);
+  explicit LinearTransform(const Matrix &oMatrix);
 
   // Returns a linear transform T such that MT is M in column echelon form.
   // Also returns the number of non-zero columns in MT.
@@ -32,7 +32,7 @@ public:
   // strictly below that of the previous column, and all columns which have only
   // zeros are at the end.
   static std::pair<unsigned, LinearTransform>
-  makeTransformToColumnEchelon(const IntMatrix &m);
+  makeTransformToColumnEchelon(const Matrix &m);
 
   // Returns an IntegerRelation having a constraint vector vT for every
   // constraint vector v in rel, where T is this transform.
@@ -51,7 +51,7 @@ public:
   }
 
 private:
-  IntMatrix matrix;
+  Matrix matrix;
 };
 
 } // namespace presburger

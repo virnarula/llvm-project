@@ -6,25 +6,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: LIBCXX-FREEBSD-FIXME
-
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
 // uintmax_t remove_all(const path& p);
 // uintmax_t remove_all(const path& p, error_code& ec) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void test_signatures()
+TEST_SUITE(filesystem_remove_all_test_suite)
+
+TEST_CASE(test_signatures)
 {
     const path p; ((void)p);
     std::error_code ec; ((void)ec);
@@ -35,7 +34,7 @@ static void test_signatures()
     ASSERT_NOT_NOEXCEPT(fs::remove_all(p, ec));
 }
 
-static void test_error_reporting()
+TEST_CASE(test_error_reporting)
 {
     scoped_test_env env;
     // Windows doesn't support setting perms::none to trigger failures
@@ -72,9 +71,9 @@ static void test_error_reporting()
     for (auto& p : testCases) {
         std::error_code ec;
 
-        assert(fs::remove_all(p, ec) == BadRet);
-        assert(ec);
-        assert(checkThrow(p, ec));
+        TEST_CHECK(fs::remove_all(p, ec) == BadRet);
+        TEST_CHECK(ec);
+        TEST_CHECK(checkThrow(p, ec));
     }
 #endif
 
@@ -86,12 +85,12 @@ static void test_error_reporting()
     for (auto &p : testCasesNonexistant) {
         std::error_code ec;
 
-        assert(fs::remove_all(p, ec) == 0);
-        assert(!ec);
+        TEST_CHECK(fs::remove_all(p, ec) == 0);
+        TEST_CHECK(!ec);
     }
 }
 
-static void basic_remove_all_test()
+TEST_CASE(basic_remove_all_test)
 {
     scoped_test_env env;
     const path dne = env.make_env_path("dne");
@@ -106,13 +105,13 @@ static void basic_remove_all_test()
     };
     for (auto& p : testCases) {
         std::error_code ec = std::make_error_code(std::errc::address_in_use);
-        assert(remove(p, ec));
-        assert(!ec);
-        assert(!exists(symlink_status(p)));
+        TEST_CHECK(remove(p, ec));
+        TEST_CHECK(!ec);
+        TEST_CHECK(!exists(symlink_status(p)));
     }
 }
 
-static void symlink_to_dir()
+TEST_CASE(symlink_to_dir)
 {
     scoped_test_env env;
     const path dir = env.create_dir("dir");
@@ -121,16 +120,16 @@ static void symlink_to_dir()
 
     {
         std::error_code ec = std::make_error_code(std::errc::address_in_use);
-        assert(remove_all(link, ec) == 1);
-        assert(!ec);
-        assert(!exists(symlink_status(link)));
-        assert(exists(dir));
-        assert(exists(file));
+        TEST_CHECK(remove_all(link, ec) == 1);
+        TEST_CHECK(!ec);
+        TEST_CHECK(!exists(symlink_status(link)));
+        TEST_CHECK(exists(dir));
+        TEST_CHECK(exists(file));
     }
 }
 
 
-static void nested_dir()
+TEST_CASE(nested_dir)
 {
     scoped_test_env env;
     const path dir = env.create_dir("dir");
@@ -146,20 +145,12 @@ static void nested_dir()
     const std::size_t expected_count = sizeof(all_files) / sizeof(all_files[0]);
 
     std::error_code ec = std::make_error_code(std::errc::address_in_use);
-    assert(remove_all(dir, ec) == expected_count);
-    assert(!ec);
+    TEST_CHECK(remove_all(dir, ec) == expected_count);
+    TEST_CHECK(!ec);
     for (auto const& p : all_files) {
-        assert(!exists(symlink_status(p)));
+        TEST_CHECK(!exists(symlink_status(p)));
     }
-    assert(exists(out_of_dir_file));
+    TEST_CHECK(exists(out_of_dir_file));
 }
 
-int main(int, char**) {
-    test_signatures();
-    test_error_reporting();
-    basic_remove_all_test();
-    symlink_to_dir();
-    nested_dir();
-
-    return 0;
-}
+TEST_SUITE_END()

@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::hicpp {
+namespace clang {
+namespace tidy {
+namespace hicpp {
 
 /// Find occasions where not all codepaths are explicitly covered in code.
 /// This includes 'switch' without a 'default'-branch and 'if'-'else if'-chains
@@ -39,6 +41,8 @@ private:
   const bool WarnOnMissingElse;
 };
 
-} // namespace clang::tidy::hicpp
+} // namespace hicpp
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_HICPP_MULTIWAY_PATHS_COVERED_H

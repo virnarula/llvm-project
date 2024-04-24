@@ -3,11 +3,11 @@
 # Test the emission of heap alloc site instruction labels.
 
 --- |
-  declare ptr @alloc(i32) nounwind
+  declare i8* @alloc(i32) nounwind
 
   define i32 @test(i32 %x) nounwind !dbg !6 {
   entry:
-    call ptr @alloc(i32 %x), !dbg !11, !heapallocsite !2
+    call i8* @alloc(i32 %x), !dbg !11, !heapallocsite !2
     ret i32 0, !dbg !12
   }
 

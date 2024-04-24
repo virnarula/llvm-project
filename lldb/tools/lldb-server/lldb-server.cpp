@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SystemInitializerLLGS.h"
-#include "lldb/Host/Config.h"
 #include "lldb/Initialization/SystemLifetimeManager.h"
 #include "lldb/Version/Version.h"
 
@@ -51,8 +50,7 @@ static void terminate_debugger() { g_debugger_lifetime->Terminate(); }
 // main
 int main(int argc, char *argv[]) {
   llvm::InitLLVM IL(argc, argv, /*InstallPipeSignalExitHandler=*/false);
-  llvm::setBugReportMsg("PLEASE submit a bug report to " LLDB_BUG_REPORT_URL
-                        " and include the crash backtrace.\n");
+  llvm::PrettyStackTraceProgram X(argc, argv);
 
   int option_error = 0;
   const char *progname = argv[0];

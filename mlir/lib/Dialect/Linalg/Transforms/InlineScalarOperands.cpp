@@ -35,7 +35,7 @@ struct InlineScalarOperands : public OpRewritePattern<GenericOp> {
   using OpRewritePattern<GenericOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(GenericOp genericOp,
                                 PatternRewriter &rewriter) const override {
-    if (!genericOp.hasPureTensorSemantics())
+    if (!genericOp.hasTensorSemantics())
       return failure();
 
     SmallVector<size_t> scalarOperands;
@@ -54,9 +54,8 @@ struct InlineScalarOperands : public OpRewritePattern<GenericOp> {
     if (scalarOperands.empty())
       return failure();
 
-    for (OpOperand &opOperand : genericOp.getDpsInitsMutable())
-      newIndexingMaps.emplace_back(
-          genericOp.getMatchingIndexingMap(&opOperand));
+    for (OpOperand *opOperand : genericOp.getDpsInitOperands())
+      newIndexingMaps.emplace_back(genericOp.getMatchingIndexingMap(opOperand));
 
     Location loc = genericOp->getLoc();
     SmallVector<Value> outputOperands = genericOp.getOutputs();
@@ -104,15 +103,17 @@ struct LinalgInlineScalarOperandsPass
     : public impl::LinalgInlineScalarOperandsBase<
           LinalgInlineScalarOperandsPass> {
   void runOnOperation() override {
-    Operation *op = getOperation();
-    MLIRContext &ctx = getContext();
-    RewritePatternSet patterns(&ctx);
+    func::FuncOp funcOp = getOperation();
+    MLIRContext *context = funcOp.getContext();
+    RewritePatternSet patterns(context);
+
     populateInlineConstantOperandsPatterns(patterns);
-    (void)applyPatternsAndFoldGreedily(op, std::move(patterns));
+    (void)applyPatternsAndFoldGreedily(funcOp.getBody(), std::move(patterns));
   }
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::createLinalgInlineScalarOperandsPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createLinalgInlineScalarOperandsPass() {
   return std::make_unique<LinalgInlineScalarOperandsPass>();
 }

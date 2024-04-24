@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 void StaticObjectExceptionCheck::registerMatchers(MatchFinder *Finder) {
   // Match any static or thread_local variable declaration that has an
@@ -53,4 +55,6 @@ void StaticObjectExceptionCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

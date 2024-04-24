@@ -6,10 +6,10 @@ target triple = "wasm32-unknown-unknown"
 ; Since this is not implemented, it should fail.
 
 ; CHECK: Non-Emscripten WebAssembly hasn't implemented __builtin_return_address
-define ptr @test_returnaddress() {
-  %r = call ptr @llvm.returnaddress(i32 0)
-  ret ptr %r
+define i8* @test_returnaddress() {
+  %r = call i8* @llvm.returnaddress(i32 0)
+  ret i8* %r
 }
 
 ; LLVM represents __builtin_return_address as call to this function in IR.
-declare ptr @llvm.returnaddress(i32 immarg)
+declare i8* @llvm.returnaddress(i32 immarg)

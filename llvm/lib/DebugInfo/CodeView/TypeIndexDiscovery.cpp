@@ -442,7 +442,6 @@ static bool discoverTypeIndices(ArrayRef<uint8_t> Content, SymbolKind Kind,
   case SymbolKind::S_THUNK32:
   case SymbolKind::S_FRAMECOOKIE:
   case SymbolKind::S_UNAMESPACE:
-  case SymbolKind::S_ARMSWITCHTABLE:
     break;
   // Scope ending symbols.
   case SymbolKind::S_END:
@@ -470,7 +469,7 @@ static void resolveTypeIndexReferences(ArrayRef<uint8_t> RecordData,
 
   RecordData = RecordData.drop_front(sizeof(RecordPrefix));
 
-  BinaryStreamReader Reader(RecordData, llvm::endianness::little);
+  BinaryStreamReader Reader(RecordData, support::little);
   for (const auto &Ref : Refs) {
     Reader.setOffset(Ref.Offset);
     FixedStreamArray<TypeIndex> Run;

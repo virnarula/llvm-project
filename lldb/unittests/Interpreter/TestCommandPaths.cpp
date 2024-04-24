@@ -48,9 +48,10 @@ public:
   }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     result.SetStatus(eReturnStatusSuccessFinishResult);
     result.AppendMessage("I did nothing");
+    return true;
   }
 };
 

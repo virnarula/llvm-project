@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 namespace {
 
@@ -90,4 +92,6 @@ void NonPrivateMemberVariablesInClassesCheck::check(
       << Field << Field->getAccess();
 }
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang

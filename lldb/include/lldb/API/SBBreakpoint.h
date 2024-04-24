@@ -13,13 +13,6 @@
 
 class SBBreakpointListImpl;
 
-namespace lldb_private {
-class ScriptInterpreter;
-namespace python {
-class SWIGBridge;
-}
-} // namespace lldb_private
-
 namespace lldb {
 
 class LLDB_API SBBreakpoint {
@@ -28,6 +21,8 @@ public:
   SBBreakpoint();
 
   SBBreakpoint(const lldb::SBBreakpoint &rhs);
+
+  SBBreakpoint(const lldb::BreakpointSP &bp_sp);
 
   ~SBBreakpoint();
 
@@ -97,9 +92,7 @@ public:
 
   const char *GetQueueName() const;
 
-#ifndef SWIG
   void SetCallback(SBBreakpointHitCallback callback, void *baton);
-#endif
 
   void SetScriptCallbackFunction(const char *callback_function_name);
 
@@ -112,8 +105,6 @@ public:
 
   SBError SetScriptCallbackBody(const char *script_body_text);
 
-  LLDB_DEPRECATED_FIXME("Doesn't provide error handling",
-                        "AddNameWithErrorHandling")
   bool AddName(const char *new_name);
 
   SBError AddNameWithErrorHandling(const char *new_name);
@@ -159,11 +150,6 @@ private:
   friend class SBBreakpointLocation;
   friend class SBBreakpointName;
   friend class SBTarget;
-
-  friend class lldb_private::ScriptInterpreter;
-  friend class lldb_private::python::SWIGBridge;
-
-  SBBreakpoint(const lldb::BreakpointSP &bp_sp);
 
   lldb::BreakpointSP GetSP() const;
 

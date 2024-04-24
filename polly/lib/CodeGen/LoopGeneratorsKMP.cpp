@@ -81,7 +81,7 @@ Function *ParallelLoopGeneratorKMP::prepareSubFnDefinition(Function *F) const {
                                    LongType,
                                    LongType,
                                    LongType,
-                                   Builder.getPtrTy()};
+                                   Builder.getInt8PtrTy()};
 
   FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
   Function *SubFn = Function::Create(FT, Function::InternalLinkage,
@@ -175,7 +175,11 @@ ParallelLoopGeneratorKMP::createSubFn(Value *SequentialLoopStride,
   std::advance(AI, 1);
   Value *Shared = &*AI;
 
-  extractValuesFromStruct(Data, StructData->getAllocatedType(), Shared, Map);
+  Value *UserContext = Builder.CreateBitCast(Shared, StructData->getType(),
+                                             "polly.par.userContext");
+
+  extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
+                          Map);
 
   const auto Alignment = llvm::Align(is64BitArch() ? 8 : 4);
   Value *ID = Builder.CreateAlignedLoad(Builder.getInt32Ty(), IDPtr, Alignment,
@@ -512,7 +516,7 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
     if (!IdentTy) {
       Type *LocMembers[] = {Builder.getInt32Ty(), Builder.getInt32Ty(),
                             Builder.getInt32Ty(), Builder.getInt32Ty(),
-                            Builder.getPtrTy()};
+                            Builder.getInt8PtrTy()};
 
       IdentTy =
           StructType::create(M->getContext(), LocMembers, StructName, false);

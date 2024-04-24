@@ -16,29 +16,10 @@
 include "mlir/IR/OpBase.td"
 
 //===----------------------------------------------------------------------===//
-// TypedAttrInterface
-//===----------------------------------------------------------------------===//
-
-def TypedAttrInterface : AttrInterface<"TypedAttr"> {
-  let cppNamespace = "::mlir";
-
-  let description = [{
-    This interface is used for attributes that have a type. The type of an
-    attribute is understood to represent the type of the data contained in the
-    attribute and is often used as the type of a value with this data.
-  }];
-
-  let methods = [InterfaceMethod<
-    "Get the attribute's type",
-    "::mlir::Type", "getType"
-  >];
-}
-
-//===----------------------------------------------------------------------===//
 // ElementsAttrInterface
 //===----------------------------------------------------------------------===//
 
-def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> {
+def ElementsAttrInterface : AttrInterface<"ElementsAttr"> {
   let cppNamespace = "::mlir";
   let description = [{
     This interface is used for attributes that contain the constant elements of
@@ -97,7 +78,7 @@ def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> 
     }
     /// * Attribute
     auto value_begin_impl(OverloadToken<mlir::Attribute>) const {
-      mlir::Type elementType = getShapedType().getElementType();
+      mlir::Type elementType = getType().getElementType();
       auto it = llvm::map_range(getElements(), [=](uint64_t value) {
         return mlir::IntegerAttr::get(elementType,
                                       llvm::APInt(/*numBits=*/64, value));
@@ -173,15 +154,13 @@ def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> 
     InterfaceMethod<[{
       Returns true if the attribute elements correspond to a splat, i.e. that
       all elements of the attribute are the same value.
-    }], "bool", "isSplat", (ins), [{}], /*defaultImplementation=*/[{
+    }], "bool", "isSplat", (ins), /*defaultImplementation=*/[{}], [{
         // By default, only check for a single element splat.
         return $_attr.getNumElements() == 1;
     }]>,
     InterfaceMethod<[{
       Returns the shaped type of the elements attribute.
-    }], "::mlir::ShapedType", "getShapedType", (ins), [{}], /*defaultImplementation=*/[{
-        return $_attr.getType();
-    }]>
+    }], "::mlir::ShapedType", "getType">
   ];
 
   string ElementsAttrInterfaceAccessors = [{
@@ -346,7 +325,7 @@ def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> 
                                       ArrayRef<uint64_t> index);
     static uint64_t getFlattenedIndex(ElementsAttr elementsAttr,
                                       ArrayRef<uint64_t> index) {
-      return getFlattenedIndex(elementsAttr.getShapedType(), index);
+      return getFlattenedIndex(elementsAttr.getType(), index);
     }
 
     /// Returns the number of elements held by this attribute.
@@ -378,7 +357,7 @@ def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> 
     /// Return the elements of this attribute as a value of type 'T'.
     template <typename T>
     DefaultValueCheckT<T, iterator_range<T>> getValues() const {
-      return {getShapedType(), value_begin<T>(), value_end<T>()};
+      return {getType(), value_begin<T>(), value_end<T>()};
     }
     template <typename T>
     DefaultValueCheckT<T, iterator<T>> value_begin() const;
@@ -397,8 +376,8 @@ def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> 
       detail::ElementsAttrRange<DerivedAttrValueIterator<T>>;
     template <typename T, typename = DerivedAttrValueCheckT<T>>
     DerivedAttrValueIteratorRange<T> getValues() const {
-      auto castFn = [](Attribute attr) { return ::llvm::cast<T>(attr); };
-      return {getShapedType(), llvm::map_range(getValues<Attribute>(),
+      auto castFn = [](Attribute attr) { return attr.template cast<T>(); };
+      return {getType(), llvm::map_range(getValues<Attribute>(),
               static_cast<T (*)(Attribute)>(castFn))};
     }
     template <typename T, typename = DerivedAttrValueCheckT<T>>
@@ -414,35 +393,35 @@ def ElementsAttrInterface : AttrInterface<"ElementsAttr", [TypedAttrInterface]> 
     // Failable Value Iteration
 
     /// If this attribute supports iterating over element values of type `T`,
-    /// return the iterable range. Otherwise, return std::nullopt.
+    /// return the iterable range. Otherwise, return llvm::None.
     template <typename T>
-    DefaultValueCheckT<T, std::optional<iterator_range<T>>> tryGetValues() const {
-      if (std::optional<iterator<T>> beginIt = try_value_begin<T>())
-        return iterator_range<T>(getShapedType(), *beginIt, value_end<T>());
-      return std::nullopt;
+    DefaultValueCheckT<T, Optional<iterator_range<T>>> tryGetValues() const {
+      if (Optional<iterator<T>> beginIt = try_value_begin<T>())
+        return iterator_range<T>(getType(), *beginIt, value_end<T>());
+      return llvm::None;
     }
     template <typename T>
-    DefaultValueCheckT<T, std::optional<iterator<T>>> try_value_begin() const;
+    DefaultValueCheckT<T, Optional<iterator<T>>> try_value_begin() const;
 
     /// If this attribute supports iterating over element values of type `T`,
-    /// return the iterable range. Otherwise, return std::nullopt.
+    /// return the iterable range. Otherwise, return llvm::None.
     template <typename T, typename = DerivedAttrValueCheckT<T>>
-    std::optional<DerivedAttrValueIteratorRange<T>> tryGetValues() const {
+    Optional<DerivedAttrValueIteratorRange<T>> tryGetValues() const {
       auto values = tryGetValues<Attribute>();
       if (!values)
-        return std::nullopt;
+        return llvm::None;
 
-      auto castFn = [](Attribute attr) { return ::llvm::cast<T>(attr); };
+      auto castFn = [](Attribute attr) { return attr.template cast<T>(); };
       return DerivedAttrValueIteratorRange<T>(
-        getShapedType(),
+        getType(),
         llvm::map_range(*values, static_cast<T (*)(Attribute)>(castFn))
       );
     }
     template <typename T, typename = DerivedAttrValueCheckT<T>>
-    std::optional<DerivedAttrValueIterator<T>> try_value_begin() const {
+    Optional<DerivedAttrValueIterator<T>> try_value_begin() const {
       if (auto values = tryGetValues<T>())
         return values->begin();
-      return std::nullopt;
+      return llvm::None;
     }
   }] # ElementsAttrInterfaceAccessors;
 }
@@ -493,6 +472,25 @@ def MemRefLayoutAttrInterface : AttrInterface<"MemRefLayoutAttrInterface"> {
       }]
     >
   ];
+}
+
+//===----------------------------------------------------------------------===//
+// TypedAttrInterface
+//===----------------------------------------------------------------------===//
+
+def TypedAttrInterface : AttrInterface<"TypedAttr"> {
+  let cppNamespace = "::mlir";
+
+  let description = [{
+    This interface is used for attributes that have a type. The type of an
+    attribute is understood to represent the type of the data contained in the
+    attribute and is often used as the type of a value with this data.
+  }];
+
+  let methods = [InterfaceMethod<
+    "Get the attribute's type",
+    "::mlir::Type", "getType"
+  >];
 }
 
 #endif // MLIR_IR_BUILTINATTRIBUTEINTERFACES_TD_

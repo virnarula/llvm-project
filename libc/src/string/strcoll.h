@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_STRING_STRCOLL_H
 #define LLVM_LIBC_SRC_STRING_STRCOLL_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int strcoll(const char *left, const char *right);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_STRCOLL_H

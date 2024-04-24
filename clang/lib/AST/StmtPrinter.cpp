@@ -54,7 +54,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
-#include <optional>
 #include <string>
 
 using namespace clang;
@@ -175,7 +174,6 @@ namespace {
 /// PrintRawCompoundStmt - Print a compound stmt without indenting the {, and
 /// with no newline after the }.
 void StmtPrinter::PrintRawCompoundStmt(CompoundStmt *Node) {
-  assert(Node && "Compound statement cannot be null");
   OS << "{" << NL;
   PrintFPPragmas(Node);
   for (auto *I : Node->body())
@@ -401,9 +399,7 @@ void StmtPrinter::VisitForStmt(ForStmt *Node) {
     PrintInitStmt(Node->getInit(), 5);
   else
     OS << (Node->getCond() ? "; " : ";");
-  if (const DeclStmt *DS = Node->getConditionVariableDeclStmt())
-    PrintRawDeclStmt(DS);
-  else if (Node->getCond())
+  if (Node->getCond())
     PrintExpr(Node->getCond());
   OS << ";";
   if (Node->getInc()) {
@@ -600,10 +596,8 @@ void StmtPrinter::VisitObjCAtTryStmt(ObjCAtTryStmt *Node) {
 
   if (auto *FS = static_cast<ObjCAtFinallyStmt *>(Node->getFinallyStmt())) {
     Indent() << "@finally";
-    if (auto *CS = dyn_cast<CompoundStmt>(FS->getFinallyBody())) {
-      PrintRawCompoundStmt(CS);
-      OS << NL;
-    }
+    PrintRawCompoundStmt(dyn_cast<CompoundStmt>(FS->getFinallyBody()));
+    OS << NL;
   }
 }
 
@@ -638,7 +632,7 @@ void StmtPrinter::VisitObjCAtSynchronizedStmt(ObjCAtSynchronizedStmt *Node) {
 
 void StmtPrinter::VisitObjCAutoreleasePoolStmt(ObjCAutoreleasePoolStmt *Node) {
   Indent() << "@autoreleasepool";
-  PrintRawCompoundStmt(cast<CompoundStmt>(Node->getSubStmt()));
+  PrintRawCompoundStmt(dyn_cast<CompoundStmt>(Node->getSubStmt()));
   OS << NL;
 }
 
@@ -780,11 +774,6 @@ void StmtPrinter::VisitOMPSectionDirective(OMPSectionDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
-void StmtPrinter::VisitOMPScopeDirective(OMPScopeDirective *Node) {
-  Indent() << "#pragma omp scope";
-  PrintOMPExecutableDirective(Node);
-}
-
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {
   Indent() << "#pragma omp single";
   PrintOMPExecutableDirective(Node);
@@ -851,11 +840,6 @@ void StmtPrinter::VisitOMPBarrierDirective(OMPBarrierDirective *Node) {
 
 void StmtPrinter::VisitOMPTaskwaitDirective(OMPTaskwaitDirective *Node) {
   Indent() << "#pragma omp taskwait";
-  PrintOMPExecutableDirective(Node);
-}
-
-void StmtPrinter::VisitOMPErrorDirective(OMPErrorDirective *Node) {
-  Indent() << "#pragma omp error";
   PrintOMPExecutableDirective(Node);
 }
 
@@ -1201,7 +1185,7 @@ void StmtPrinter::VisitUnresolvedLookupExpr(UnresolvedLookupExpr *Node) {
 static bool isImplicitSelf(const Expr *E) {
   if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
     if (const auto *PD = dyn_cast<ImplicitParamDecl>(DRE->getDecl())) {
-      if (PD->getParameterKind() == ImplicitParamKind::ObjCSelf &&
+      if (PD->getParameterKind() == ImplicitParamDecl::ObjCSelf &&
           DRE->getBeginLoc().isInvalid())
         return true;
     }
@@ -1468,12 +1452,8 @@ void StmtPrinter::VisitUnaryExprOrTypeTraitExpr(
 
 void StmtPrinter::VisitGenericSelectionExpr(GenericSelectionExpr *Node) {
   OS << "_Generic(";
-  if (Node->isExprPredicate())
-    PrintExpr(Node->getControllingExpr());
-  else
-    Node->getControllingType()->getType().print(OS, Policy);
-
-  for (const GenericSelectionExpr::Association &Assoc : Node->associations()) {
+  PrintExpr(Node->getControllingExpr());
+  for (const GenericSelectionExpr::Association Assoc : Node->associations()) {
     OS << ", ";
     QualType T = Assoc.getType();
     if (T.isNull())
@@ -1754,7 +1734,7 @@ void StmtPrinter::VisitDesignatedInitExpr(DesignatedInitExpr *Node) {
   for (const DesignatedInitExpr::Designator &D : Node->designators()) {
     if (D.isFieldDesignator()) {
       if (D.getDotLoc().isInvalid()) {
-        if (const IdentifierInfo *II = D.getFieldName()) {
+        if (IdentifierInfo *II = D.getFieldName()) {
           OS << II->getName() << ":";
           NeedsEquals = false;
         }
@@ -1841,7 +1821,6 @@ void StmtPrinter::VisitAtomicExpr(AtomicExpr *Node) {
   PrintExpr(Node->getPtr());
   if (Node->getOp() != AtomicExpr::AO__c11_atomic_load &&
       Node->getOp() != AtomicExpr::AO__atomic_load_n &&
-      Node->getOp() != AtomicExpr::AO__scoped_atomic_load_n &&
       Node->getOp() != AtomicExpr::AO__opencl_atomic_load &&
       Node->getOp() != AtomicExpr::AO__hip_atomic_load) {
     OS << ", ";
@@ -2291,7 +2270,7 @@ void StmtPrinter::VisitCXXNewExpr(CXXNewExpr *E) {
   if (E->isArray()) {
     llvm::raw_string_ostream s(TypeS);
     s << '[';
-    if (std::optional<Expr *> Size = E->getArraySize())
+    if (Optional<Expr *> Size = E->getArraySize())
       (*Size)->printPretty(s, Helper, Policy);
     s << ']';
   }
@@ -2299,9 +2278,9 @@ void StmtPrinter::VisitCXXNewExpr(CXXNewExpr *E) {
   if (E->isParenTypeId())
     OS << ")";
 
-  CXXNewInitializationStyle InitStyle = E->getInitializationStyle();
-  if (InitStyle != CXXNewInitializationStyle::None) {
-    bool Bare = InitStyle == CXXNewInitializationStyle::Parens &&
+  CXXNewExpr::InitializationStyle InitStyle = E->getInitializationStyle();
+  if (InitStyle != CXXNewExpr::NoInit) {
+    bool Bare = InitStyle == CXXNewExpr::CallInit &&
                 !isa<ParenListExpr>(E->getInitializer());
     if (Bare)
       OS << "(";
@@ -2481,13 +2460,6 @@ void StmtPrinter::VisitCXXFoldExpr(CXXFoldExpr *E) {
   OS << ")";
 }
 
-void StmtPrinter::VisitCXXParenListInitExpr(CXXParenListInitExpr *Node) {
-  OS << "(";
-  llvm::interleaveComma(Node->getInitExprs(), OS,
-                        [&](Expr *E) { PrintExpr(E); });
-  OS << ")";
-}
-
 void StmtPrinter::VisitConceptSpecializationExpr(ConceptSpecializationExpr *E) {
   NestedNameSpecifierLoc NNS = E->getNestedNameSpecifierLoc();
   if (NNS)
@@ -2544,7 +2516,7 @@ void StmtPrinter::VisitRequiresExpr(RequiresExpr *E) {
     } else {
       auto *NestedReq = cast<concepts::NestedRequirement>(Req);
       OS << "requires ";
-      if (NestedReq->hasInvalidConstraint())
+      if (NestedReq->isSubstitutionFailure())
         OS << "<<error-expression>>";
       else
         PrintExpr(NestedReq->getConstraintExpr());
@@ -2554,7 +2526,7 @@ void StmtPrinter::VisitRequiresExpr(RequiresExpr *E) {
   OS << "}";
 }
 
-// C++ Coroutines
+// C++ Coroutines TS
 
 void StmtPrinter::VisitCoroutineBodyStmt(CoroutineBodyStmt *S) {
   Visit(S->getBody());

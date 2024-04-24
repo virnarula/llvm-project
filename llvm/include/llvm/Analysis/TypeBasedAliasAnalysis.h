@@ -39,10 +39,9 @@ public:
   }
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI, const Instruction *CtxI);
-  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                               bool IgnoreLocals);
-
+                    AAQueryInfo &AAQI);
+  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                              bool OrLocal);
   MemoryEffects getMemoryEffects(const CallBase *Call, AAQueryInfo &AAQI);
   MemoryEffects getMemoryEffects(const Function *F);
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,

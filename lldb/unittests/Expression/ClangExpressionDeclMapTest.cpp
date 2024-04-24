@@ -24,18 +24,16 @@ struct FakeClangExpressionDeclMap : public ClangExpressionDeclMap {
   FakeClangExpressionDeclMap(const std::shared_ptr<ClangASTImporter> &importer)
       : ClangExpressionDeclMap(false, nullptr, lldb::TargetSP(), importer,
                                nullptr) {
-    m_holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
-    m_scratch_context = m_holder->GetAST();
+    m_scratch_context = clang_utils::createAST();
   }
-  std::unique_ptr<clang_utils::TypeSystemClangHolder> m_holder;
-  TypeSystemClang *m_scratch_context;
+  std::unique_ptr<TypeSystemClang> m_scratch_context;
   /// Adds a persistent decl that can be found by the ClangExpressionDeclMap
   /// via GetPersistentDecl.
   void AddPersistentDeclForTest(clang::NamedDecl *d) {
     // The declaration needs to have '$' prefix in its name like every
     // persistent declaration and must be inside the scratch AST context.
     assert(d);
-    assert(d->getName().starts_with("$"));
+    assert(d->getName().startswith("$"));
     assert(&d->getASTContext() == &m_scratch_context->getASTContext());
     m_persistent_decls[d->getName()] = d;
   }
@@ -64,23 +62,20 @@ struct ClangExpressionDeclMapTest : public testing::Test {
   /// The ExpressionDeclMap for the current test case.
   std::unique_ptr<FakeClangExpressionDeclMap> decl_map;
 
-  std::unique_ptr<clang_utils::TypeSystemClangHolder> holder;
-  
   /// The target AST that lookup results should be imported to.
-  TypeSystemClang *target_ast;
+  std::unique_ptr<TypeSystemClang> target_ast;
 
   void SetUp() override {
     importer = std::make_shared<ClangASTImporter>();
     decl_map = std::make_unique<FakeClangExpressionDeclMap>(importer);
-    holder = std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
-    target_ast = holder->GetAST();
+    target_ast = clang_utils::createAST();
     decl_map->InstallASTContext(*target_ast);
   }
 
   void TearDown() override {
     importer.reset();
     decl_map.reset();
-    holder.reset();
+    target_ast.reset();
   }
 };
 } // namespace

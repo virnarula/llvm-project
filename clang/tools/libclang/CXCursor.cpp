@@ -643,10 +643,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_RequiresExpr;
     break;
 
-  case Stmt::CXXParenListInitExprClass:
-    K = CXCursor_CXXParenListInitExpr;
-    break;
-
   case Stmt::MSDependentExistsStmtClass:
     K = CXCursor_UnexposedStmt;
     break;
@@ -679,9 +675,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   case Stmt::OMPSectionDirectiveClass:
     K = CXCursor_OMPSectionDirective;
-    break;
-  case Stmt::OMPScopeDirectiveClass:
-    K = CXCursor_OMPScopeDirective;
     break;
   case Stmt::OMPSingleDirectiveClass:
     K = CXCursor_OMPSingleDirective;
@@ -718,9 +711,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   case Stmt::OMPTaskwaitDirectiveClass:
     K = CXCursor_OMPTaskwaitDirective;
-    break;
-  case Stmt::OMPErrorDirectiveClass:
-    K = CXCursor_OMPErrorDirective;
     break;
   case Stmt::OMPTaskgroupDirectiveClass:
     K = CXCursor_OMPTaskgroupDirective;
@@ -1466,9 +1456,6 @@ enum CXTemplateArgumentKind clang_Cursor_getTemplateArgumentKind(CXCursor C,
     return CXTemplateArgumentKind_NullPtr;
   case TemplateArgument::Integral:
     return CXTemplateArgumentKind_Integral;
-  case TemplateArgument::StructuralValue:
-    // FIXME: Expose these values.
-    return CXTemplateArgumentKind_Invalid;
   case TemplateArgument::Template:
     return CXTemplateArgumentKind_Template;
   case TemplateArgument::TemplateExpansion:

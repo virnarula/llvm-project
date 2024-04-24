@@ -11,10 +11,10 @@
 
 #include <inttypes.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 imaxdiv_t imaxdiv(intmax_t x, intmax_t y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_INTTYPES_IMAXDIV_H

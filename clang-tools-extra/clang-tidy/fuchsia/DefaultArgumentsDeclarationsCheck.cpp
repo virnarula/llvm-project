@@ -11,7 +11,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::fuchsia {
+namespace clang {
+namespace tidy {
+namespace fuchsia {
 
 void DefaultArgumentsDeclarationsCheck::registerMatchers(MatchFinder *Finder) {
   // Declaring default parameters is disallowed.
@@ -48,4 +50,6 @@ void DefaultArgumentsDeclarationsCheck::check(
       << D << FixItHint::CreateRemoval(RemovalRange);
 }
 
-} // namespace clang::tidy::fuchsia
+} // namespace fuchsia
+} // namespace tidy
+} // namespace clang

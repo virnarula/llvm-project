@@ -26,6 +26,7 @@
 #include "clang/Sema/SemaFixItUtils.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -162,9 +163,6 @@ class Sema;
     /// Arm SVE Vector conversions
     ICK_SVE_Vector_Conversion,
 
-    /// RISC-V RVV Vector conversions
-    ICK_RVV_Vector_Conversion,
-
     /// A vector splat from an arithmetic type
     ICK_Vector_Splat,
 
@@ -191,9 +189,6 @@ class Sema;
 
     /// C-only conversion between pointers with incompatible types
     ICK_Incompatible_Pointer_Conversion,
-
-    /// Fixed point type conversions according to N1169.
-    ICK_Fixed_Point_Conversion,
 
     /// The number of conversion kinds
     ICK_Num_Conversion_Kinds,
@@ -257,7 +252,10 @@ class Sema;
   /// sequence (C++ 13.3.3.1.1). A standard conversion sequence
   /// contains between zero and three conversions. If a particular
   /// conversion is not needed, it will be set to the identity conversion
-  /// (ICK_Identity).
+  /// (ICK_Identity). Note that the three conversions are
+  /// specified as separate members (rather than in an array) so that
+  /// we can keep the size of a standard conversion sequence to a
+  /// single word.
   class StandardConversionSequence {
   public:
     /// First -- The first conversion can be an lvalue-to-rvalue
@@ -1148,9 +1146,8 @@ class Sema;
 
     /// Add a new candidate with NumConversions conversion sequence slots
     /// to the overload set.
-    OverloadCandidate &
-    addCandidate(unsigned NumConversions = 0,
-                 ConversionSequenceList Conversions = std::nullopt) {
+    OverloadCandidate &addCandidate(unsigned NumConversions = 0,
+                                    ConversionSequenceList Conversions = None) {
       assert((Conversions.empty() || Conversions.size() == NumConversions) &&
              "preallocated conversion sequence has wrong length");
 

@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -15,14 +14,15 @@
 
 // path& replace_extension(path const& p = path())
 
-#include <filesystem>
-#include <cassert>
-#include <string>
+#include "filesystem_include.h"
 #include <type_traits>
+#include <cassert>
 
-#include "count_new.h"
+#include "test_macros.h"
 #include "test_iterators.h"
-namespace fs = std::filesystem;
+#include "count_new.h"
+#include "filesystem_test_helper.h"
+
 
 struct ReplaceExtensionTestcase {
   const char* value;

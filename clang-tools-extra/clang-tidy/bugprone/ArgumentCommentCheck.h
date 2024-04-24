@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "llvm/Support/Regex.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Checks that argument comments match parameter names.
 ///
@@ -56,6 +58,8 @@ private:
   bool shouldAddComment(const Expr *Arg) const;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_ARGUMENTCOMMENTCHECK_H

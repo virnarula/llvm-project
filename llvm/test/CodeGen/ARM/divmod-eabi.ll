@@ -218,7 +218,6 @@ entry:
 ; DARWIN: mov [[sum:r[0-9]+]], r0
 ; DARWIN-O0: __modsi3
 ; WINDOWS: __rt_sdiv
-; WINDOWS: mov [[arg:r[0-9]+]], r1
 ; WINDOWS: mov [[rem:r[0-9]+]], r1
   %rem1 = srem i32 %b, %rem
 ; EABI: __aeabi_idivmod

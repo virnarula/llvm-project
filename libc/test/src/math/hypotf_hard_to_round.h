@@ -11,7 +11,7 @@
 
 #include "utils/MPFRWrapper/MPFRUtils.h"
 
-namespace mpfr = LIBC_NAMESPACE::testing::mpfr;
+namespace mpfr = __llvm_libc::testing::mpfr;
 
 constexpr int N_HARD_TO_ROUND = 1217;
 constexpr mpfr::BinaryInput<float> HYPOTF_HARD_TO_ROUND[N_HARD_TO_ROUND] = {

@@ -7,4 +7,8 @@ mlir_tablegen(ArithOpsAttributes.cpp.inc -gen-attrdef-defs
               -attrdefs-dialect=arith)
 add_mlir_dialect(ArithOps arith)
 add_mlir_doc(ArithOps ArithOps Dialects/ -gen-dialect-doc)
-add_mlir_interface(ArithOpsInterfaces)
+
+set(LLVM_TARGET_DEFINITIONS ArithOpsInterfaces.td)
+mlir_tablegen(ArithOpsInterfaces.h.inc -gen-op-interface-decls)
+mlir_tablegen(ArithOpsInterfaces.cpp.inc -gen-op-interface-defs)
+add_public_tablegen_target(MLIRArithOpsInterfacesIncGen)

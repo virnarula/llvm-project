@@ -9,7 +9,6 @@
 #include "mlir/Dialect/Shape/Analysis/ShapeMappingAnalysis.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
-#include <optional>
 
 using namespace mlir;
 
@@ -24,10 +23,10 @@ struct TestShapeMappingPass
     return "Print the contents of a constructed shape mapping information.";
   }
   void runOnOperation() override {
-    std::optional<std::reference_wrapper<shape::ShapeMappingAnalysis>>
+    llvm::Optional<std::reference_wrapper<shape::ShapeMappingAnalysis>>
         maybeAnalysis = getCachedAnalysis<shape::ShapeMappingAnalysis>();
     if (maybeAnalysis.has_value())
-      maybeAnalysis->get().print(llvm::errs());
+      maybeAnalysis.value().get().print(llvm::errs());
     else
       llvm::errs() << "No cached ShapeMappingAnalysis existed.";
   }

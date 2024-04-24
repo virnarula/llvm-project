@@ -9,26 +9,27 @@
 #include "SuspiciousMemoryComparisonCheck.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
-static std::optional<uint64_t> tryEvaluateSizeExpr(const Expr *SizeExpr,
-                                                   const ASTContext &Ctx) {
+static llvm::Optional<uint64_t> tryEvaluateSizeExpr(const Expr *SizeExpr,
+                                                    const ASTContext &Ctx) {
   Expr::EvalResult Result;
   if (SizeExpr->EvaluateAsRValue(Result, Ctx))
     return Ctx.toBits(
         CharUnits::fromQuantity(Result.Val.getInt().getExtValue()));
-  return std::nullopt;
+  return None;
 }
 
 void SuspiciousMemoryComparisonCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
-      callExpr(callee(namedDecl(
-                   anyOf(hasName("::memcmp"), hasName("::std::memcmp")))),
-               unless(isInstantiationDependent()))
+      callExpr(allOf(callee(namedDecl(
+                         anyOf(hasName("::memcmp"), hasName("::std::memcmp")))),
+                     unless(isInstantiationDependent())))
           .bind("call"),
       this);
 }
@@ -40,7 +41,7 @@ void SuspiciousMemoryComparisonCheck::check(
 
   const Expr *SizeExpr = CE->getArg(2);
   assert(SizeExpr != nullptr && "Third argument of memcmp is mandatory.");
-  std::optional<uint64_t> ComparedBits = tryEvaluateSizeExpr(SizeExpr, Ctx);
+  llvm::Optional<uint64_t> ComparedBits = tryEvaluateSizeExpr(SizeExpr, Ctx);
 
   for (unsigned int ArgIndex = 0; ArgIndex < 2; ++ArgIndex) {
     const Expr *ArgExpr = CE->getArg(ArgIndex);
@@ -79,4 +80,6 @@ void SuspiciousMemoryComparisonCheck::check(
   }
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

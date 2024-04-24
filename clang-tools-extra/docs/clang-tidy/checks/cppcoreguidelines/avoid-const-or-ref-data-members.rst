@@ -3,10 +3,9 @@
 cppcoreguidelines-avoid-const-or-ref-data-members
 =================================================
 
-This check warns when structs or classes that are copyable or movable, and have
-const-qualified or reference (lvalue or rvalue) data members. Having such
-members is rarely useful, and makes the class only copy-constructible but not
-copy-assignable.
+This check warns when structs or classes have const-qualified or reference
+(lvalue or rvalue) data members. Having such members is rarely useful, and
+makes the class only copy-constructible but not copy-assignable.
 
 Examples:
 
@@ -43,9 +42,8 @@ Examples:
     int&& x;
   };
 
-This check implements `C.12
-<https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-constref>`_
-from the C++ Core Guidelines.
+The check implements
+`rule C.12 of C++ Core Guidelines <https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#c12-dont-make-data-members-const-or-references>`_.
 
 Further reading:
 `Data members: Never const <https://quuxplusone.github.io/blog/2022/01/23/dont-const-all-the-things/#data-members-never-const>`_.

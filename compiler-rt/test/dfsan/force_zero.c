@@ -1,5 +1,7 @@
 // RUN: %clang_dfsan %s -fsanitize-ignorelist=%S/Inputs/flags_abilist.txt -DFORCE_ZERO_LABELS -o %t && %run %t
 // RUN: %clang_dfsan %s -o %t && %run %t
+//
+// REQUIRES: x86_64-target-arch
 
 #include <sanitizer/dfsan_interface.h>
 

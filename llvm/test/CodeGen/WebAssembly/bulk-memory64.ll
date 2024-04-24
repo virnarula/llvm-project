@@ -1,18 +1,21 @@
-; RUN: llc < %s -asm-verbose=false -verify-machineinstrs -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -mcpu=mvp -mattr=+bulk-memory | FileCheck %s --check-prefixes CHECK,BULK-MEM
-; RUN: llc < %s -asm-verbose=false -verify-machineinstrs -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -mcpu=mvp -mattr=-bulk-memory | FileCheck %s --check-prefixes CHECK,NO-BULK-MEM
+; RUN: llc < %s -asm-verbose=false -verify-machineinstrs -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -mattr=+bulk-memory | FileCheck %s --check-prefixes CHECK,BULK-MEM
+; RUN: llc < %s -asm-verbose=false -verify-machineinstrs -disable-wasm-fallthrough-return-opt -wasm-disable-explicit-locals -wasm-keep-registers -mattr=-bulk-memory | FileCheck %s --check-prefixes CHECK,NO-BULK-MEM
 
 ; Test that basic bulk memory codegen works correctly
 
 target triple = "wasm64-unknown-unknown"
 
-declare void @llvm.memcpy.p0.p0.i8(ptr, ptr, i8, i1)
-declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
+declare void @llvm.memcpy.p0i8.p0i8.i8(i8*, i8*, i8, i1)
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare void @llvm.memcpy.p0i32.p0i32.i64(i32*, i32*, i64, i1)
 
-declare void @llvm.memmove.p0.p0.i8(ptr, ptr, i8, i1)
-declare void @llvm.memmove.p0.p0.i64(ptr, ptr, i64, i1)
+declare void @llvm.memmove.p0i8.p0i8.i8(i8*, i8*, i8, i1)
+declare void @llvm.memmove.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare void @llvm.memmove.p0i32.p0i32.i64(i32*, i32*, i64, i1)
 
-declare void @llvm.memset.p0.i8(ptr, i8, i8, i1)
-declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
+declare void @llvm.memset.p0i8.i8(i8*, i8, i8, i1)
+declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+declare void @llvm.memset.p0i32.i64(i32*, i8, i64, i1)
 
 ; CHECK-LABEL: memcpy_i8:
 ; NO-BULK-MEM-NOT: memory.copy
@@ -20,8 +23,8 @@ declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 ; BULK-MEM-NEXT: i64.extend_i32_u $push0=, $2
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $1, $pop0
 ; BULK-MEM-NEXT: return
-define void @memcpy_i8(ptr %dest, ptr %src, i8 zeroext %len) {
-  call void @llvm.memcpy.p0.p0.i8(ptr %dest, ptr %src, i8 %len, i1 0)
+define void @memcpy_i8(i8* %dest, i8* %src, i8 zeroext %len) {
+  call void @llvm.memcpy.p0i8.p0i8.i8(i8* %dest, i8* %src, i8 %len, i1 0)
   ret void
 }
 
@@ -31,8 +34,8 @@ define void @memcpy_i8(ptr %dest, ptr %src, i8 zeroext %len) {
 ; BULK-MEM-NEXT: i64.extend_i32_u $push0=, $2
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $1, $pop0
 ; BULK-MEM-NEXT: return
-define void @memmove_i8(ptr %dest, ptr %src, i8 zeroext %len) {
-  call void @llvm.memmove.p0.p0.i8(ptr %dest, ptr %src, i8 %len, i1 0)
+define void @memmove_i8(i8* %dest, i8* %src, i8 zeroext %len) {
+  call void @llvm.memmove.p0i8.p0i8.i8(i8* %dest, i8* %src, i8 %len, i1 0)
   ret void
 }
 
@@ -42,8 +45,8 @@ define void @memmove_i8(ptr %dest, ptr %src, i8 zeroext %len) {
 ; BULK-MEM-NEXT: i64.extend_i32_u $push0=, $2
 ; BULK-MEM-NEXT: memory.fill 0, $0, $1, $pop0
 ; BULK-MEM-NEXT: return
-define void @memset_i8(ptr %dest, i8 %val, i8 zeroext %len) {
-  call void @llvm.memset.p0.i8(ptr %dest, i8 %val, i8 %len, i1 0)
+define void @memset_i8(i8* %dest, i8 %val, i8 zeroext %len) {
+  call void @llvm.memset.p0i8.i8(i8* %dest, i8 %val, i8 %len, i1 0)
   ret void
 }
 
@@ -52,8 +55,8 @@ define void @memset_i8(ptr %dest, i8 %val, i8 zeroext %len) {
 ; BULK-MEM-NEXT: .functype memcpy_i32 (i64, i64, i64) -> ()
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $1, $2
 ; BULK-MEM-NEXT: return
-define void @memcpy_i32(ptr %dest, ptr %src, i64 %len) {
-  call void @llvm.memcpy.p0.p0.i64(ptr %dest, ptr %src, i64 %len, i1 0)
+define void @memcpy_i32(i32* %dest, i32* %src, i64 %len) {
+  call void @llvm.memcpy.p0i32.p0i32.i64(i32* %dest, i32* %src, i64 %len, i1 0)
   ret void
 }
 
@@ -62,8 +65,8 @@ define void @memcpy_i32(ptr %dest, ptr %src, i64 %len) {
 ; BULK-MEM-NEXT: .functype memmove_i32 (i64, i64, i64) -> ()
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $1, $2
 ; BULK-MEM-NEXT: return
-define void @memmove_i32(ptr %dest, ptr %src, i64 %len) {
-  call void @llvm.memmove.p0.p0.i64(ptr %dest, ptr %src, i64 %len, i1 0)
+define void @memmove_i32(i32* %dest, i32* %src, i64 %len) {
+  call void @llvm.memmove.p0i32.p0i32.i64(i32* %dest, i32* %src, i64 %len, i1 0)
   ret void
 }
 
@@ -72,8 +75,8 @@ define void @memmove_i32(ptr %dest, ptr %src, i64 %len) {
 ; BULK-MEM-NEXT: .functype memset_i32 (i64, i32, i64) -> ()
 ; BULK-MEM-NEXT: memory.fill 0, $0, $1, $2
 ; BULK-MEM-NEXT: return
-define void @memset_i32(ptr %dest, i8 %val, i64 %len) {
-  call void @llvm.memset.p0.i64(ptr %dest, i8 %val, i64 %len, i1 0)
+define void @memset_i32(i32* %dest, i8 %val, i64 %len) {
+  call void @llvm.memset.p0i32.i64(i32* %dest, i8 %val, i64 %len, i1 0)
   ret void
 }
 
@@ -82,8 +85,8 @@ define void @memset_i32(ptr %dest, i8 %val, i64 %len) {
 ; CHECK-NEXT: i32.load8_u $push[[L0:[0-9]+]]=, 0($1)
 ; CHECK-NEXT: i32.store8 0($0), $pop[[L0]]
 ; CHECK-NEXT: return
-define void @memcpy_1(ptr %dest, ptr %src) {
-  call void @llvm.memcpy.p0.p0.i64(ptr %dest, ptr %src, i64 1, i1 0)
+define void @memcpy_1(i8* %dest, i8* %src) {
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest, i8* %src, i64 1, i1 0)
   ret void
 }
 
@@ -92,8 +95,8 @@ define void @memcpy_1(ptr %dest, ptr %src) {
 ; CHECK-NEXT: i32.load8_u $push[[L0:[0-9]+]]=, 0($1)
 ; CHECK-NEXT: i32.store8 0($0), $pop[[L0]]
 ; CHECK-NEXT: return
-define void @memmove_1(ptr %dest, ptr %src) {
-  call void @llvm.memmove.p0.p0.i64(ptr %dest, ptr %src, i64 1, i1 0)
+define void @memmove_1(i8* %dest, i8* %src) {
+  call void @llvm.memmove.p0i8.p0i8.i64(i8* %dest, i8* %src, i64 1, i1 0)
   ret void
 }
 
@@ -102,8 +105,8 @@ define void @memmove_1(ptr %dest, ptr %src) {
 ; BULK-MEM-NEXT: .functype memset_1 (i64, i32) -> ()
 ; BULK-MEM-NEXT: i32.store8 0($0), $1
 ; BULK-MEM-NEXT: return
-define void @memset_1(ptr %dest, i8 %val) {
-  call void @llvm.memset.p0.i64(ptr %dest, i8 %val, i64 1, i1 0)
+define void @memset_1(i8* %dest, i8 %val) {
+  call void @llvm.memset.p0i8.i64(i8* %dest, i8 %val, i64 1, i1 0)
   ret void
 }
 
@@ -113,8 +116,8 @@ define void @memset_1(ptr %dest, i8 %val) {
 ; BULK-MEM-NEXT: i64.const $push[[L0:[0-9]+]]=, 1024
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $1, $pop[[L0]]
 ; BULK-MEM-NEXT: return
-define void @memcpy_1024(ptr %dest, ptr %src) {
-  call void @llvm.memcpy.p0.p0.i64(ptr %dest, ptr %src, i64 1024, i1 0)
+define void @memcpy_1024(i8* %dest, i8* %src) {
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest, i8* %src, i64 1024, i1 0)
   ret void
 }
 
@@ -124,8 +127,8 @@ define void @memcpy_1024(ptr %dest, ptr %src) {
 ; BULK-MEM-NEXT: i64.const $push[[L0:[0-9]+]]=, 1024
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $1, $pop[[L0]]
 ; BULK-MEM-NEXT: return
-define void @memmove_1024(ptr %dest, ptr %src) {
-  call void @llvm.memmove.p0.p0.i64(ptr %dest, ptr %src, i64 1024, i1 0)
+define void @memmove_1024(i8* %dest, i8* %src) {
+  call void @llvm.memmove.p0i8.p0i8.i64(i8* %dest, i8* %src, i64 1024, i1 0)
   ret void
 }
 
@@ -135,8 +138,8 @@ define void @memmove_1024(ptr %dest, ptr %src) {
 ; BULK-MEM-NEXT: i64.const $push[[L0:[0-9]+]]=, 1024
 ; BULK-MEM-NEXT: memory.fill 0, $0, $1, $pop[[L0]]
 ; BULK-MEM-NEXT: return
-define void @memset_1024(ptr %dest, i8 %val) {
-  call void @llvm.memset.p0.i64(ptr %dest, i8 %val, i64 1024, i1 0)
+define void @memset_1024(i8* %dest, i8 %val) {
+  call void @llvm.memset.p0i8.i64(i8* %dest, i8 %val, i64 1024, i1 0)
   ret void
 }
 
@@ -162,9 +165,10 @@ define void @memset_1024(ptr %dest, i8 %val) {
 ; BULK-MEM-NEXT: i64.const $push[[L5:[0-9]+]]=, 100
 ; BULK-MEM-NEXT: memory.copy 0, 0, $0, $pop[[L4]], $pop[[L5]]
 ; BULK-MEM-NEXT: return
-define void @memcpy_alloca_src(ptr %dst) {
+define void @memcpy_alloca_src(i8* %dst) {
   %a = alloca [100 x i8]
-  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %a, i64 100, i1 false)
+  %p = bitcast [100 x i8]* %a to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dst, i8* %p, i64 100, i1 false)
   ret void
 }
 
@@ -179,9 +183,10 @@ define void @memcpy_alloca_src(ptr %dst) {
 ; BULK-MEM-NEXT: i64.const $push[[L5:[0-9]+]]=, 100
 ; BULK-MEM-NEXT: memory.copy 0, 0, $pop[[L4]], $0, $pop[[L5]]
 ; BULK-MEM-NEXT: return
-define void @memcpy_alloca_dst(ptr %src) {
+define void @memcpy_alloca_dst(i8* %src) {
   %a = alloca [100 x i8]
-  call void @llvm.memcpy.p0.p0.i64(ptr %a, ptr %src, i64 100, i1 false)
+  %p = bitcast [100 x i8]* %a to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p, i8* %src, i64 100, i1 false)
   ret void
 }
 
@@ -198,6 +203,7 @@ define void @memcpy_alloca_dst(ptr %src) {
 ; BULK-MEM-NEXT: return
 define void @memset_alloca(i8 %val) {
   %a = alloca [100 x i8]
-  call void @llvm.memset.p0.i64(ptr %a, i8 %val, i64 100, i1 false)
+  %p = bitcast [100 x i8]* %a to i8*
+  call void @llvm.memset.p0i8.i64(i8* %p, i8 %val, i64 100, i1 false)
   ret void
 }

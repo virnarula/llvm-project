@@ -67,7 +67,7 @@ FUNC_GEN(bar, const int *, unsigned);
         },
         {
           "kind": "text",
-          "spelling": "();"
+          "spelling": "()"
         }
       ],
       "functionSignature": {
@@ -89,8 +89,8 @@ FUNC_GEN(bar, const int *, unsigned);
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 2
+          "character": 1,
+          "line": 3
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -173,7 +173,7 @@ FUNC_GEN(bar, const int *, unsigned);
         },
         {
           "kind": "text",
-          "spelling": ");"
+          "spelling": ")"
         }
       ],
       "functionSignature": {
@@ -241,8 +241,8 @@ FUNC_GEN(bar, const int *, unsigned);
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 3
+          "character": 1,
+          "line": 4
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -291,8 +291,8 @@ FUNC_GEN(bar, const int *, unsigned);
       },
       "location": {
         "position": {
-          "character": 8,
-          "line": 0
+          "character": 9,
+          "line": 1
         },
         "uri": "file://INPUT_DIR/input.h"
       },

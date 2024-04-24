@@ -77,8 +77,5 @@ FILE *FileSystem::Fopen(const char *path, const char *mode) {
 }
 
 int FileSystem::Open(const char *path, int flags, int mode) {
-  // Call ::open in a lambda to avoid overload resolution in RetryAfterSignal
-  // when open is overloaded, such as in Bionic.
-  auto lambda = [&]() { return ::open(path, flags, mode); };
-  return llvm::sys::RetryAfterSignal(-1, lambda);
+  return llvm::sys::RetryAfterSignal(-1, ::open, path, flags, mode);
 }

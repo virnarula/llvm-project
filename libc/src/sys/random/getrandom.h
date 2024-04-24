@@ -11,10 +11,10 @@
 
 #include <sys/random.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SYS_RANDOM_GETRANDOM_H

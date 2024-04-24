@@ -23,8 +23,10 @@
 
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 
@@ -97,6 +99,26 @@ private:
   SmallPtrSet<Use *, 16> DeadUses;
 };
 
+class DemandedBitsWrapperPass : public FunctionPass {
+private:
+  mutable Optional<DemandedBits> DB;
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+
+  DemandedBitsWrapperPass();
+
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  /// Clean up memory in between runs
+  void releaseMemory() override;
+
+  DemandedBits &getDemandedBits() { return *DB; }
+
+  void print(raw_ostream &OS, const Module *M) const override;
+};
+
 /// An analysis that produces \c DemandedBits for a function.
 class DemandedBitsAnalysis : public AnalysisInfoMixin<DemandedBitsAnalysis> {
   friend AnalysisInfoMixin<DemandedBitsAnalysis>;
@@ -120,9 +142,10 @@ public:
   explicit DemandedBitsPrinterPass(raw_ostream &OS) : OS(OS) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-
-  static bool isRequired() { return true; }
 };
+
+/// Create a demanded bits analysis pass.
+FunctionPass *createDemandedBitsWrapperPass();
 
 } // end namespace llvm
 

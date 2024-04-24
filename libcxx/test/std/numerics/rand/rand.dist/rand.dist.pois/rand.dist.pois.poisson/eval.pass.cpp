@@ -15,13 +15,13 @@
 
 // template<class _URNG> result_type operator()(_URNG& g);
 
+#include <random>
+
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <limits>
-#include <numeric>
-#include <random>
 #include <vector>
+#include <numeric>
 
 #include "test_macros.h"
 

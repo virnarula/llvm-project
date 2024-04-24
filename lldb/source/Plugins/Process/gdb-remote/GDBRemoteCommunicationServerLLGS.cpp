@@ -10,10 +10,10 @@
 
 #include "lldb/Host/Config.h"
 
+
 #include <chrono>
 #include <cstring>
 #include <limits>
-#include <optional>
 #include <thread>
 
 #include "GDBRemoteCommunicationServerLLGS.h"
@@ -37,13 +37,14 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
+#include "lldb/Utility/RegisterValue.h"
 #include "lldb/Utility/State.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/UnimplementedError.h"
 #include "lldb/Utility/UriParser.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/ScopedPrinter.h"
-#include "llvm/TargetParser/Triple.h"
 
 #include "ProcessGDBRemote.h"
 #include "ProcessGDBRemoteLog.h"
@@ -68,9 +69,9 @@ enum GDBRemoteServerError {
 
 // GDBRemoteCommunicationServerLLGS constructor
 GDBRemoteCommunicationServerLLGS::GDBRemoteCommunicationServerLLGS(
-    MainLoop &mainloop, NativeProcessProtocol::Manager &process_manager)
+    MainLoop &mainloop, const NativeProcessProtocol::Factory &process_factory)
     : GDBRemoteCommunicationServerCommon(), m_mainloop(mainloop),
-      m_process_manager(process_manager), m_current_process(nullptr),
+      m_process_factory(process_factory), m_current_process(nullptr),
       m_continue_process(nullptr), m_stdio_communication() {
   RegisterPacketHandlers();
 }
@@ -285,7 +286,8 @@ Status GDBRemoteCommunicationServerLLGS::LaunchProcess() {
     std::lock_guard<std::recursive_mutex> guard(m_debugged_process_mutex);
     assert(m_debugged_processes.empty() && "lldb-server creating debugged "
                                            "process but one already exists");
-    auto process_or = m_process_manager.Launch(m_process_launch_info, *this);
+    auto process_or =
+        m_process_factory.Launch(m_process_launch_info, *this, m_mainloop);
     if (!process_or)
       return Status(process_or.takeError());
     m_continue_process = m_current_process = process_or->get();
@@ -354,7 +356,7 @@ Status GDBRemoteCommunicationServerLLGS::AttachToProcess(lldb::pid_t pid) {
                   pid, m_current_process->GetID());
 
   // Try to attach.
-  auto process_or = m_process_manager.Attach(pid, *this);
+  auto process_or = m_process_factory.Attach(pid, *this, m_mainloop);
   if (!process_or) {
     Status status(process_or.takeError());
     llvm::errs() << llvm::formatv("failed to attach to process {0}: {1}\n", pid,
@@ -595,8 +597,6 @@ static llvm::StringRef GetKindGenericOrEmpty(const RegisterInfo &reg_info) {
     return "arg7";
   case LLDB_REGNUM_GENERIC_ARG8:
     return "arg8";
-  case LLDB_REGNUM_GENERIC_TP:
-    return "tp";
   default:
     return "";
   }
@@ -633,13 +633,13 @@ static void WriteRegisterValueInHexFixedWidth(
   } else {
     // Zero-out any unreadable values.
     if (reg_info.byte_size > 0) {
-      std::vector<uint8_t> zeros(reg_info.byte_size, '\0');
+      std::basic_string<uint8_t> zeros(reg_info.byte_size, '\0');
       AppendHexValue(response, zeros.data(), zeros.size(), false);
     }
   }
 }
 
-static std::optional<json::Object>
+static llvm::Optional<json::Object>
 GetRegistersAsJSON(NativeThreadProtocol &thread) {
   Log *log = GetLog(LLDBLog::Thread);
 
@@ -655,7 +655,7 @@ GetRegistersAsJSON(NativeThreadProtocol &thread) {
       reg_ctx.GetExpeditedRegisters(ExpeditedRegs::Minimal);
 #endif
   if (expedited_regs.empty())
-    return std::nullopt;
+    return llvm::None;
 
   for (auto &reg_num : expedited_regs) {
     const RegisterInfo *const reg_info_p =
@@ -753,7 +753,7 @@ GetJSONThreadsInfo(NativeProcessProtocol &process, bool abridged) {
     json::Object thread_obj;
 
     if (!abridged) {
-      if (std::optional<json::Object> registers = GetRegistersAsJSON(thread))
+      if (llvm::Optional<json::Object> registers = GetRegistersAsJSON(thread))
         thread_obj.try_emplace("registers", std::move(*registers));
     }
 
@@ -2267,7 +2267,8 @@ GDBRemoteCommunicationServerLLGS::Handle_P(StringExtractorGDBRemote &packet) {
         packet, "P packet missing '=' char after register number");
 
   // Parse out the value.
-  size_t reg_size = packet.GetHexBytesAvail(m_reg_bytes);
+  uint8_t reg_bytes[RegisterValue::kMaxRegisterByteSize];
+  size_t reg_size = packet.GetHexBytesAvail(reg_bytes);
 
   // Get the thread to use.
   NativeThreadProtocol *thread = GetThreadFromSuffix(packet);
@@ -2306,7 +2307,7 @@ GDBRemoteCommunicationServerLLGS::Handle_P(StringExtractorGDBRemote &packet) {
   // Build the reginfos response.
   StreamGDBRemote response;
 
-  RegisterValue reg_value(ArrayRef<uint8_t>(m_reg_bytes, reg_size),
+  RegisterValue reg_value(makeArrayRef(reg_bytes, reg_size),
                           m_current_process->GetArchitecture().GetByteOrder());
   Status error = reg_context.WriteRegister(reg_info, reg_value);
   if (error.Fail()) {
@@ -3094,12 +3095,6 @@ GDBRemoteCommunicationServerLLGS::BuildTargetXml() {
       continue;
     }
 
-    if (reg_info->flags_type) {
-      response.IndentMore();
-      reg_info->flags_type->ToXML(response);
-      response.IndentLess();
-    }
-
     response.Indent();
     response.Printf("<reg name=\"%s\" bitsize=\"%" PRIu32
                     "\" regnum=\"%d\" ",
@@ -3118,9 +3113,6 @@ GDBRemoteCommunicationServerLLGS::BuildTargetXml() {
     llvm::StringRef format = GetFormatNameOrEmpty(*reg_info);
     if (!format.empty())
       response << "format=\"" << format << "\" ";
-
-    if (reg_info->flags_type)
-      response << "type=\"" << reg_info->flags_type->GetID() << "\" ";
 
     const char *const register_set_name =
         reg_context.GetRegisterSetNameForRegisterAtIndex(reg_index);
@@ -3666,7 +3658,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qWatchpointSupportInfo(
   auto hw_debug_cap = m_current_process->GetHardwareDebugSupportInfo();
 
   StreamGDBRemote response;
-  if (hw_debug_cap == std::nullopt)
+  if (hw_debug_cap == llvm::None)
     response.Printf("num:0;");
   else
     response.Printf("num:%d;", hw_debug_cap->second);
@@ -3921,7 +3913,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qSaveCore(
   std::string path_hint;
 
   StringRef packet_str{packet.GetStringRef()};
-  assert(packet_str.starts_with("qSaveCore"));
+  assert(packet_str.startswith("qSaveCore"));
   if (packet_str.consume_front("qSaveCore;")) {
     for (auto x : llvm::split(packet_str, ';')) {
       if (x.consume_front("path-hint:"))
@@ -3947,7 +3939,7 @@ GDBRemoteCommunicationServerLLGS::Handle_QNonStop(
   Log *log = GetLog(LLDBLog::Process);
 
   StringRef packet_str{packet.GetStringRef()};
-  assert(packet_str.starts_with("QNonStop:"));
+  assert(packet_str.startswith("QNonStop:"));
   packet_str.consume_front("QNonStop:");
   if (packet_str == "0") {
     if (m_non_stop)
@@ -4217,7 +4209,7 @@ std::vector<std::string> GDBRemoteCommunicationServerLLGS::HandleFeatures(
 
   // report server-only features
   using Extension = NativeProcessProtocol::Extension;
-  Extension plugin_features = m_process_manager.GetSupportedExtensions();
+  Extension plugin_features = m_process_factory.GetSupportedExtensions();
   if (bool(plugin_features & Extension::pass_signals))
     ret.push_back("QPassSignals+");
   if (bool(plugin_features & Extension::auxv))
@@ -4263,7 +4255,7 @@ std::vector<std::string> GDBRemoteCommunicationServerLLGS::HandleFeatures(
 void GDBRemoteCommunicationServerLLGS::SetEnabledExtensions(
     NativeProcessProtocol &process) {
   NativeProcessProtocol::Extension flags = m_extensions_supported;
-  assert(!bool(flags & ~m_process_manager.GetSupportedExtensions()));
+  assert(!bool(flags & ~m_process_factory.GetSupportedExtensions()));
   process.SetEnabledExtensions(flags);
 }
 
@@ -4287,7 +4279,7 @@ std::string
 lldb_private::process_gdb_remote::LLGSArgToURL(llvm::StringRef url_arg,
                                                bool reverse_connect) {
   // Try parsing the argument as URL.
-  if (std::optional<URI> url = URI::Parse(url_arg)) {
+  if (llvm::Optional<URI> url = URI::Parse(url_arg)) {
     if (reverse_connect)
       return url_arg.str();
 
@@ -4306,7 +4298,7 @@ lldb_private::process_gdb_remote::LLGSArgToURL(llvm::StringRef url_arg,
   std::string host_port = url_arg.str();
   // If host_and_port starts with ':', default the host to be "localhost" and
   // expect the remainder to be the port.
-  if (url_arg.starts_with(":"))
+  if (url_arg.startswith(":"))
     host_port.insert(0, "localhost");
 
   // Try parsing the (preprocessed) argument as host:port pair.

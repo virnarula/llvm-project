@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 static const char DifferentEnumErrorMessage[] =
     "enum values are from different enum types";
@@ -60,7 +62,7 @@ static bool hasDisjointValueRange(const EnumDecl *Enum1,
 }
 
 static bool isNonPowerOf2NorNullLiteral(const EnumConstantDecl *EnumConst) {
-  const llvm::APSInt &Val = EnumConst->getInitVal();
+  llvm::APSInt Val = EnumConst->getInitVal();
   if (Val.isPowerOf2() || !Val.getBoolValue())
     return false;
   const Expr *InitExpr = EnumConst->getInitExpr();
@@ -77,7 +79,7 @@ static bool isMaxValAllBitSetLiteral(const EnumDecl *EnumDec) {
       });
 
   if (const Expr *InitExpr = EnumConst->getInitExpr()) {
-    return EnumConst->getInitVal().countr_one() ==
+    return EnumConst->getInitVal().countTrailingOnes() ==
                EnumConst->getInitVal().getActiveBits() &&
            isa<IntegerLiteral>(InitExpr->IgnoreImpCasts());
   }
@@ -206,4 +208,6 @@ void SuspiciousEnumUsageCheck::check(const MatchFinder::MatchResult &Result) {
   checkSuspiciousBitmaskUsage(RhsExpr, EnumDec);
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

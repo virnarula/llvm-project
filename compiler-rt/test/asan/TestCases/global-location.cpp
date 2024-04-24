@@ -5,10 +5,7 @@
 // RUN: not %run %t l 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL
 
 // COFF doesn't support debuginfo for globals. For the non-debuginfo tests, see global-location-nodebug.cpp.
-// XFAIL: target={{.*windows-msvc.*}}
-
-// FIXME: Investigate failure on MinGW
-// XFAIL: target={{.*-windows-gnu}}
+// XFAIL: windows-msvc
 
 // atos doesn't show source line numbers for global variables.
 // UNSUPPORTED: darwin

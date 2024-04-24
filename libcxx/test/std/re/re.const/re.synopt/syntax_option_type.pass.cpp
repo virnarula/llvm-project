@@ -11,7 +11,7 @@
 // namespace regex_constants
 // {
 //
-// enum syntax_option_type  // bitmask type
+// emum syntax_option_type  // bitmask type
 // {
 //     icase      = unspecified,
 //     nosubs     = unspecified,

@@ -32,18 +32,14 @@ intermediate LLVM representation.
    DebuggingJITedCode
    DirectXUsage
    Docker
-   FatLTO
    ExtendingLLVM
-   GitHub
    GoldPlugin
-   GlobalISel/MIRPatterns
    HowToBuildOnARM
    HowToBuildWithPGO
    HowToBuildWindowsItaniumPrograms
    HowToCrossCompileBuiltinsOnArm
    HowToCrossCompileLLVM
    HowToUpdateDebugInfo
-   InstrProfileFormat
    InstrRefDebugInfo
    LinkTimeOptimization
    LoopTerminology
@@ -62,7 +58,6 @@ intermediate LLVM representation.
    ReportingGuide
    ResponseGuide
    Remarks
-   RemoveDIsDebugInfo
    RISCVUsage
    SourceLevelDebugging
    SPIRVUsage
@@ -179,13 +174,6 @@ Optimizations
    referencing, to determine variable locations for debug info in the final
    stages of compilation.
 
-:doc:`RemoveDIsDebugInfo`
-   This is a migration guide describing how to move from debug info using
-   intrinsics such as dbg.value to using the non-instruction DPValue object.
-
-:doc:`InstrProfileFormat`
-   This document explains two binary formats of instrumentation-based profiles.
-
 Code Generation
 ---------------
 
@@ -200,13 +188,6 @@ Code Generation
 :doc:`TableGen <TableGen/index>`
    Describes the TableGen tool, which is used heavily by the LLVM code
    generator.
-
-==========
-GlobalISel
-==========
-
-:doc:`MIRPatterns <GlobalISel/MIRPatterns>`
-   Describes the design of MIR Patterns and how to use them.
 
 ===
 JIT
@@ -279,3 +260,4 @@ Additional Topics
 
 :doc:`RISCVUsage`
    This document describes using the RISCV-V target.
+

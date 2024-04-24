@@ -13,13 +13,13 @@
 #ifndef BOLT_REWRITE_MACHO_REWRITE_INSTANCE_H
 #define BOLT_REWRITE_MACHO_REWRITE_INSTANCE_H
 
-#include "bolt/Core/Linker.h"
 #include "bolt/Utils/NameResolver.h"
 #include "llvm/Support/Error.h"
 #include <memory>
 
 namespace llvm {
 class ToolOutputFile;
+class RuntimeDyld;
 class raw_pwrite_stream;
 namespace object {
 class MachOObjectFile;
@@ -37,7 +37,7 @@ class MachORewriteInstance {
 
   NameResolver NR;
 
-  std::unique_ptr<BOLTLinker> Linker;
+  std::unique_ptr<RuntimeDyld> RTDyld;
 
   std::unique_ptr<ToolOutputFile> Out;
 
@@ -49,9 +49,8 @@ class MachORewriteInstance {
   static StringRef getNewSecPrefix() { return ".bolt.new"; }
   static StringRef getOrgSecPrefix() { return ".bolt.org"; }
 
-  void mapInstrumentationSection(StringRef SectionName,
-                                 BOLTLinker::SectionMapper MapSection);
-  void mapCodeSections(BOLTLinker::SectionMapper MapSection);
+  void mapInstrumentationSection(StringRef SectionName);
+  void mapCodeSections();
 
   void adjustCommandLineOptions();
   void readSpecialSections();
@@ -69,12 +68,13 @@ class MachORewriteInstance {
 public:
   // This constructor has complex initialization that can fail during
   // construction. Constructors can’t return errors, so clients must test \p Err
-  // after the object is constructed. Use `create` method instead.
+  // after the object is constructed. Use createMachORewriteInstance instead.
   MachORewriteInstance(object::MachOObjectFile *InputFile, StringRef ToolPath,
                        Error &Err);
 
   static Expected<std::unique_ptr<MachORewriteInstance>>
-  create(object::MachOObjectFile *InputFile, StringRef ToolPath);
+  createMachORewriteInstance(object::MachOObjectFile *InputFile,
+                             StringRef ToolPath);
   ~MachORewriteInstance();
 
   Error setProfile(StringRef FileName);

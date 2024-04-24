@@ -116,7 +116,7 @@ public:
     auto loc = alloca.getLoc();
     mlir::Type varTy = alloca.getInType();
     auto unpackName =
-        [](std::optional<llvm::StringRef> opt) -> llvm::StringRef {
+        [](llvm::Optional<llvm::StringRef> opt) -> llvm::StringRef {
       if (opt)
         return *opt;
       return {};

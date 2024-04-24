@@ -41,7 +41,6 @@ void StringTableBuilder::initSize() {
   case MachO:
   case MachO64:
   case ELF:
-  case DXContainer:
     // Start the table with a NUL byte.
     Size = 1;
     break;
@@ -53,7 +52,7 @@ void StringTableBuilder::initSize() {
   }
 }
 
-StringTableBuilder::StringTableBuilder(Kind K, Align Alignment)
+StringTableBuilder::StringTableBuilder(Kind K, unsigned Alignment)
     : K(K), Alignment(Alignment) {
   initSize();
 }
@@ -150,9 +149,9 @@ void StringTableBuilder::finalizeStringTable(bool Optimize) {
     StringRef Previous;
     for (StringPair *P : Strings) {
       StringRef S = P->first.val();
-      if (Previous.ends_with(S)) {
+      if (Previous.endswith(S)) {
         size_t Pos = Size - S.size() - (K != RAW);
-        if (isAligned(Alignment, Pos)) {
+        if (!(Pos & (Alignment - 1))) {
           P->second = Pos;
           continue;
         }
@@ -168,7 +167,7 @@ void StringTableBuilder::finalizeStringTable(bool Optimize) {
     }
   }
 
-  if (K == MachO || K == MachOLinked || K == DXContainer)
+  if (K == MachO || K == MachOLinked)
     Size = alignTo(Size, 4); // Pad to multiple of 4.
   if (K == MachO64 || K == MachO64Linked)
     Size = alignTo(Size, 8); // Pad to multiple of 8.

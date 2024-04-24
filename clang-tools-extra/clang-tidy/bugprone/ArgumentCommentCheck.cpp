@@ -16,7 +16,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 namespace {
 AST_MATCHER(Decl, isFromStdNamespaceOrSystemHeader) {
   if (const auto *D = Node.getDeclContext()->getEnclosingNamespaceContext())
@@ -185,7 +187,7 @@ static bool sameName(StringRef InComment, StringRef InDecl, bool StrictMode) {
 static bool looksLikeExpectMethod(const CXXMethodDecl *Expect) {
   return Expect != nullptr && Expect->getLocation().isMacroID() &&
          Expect->getNameInfo().getName().isIdentifier() &&
-         Expect->getName().starts_with("gmock_");
+         Expect->getName().startswith("gmock_");
 }
 static bool areMockAndExpectMethods(const CXXMethodDecl *Mock,
                                     const CXXMethodDecl *Expect) {
@@ -351,7 +353,7 @@ void ArgumentCommentCheck::check(const MatchFinder::MatchResult &Result) {
       return;
 
     checkCallArgs(Result.Context, Callee, Call->getCallee()->getEndLoc(),
-                  llvm::ArrayRef(Call->getArgs(), Call->getNumArgs()));
+                  llvm::makeArrayRef(Call->getArgs(), Call->getNumArgs()));
   } else {
     const auto *Construct = cast<CXXConstructExpr>(E);
     if (Construct->getNumArgs() > 0 &&
@@ -362,8 +364,10 @@ void ArgumentCommentCheck::check(const MatchFinder::MatchResult &Result) {
     checkCallArgs(
         Result.Context, Construct->getConstructor(),
         Construct->getParenOrBraceRange().getBegin(),
-        llvm::ArrayRef(Construct->getArgs(), Construct->getNumArgs()));
+        llvm::makeArrayRef(Construct->getArgs(), Construct->getNumArgs()));
   }
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

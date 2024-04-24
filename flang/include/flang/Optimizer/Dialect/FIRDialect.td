@@ -26,14 +26,6 @@ def fir_Dialect : Dialect {
   let cppNamespace = "::fir";
   let useDefaultTypePrinterParser = 0;
   let useDefaultAttributePrinterParser = 0;
-  let usePropertiesForAttributes = 1;
-  let dependentDialects = [
-    // Arith dialect provides FastMathFlagsAttr
-    // supported by some FIR operations.
-    "arith::ArithDialect",
-    // TBAA Tag types
-    "LLVM::LLVMDialect"
-  ];
 }
 
 #endif // FORTRAN_DIALECT_FIR_DIALECT

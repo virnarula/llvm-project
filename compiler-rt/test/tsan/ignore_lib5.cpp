@@ -9,7 +9,7 @@
 // RUN: %env_tsan_opts=suppressions='%s.supp' %run %t-dir/executable 2>&1 | FileCheck %s --check-prefix=CHECK-WITHSUPP
 
 // REQUIRES: stable-runtime
-// UNSUPPORTED: target=powerpc64le{{.*}}
+// UNSUPPORTED: powerpc64le
 // FIXME: This test occasionally fails on powerpc64 LE possibly starting with
 // r279664.  Re-enable the test once the problem(s) have been fixed.
 
@@ -19,7 +19,7 @@
 // This was caused by non-atomicity of reading of /proc/self/maps.
 
 // ReadProcMaps() on NetBSD does not handle >=1MB of memory layout information
-// UNSUPPORTED: target={{.*netbsd.*}}
+// UNSUPPORTED: netbsd
 
 #ifndef LIB
 

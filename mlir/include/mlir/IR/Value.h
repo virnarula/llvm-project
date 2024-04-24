@@ -71,14 +71,6 @@ public:
 protected:
   ValueImpl(Type type, Kind kind) : typeAndKind(type, kind) {}
 
-  /// Expose a few methods explicitly for the debugger to call for
-  /// visualization.
-#ifndef NDEBUG
-  LLVM_DUMP_METHOD Type debug_getType() const { return getType(); }
-  LLVM_DUMP_METHOD Kind debug_getKind() const { return getKind(); }
-
-#endif
-
   /// The type of this result and the kind.
   llvm::PointerIntPair<Type, 3, Kind> typeAndKind;
 };
@@ -90,9 +82,6 @@ protected:
 /// class has value-type semantics and is just a simple wrapper around a
 /// ValueImpl that is either owner by a block(in the case of a BlockArgument) or
 /// an Operation(in the case of an OpResult).
-/// As most IR construct, this isn't const-correct, but we keep method
-/// consistent and as such method that immediately modify this Value aren't
-/// marked `const` (include modifying the Value use-list).
 class Value {
 public:
   constexpr Value(detail::ValueImpl *impl = nullptr) : impl(impl) {}
@@ -161,25 +150,26 @@ public:
   //===--------------------------------------------------------------------===//
 
   /// Drop all uses of this object from their respective owners.
-  void dropAllUses() { return impl->dropAllUses(); }
+  void dropAllUses() const { return impl->dropAllUses(); }
 
   /// Replace all uses of 'this' value with the new value, updating anything in
   /// the IR that uses 'this' to use the other value instead.  When this returns
   /// there are zero uses of 'this'.
-  void replaceAllUsesWith(Value newValue) {
+  void replaceAllUsesWith(Value newValue) const {
     impl->replaceAllUsesWith(newValue);
   }
 
   /// Replace all uses of 'this' value with 'newValue', updating anything in the
   /// IR that uses 'this' to use the other value instead except if the user is
   /// listed in 'exceptions' .
-  void replaceAllUsesExcept(Value newValue,
-                            const SmallPtrSetImpl<Operation *> &exceptions);
+  void
+  replaceAllUsesExcept(Value newValue,
+                       const SmallPtrSetImpl<Operation *> &exceptions) const;
 
   /// Replace all uses of 'this' value with 'newValue', updating anything in the
   /// IR that uses 'this' to use the other value instead except if the user is
   /// 'exceptedUser'.
-  void replaceAllUsesExcept(Value newValue, Operation *exceptedUser);
+  void replaceAllUsesExcept(Value newValue, Operation *exceptedUser) const;
 
   /// Replace all uses of 'this' value with 'newValue' if the given callback
   /// returns true.
@@ -187,12 +177,7 @@ public:
                          function_ref<bool(OpOperand &)> shouldReplace);
 
   /// Returns true if the value is used outside of the given block.
-  bool isUsedOutsideOfBlock(Block *block) const;
-
-  /// Shuffle the use list order according to the provided indices. It is
-  /// responsibility of the caller to make sure that the indices map the current
-  /// use-list chain to another valid use-list chain.
-  void shuffleUseList(ArrayRef<unsigned> indices);
+  bool isUsedOutsideOfBlock(Block *block);
 
   //===--------------------------------------------------------------------===//
   // Uses
@@ -226,14 +211,13 @@ public:
   //===--------------------------------------------------------------------===//
   // Utilities
 
-  void print(raw_ostream &os) const;
-  void print(raw_ostream &os, const OpPrintingFlags &flags) const;
-  void print(raw_ostream &os, AsmState &state) const;
-  void dump() const;
+  void print(raw_ostream &os);
+  void print(raw_ostream &os, const OpPrintingFlags &flags);
+  void print(raw_ostream &os, AsmState &state);
+  void dump();
 
   /// Print this value as if it were an operand.
-  void printAsOperand(raw_ostream &os, AsmState &state) const;
-  void printAsOperand(raw_ostream &os, const OpPrintingFlags &flags) const;
+  void printAsOperand(raw_ostream &os, AsmState &state);
 
   /// Methods for supporting PointerLikeTypeTraits.
   void *getAsOpaquePointer() const { return impl; }
@@ -269,9 +253,6 @@ public:
 
   /// Return which operand this is in the OpOperand list of the Operation.
   unsigned getOperandNumber();
-
-  /// Set the current value being used by this operand.
-  void assign(Value value) { set(value); }
 
 private:
   /// Keep the constructor private and accessible to the OperandStorage class
@@ -438,13 +419,21 @@ inline unsigned OpResultImpl::getResultNumber() const {
 /// TypedValue can be null/empty
 template <typename Ty>
 struct TypedValue : Value {
-  using Value::Value;
-
-  static bool classof(Value value) { return llvm::isa<Ty>(value.getType()); }
-
   /// Return the known Type
-  Ty getType() const { return llvm::cast<Ty>(Value::getType()); }
-  void setType(Ty ty) { Value::setType(ty); }
+  Ty getType() { return Value::getType().template cast<Ty>(); }
+  void setType(mlir::Type ty) {
+    assert(ty.template isa<Ty>());
+    Value::setType(ty);
+  }
+
+  TypedValue(Value val) : Value(val) {
+    assert(!val || val.getType().template isa<Ty>());
+  }
+  TypedValue &operator=(const Value &other) {
+    assert(!other || other.getType().template isa<Ty>());
+    Value::operator=(other);
+    return *this;
+  }
 };
 
 } // namespace detail
@@ -534,18 +523,6 @@ struct DenseMapInfo<mlir::OpResult> : public DenseMapInfo<mlir::Value> {
     return reinterpret_cast<mlir::detail::OpResultImpl *>(pointer);
   }
 };
-template <typename T>
-struct DenseMapInfo<mlir::detail::TypedValue<T>>
-    : public DenseMapInfo<mlir::Value> {
-  static mlir::detail::TypedValue<T> getEmptyKey() {
-    void *pointer = llvm::DenseMapInfo<void *>::getEmptyKey();
-    return reinterpret_cast<mlir::detail::ValueImpl *>(pointer);
-  }
-  static mlir::detail::TypedValue<T> getTombstoneKey() {
-    void *pointer = llvm::DenseMapInfo<void *>::getTombstoneKey();
-    return reinterpret_cast<mlir::detail::ValueImpl *>(pointer);
-  }
-};
 
 /// Allow stealing the low bits of a value.
 template <>
@@ -578,14 +555,6 @@ public:
     return reinterpret_cast<mlir::detail::OpResultImpl *>(pointer);
   }
 };
-template <typename T>
-struct PointerLikeTypeTraits<mlir::detail::TypedValue<T>>
-    : public PointerLikeTypeTraits<mlir::Value> {
-public:
-  static inline mlir::detail::TypedValue<T> getFromVoidPointer(void *pointer) {
-    return reinterpret_cast<mlir::detail::ValueImpl *>(pointer);
-  }
-};
 
 /// Add support for llvm style casts. We provide a cast between To and From if
 /// From is mlir::Value or derives from it.
@@ -606,11 +575,8 @@ struct CastInfo<
   static inline bool isPossible(mlir::Value ty) {
     /// Return a constant true instead of a dynamic true when casting to self or
     /// up the hierarchy.
-    if constexpr (std::is_base_of_v<To, From>) {
-      return true;
-    } else {
-      return To::classof(ty);
-    }
+    return std::is_same_v<To, std::remove_const_t<From>> ||
+           std::is_base_of_v<To, From> || To::classof(ty);
   }
   static inline To doCast(mlir::Value value) { return To(value.getImpl()); }
 };

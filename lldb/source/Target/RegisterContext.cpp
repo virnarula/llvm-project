@@ -109,12 +109,6 @@ uint64_t RegisterContext::GetPC(uint64_t fail_value) {
   return pc;
 }
 
-uint64_t RegisterContext::GetThreadPointer(uint64_t fail_value) {
-  uint32_t reg = ConvertRegisterKindToRegisterNumber(eRegisterKindGeneric,
-                                                     LLDB_REGNUM_GENERIC_TP);
-  return ReadRegisterAsUnsigned(reg, fail_value);
-}
-
 bool RegisterContext::SetPC(uint64_t pc) {
   uint32_t reg = ConvertRegisterKindToRegisterNumber(eRegisterKindGeneric,
                                                      LLDB_REGNUM_GENERIC_PC);
@@ -326,6 +320,11 @@ Status RegisterContext::ReadRegisterValueFromMemory(
   //   |AABB| Address contents
   //   |AABB0000| Register contents [on little-endian hardware]
   //   |0000AABB| Register contents [on big-endian hardware]
+  if (src_len > RegisterValue::kMaxRegisterByteSize) {
+    error.SetErrorString("register too small to receive memory data");
+    return error;
+  }
+
   const uint32_t dst_len = reg_info->byte_size;
 
   if (src_len > dst_len) {
@@ -337,11 +336,11 @@ Status RegisterContext::ReadRegisterValueFromMemory(
 
   ProcessSP process_sp(m_thread.GetProcess());
   if (process_sp) {
-    RegisterValue::BytesContainer src(src_len);
+    uint8_t src[RegisterValue::kMaxRegisterByteSize];
 
     // Read the memory
     const uint32_t bytes_read =
-        process_sp->ReadMemory(src_addr, src.data(), src_len, error);
+        process_sp->ReadMemory(src_addr, src, src_len, error);
 
     // Make sure the memory read succeeded...
     if (bytes_read != src_len) {
@@ -358,7 +357,7 @@ Status RegisterContext::ReadRegisterValueFromMemory(
     // TODO: we might need to add a parameter to this function in case the byte
     // order of the memory data doesn't match the process. For now we are
     // assuming they are the same.
-    reg_value.SetFromMemoryData(*reg_info, src.data(), src_len,
+    reg_value.SetFromMemoryData(*reg_info, src, src_len,
                                 process_sp->GetByteOrder(), error);
   } else
     error.SetErrorString("invalid process");
@@ -385,16 +384,16 @@ Status RegisterContext::WriteRegisterValueToMemory(
   // TODO: we might need to add a parameter to this function in case the byte
   // order of the memory data doesn't match the process. For now we are
   // assuming they are the same.
-  RegisterValue::BytesContainer dst(dst_len);
+  uint8_t dst[RegisterValue::kMaxRegisterByteSize];
   const uint32_t bytes_copied = reg_value.GetAsMemoryData(
-      *reg_info, dst.data(), dst_len, process_sp->GetByteOrder(), error);
+      *reg_info, dst, dst_len, process_sp->GetByteOrder(), error);
 
   if (error.Success()) {
     if (bytes_copied == 0) {
       error.SetErrorString("byte copy failed.");
     } else {
       const uint32_t bytes_written =
-          process_sp->WriteMemory(dst_addr, dst.data(), bytes_copied, error);
+          process_sp->WriteMemory(dst_addr, dst, bytes_copied, error);
       if (bytes_written != bytes_copied) {
         if (error.Success()) {
           // This might happen if we read _some_ bytes but not all

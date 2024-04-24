@@ -19,7 +19,9 @@
 using namespace ::clang::ast_matchers;
 using namespace ::clang::transformer;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 RewriteRuleWith<std::string> CleanupCtadCheckImpl() {
   auto warning_message = cat("prefer absl::Cleanup's class template argument "
@@ -40,4 +42,6 @@ RewriteRuleWith<std::string> CleanupCtadCheckImpl() {
 CleanupCtadCheck::CleanupCtadCheck(StringRef Name, ClangTidyContext *Context)
     : utils::TransformerClangTidyCheck(CleanupCtadCheckImpl(), Name, Context) {}
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

@@ -13,15 +13,15 @@
 #include <errno.h>
 #include <threads.h> // For thrd_* type definitions.
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-static_assert(sizeof(thrd_t) == sizeof(LIBC_NAMESPACE::Thread),
+static_assert(sizeof(thrd_t) == sizeof(__llvm_libc::Thread),
               "Mismatch between thrd_t and internal Thread.");
 
 LLVM_LIBC_FUNCTION(int, thrd_create,
                    (thrd_t * th, thrd_start_t func, void *arg)) {
-  auto *thread = reinterpret_cast<LIBC_NAMESPACE::Thread *>(th);
-  int result = thread->run(func, arg);
+  auto *thread = reinterpret_cast<__llvm_libc::Thread *>(th);
+  int result = thread->run(func, arg, nullptr, 0);
   if (result == 0)
     return thrd_success;
   else if (result == ENOMEM)
@@ -30,4 +30,4 @@ LLVM_LIBC_FUNCTION(int, thrd_create,
     return thrd_error;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

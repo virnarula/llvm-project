@@ -18,6 +18,7 @@
 #include "SPIRVGlobalRegistry.h"
 #include "SPIRVUtils.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
@@ -43,13 +44,13 @@ enum ModuleSectionType {
 
 struct Requirements {
   const bool IsSatisfiable;
-  const std::optional<Capability::Capability> Cap;
+  const Optional<Capability::Capability> Cap;
   const ExtensionList Exts;
   const unsigned MinVer; // 0 if no min version is required.
   const unsigned MaxVer; // 0 if no max version is required.
 
   Requirements(bool IsSatisfiable = false,
-               std::optional<Capability::Capability> Cap = {},
+               Optional<Capability::Capability> Cap = {},
                ExtensionList Exts = {}, unsigned MinVer = 0,
                unsigned MaxVer = 0)
       : IsSatisfiable(IsSatisfiable), Cap(Cap), Exts(Exts), MinVer(MinVer),
@@ -60,23 +61,14 @@ struct Requirements {
 struct RequirementHandler {
 private:
   CapabilityList MinimalCaps;
-
-  // AllCaps and AvailableCaps are related but different. AllCaps is a subset of
-  // AvailableCaps. AvailableCaps is the complete set of capabilities that are
-  // available to the current target. AllCaps is the set of capabilities that
-  // are required by the current module.
   SmallSet<Capability::Capability, 8> AllCaps;
-  DenseSet<unsigned> AvailableCaps;
-
   SmallSet<Extension::Extension, 4> AllExtensions;
   unsigned MinVersion; // 0 if no min version is defined.
   unsigned MaxVersion; // 0 if no max version is defined.
+  DenseSet<unsigned> AvailableCaps;
   // Remove a list of capabilities from dedupedCaps and add them to AllCaps,
   // recursing through their implicitly declared capabilities too.
   void pruneCapabilities(const CapabilityList &ToPrune);
-
-  void initAvailableCapabilitiesForOpenCL(const SPIRVSubtarget &ST);
-  void initAvailableCapabilitiesForVulkan(const SPIRVSubtarget &ST);
 
 public:
   RequirementHandler() : MinVersion(0), MaxVersion(0) {}
@@ -119,10 +111,6 @@ public:
   bool isCapabilityAvailable(Capability::Capability Cap) const {
     return AvailableCaps.contains(Cap);
   }
-
-  // Remove capability ToRemove, but only if IfPresent is present.
-  void removeCapabilityIf(const Capability::Capability ToRemove,
-                          const Capability::Capability IfPresent);
 };
 
 using InstrList = SmallVector<MachineInstr *>;
@@ -144,11 +132,14 @@ struct ModuleAnalysisInfo {
   DenseMap<unsigned, Register> ExtInstSetMap;
   // Contains the list of all global OpVariables in the module.
   SmallVector<MachineInstr *, 4> GlobalVarList;
-  // Maps functions to corresponding function ID registers.
-  DenseMap<const Function *, Register> FuncMap;
+  // Maps function names to coresponding function ID registers.
+  StringMap<Register> FuncNameMap;
   // The set contains machine instructions which are necessary
   // for correct MIR but will not be emitted in function bodies.
   DenseSet<MachineInstr *> InstrsToDelete;
+  // The set contains machine basic blocks which are necessary
+  // for correct MIR but will not be emitted.
+  DenseSet<MachineBasicBlock *> MBBsToSkip;
   // The table contains global aliases of local registers for each machine
   // function. The aliases are used to substitute local registers during
   // code emission.
@@ -162,9 +153,9 @@ struct ModuleAnalysisInfo {
 
   Register getFuncReg(const Function *F) {
     assert(F && "Function is null");
-    auto FuncPtrRegPair = FuncMap.find(F);
-    assert(FuncPtrRegPair != FuncMap.end() && "Cannot find function ID");
-    return FuncPtrRegPair->second;
+    auto FuncReg = FuncNameMap.find(getFunctionGlobalIdentifier(F));
+    assert(FuncReg != FuncNameMap.end() && "Cannot find function Id");
+    return FuncReg->second;
   }
   Register getExtInstSetReg(unsigned SetNum) { return ExtInstSetMap[SetNum]; }
   InstrList &getMSInstrs(unsigned MSType) { return MS[MSType]; }
@@ -189,7 +180,7 @@ struct ModuleAnalysisInfo {
   }
   unsigned getNextID() { return MaxID++; }
   bool hasMBBRegister(const MachineBasicBlock &MBB) {
-    return BBNumToRegMap.contains(MBB.getNumber());
+    return BBNumToRegMap.find(MBB.getNumber()) != BBNumToRegMap.end();
   }
   // Convert MBB's number to corresponding ID register.
   Register getOrCreateMBBRegister(const MachineBasicBlock &MBB) {
@@ -221,7 +212,7 @@ private:
       std::function<bool(const SPIRV::DTSortableEntry *)> Pred,
       bool UsePreOrder);
   void processDefInstrs(const Module &M);
-  void collectFuncNames(MachineInstr &MI, const Function *F);
+  void collectFuncNames(MachineInstr &MI, const Function &F);
   void processOtherInstrs(const Module &M);
   void numberRegistersGlobally(const Module &M);
 

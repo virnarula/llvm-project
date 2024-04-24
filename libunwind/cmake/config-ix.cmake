@@ -11,11 +11,7 @@ include(CheckCSourceCompiles)
 # --unwindlib=none is supported, and use that if possible.
 llvm_check_compiler_linker_flag(C "--unwindlib=none" CXX_SUPPORTS_UNWINDLIB_EQ_NONE_FLAG)
 
-if (HAIKU)
-  check_library_exists(root fopen "" LIBUNWIND_HAS_ROOT_LIB)
-else()
-  check_library_exists(c fopen "" LIBUNWIND_HAS_C_LIB)
-endif()
+check_library_exists(c fopen "" LIBUNWIND_HAS_C_LIB)
 
 if (NOT LIBUNWIND_USE_COMPILER_RT)
   if (ANDROID)
@@ -45,14 +41,9 @@ else()
   endif()
 endif()
 
-# Only link against compiler-rt manually if we use -nodefaultlibs, since
-# otherwise the compiler will do the right thing on its own.
-if (NOT CXX_SUPPORTS_NOSTDLIBXX_FLAG AND C_SUPPORTS_NODEFAULTLIBS_FLAG)
+if (CXX_SUPPORTS_NOSTDLIBXX_FLAG OR C_SUPPORTS_NODEFAULTLIBS_FLAG)
   if (LIBUNWIND_HAS_C_LIB)
     list(APPEND CMAKE_REQUIRED_LIBRARIES c)
-  endif ()
-  if (LIBUNWIND_HAS_ROOT_LIB)
-    list(APPEND CMAKE_REQUIRED_LIBRARIES root)
   endif ()
   if (LIBUNWIND_USE_COMPILER_RT)
     include(HandleCompilerRT)
@@ -80,9 +71,6 @@ if (NOT CXX_SUPPORTS_NOSTDLIBXX_FLAG AND C_SUPPORTS_NODEFAULTLIBS_FLAG)
                         moldname mingwex msvcrt)
     list(APPEND CMAKE_REQUIRED_LIBRARIES ${MINGW_LIBRARIES})
   endif()
-endif()
-
-if (CXX_SUPPORTS_NOSTDLIBXX_FLAG OR C_SUPPORTS_NODEFAULTLIBS_FLAG)
   if (CMAKE_C_FLAGS MATCHES -fsanitize OR CMAKE_CXX_FLAGS MATCHES -fsanitize)
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fno-sanitize=all")
   endif ()
@@ -97,7 +85,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -Werror=unknown-pragmas")
   check_c_source_compiles("
 #pragma comment(lib, \"c\")
-int main(void) { return 0; }
+int main() { return 0; }
 " C_SUPPORTS_COMMENT_LIB_PRAGMA)
   cmake_pop_check_state()
 endif()
@@ -122,8 +110,4 @@ if(FUCHSIA)
 else()
   check_library_exists(dl dladdr "" LIBUNWIND_HAS_DL_LIB)
   check_library_exists(pthread pthread_once "" LIBUNWIND_HAS_PTHREAD_LIB)
-endif()
-
-if(HAIKU)
-  check_library_exists(bsd dl_iterate_phdr "" LIBUNWIND_HAS_BSD_LIB)
 endif()

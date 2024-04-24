@@ -4,7 +4,6 @@ add_lldb_unittest(UtilityTests
   OptionsWithRawTest.cpp
   ArchSpecTest.cpp
   BroadcasterTest.cpp
-  ChecksumTest.cpp
   ConstStringTest.cpp
   CompletionRequestTest.cpp
   DataBufferTest.cpp
@@ -53,13 +52,8 @@ add_lldb_unittest(UtilityTests
       LLVMTestingSupport
   LINK_COMPONENTS
     Support
-    TargetParser
   )
 
-set(test_inputs
+add_unittest_inputs(UtilityTests
   StructuredData-basic.json
-  StructuredData-nested.json
-  StructuredData-full.json
   )
-
-add_unittest_inputs(UtilityTests "${test_inputs}")

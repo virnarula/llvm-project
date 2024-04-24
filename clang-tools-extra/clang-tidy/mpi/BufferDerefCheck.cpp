@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::mpi {
+namespace clang {
+namespace tidy {
+namespace mpi {
 
 void BufferDerefCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(callExpr().bind("CE"), this);
@@ -126,4 +128,6 @@ void BufferDerefCheck::checkBuffers(ArrayRef<const Type *> BufferTypes,
 }
 
 void BufferDerefCheck::onEndOfTranslationUnit() { FuncClassifier.reset(); }
-} // namespace clang::tidy::mpi
+} // namespace mpi
+} // namespace tidy
+} // namespace clang

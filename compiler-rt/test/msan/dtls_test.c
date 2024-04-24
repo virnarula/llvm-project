@@ -6,11 +6,15 @@
    see https://sourceware.org/bugzilla/show_bug.cgi?id=16291
    and https://github.com/google/sanitizers/issues/547
 
-   XFAIL: target={{.*freebsd.*}}
-   UNSUPPORTED: target=powerpc{{.*}}
+   XFAIL: FreeBSD
+   UNSUPPORTED: powerpc
 
    // Reports use-of-uninitialized-value, not analyzed
-   XFAIL: target={{.*netbsd.*}}
+   XFAIL: netbsd
+
+   // This is known to be broken with glibc-2.27+
+   // https://bugs.llvm.org/show_bug.cgi?id=37804
+   XFAIL: glibc-2.27
 
 */
 

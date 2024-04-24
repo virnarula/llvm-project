@@ -12,7 +12,7 @@ define void @f() prologue i32 1 {
   ret void
 }
 
-; CHECK: g(){{.*}}prologue ptr @i
-define void @g() prologue ptr @i {
+; CHECK: g(){{.*}}prologue i32* @i
+define void @g() prologue i32* @i {
   ret void
 }

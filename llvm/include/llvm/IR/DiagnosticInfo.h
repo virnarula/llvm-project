@@ -16,6 +16,7 @@
 
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
@@ -28,7 +29,6 @@
 #include <cstdint>
 #include <functional>
 #include <iterator>
-#include <optional>
 #include <string>
 
 namespace llvm {
@@ -479,8 +479,8 @@ public:
   StringRef getPassName() const { return PassName; }
   StringRef getRemarkName() const { return RemarkName; }
   std::string getMsg() const;
-  std::optional<uint64_t> getHotness() const { return Hotness; }
-  void setHotness(std::optional<uint64_t> H) { Hotness = H; }
+  Optional<uint64_t> getHotness() const { return Hotness; }
+  void setHotness(Optional<uint64_t> H) { Hotness = H; }
 
   bool isVerbose() const { return IsVerbose; }
 
@@ -521,7 +521,7 @@ protected:
 
   /// If profile information is available, this is the number of times the
   /// corresponding code was executed in a profile instrumentation run.
-  std::optional<uint64_t> Hotness;
+  Optional<uint64_t> Hotness;
 
   /// Arguments collected via the streaming interface.
   SmallVector<Argument, 4> Args;

@@ -14,7 +14,6 @@ list(APPEND PLUGIN_PLATFORM_MACOSX_SOURCES
   PlatformRemoteAppleBridge.cpp
   PlatformRemoteAppleTV.cpp
   PlatformRemoteAppleWatch.cpp
-  PlatformRemoteAppleXR.cpp
   PlatformRemoteDarwinDevice.cpp
   PlatformRemoteMacOSX.cpp
   PlatformRemoteiOS.cpp
@@ -53,7 +52,6 @@ add_lldb_library(lldbPluginPlatformMacOSX PLUGIN
     clangBasic
   LINK_COMPONENTS
     Support
-    TargetParser
     )
 
 add_dependencies(lldbPluginPlatformMacOSX

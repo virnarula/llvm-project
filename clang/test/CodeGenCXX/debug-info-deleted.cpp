@@ -11,8 +11,6 @@
 // ATTR: DISubprogram(name: "operator=", linkageName: "_ZN7deletedaSERKS_", {{.*}}, flags: DIFlagPublic | DIFlagPrototyped, spFlags: DISPFlagDeleted
 // ATTR: DISubprogram(name: "deleted", {{.*}}, flags: DIFlagPublic | DIFlagPrototyped, spFlags: DISPFlagDeleted
 // ATTR: DISubprogram(name: "operator=", linkageName: "_ZN7deletedaSEOS_", {{.*}}, flags: DIFlagPublic | DIFlagPrototyped, spFlags: DISPFlagDeleted
-// ATTR: DISubprogram(name: "func", {{.*}}, flags: DIFlagPublic | DIFlagPrototyped | DIFlagRValueReference, spFlags: DISPFlagDeleted
-// ATTR: DISubprogram(name: "bar", {{.*}}, flags: DIFlagPublic | DIFlagPrototyped | DIFlagStaticMember, spFlags: DISPFlagDeleted
 // ATTR: DISubprogram(name: "~deleted", {{.*}}, flags: DIFlagPublic | DIFlagPrototyped,
 class deleted {
 public:
@@ -24,9 +22,6 @@ public:
 
   deleted(deleted &&) = delete;
   deleted &operator=(deleted &&) = delete;
-
-  void func() && = delete;
-  static int bar() = delete;
 
   ~deleted() = default;
 };

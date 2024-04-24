@@ -13,7 +13,7 @@
 #ifndef LLVM_CODEGEN_REGISTERBANK_H
 #define LLVM_CODEGEN_REGISTERBANK_H
 
-#include <cstdint>
+#include "llvm/ADT/BitVector.h"
 
 namespace llvm {
 // Forward declarations.
@@ -28,18 +28,20 @@ class TargetRegisterInfo;
 class RegisterBank {
 private:
   unsigned ID;
-  unsigned NumRegClasses;
   const char *Name;
-  const uint32_t *CoveredClasses;
+  unsigned Size;
+  BitVector ContainedRegClasses;
+
+  /// Sentinel value used to recognize register bank not properly
+  /// initialized yet.
+  static const unsigned InvalidID;
 
   /// Only the RegisterBankInfo can initialize RegisterBank properly.
   friend RegisterBankInfo;
 
 public:
-  constexpr RegisterBank(unsigned ID, const char *Name,
-                         const uint32_t *CoveredClasses, unsigned NumRegClasses)
-      : ID(ID), NumRegClasses(NumRegClasses), Name(Name),
-        CoveredClasses(CoveredClasses) {}
+  RegisterBank(unsigned ID, const char *Name, unsigned Size,
+               const uint32_t *CoveredClasses, unsigned NumRegClasses);
 
   /// Get the identifier of this register bank.
   unsigned getID() const { return ID; }
@@ -48,17 +50,24 @@ public:
   /// Should be used only for debugging purposes.
   const char *getName() const { return Name; }
 
+  /// Get the maximal size in bits that fits in this register bank.
+  unsigned getSize() const { return Size; }
+
+  /// Check whether this instance is ready to be used.
+  bool isValid() const;
+
   /// Check if this register bank is valid. In other words,
   /// if it has been properly constructed.
   ///
   /// \note This method does not check anything when assertions are disabled.
   ///
   /// \return True is the check was successful.
-  bool verify(const RegisterBankInfo &RBI, const TargetRegisterInfo &TRI) const;
+  bool verify(const TargetRegisterInfo &TRI) const;
 
   /// Check whether this register bank covers \p RC.
   /// In other words, check if this register bank fully covers
   /// the registers that \p RC contains.
+  /// \pre isValid()
   bool covers(const TargetRegisterClass &RC) const;
 
   /// Check whether \p OtherRB is the same as this.

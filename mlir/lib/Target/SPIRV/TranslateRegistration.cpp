@@ -49,9 +49,19 @@ deserializeModule(const llvm::MemoryBuffer *input, MLIRContext *context) {
     return {};
   }
 
-  auto binary = llvm::ArrayRef(reinterpret_cast<const uint32_t *>(start),
-                               size / sizeof(uint32_t));
-  return spirv::deserialize(binary, context);
+  auto binary = llvm::makeArrayRef(reinterpret_cast<const uint32_t *>(start),
+                                   size / sizeof(uint32_t));
+
+  OwningOpRef<spirv::ModuleOp> spirvModule =
+      spirv::deserialize(binary, context);
+  if (!spirvModule)
+    return {};
+
+  OwningOpRef<ModuleOp> module(ModuleOp::create(FileLineColLoc::get(
+      context, input->getBufferIdentifier(), /*line=*/0, /*column=*/0)));
+  module->getBody()->push_front(spirvModule.release());
+
+  return std::move(module);
 }
 
 namespace mlir {
@@ -70,10 +80,22 @@ void registerFromSPIRVTranslation() {
 // Serialization registration
 //===----------------------------------------------------------------------===//
 
-static LogicalResult serializeModule(spirv::ModuleOp module,
-                                     raw_ostream &output) {
+static LogicalResult serializeModule(ModuleOp module, raw_ostream &output) {
+  if (!module)
+    return failure();
+
   SmallVector<uint32_t, 0> binary;
-  if (failed(spirv::serialize(module, binary)))
+
+  SmallVector<spirv::ModuleOp, 1> spirvModules;
+  module.walk([&](spirv::ModuleOp op) { spirvModules.push_back(op); });
+
+  if (spirvModules.empty())
+    return module.emitError("found no 'spirv.module' op");
+
+  if (spirvModules.size() != 1)
+    return module.emitError("found more than one 'spirv.module' op");
+
+  if (failed(spirv::serialize(spirvModules[0], binary)))
     return failure();
 
   output.write(reinterpret_cast<char *>(binary.data()),
@@ -86,7 +108,7 @@ namespace mlir {
 void registerToSPIRVTranslation() {
   TranslateFromMLIRRegistration toBinary(
       "serialize-spirv", "serialize SPIR-V dialect",
-      [](spirv::ModuleOp module, raw_ostream &output) {
+      [](ModuleOp module, raw_ostream &output) {
         return serializeModule(module, output);
       },
       [](DialectRegistry &registry) {
@@ -99,14 +121,21 @@ void registerToSPIRVTranslation() {
 // Round-trip registration
 //===----------------------------------------------------------------------===//
 
-static LogicalResult roundTripModule(spirv::ModuleOp module, bool emitDebugInfo,
+static LogicalResult roundTripModule(ModuleOp srcModule, bool emitDebugInfo,
                                      raw_ostream &output) {
   SmallVector<uint32_t, 0> binary;
-  MLIRContext *context = module->getContext();
+  MLIRContext *context = srcModule.getContext();
+  auto spirvModules = srcModule.getOps<spirv::ModuleOp>();
+
+  if (spirvModules.begin() == spirvModules.end())
+    return srcModule.emitError("found no 'spirv.module' op");
+
+  if (std::next(spirvModules.begin()) != spirvModules.end())
+    return srcModule.emitError("found more than one 'spirv.module' op");
 
   spirv::SerializationOptions options;
   options.emitDebugInfo = emitDebugInfo;
-  if (failed(spirv::serialize(module, binary, options)))
+  if (failed(spirv::serialize(*spirvModules.begin(), binary, options)))
     return failure();
 
   MLIRContext deserializationContext(context->getDialectRegistry());
@@ -117,7 +146,15 @@ static LogicalResult roundTripModule(spirv::ModuleOp module, bool emitDebugInfo,
       spirv::deserialize(binary, &deserializationContext);
   if (!spirvModule)
     return failure();
-  spirvModule->print(output);
+
+  // Wrap around in a new MLIR module.
+  OwningOpRef<ModuleOp> dstModule(ModuleOp::create(
+      FileLineColLoc::get(&deserializationContext,
+                          /*filename=*/"", /*line=*/0, /*column=*/0)));
+  dstModule->getBody()->push_front(spirvModule.release());
+  if (failed(verify(*dstModule)))
+    return failure();
+  dstModule->print(output);
 
   return mlir::success();
 }
@@ -126,7 +163,7 @@ namespace mlir {
 void registerTestRoundtripSPIRV() {
   TranslateFromMLIRRegistration roundtrip(
       "test-spirv-roundtrip", "test roundtrip in SPIR-V dialect",
-      [](spirv::ModuleOp module, raw_ostream &output) {
+      [](ModuleOp module, raw_ostream &output) {
         return roundTripModule(module, /*emitDebugInfo=*/false, output);
       },
       [](DialectRegistry &registry) {
@@ -137,7 +174,7 @@ void registerTestRoundtripSPIRV() {
 void registerTestRoundtripDebugSPIRV() {
   TranslateFromMLIRRegistration roundtrip(
       "test-spirv-roundtrip-debug", "test roundtrip debug in SPIR-V",
-      [](spirv::ModuleOp module, raw_ostream &output) {
+      [](ModuleOp module, raw_ostream &output) {
         return roundTripModule(module, /*emitDebugInfo=*/true, output);
       },
       [](DialectRegistry &registry) {

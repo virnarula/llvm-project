@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_FMOD_H
 #define LLVM_LIBC_SRC_MATH_FMOD_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 double fmod(double x, double y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_FMOD_H

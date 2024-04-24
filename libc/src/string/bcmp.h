@@ -11,10 +11,10 @@
 
 #include <stddef.h> // size_t
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int bcmp(const void *lhs, const void *rhs, size_t count);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_BCMP_H

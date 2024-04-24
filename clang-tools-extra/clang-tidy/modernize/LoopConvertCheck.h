@@ -13,7 +13,9 @@
 #include "../utils/IncludeInserter.h"
 #include "LoopConvertUtils.h"
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 class LoopConvertCheck : public ClangTidyCheck {
 public:
@@ -29,13 +31,13 @@ public:
 
 private:
   struct RangeDescriptor {
-    RangeDescriptor() = default;
-    bool ContainerNeedsDereference = false;
-    bool DerefByConstRef = false;
-    bool DerefByValue = false;
+    RangeDescriptor();
+    bool ContainerNeedsDereference;
+    bool DerefByConstRef;
+    bool DerefByValue;
     std::string ContainerString;
     QualType ElemType;
-    bool NeedsReverseCall = false;
+    bool NeedsReverseCall;
   };
 
   void getAliasRange(SourceManager &SM, SourceRange &DeclRange);
@@ -83,6 +85,8 @@ private:
   std::string ReverseHeader;
 };
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_LOOP_CONVERT_H

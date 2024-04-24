@@ -19,6 +19,7 @@
 #include "flang/Parser/characters.h"
 #include "flang/Parser/instrumented-parser.h"
 #include "flang/Parser/provenance.h"
+#include <cctype>
 #include <cstddef>
 #include <cstring>
 #include <functional>
@@ -525,7 +526,7 @@ struct HollerithLiteral {
       int chBytes{UTF_8CharacterBytes(state.GetLocation())};
       for (int bytes{chBytes}; bytes > 0; --bytes) {
         if (std::optional<const char *> at{nextCh.Parse(state)}) {
-          if (chBytes == 1 && !IsPrintable(**at)) {
+          if (chBytes == 1 && !std::isprint(**at)) {
             state.Say(start, "Bad character in Hollerith"_err_en_US);
             return std::nullopt;
           }

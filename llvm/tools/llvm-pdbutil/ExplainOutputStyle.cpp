@@ -66,8 +66,9 @@ Error ExplainOutputStyle::explainPdbFile() {
 }
 
 Error ExplainOutputStyle::explainBinaryFile() {
-  std::unique_ptr<BinaryByteStream> Stream = std::make_unique<BinaryByteStream>(
-      File.unknown().getBuffer(), llvm::endianness::little);
+  std::unique_ptr<BinaryByteStream> Stream =
+      std::make_unique<BinaryByteStream>(File.unknown().getBuffer(),
+                                          llvm::support::little);
   switch (opts::explain::InputType) {
   case opts::explain::InputFileType::DBIStream: {
     DbiStream Dbi(std::move(Stream));
@@ -123,14 +124,14 @@ bool ExplainOutputStyle::isPdbStreamDirectoryBlock() const {
   return llvm::is_contained(Layout.DirectoryBlocks, pdbBlockIndex());
 }
 
-std::optional<uint32_t> ExplainOutputStyle::getPdbBlockStreamIndex() const {
+Optional<uint32_t> ExplainOutputStyle::getPdbBlockStreamIndex() const {
   const auto &Layout = File.pdb().getMsfLayout();
   for (const auto &Entry : enumerate(Layout.StreamMap)) {
     if (!llvm::is_contained(Entry.value(), pdbBlockIndex()))
       continue;
     return Entry.index();
   }
-  return std::nullopt;
+  return None;
 }
 
 bool ExplainOutputStyle::explainPdbBlockStatus() {

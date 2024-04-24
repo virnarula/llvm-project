@@ -7,10 +7,7 @@
 set(CMAKE_INSTALL_LIBDIR "lib")
 include(GNUInstallDirs)
 
-function(install_symlink name target outdir link_or_copy)
-  # link_or_copy is the "command" to pass to cmake -E.
-  # It should be either "create_symlink" or "copy".
-
+function(install_symlink name target outdir)
   set(DESTDIR $ENV{DESTDIR})
   if(NOT IS_ABSOLUTE "${outdir}")
     set(outdir "${CMAKE_INSTALL_PREFIX}/${outdir}")
@@ -20,7 +17,12 @@ function(install_symlink name target outdir link_or_copy)
   message(STATUS "Creating ${name}")
 
   execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E ${link_or_copy} "${target}" "${name}"
-    WORKING_DIRECTORY "${outdir}")
+    COMMAND "${CMAKE_COMMAND}" -E create_symlink "${target}" "${name}"
+    WORKING_DIRECTORY "${outdir}" ERROR_VARIABLE has_err)
+  if(CMAKE_HOST_WIN32 AND has_err)
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E copy "${target}" "${name}"
+      WORKING_DIRECTORY "${outdir}")
+  endif()
 
 endfunction()

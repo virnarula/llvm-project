@@ -19,7 +19,6 @@
 #include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/lldb-types.h"
-#include "llvm/ADT/SmallPtrSet.h"
 
 #include "IntelPTCollector.h"
 #include "NativeThreadLinux.h"
@@ -41,45 +40,20 @@ namespace process_linux {
 class NativeProcessLinux : public NativeProcessELF,
                            private NativeProcessSoftwareSingleStep {
 public:
-  class Manager : public NativeProcessProtocol::Manager {
+  class Factory : public NativeProcessProtocol::Factory {
   public:
-    Manager(MainLoop &mainloop);
+    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+    Launch(ProcessLaunchInfo &launch_info, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
 
     llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-    Launch(ProcessLaunchInfo &launch_info,
-           NativeDelegate &native_delegate) override;
-
-    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-    Attach(lldb::pid_t pid, NativeDelegate &native_delegate) override;
+    Attach(lldb::pid_t pid, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
 
     Extension GetSupportedExtensions() const override;
-
-    void AddProcess(NativeProcessLinux &process) {
-      m_processes.insert(&process);
-    }
-
-    void RemoveProcess(NativeProcessLinux &process) {
-      m_processes.erase(&process);
-    }
-
-    // Collect an event for the given tid, waiting for it if necessary.
-    void CollectThread(::pid_t tid);
-
-  private:
-    MainLoop::SignalHandleUP m_sigchld_handle;
-
-    llvm::SmallPtrSet<NativeProcessLinux *, 2> m_processes;
-
-    // Threads (events) which haven't been claimed by any process.
-    llvm::DenseSet<::pid_t> m_unowned_threads;
-
-    void SigchldHandler();
   };
 
   // NativeProcessProtocol Interface
-
-  ~NativeProcessLinux() override { m_manager.RemoveProcess(*this); }
-
   Status Resume(const ResumeActionList &resume_actions) override;
 
   Status Halt() override;
@@ -172,8 +146,9 @@ protected:
   llvm::Expected<uint64_t> Syscall(llvm::ArrayRef<uint64_t> args);
 
 private:
-  Manager &m_manager;
+  MainLoop::SignalHandleUP m_sigchld_handle;
   ArchSpec m_arch;
+  MainLoop& m_main_loop;
 
   LazyBool m_supports_mem_region = eLazyBoolCalculate;
   std::vector<std::pair<MemoryRegionInfo, FileSpec>> m_mem_region_cache;
@@ -185,7 +160,7 @@ private:
 
   // Private Instance Methods
   NativeProcessLinux(::pid_t pid, int terminal_fd, NativeDelegate &delegate,
-                     const ArchSpec &arch, Manager &manager,
+                     const ArchSpec &arch, MainLoop &mainloop,
                      llvm::ArrayRef<::pid_t> tids);
 
   // Returns a list of process threads that we have attached to.
@@ -193,9 +168,9 @@ private:
 
   static Status SetDefaultPtraceOpts(const lldb::pid_t);
 
-  bool TryHandleWaitStatus(lldb::pid_t pid, WaitStatus status);
-
   void MonitorCallback(NativeThreadLinux &thread, WaitStatus status);
+
+  void WaitForCloneNotification(::pid_t pid);
 
   void MonitorSIGTRAP(const siginfo_t &info, NativeThreadLinux &thread);
 

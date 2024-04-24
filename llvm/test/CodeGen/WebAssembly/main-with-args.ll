@@ -4,7 +4,7 @@
 
 target triple = "wasm32-unknown-unknown"
 
-define i32 @main(i32 %a, ptr %b) {
+define i32 @main(i32 %a, i8** %b) {
   ret i32 0
 }
 

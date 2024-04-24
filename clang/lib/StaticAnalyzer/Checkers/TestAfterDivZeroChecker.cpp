@@ -17,7 +17,6 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "llvm/ADT/FoldingSet.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -78,7 +77,7 @@ public:
 class TestAfterDivZeroChecker
     : public Checker<check::PreStmt<BinaryOperator>, check::BranchCondition,
                      check::EndFunction> {
-  const BugType DivZeroBug{this, "Division by zero"};
+  mutable std::unique_ptr<BuiltinBug> DivZeroBug;
   void reportBug(SVal Val, CheckerContext &C) const;
 
 public:
@@ -101,7 +100,7 @@ DivisionBRVisitor::VisitNode(const ExplodedNode *Succ, BugReporterContext &BRC,
 
   const Expr *E = nullptr;
 
-  if (std::optional<PostStmt> P = Succ->getLocationAs<PostStmt>())
+  if (Optional<PostStmt> P = Succ->getLocationAs<PostStmt>())
     if (const BinaryOperator *BO = P->getStmtAs<BinaryOperator>()) {
       BinaryOperator::Opcode Op = BO->getOpcode();
       if (Op == BO_Div || Op == BO_Rem || Op == BO_DivAssign ||
@@ -133,7 +132,7 @@ DivisionBRVisitor::VisitNode(const ExplodedNode *Succ, BugReporterContext &BRC,
 }
 
 bool TestAfterDivZeroChecker::isZero(SVal S, CheckerContext &C) const {
-  std::optional<DefinedSVal> DSV = S.getAs<DefinedSVal>();
+  Optional<DefinedSVal> DSV = S.getAs<DefinedSVal>();
 
   if (!DSV)
     return false;
@@ -165,10 +164,12 @@ bool TestAfterDivZeroChecker::hasDivZeroMap(SVal Var,
 
 void TestAfterDivZeroChecker::reportBug(SVal Val, CheckerContext &C) const {
   if (ExplodedNode *N = C.generateErrorNode(C.getState())) {
+    if (!DivZeroBug)
+      DivZeroBug.reset(new BuiltinBug(this, "Division by zero"));
+
     auto R = std::make_unique<PathSensitiveBugReport>(
-        DivZeroBug,
-        "Value being compared against zero has already been used "
-        "for division",
+        *DivZeroBug, "Value being compared against zero has already been used "
+                     "for division",
         N);
 
     R->addVisitor(std::make_unique<DivisionBRVisitor>(Val.getAsSymbol(),
@@ -186,7 +187,10 @@ void TestAfterDivZeroChecker::checkEndFunction(const ReturnStmt *,
     return;
 
   DivZeroMapTy::Factory &F = State->get_context<DivZeroMap>();
-  for (const ZeroState &ZS : DivZeroes) {
+  for (llvm::ImmutableSet<ZeroState>::iterator I = DivZeroes.begin(),
+                                               E = DivZeroes.end();
+       I != E; ++I) {
+    ZeroState ZS = *I;
     if (ZS.getStackFrameContext() == C.getStackFrame())
       DivZeroes = F.remove(DivZeroes, ZS);
   }

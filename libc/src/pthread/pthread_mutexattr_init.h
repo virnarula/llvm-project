@@ -11,10 +11,10 @@
 
 #include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int pthread_mutexattr_init(pthread_mutexattr_t *attr);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_PTHREAD_PTHREAD_MUTEXATTR_INIT_H

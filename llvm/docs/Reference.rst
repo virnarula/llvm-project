@@ -15,8 +15,6 @@ LLVM and API reference documentation.
    BranchWeightMetadata
    Bugpoint
    CommandGuide/index
-   ConvergenceAndUniformity
-   ConvergentOperations
    Coroutines
    DependenceGraphs/index
    ExceptionHandling
@@ -132,9 +130,6 @@ LLVM IR
 :doc:`GlobalISel/index`
   This describes the prototype instruction selection replacement, GlobalISel.
 
-:doc:`ConvergentOperations`
-  Description of ``convergent`` operation semantics and related intrinsics.
-
 =====================
 Testing and Debugging
 =====================
@@ -224,7 +219,3 @@ Additional Topics
 
 :doc:`YamlIO`
    A reference guide for using LLVM's YAML I/O library.
-
-:doc:`ConvergenceAndUniformity`
-   A description of uniformity analysis in the presence of irreducible
-   control flow, and its implementation.

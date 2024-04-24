@@ -34,10 +34,10 @@ $g = comdat any
 ; M1: @g = global i8 42, comdat, !type !0
 @g = global i8 42, comdat, !type !0
 
-; M0: define ptr @f()
+; M0: define i8* @f()
 ; M1-NOT: @f()
-define ptr @f() {
-  ret ptr @g
+define i8* @f() {
+  ret i8* @g
 }
 
 ; M1: !0 = !{i32 0, !"typeid"}

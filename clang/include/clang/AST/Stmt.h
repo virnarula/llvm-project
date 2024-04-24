@@ -13,21 +13,15 @@
 #ifndef LLVM_CLANG_AST_STMT_H
 #define LLVM_CLANG_AST_STMT_H
 
-#include "clang/AST/APValue.h"
 #include "clang/AST/DeclGroup.h"
 #include "clang/AST/DependenceFlags.h"
-#include "clang/AST/OperationKinds.h"
 #include "clang/AST/StmtIterator.h"
 #include "clang/Basic/CapturedStmt.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LLVM.h"
-#include "clang/Basic/Lambda.h"
 #include "clang/Basic/LangOptions.h"
-#include "clang/Basic/OperatorKinds.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
-#include "clang/Basic/TypeTraits.h"
-#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/PointerIntPair.h"
@@ -41,7 +35,6 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
-#include <optional>
 #include <string>
 
 namespace llvm {
@@ -67,13 +60,6 @@ class SourceManager;
 class StringLiteral;
 class Token;
 class VarDecl;
-enum class CharacterLiteralKind;
-enum class ConstantResultStorageKind;
-enum class CXXConstructionKind;
-enum class CXXNewInitializationStyle;
-enum class PredefinedIdentKind;
-enum class SourceLocIdentKind;
-enum class StringLiteralKind;
 
 //===----------------------------------------------------------------------===//
 // AST classes for statements.
@@ -115,7 +101,6 @@ protected:
     friend class Stmt;
 
     /// The statement class.
-    LLVM_PREFERRED_TYPE(StmtClass)
     unsigned sClass : 8;
   };
   enum { NumStmtBits = 8 };
@@ -125,7 +110,6 @@ protected:
     friend class ASTStmtWriter;
     friend class NullStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// True if the null statement was preceded by an empty macro, e.g:
@@ -133,7 +117,6 @@ protected:
     ///   #define CALL(x)
     ///   CALL(0);
     /// @endcode
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasLeadingEmptyMacro : 1;
 
     /// The location of the semi-colon.
@@ -144,12 +127,10 @@ protected:
     friend class ASTStmtReader;
     friend class CompoundStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// True if the compound statement has one or more pragmas that set some
     /// floating-point features.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFPFeatures : 1;
 
     unsigned NumStmts;
@@ -158,7 +139,6 @@ protected:
   class LabelStmtBitfields {
     friend class LabelStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     SourceLocation IdentLoc;
@@ -168,7 +148,6 @@ protected:
     friend class ASTStmtReader;
     friend class AttributedStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// Number of attributes.
@@ -182,23 +161,18 @@ protected:
     friend class ASTStmtReader;
     friend class IfStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// Whether this is a constexpr if, or a consteval if, or neither.
-    LLVM_PREFERRED_TYPE(IfStatementKind)
     unsigned Kind : 3;
 
     /// True if this if statement has storage for an else statement.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasElse : 1;
 
     /// True if this if statement has storage for a variable declaration.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasVar : 1;
 
     /// True if this if statement has storage for an init statement.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasInit : 1;
 
     /// The location of the "if".
@@ -208,21 +182,17 @@ protected:
   class SwitchStmtBitfields {
     friend class SwitchStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// True if the SwitchStmt has storage for an init statement.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasInit : 1;
 
     /// True if the SwitchStmt has storage for a condition variable.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasVar : 1;
 
     /// If the SwitchStmt is a switch on an enum value, records whether all
     /// the enum values were covered by CaseStmts.  The coverage information
     /// value is meant to be a hint for possible clients.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned AllEnumCasesCovered : 1;
 
     /// The location of the "switch".
@@ -233,11 +203,9 @@ protected:
     friend class ASTStmtReader;
     friend class WhileStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// True if the WhileStmt has storage for a condition variable.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasVar : 1;
 
     /// The location of the "while".
@@ -247,7 +215,6 @@ protected:
   class DoStmtBitfields {
     friend class DoStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// The location of the "do".
@@ -257,7 +224,6 @@ protected:
   class ForStmtBitfields {
     friend class ForStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// The location of the "for".
@@ -268,7 +234,6 @@ protected:
     friend class GotoStmt;
     friend class IndirectGotoStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// The location of the "goto".
@@ -278,7 +243,6 @@ protected:
   class ContinueStmtBitfields {
     friend class ContinueStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// The location of the "continue".
@@ -288,7 +252,6 @@ protected:
   class BreakStmtBitfields {
     friend class BreakStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// The location of the "break".
@@ -298,11 +261,9 @@ protected:
   class ReturnStmtBitfields {
     friend class ReturnStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// True if this ReturnStmt has storage for an NRVO candidate.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasNRVOCandidate : 1;
 
     /// The location of the "return".
@@ -313,12 +274,10 @@ protected:
     friend class SwitchCase;
     friend class CaseStmt;
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
     /// Used by CaseStmt to store whether it is a case statement
     /// of the form case LHS ... RHS (a GNU extension).
-    LLVM_PREFERRED_TYPE(bool)
     unsigned CaseStmtIsGNURange : 1;
 
     /// The location of the "case" or "default" keyword.
@@ -351,15 +310,11 @@ protected:
     friend class PseudoObjectExpr; // ctor
     friend class ShuffleVectorExpr; // ctor
 
-    LLVM_PREFERRED_TYPE(StmtBitfields)
     unsigned : NumStmtBits;
 
-    LLVM_PREFERRED_TYPE(ExprValueKind)
     unsigned ValueKind : 2;
-    LLVM_PREFERRED_TYPE(ExprObjectKind)
     unsigned ObjectKind : 3;
-    LLVM_PREFERRED_TYPE(ExprDependence)
-    unsigned Dependent : llvm::BitWidth<ExprDependence>;
+    unsigned /*ExprDependence*/ Dependent : llvm::BitWidth<ExprDependence>;
   };
   enum { NumExprBits = NumStmtBits + 5 + llvm::BitWidth<ExprDependence> };
 
@@ -368,35 +323,28 @@ protected:
     friend class ASTStmtWriter;
     friend class ConstantExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The kind of result that is tail-allocated.
-    LLVM_PREFERRED_TYPE(ConstantResultStorageKind)
     unsigned ResultKind : 2;
 
-    /// The kind of Result as defined by APValue::ValueKind.
-    LLVM_PREFERRED_TYPE(APValue::ValueKind)
+    /// The kind of Result as defined by APValue::Kind.
     unsigned APValueKind : 4;
 
-    /// When ResultKind == ConstantResultStorageKind::Int64, true if the
-    /// tail-allocated integer is unsigned.
-    LLVM_PREFERRED_TYPE(bool)
+    /// When ResultKind == RSK_Int64, true if the tail-allocated integer is
+    /// unsigned.
     unsigned IsUnsigned : 1;
 
-    /// When ResultKind == ConstantResultStorageKind::Int64. the BitWidth of the
-    /// tail-allocated integer. 7 bits because it is the minimal number of bits
-    /// to represent a value from 0 to 64 (the size of the tail-allocated
-    /// integer).
+    /// When ResultKind == RSK_Int64. the BitWidth of the tail-allocated
+    /// integer. 7 bits because it is the minimal number of bits to represent a
+    /// value from 0 to 64 (the size of the tail-allocated integer).
     unsigned BitWidth : 7;
 
-    /// When ResultKind == ConstantResultStorageKind::APValue, true if the
-    /// ASTContext will cleanup the tail-allocated APValue.
-    LLVM_PREFERRED_TYPE(bool)
+    /// When ResultKind == RSK_APValue, true if the ASTContext will cleanup the
+    /// tail-allocated APValue.
     unsigned HasCleanup : 1;
 
     /// True if this ConstantExpr was created for immediate invocation.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsImmediateInvocation : 1;
   };
 
@@ -404,21 +352,15 @@ protected:
     friend class ASTStmtReader;
     friend class PredefinedExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(PredefinedIdentKind)
+    /// The kind of this PredefinedExpr. One of the enumeration values
+    /// in PredefinedExpr::IdentKind.
     unsigned Kind : 4;
 
     /// True if this PredefinedExpr has a trailing "StringLiteral *"
     /// for the predefined identifier.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFunctionName : 1;
-
-    /// True if this PredefinedExpr should be treated as a StringLiteral (for
-    /// MSVC compatibility).
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned IsTransparent : 1;
 
     /// The location of this PredefinedExpr.
     SourceLocation Loc;
@@ -428,25 +370,14 @@ protected:
     friend class ASTStmtReader; // deserialization
     friend class DeclRefExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasQualifier : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasTemplateKWAndArgsInfo : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFoundDecl : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HadMultipleCandidates : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned RefersToEnclosingVariableOrCapture : 1;
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned CapturedByCopyInLambdaWithExplicitObjectParameter : 1;
-    LLVM_PREFERRED_TYPE(NonOdrUseReason)
     unsigned NonOdrUseReason : 2;
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned IsImmediateEscalating : 1;
 
     /// The location of the declaration name itself.
     SourceLocation Loc;
@@ -456,15 +387,9 @@ protected:
   class FloatingLiteralBitfields {
     friend class FloatingLiteral;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    static_assert(
-        llvm::APFloat::S_MaxSemantics < 16,
-        "Too many Semantics enum values to fit in bitfield of size 4");
-    LLVM_PREFERRED_TYPE(llvm::APFloat::Semantics)
-    unsigned Semantics : 4; // Provides semantics for APFloat construction
-    LLVM_PREFERRED_TYPE(bool)
+    unsigned Semantics : 3; // Provides semantics for APFloat construction
     unsigned IsExact : 1;
   };
 
@@ -472,12 +397,10 @@ protected:
     friend class ASTStmtReader;
     friend class StringLiteral;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The kind of this string literal.
     /// One of the enumeration values of StringLiteral::StringKind.
-    LLVM_PREFERRED_TYPE(StringLiteralKind)
     unsigned Kind : 3;
 
     /// The width of a single character in bytes. Only values of 1, 2,
@@ -485,7 +408,6 @@ protected:
     /// the target + string kind to the appropriate CharByteWidth.
     unsigned CharByteWidth : 3;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsPascal : 1;
 
     /// The number of concatenated token this string is made of.
@@ -496,28 +418,22 @@ protected:
   class CharacterLiteralBitfields {
     friend class CharacterLiteral;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(CharacterLiteralKind)
     unsigned Kind : 3;
   };
 
   class UnaryOperatorBitfields {
     friend class UnaryOperator;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(UnaryOperatorKind)
     unsigned Opc : 5;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned CanOverflow : 1;
     //
     /// This is only meaningful for operations on floating point
     /// types when additional values need to be in trailing storage.
     /// It is 0 otherwise.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFPFeatures : 1;
 
     SourceLocation Loc;
@@ -526,12 +442,9 @@ protected:
   class UnaryExprOrTypeTraitExprBitfields {
     friend class UnaryExprOrTypeTraitExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(UnaryExprOrTypeTrait)
     unsigned Kind : 3;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsType : 1; // true if operand is a type, false if an expression.
   };
 
@@ -539,7 +452,6 @@ protected:
     friend class ArraySubscriptExpr;
     friend class MatrixSubscriptExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     SourceLocation RBracketLoc;
@@ -548,17 +460,14 @@ protected:
   class CallExprBitfields {
     friend class CallExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     unsigned NumPreArgs : 1;
 
     /// True if the callee of the call expression was found using ADL.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned UsesADL : 1;
 
     /// True if the call expression has some floating-point features.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFPFeatures : 1;
 
     /// Padding used to align OffsetToTrailingObjects to a byte multiple.
@@ -575,18 +484,15 @@ protected:
     friend class ASTStmtReader;
     friend class MemberExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// IsArrow - True if this is "X->F", false if this is "X.F".
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsArrow : 1;
 
     /// True if this member expression used a nested-name-specifier to
     /// refer to the member, e.g., "x->Base::f", or found its member via
     /// a using declaration.  When true, a MemberExprNameQualifier
     /// structure is allocated immediately after the MemberExpr.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasQualifierOrFoundDecl : 1;
 
     /// True if this member expression specified a template keyword
@@ -594,18 +500,15 @@ protected:
     /// x->template f, x->template f<int>.
     /// When true, an ASTTemplateKWAndArgsInfo structure and its
     /// TemplateArguments (if any) are present.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasTemplateKWAndArgsInfo : 1;
 
     /// True if this member expression refers to a method that
     /// was resolved from an overloaded set having size greater than 1.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HadMultipleCandidates : 1;
 
     /// Value of type NonOdrUseReason indicating why this MemberExpr does
     /// not constitute an odr-use of the named declaration. Meaningful only
     /// when naming a static member.
-    LLVM_PREFERRED_TYPE(NonOdrUseReason)
     unsigned NonOdrUseReason : 2;
 
     /// This is the location of the -> or . in the expression.
@@ -616,16 +519,12 @@ protected:
     friend class CastExpr;
     friend class ImplicitCastExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(CastKind)
     unsigned Kind : 7;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned PartOfExplicitCast : 1; // Only set for ImplicitCastExpr.
 
     /// True if the call expression has some floating-point features.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFPFeatures : 1;
 
     /// The number of CXXBaseSpecifiers in the cast. 14 bits would be enough
@@ -636,16 +535,13 @@ protected:
   class BinaryOperatorBitfields {
     friend class BinaryOperator;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(BinaryOperatorKind)
     unsigned Opc : 6;
 
     /// This is only meaningful for operations on floating point
     /// types when additional values need to be in trailing storage.
     /// It is 0 otherwise.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFPFeatures : 1;
 
     SourceLocation OpLoc;
@@ -654,12 +550,10 @@ protected:
   class InitListExprBitfields {
     friend class InitListExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Whether this initializer list originally had a GNU array-range
     /// designator in it. This is a temporary marker used by CodeGen.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HadArrayRangeDesignator : 1;
   };
 
@@ -667,7 +561,6 @@ protected:
     friend class ASTStmtReader;
     friend class ParenListExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The number of expressions in the paren list.
@@ -678,7 +571,6 @@ protected:
     friend class ASTStmtReader;
     friend class GenericSelectionExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The location of the "_Generic".
@@ -689,23 +581,22 @@ protected:
     friend class ASTStmtReader; // deserialization
     friend class PseudoObjectExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    unsigned NumSubExprs : 16;
-    unsigned ResultIndex : 16;
+    // These don't need to be particularly wide, because they're
+    // strictly limited by the forms of expressions we permit.
+    unsigned NumSubExprs : 8;
+    unsigned ResultIndex : 32 - 8 - NumExprBits;
   };
 
   class SourceLocExprBitfields {
     friend class ASTStmtReader;
     friend class SourceLocExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The kind of source location builtin represented by the SourceLocExpr.
     /// Ex. __builtin_LINE, __builtin_FUNCTION, etc.
-    LLVM_PREFERRED_TYPE(SourceLocIdentKind)
     unsigned Kind : 3;
   };
 
@@ -713,7 +604,6 @@ protected:
     friend class ASTStmtReader;
     friend class StmtExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The number of levels of template parameters enclosing this statement
@@ -728,12 +618,10 @@ protected:
     friend class ASTStmtReader;
     friend class CXXOperatorCallExpr;
 
-    LLVM_PREFERRED_TYPE(CallExprBitfields)
     unsigned : NumCallExprBits;
 
     /// The kind of this overloaded operator. One of the enumerator
     /// value of OverloadedOperatorKind.
-    LLVM_PREFERRED_TYPE(OverloadedOperatorKind)
     unsigned OperatorKind : 6;
   };
 
@@ -741,21 +629,17 @@ protected:
     friend class ASTStmtReader;
     friend class CXXRewrittenBinaryOperator;
 
-    LLVM_PREFERRED_TYPE(CallExprBitfields)
     unsigned : NumCallExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsReversed : 1;
   };
 
   class CXXBoolLiteralExprBitfields {
     friend class CXXBoolLiteralExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The value of the boolean literal.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned Value : 1;
 
     /// The location of the boolean literal.
@@ -765,7 +649,6 @@ protected:
   class CXXNullPtrLiteralExprBitfields {
     friend class CXXNullPtrLiteralExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The location of the null pointer literal.
@@ -775,11 +658,9 @@ protected:
   class CXXThisExprBitfields {
     friend class CXXThisExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Whether this is an implicit "this".
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsImplicit : 1;
 
     /// The location of the "this".
@@ -790,11 +671,9 @@ protected:
     friend class ASTStmtReader;
     friend class CXXThrowExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Whether the thrown variable (if any) is in scope.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsThrownVariableInScope : 1;
 
     /// The location of the "throw".
@@ -805,12 +684,7 @@ protected:
     friend class ASTStmtReader;
     friend class CXXDefaultArgExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
-
-    /// Whether this CXXDefaultArgExpr rewrote its argument and stores a copy.
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned HasRewrittenInit : 1;
 
     /// The location where the default argument expression was used.
     SourceLocation Loc;
@@ -820,13 +694,7 @@ protected:
     friend class ASTStmtReader;
     friend class CXXDefaultInitExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
-
-    /// Whether this CXXDefaultInitExprBitfields rewrote its argument and stores
-    /// a copy.
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned HasRewrittenInit : 1;
 
     /// The location where the default initializer expression was used.
     SourceLocation Loc;
@@ -836,7 +704,6 @@ protected:
     friend class ASTStmtReader;
     friend class CXXScalarValueInitExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     SourceLocation RParenLoc;
@@ -847,37 +714,28 @@ protected:
     friend class ASTStmtWriter;
     friend class CXXNewExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Was the usage ::new, i.e. is the global new to be used?
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsGlobalNew : 1;
 
     /// Do we allocate an array? If so, the first trailing "Stmt *" is the
     /// size expression.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsArray : 1;
 
     /// Should the alignment be passed to the allocation function?
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ShouldPassAlignment : 1;
 
     /// If this is an array allocation, does the usual deallocation
     /// function for the allocated type want to know the allocated size?
-    LLVM_PREFERRED_TYPE(bool)
     unsigned UsualArrayDeleteWantsSize : 1;
 
-    // Is initializer expr present?
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned HasInitializer : 1;
-
-    /// What kind of initializer syntax used? Could be none, parens, or braces.
-    LLVM_PREFERRED_TYPE(CXXNewInitializationStyle)
+    /// What kind of initializer do we have? Could be none, parens, or braces.
+    /// In storage, we distinguish between "none, and no initializer expr", and
+    /// "none, but an implicit initializer expr".
     unsigned StoredInitializationStyle : 2;
 
     /// True if the allocated type was expressed as a parenthesized type-id.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsParenTypeId : 1;
 
     /// The number of placement new arguments.
@@ -888,26 +746,21 @@ protected:
     friend class ASTStmtReader;
     friend class CXXDeleteExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Is this a forced global delete, i.e. "::delete"?
-    LLVM_PREFERRED_TYPE(bool)
     unsigned GlobalDelete : 1;
 
     /// Is this the array form of delete, i.e. "delete[]"?
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ArrayForm : 1;
 
     /// ArrayFormAsWritten can be different from ArrayForm if 'delete' is
     /// applied to pointer-to-array type (ArrayFormAsWritten will be false
     /// while ArrayForm will be true).
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ArrayFormAsWritten : 1;
 
     /// Does the usual deallocation function for the element type require
     /// a size_t argument?
-    LLVM_PREFERRED_TYPE(bool)
     unsigned UsualArrayDeleteWantsSize : 1;
 
     /// Location of the expression.
@@ -919,16 +772,13 @@ protected:
     friend class ASTStmtWriter;
     friend class TypeTraitExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The kind of type trait, which is a value of a TypeTrait enumerator.
-    LLVM_PREFERRED_TYPE(TypeTrait)
     unsigned Kind : 8;
 
     /// If this expression is not value-dependent, this indicates whether
     /// the trait evaluated true or false.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned Value : 1;
 
     /// The number of arguments to this type trait. According to [implimits]
@@ -942,12 +792,10 @@ protected:
     friend class ASTStmtWriter;
     friend class DependentScopeDeclRefExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Whether the name includes info for explicit template
     /// keyword and arguments.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasTemplateKWAndArgsInfo : 1;
   };
 
@@ -955,23 +803,14 @@ protected:
     friend class ASTStmtReader;
     friend class CXXConstructExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned Elidable : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HadMultipleCandidates : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ListInitialization : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned StdInitListInitialization : 1;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ZeroInitialization : 1;
-    LLVM_PREFERRED_TYPE(CXXConstructionKind)
     unsigned ConstructionKind : 3;
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned IsImmediateEscalating : 1;
 
     SourceLocation Loc;
   };
@@ -980,11 +819,9 @@ protected:
     friend class ASTStmtReader; // deserialization
     friend class ExprWithCleanups;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     // When false, it must not have side effects.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned CleanupsHaveSideEffects : 1;
 
     unsigned NumObjects : 32 - 1 - NumExprBits;
@@ -994,7 +831,6 @@ protected:
     friend class ASTStmtReader;
     friend class CXXUnresolvedConstructExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The number of arguments used to construct the type.
@@ -1005,22 +841,18 @@ protected:
     friend class ASTStmtReader;
     friend class CXXDependentScopeMemberExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Whether this member expression used the '->' operator or
     /// the '.' operator.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsArrow : 1;
 
     /// Whether this member expression has info for explicit template
     /// keyword and arguments.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasTemplateKWAndArgsInfo : 1;
 
     /// See getFirstQualifierFoundInScope() and the comment listing
     /// the trailing objects.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasFirstQualifierFoundInScope : 1;
 
     /// The location of the '->' or '.' operator.
@@ -1031,12 +863,10 @@ protected:
     friend class ASTStmtReader;
     friend class OverloadExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// Whether the name includes info for explicit template
     /// keyword and arguments.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasTemplateKWAndArgsInfo : 1;
 
     /// Padding used by the derived classes to store various bits. If you
@@ -1053,17 +883,14 @@ protected:
     friend class ASTStmtReader;
     friend class UnresolvedLookupExpr;
 
-    LLVM_PREFERRED_TYPE(OverloadExprBitfields)
     unsigned : NumOverloadExprBits;
 
     /// True if these lookup results should be extended by
     /// argument-dependent lookup if this is the operand of a function call.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned RequiresADL : 1;
 
     /// True if these lookup results are overloaded.  This is pretty trivially
     /// rederivable if we urgently need to kill this field.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned Overloaded : 1;
   };
   static_assert(sizeof(UnresolvedLookupExprBitfields) <= 4,
@@ -1074,16 +901,13 @@ protected:
     friend class ASTStmtReader;
     friend class UnresolvedMemberExpr;
 
-    LLVM_PREFERRED_TYPE(OverloadExprBitfields)
     unsigned : NumOverloadExprBits;
 
     /// Whether this member expression used the '->' operator or
     /// the '.' operator.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsArrow : 1;
 
     /// Whether the lookup results contain an unresolved using declaration.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasUnresolvedUsing : 1;
   };
   static_assert(sizeof(UnresolvedMemberExprBitfields) <= 4,
@@ -1094,10 +918,8 @@ protected:
     friend class ASTStmtReader;
     friend class CXXNoexceptExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned Value : 1;
   };
 
@@ -1105,7 +927,6 @@ protected:
     friend class ASTStmtReader;
     friend class SubstNonTypeTemplateParmExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The location of the non-type template parameter reference.
@@ -1117,21 +938,17 @@ protected:
     friend class ASTStmtWriter;
     friend class LambdaExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The default capture kind, which is a value of type
     /// LambdaCaptureDefault.
-    LLVM_PREFERRED_TYPE(LambdaCaptureDefault)
     unsigned CaptureDefault : 2;
 
     /// Whether this lambda had an explicit parameter list vs. an
     /// implicit (and empty) parameter list.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ExplicitParams : 1;
 
     /// Whether this lambda had the result type explicitly specified.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ExplicitResultType : 1;
 
     /// The number of captures.
@@ -1143,23 +960,19 @@ protected:
     friend class ASTStmtWriter;
     friend class RequiresExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsSatisfied : 1;
     SourceLocation RequiresKWLoc;
   };
 
-  //===--- C++ Coroutines bitfields classes ---===//
+  //===--- C++ Coroutines TS bitfields classes ---===//
 
   class CoawaitExprBitfields {
     friend class CoawaitExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsImplicit : 1;
   };
 
@@ -1168,10 +981,8 @@ protected:
   class ObjCIndirectCopyRestoreExprBitfields {
     friend class ObjCIndirectCopyRestoreExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ShouldCopy : 1;
   };
 
@@ -1181,12 +992,10 @@ protected:
     friend class ASTStmtReader;
     friend class OpaqueValueExpr;
 
-    LLVM_PREFERRED_TYPE(ExprBitfields)
     unsigned : NumExprBits;
 
     /// The OVE is a unique semantic reference to its source expression if this
     /// bit is set to true.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsUnique : 1;
 
     SourceLocation Loc;
@@ -1261,7 +1070,7 @@ protected:
     LambdaExprBitfields LambdaExprBits;
     RequiresExprBitfields RequiresExprBits;
 
-    // C++ Coroutines expressions
+    // C++ Coroutines TS expressions
     CoawaitExprBitfields CoawaitBits;
 
     // Obj-C Expressions
@@ -1470,13 +1279,8 @@ public:
   /// parameters are identified by index/level rather than their
   /// declaration pointers) or the exact representation of the statement as
   /// written in the source.
-  /// \param ProfileLambdaExpr whether or not to profile lambda expressions.
-  /// When false, the lambda expressions are never considered to be equal to
-  /// other lambda expressions. When true, the lambda expressions with the same
-  /// implementation will be considered to be the same. ProfileLambdaExpr should
-  /// only be true when we try to merge two declarations within modules.
   void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
-               bool Canonical, bool ProfileLambdaExpr = false) const;
+               bool Canonical) const;
 
   /// Calculate a unique representation for a statement that is
   /// stable across compiler invocations.
@@ -1633,10 +1437,8 @@ public:
                               SourceLocation RB);
 
   // Build an empty compound statement with a location.
-  explicit CompoundStmt(SourceLocation Loc) : CompoundStmt(Loc, Loc) {}
-
-  CompoundStmt(SourceLocation Loc, SourceLocation EndLoc)
-      : Stmt(CompoundStmtClass), LBraceLoc(Loc), RBraceLoc(EndLoc) {
+  explicit CompoundStmt(SourceLocation Loc)
+      : Stmt(CompoundStmtClass), LBraceLoc(Loc), RBraceLoc(Loc) {
     CompoundStmtBits.NumStmts = 0;
     CompoundStmtBits.HasFPFeatures = 0;
   }
@@ -2110,7 +1912,7 @@ public:
 
   SourceLocation getAttrLoc() const { return AttributedStmtBits.AttrLoc; }
   ArrayRef<const Attr *> getAttrs() const {
-    return llvm::ArrayRef(getAttrArrayPtr(), AttributedStmtBits.NumAttrs);
+    return llvm::makeArrayRef(getAttrArrayPtr(), AttributedStmtBits.NumAttrs);
   }
 
   Stmt *getSubStmt() { return SubStmt; }
@@ -2278,11 +2080,6 @@ public:
                            : nullptr;
   }
 
-  void setConditionVariableDeclStmt(DeclStmt *CondVar) {
-    assert(hasVarStorage());
-    getTrailingObjects<Stmt *>()[varOffset()] = CondVar;
-  }
-
   Stmt *getInit() {
     return hasInitStorage() ? getTrailingObjects<Stmt *>()[initOffset()]
                             : nullptr;
@@ -2339,9 +2136,9 @@ public:
   }
 
   /// If this is an 'if constexpr', determine which substatement will be taken.
-  /// Otherwise, or if the condition is value-dependent, returns std::nullopt.
-  std::optional<const Stmt *> getNondiscardedCase(const ASTContext &Ctx) const;
-  std::optional<Stmt *> getNondiscardedCase(const ASTContext &Ctx);
+  /// Otherwise, or if the condition is value-dependent, returns None.
+  Optional<const Stmt*> getNondiscardedCase(const ASTContext &Ctx) const;
+  Optional<Stmt *> getNondiscardedCase(const ASTContext &Ctx);
 
   bool isObjCAvailabilityCheck() const;
 
@@ -2515,11 +2312,6 @@ public:
                            : nullptr;
   }
 
-  void setConditionVariableDeclStmt(DeclStmt *CondVar) {
-    assert(hasVarStorage());
-    getTrailingObjects<Stmt *>()[varOffset()] = CondVar;
-  }
-
   SwitchCase *getSwitchCaseList() { return FirstCase; }
   const SwitchCase *getSwitchCaseList() const { return FirstCase; }
   void setSwitchCaseList(SwitchCase *SC) { FirstCase = SC; }
@@ -2683,11 +2475,6 @@ public:
                            : nullptr;
   }
 
-  void setConditionVariableDeclStmt(DeclStmt *CondVar) {
-    assert(hasVarStorage());
-    getTrailingObjects<Stmt *>()[varOffset()] = CondVar;
-  }
-
   SourceLocation getWhileLoc() const { return WhileStmtBits.WhileLoc; }
   void setWhileLoc(SourceLocation L) { WhileStmtBits.WhileLoc = L; }
 
@@ -2777,8 +2564,6 @@ public:
 /// the init/cond/inc parts of the ForStmt will be null if they were not
 /// specified in the source.
 class ForStmt : public Stmt {
-  friend class ASTStmtReader;
-
   enum { INIT, CONDVAR, COND, INC, BODY, END_EXPR };
   Stmt* SubExprs[END_EXPR]; // SubExprs[INIT] is an expression or declstmt.
   SourceLocation LParenLoc, RParenLoc;
@@ -2806,16 +2591,8 @@ public:
 
   /// If this ForStmt has a condition variable, return the faux DeclStmt
   /// associated with the creation of that condition variable.
-  DeclStmt *getConditionVariableDeclStmt() {
-    return reinterpret_cast<DeclStmt*>(SubExprs[CONDVAR]);
-  }
-
   const DeclStmt *getConditionVariableDeclStmt() const {
     return reinterpret_cast<DeclStmt*>(SubExprs[CONDVAR]);
-  }
-
-  void setConditionVariableDeclStmt(DeclStmt *CondVar) {
-    SubExprs[CONDVAR] = CondVar;
   }
 
   Expr *getCond() { return reinterpret_cast<Expr*>(SubExprs[COND]); }
@@ -3546,16 +3323,16 @@ public:
   //===--- Other ---===//
 
   ArrayRef<StringRef> getAllConstraints() const {
-    return llvm::ArrayRef(Constraints, NumInputs + NumOutputs);
+    return llvm::makeArrayRef(Constraints, NumInputs + NumOutputs);
   }
 
   ArrayRef<StringRef> getClobbers() const {
-    return llvm::ArrayRef(Clobbers, NumClobbers);
+    return llvm::makeArrayRef(Clobbers, NumClobbers);
   }
 
   ArrayRef<Expr*> getAllExprs() const {
-    return llvm::ArrayRef(reinterpret_cast<Expr **>(Exprs),
-                          NumInputs + NumOutputs);
+    return llvm::makeArrayRef(reinterpret_cast<Expr**>(Exprs),
+                              NumInputs + NumOutputs);
   }
 
   StringRef getClobber(unsigned i) const { return getClobbers()[i]; }
@@ -3769,11 +3546,8 @@ public:
     llvm::PointerIntPair<VarDecl *, 2, VariableCaptureKind> VarAndKind;
     SourceLocation Loc;
 
-    Capture() = default;
-
   public:
     friend class ASTStmtReader;
-    friend class CapturedStmt;
 
     /// Create a new capture.
     ///

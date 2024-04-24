@@ -81,8 +81,9 @@ public:
   void addReg(MCPhysReg Reg) {
     assert(TRI && "LivePhysRegs is not initialized.");
     assert(Reg <= TRI->getNumRegs() && "Expected a physical register.");
-    for (MCPhysReg SubReg : TRI->subregs_inclusive(Reg))
-      LiveRegs.insert(SubReg);
+    for (MCSubRegIterator SubRegs(Reg, TRI, /*IncludeSelf=*/true);
+         SubRegs.isValid(); ++SubRegs)
+      LiveRegs.insert(*SubRegs);
   }
 
   /// Removes a physical register, all its sub-registers, and all its
@@ -193,18 +194,11 @@ void addLiveIns(MachineBasicBlock &MBB, const LivePhysRegs &LiveRegs);
 void computeAndAddLiveIns(LivePhysRegs &LiveRegs,
                           MachineBasicBlock &MBB);
 
-/// Convenience function for recomputing live-in's for a MBB. Returns true if
-/// any changes were made.
-static inline bool recomputeLiveIns(MachineBasicBlock &MBB) {
+/// Convenience function for recomputing live-in's for \p MBB.
+static inline void recomputeLiveIns(MachineBasicBlock &MBB) {
   LivePhysRegs LPR;
-  auto oldLiveIns = MBB.getLiveIns();
-
   MBB.clearLiveIns();
   computeAndAddLiveIns(LPR, MBB);
-  MBB.sortUniqueLiveIns();
-
-  auto newLiveIns = MBB.getLiveIns();
-  return oldLiveIns != newLiveIns;
 }
 
 } // end namespace llvm

@@ -1,6 +1,7 @@
 #include "clang/Basic/Cuda.h"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/VersionTuple.h"
@@ -37,10 +38,6 @@ static const CudaVersionMapEntry CudaNameVersionMap[] = {
     CUDA_ENTRY(11, 6),
     CUDA_ENTRY(11, 7),
     CUDA_ENTRY(11, 8),
-    CUDA_ENTRY(12, 0),
-    CUDA_ENTRY(12, 1),
-    CUDA_ENTRY(12, 2),
-    CUDA_ENTRY(12, 3),
     {"", CudaVersion::NEW, llvm::VersionTuple(std::numeric_limits<int>::max())},
     {"unknown", CudaVersion::UNKNOWN, {}} // End of list tombstone.
 };
@@ -95,7 +92,6 @@ static const CudaArchToStringMap arch_names[] = {
     SM(87),                          // Jetson/Drive AGX Orin
     SM(89),                          // Ada Lovelace
     SM(90),                          // Hopper
-    SM(90a),                         // Hopper
     GFX(600),  // gfx600
     GFX(601),  // gfx601
     GFX(602),  // gfx602
@@ -119,8 +115,6 @@ static const CudaArchToStringMap arch_names[] = {
     GFX(90a),  // gfx90a
     GFX(90c),  // gfx90c
     GFX(940),  // gfx940
-    GFX(941),  // gfx941
-    GFX(942),  // gfx942
     GFX(1010), // gfx1010
     GFX(1011), // gfx1011
     GFX(1012), // gfx1012
@@ -136,10 +130,6 @@ static const CudaArchToStringMap arch_names[] = {
     GFX(1101), // gfx1101
     GFX(1102), // gfx1102
     GFX(1103), // gfx1103
-    GFX(1150), // gfx1150
-    GFX(1151), // gfx1151
-    GFX(1200), // gfx1200
-    GFX(1201), // gfx1201
     {CudaArch::Generic, "generic", ""},
     // clang-format on
 };
@@ -212,8 +202,6 @@ CudaVersion MinVersionForCudaArch(CudaArch A) {
   case CudaArch::SM_89:
   case CudaArch::SM_90:
     return CudaVersion::CUDA_118;
-  case CudaArch::SM_90a:
-    return CudaVersion::CUDA_120;
   default:
     llvm_unreachable("invalid enum");
   }
@@ -231,11 +219,7 @@ CudaVersion MaxVersionForCudaArch(CudaArch A) {
   case CudaArch::SM_21:
     return CudaVersion::CUDA_80;
   case CudaArch::SM_30:
-  case CudaArch::SM_32:
-    return CudaVersion::CUDA_102;
-  case CudaArch::SM_35:
-  case CudaArch::SM_37:
-    return CudaVersion::CUDA_118;
+    return CudaVersion::CUDA_110;
   default:
     return CudaVersion::NEW;
   }

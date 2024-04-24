@@ -13,6 +13,7 @@
 #ifndef LLVM_LIB_TARGET_PPC_MCELFSTREAMER_PPCELFSTREAMER_H
 #define LLVM_LIB_TARGET_PPC_MCELFSTREAMER_PPCELFSTREAMER_H
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCELFStreamer.h"
 #include <memory>
 
@@ -47,8 +48,8 @@ private:
 
 // Check if the instruction Inst is part of a pair of instructions that make up
 // a link time GOT PC Rel optimization.
-std::optional<bool> isPartOfGOTToPCRelPair(const MCInst &Inst,
-                                           const MCSubtargetInfo &STI);
+Optional<bool> isPartOfGOTToPCRelPair(const MCInst &Inst,
+                                      const MCSubtargetInfo &STI);
 
 MCELFStreamer *createPPCELFStreamer(MCContext &Context,
                                     std::unique_ptr<MCAsmBackend> MAB,

@@ -33,11 +33,9 @@ using namespace lldb_private;
 
 // Thread Registers
 
-ThreadMachCore::ThreadMachCore(Process &process, lldb::tid_t tid,
-                               uint32_t objfile_lc_thread_idx)
+ThreadMachCore::ThreadMachCore(Process &process, lldb::tid_t tid)
     : Thread(process, tid), m_thread_name(), m_dispatch_queue_name(),
-      m_thread_dispatch_qaddr(LLDB_INVALID_ADDRESS), m_thread_reg_ctx_sp(),
-      m_objfile_lc_thread_idx(objfile_lc_thread_idx) {}
+      m_thread_dispatch_qaddr(LLDB_INVALID_ADDRESS), m_thread_reg_ctx_sp() {}
 
 ThreadMachCore::~ThreadMachCore() { DestroyThread(); }
 
@@ -83,8 +81,8 @@ ThreadMachCore::CreateRegisterContextForFrame(StackFrame *frame) {
       ObjectFile *core_objfile =
           static_cast<ProcessMachCore *>(process_sp.get())->GetCoreObjectFile();
       if (core_objfile)
-        m_thread_reg_ctx_sp = core_objfile->GetThreadContextAtIndex(
-            m_objfile_lc_thread_idx, *this);
+        m_thread_reg_ctx_sp =
+            core_objfile->GetThreadContextAtIndex(GetID(), *this);
     }
     reg_ctx_sp = m_thread_reg_ctx_sp;
   } else {

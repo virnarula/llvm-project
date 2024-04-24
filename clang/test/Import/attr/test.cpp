@@ -14,13 +14,13 @@
 // CHECK-NEXT: LoopHintAttr
 // CHECK-SAME: line:10:9
 
-extern char f() __attribute__((const));
+extern void f() __attribute__((const));
 
 struct S;
 
 void stmt();
 
 void expr() {
-  (void)f();
+  f();
   struct S s;
 }

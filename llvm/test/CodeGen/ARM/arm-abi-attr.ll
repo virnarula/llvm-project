@@ -21,8 +21,8 @@ define void @g() {
 ; AAPCS-NOT: bic
 
   %c = alloca i8, align 8
-  call void @f(ptr %c)
+  call void @f(i8* %c)
   ret void
 }
 
-declare void @f(ptr)
+declare void @f(i8*)

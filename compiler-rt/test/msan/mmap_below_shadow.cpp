@@ -21,9 +21,6 @@ int main(void) {
 #elif defined(__x86_64__)
   uintptr_t hint = 0x4f0000000000ULL;
   const uintptr_t app_start = 0x600000000000ULL;
-#elif defined(__loongarch_lp64)
-  uintptr_t hint = 0x4f0000000000ULL;
-  const uintptr_t app_start = 0x600000000000ULL;
 #elif defined (__mips64)
   uintptr_t hint = 0x4f00000000ULL;
   const uintptr_t app_start = 0x6000000000ULL;
@@ -34,9 +31,8 @@ int main(void) {
   uintptr_t hint = 0x07f000000000ULL;
   const uintptr_t app_start = 0x020000000000ULL;
 #elif defined (__aarch64__)
-  uintptr_t hint = 0X0110000000000;
-  // Unfortunately we don't have a stronger condition for this
-  const uintptr_t app_start = 0x0ULL;
+  uintptr_t hint = 0x4f0000000ULL;
+  const uintptr_t app_start = 0x7000000000ULL;
 #endif
   uintptr_t p = (uintptr_t)mmap(
       (void *)hint, 4096, PROT_WRITE,

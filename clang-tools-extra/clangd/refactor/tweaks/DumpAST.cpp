@@ -16,7 +16,6 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -56,7 +55,7 @@ private:
     return N.get<Decl>() || N.get<Stmt>() || N.get<Type>();
   }
 
-  std::optional<DynTypedNode> Node;
+  llvm::Optional<DynTypedNode> Node;
 };
 REGISTER_TWEAK(DumpAST)
 

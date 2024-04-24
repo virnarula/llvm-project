@@ -10,10 +10,9 @@
 
 // views::iota
 
+#include <ranges>
 #include <cassert>
 #include <concepts>
-#include <ranges>
-#include <type_traits>
 
 #include "test_macros.h"
 #include "types.h"

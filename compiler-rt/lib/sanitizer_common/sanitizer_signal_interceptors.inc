@@ -43,7 +43,6 @@ using namespace __sanitizer;
 
 #if SANITIZER_INTERCEPT_BSD_SIGNAL
 INTERCEPTOR(uptr, bsd_signal, int signum, uptr handler) {
-  SIGNAL_INTERCEPTOR_ENTER();
   if (GetHandleSignalMode(signum) == kHandleSignalExclusive) return 0;
   SIGNAL_INTERCEPTOR_SIGNAL_IMPL(bsd_signal, signum, handler);
 }
@@ -54,7 +53,6 @@ INTERCEPTOR(uptr, bsd_signal, int signum, uptr handler) {
 
 #if SANITIZER_INTERCEPT_SIGNAL_AND_SIGACTION
 INTERCEPTOR(uptr, signal, int signum, uptr handler) {
-  SIGNAL_INTERCEPTOR_ENTER();
   if (GetHandleSignalMode(signum) == kHandleSignalExclusive)
     return (uptr) nullptr;
   SIGNAL_INTERCEPTOR_SIGNAL_IMPL(signal, signum, handler);
@@ -63,7 +61,6 @@ INTERCEPTOR(uptr, signal, int signum, uptr handler) {
 
 INTERCEPTOR(int, sigaction_symname, int signum,
             const __sanitizer_sigaction *act, __sanitizer_sigaction *oldact) {
-  SIGNAL_INTERCEPTOR_ENTER();
   if (GetHandleSignalMode(signum) == kHandleSignalExclusive) {
     if (!oldact) return 0;
     act = nullptr;

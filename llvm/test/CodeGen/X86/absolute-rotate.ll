@@ -9,10 +9,8 @@ target triple = "x86_64-unknown-linux-gnu"
 declare void @f()
 
 define void @foo(i64 %val) {
-  %ext1 = zext i8 ptrtoint (ptr @align to i8) to i64
-  %shr = lshr i64 %val, %ext1
-  %ext2 = zext i8 sub (i8 64, i8 ptrtoint (ptr @align to i8)) to i64
-  %shl = shl i64 %val, %ext2
+  %shr = lshr i64 %val, zext (i8 ptrtoint (ptr @align to i8) to i64)
+  %shl = shl i64 %val, zext (i8 sub (i8 64, i8 ptrtoint (ptr @align to i8)) to i64)
   ; CHECK: rorq $align@ABS8, %rdi
   %ror = or i64 %shr, %shl
   %cmp = icmp ult i64 %ror, 109
@@ -27,10 +25,8 @@ f:
 }
 
 define void @bar(i64 %val) {
-  %ext1 = zext i8 ptrtoint (ptr @align to i8) to i64
-  %shr = shl i64 %val, %ext1
-  %ext2 = zext i8 sub (i8 64, i8 ptrtoint (ptr @align to i8)) to i64
-  %shl = lshr i64 %val, %ext2
+  %shr = shl i64 %val, zext (i8 ptrtoint (ptr @align to i8) to i64)
+  %shl = lshr i64 %val, zext (i8 sub (i8 64, i8 ptrtoint (ptr @align to i8)) to i64)
   ; CHECK: rolq $align@ABS8, %rdi
   %rol = or i64 %shr, %shl
   %cmp = icmp ult i64 %rol, 109

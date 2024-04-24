@@ -13,23 +13,6 @@ using namespace mlir;
 using namespace mlir::detail;
 
 //===----------------------------------------------------------------------===//
-// AbstractAttribute
-//===----------------------------------------------------------------------===//
-
-void AbstractAttribute::walkImmediateSubElements(
-    Attribute attr, function_ref<void(Attribute)> walkAttrsFn,
-    function_ref<void(Type)> walkTypesFn) const {
-  walkImmediateSubElementsFn(attr, walkAttrsFn, walkTypesFn);
-}
-
-Attribute
-AbstractAttribute::replaceImmediateSubElements(Attribute attr,
-                                               ArrayRef<Attribute> replAttrs,
-                                               ArrayRef<Type> replTypes) const {
-  return replaceImmediateSubElementsFn(attr, replAttrs, replTypes);
-}
-
-//===----------------------------------------------------------------------===//
 // Attribute
 //===----------------------------------------------------------------------===//
 
@@ -43,12 +26,10 @@ MLIRContext *Attribute::getContext() const { return getDialect().getContext(); }
 NamedAttribute::NamedAttribute(StringAttr name, Attribute value)
     : name(name), value(value) {
   assert(name && value && "expected valid attribute name and value");
-  assert(!name.empty() && "expected valid attribute name");
+  assert(name.size() != 0 && "expected valid attribute name");
 }
 
-StringAttr NamedAttribute::getName() const {
-  return llvm::cast<StringAttr>(name);
-}
+StringAttr NamedAttribute::getName() const { return name.cast<StringAttr>(); }
 
 Dialect *NamedAttribute::getNameDialect() const {
   return getName().getReferencedDialect();

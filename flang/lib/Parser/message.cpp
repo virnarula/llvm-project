@@ -70,18 +70,13 @@ const char *MessageFormattedText::Convert(const std::string &s) {
   return conversions_.front().c_str();
 }
 
+const char *MessageFormattedText::Convert(std::string &s) {
+  conversions_.emplace_front(s);
+  return conversions_.front().c_str();
+}
+
 const char *MessageFormattedText::Convert(std::string &&s) {
   conversions_.emplace_front(std::move(s));
-  return conversions_.front().c_str();
-}
-
-const char *MessageFormattedText::Convert(const std::string_view &s) {
-  conversions_.emplace_front(s);
-  return conversions_.front().c_str();
-}
-
-const char *MessageFormattedText::Convert(std::string_view &&s) {
-  conversions_.emplace_front(s);
   return conversions_.front().c_str();
 }
 

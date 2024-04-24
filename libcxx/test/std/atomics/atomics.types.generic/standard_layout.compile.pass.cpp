@@ -25,8 +25,10 @@ struct CheckStandardLayout {
   }
 };
 
-void tests() {
+int main(int, char**) {
   TestEachIntegralType<CheckStandardLayout>()();
   TestEachFloatingPointType<CheckStandardLayout>()();
   TestEachPointerType<CheckStandardLayout>()();
+
+  return 0;
 }

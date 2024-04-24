@@ -373,40 +373,41 @@ static bool isStructPathTBAA(const MDNode *MD) {
 
 AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
-                                     AAQueryInfo &AAQI, const Instruction *) {
+                                     AAQueryInfo &AAQI) {
   if (!EnableTBAA)
-    return AliasResult::MayAlias;
+    return AAResultBase::alias(LocA, LocB, AAQI);
 
+  // If accesses may alias, chain to the next AliasAnalysis.
   if (Aliases(LocA.AATags.TBAA, LocB.AATags.TBAA))
-    return AliasResult::MayAlias;
+    return AAResultBase::alias(LocA, LocB, AAQI);
 
   // Otherwise return a definitive result.
   return AliasResult::NoAlias;
 }
 
-ModRefInfo TypeBasedAAResult::getModRefInfoMask(const MemoryLocation &Loc,
-                                                AAQueryInfo &AAQI,
-                                                bool IgnoreLocals) {
+bool TypeBasedAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
+                                               AAQueryInfo &AAQI,
+                                               bool OrLocal) {
   if (!EnableTBAA)
-    return ModRefInfo::ModRef;
+    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
 
   const MDNode *M = Loc.AATags.TBAA;
   if (!M)
-    return ModRefInfo::ModRef;
+    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
 
   // If this is an "immutable" type, we can assume the pointer is pointing
   // to constant memory.
   if ((!isStructPathTBAA(M) && TBAANode(M).isTypeImmutable()) ||
       (isStructPathTBAA(M) && TBAAStructTagNode(M).isTypeImmutable()))
-    return ModRefInfo::NoModRef;
+    return true;
 
-  return ModRefInfo::ModRef;
+  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
 }
 
 MemoryEffects TypeBasedAAResult::getMemoryEffects(const CallBase *Call,
                                                   AAQueryInfo &AAQI) {
   if (!EnableTBAA)
-    return MemoryEffects::unknown();
+    return AAResultBase::getMemoryEffects(Call, AAQI);
 
   // If this is an "immutable" type, the access is not observable.
   if (const MDNode *M = Call->getMetadata(LLVMContext::MD_tbaa))
@@ -414,40 +415,40 @@ MemoryEffects TypeBasedAAResult::getMemoryEffects(const CallBase *Call,
         (isStructPathTBAA(M) && TBAAStructTagNode(M).isTypeImmutable()))
       return MemoryEffects::none();
 
-  return MemoryEffects::unknown();
+  return AAResultBase::getMemoryEffects(Call, AAQI);
 }
 
 MemoryEffects TypeBasedAAResult::getMemoryEffects(const Function *F) {
-  // Functions don't have metadata.
-  return MemoryEffects::unknown();
+  // Functions don't have metadata. Just chain to the next implementation.
+  return AAResultBase::getMemoryEffects(F);
 }
 
 ModRefInfo TypeBasedAAResult::getModRefInfo(const CallBase *Call,
                                             const MemoryLocation &Loc,
                                             AAQueryInfo &AAQI) {
   if (!EnableTBAA)
-    return ModRefInfo::ModRef;
+    return AAResultBase::getModRefInfo(Call, Loc, AAQI);
 
   if (const MDNode *L = Loc.AATags.TBAA)
     if (const MDNode *M = Call->getMetadata(LLVMContext::MD_tbaa))
       if (!Aliases(L, M))
         return ModRefInfo::NoModRef;
 
-  return ModRefInfo::ModRef;
+  return AAResultBase::getModRefInfo(Call, Loc, AAQI);
 }
 
 ModRefInfo TypeBasedAAResult::getModRefInfo(const CallBase *Call1,
                                             const CallBase *Call2,
                                             AAQueryInfo &AAQI) {
   if (!EnableTBAA)
-    return ModRefInfo::ModRef;
+    return AAResultBase::getModRefInfo(Call1, Call2, AAQI);
 
   if (const MDNode *M1 = Call1->getMetadata(LLVMContext::MD_tbaa))
     if (const MDNode *M2 = Call2->getMetadata(LLVMContext::MD_tbaa))
       if (!Aliases(M1, M2))
         return ModRefInfo::NoModRef;
 
-  return ModRefInfo::ModRef;
+  return AAResultBase::getModRefInfo(Call1, Call2, AAQI);
 }
 
 bool MDNode::isTBAAVtableAccess() const {
@@ -489,16 +490,18 @@ static const MDNode *getLeastCommonType(const MDNode *A, const MDNode *B) {
   SmallSetVector<const MDNode *, 4> PathA;
   TBAANode TA(A);
   while (TA.getNode()) {
-    if (!PathA.insert(TA.getNode()))
+    if (PathA.count(TA.getNode()))
       report_fatal_error("Cycle found in TBAA metadata.");
+    PathA.insert(TA.getNode());
     TA = TA.getParent();
   }
 
   SmallSetVector<const MDNode *, 4> PathB;
   TBAANode TB(B);
   while (TB.getNode()) {
-    if (!PathB.insert(TB.getNode()))
+    if (PathB.count(TB.getNode()))
       report_fatal_error("Cycle found in TBAA metadata.");
+    PathB.insert(TB.getNode());
     TB = TB.getParent();
   }
 

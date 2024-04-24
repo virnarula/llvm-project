@@ -12,11 +12,12 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Tooling/FixIt.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 // Returns `true` if `Range` is inside a macro definition.
 static bool insideMacroDefinition(const MatchFinder::MatchResult &Result,
@@ -95,7 +96,7 @@ void TimeSubtractionCheck::registerMatchers(MatchFinder *Finder) {
   for (const char *ScaleName :
        {"Hours", "Minutes", "Seconds", "Millis", "Micros", "Nanos"}) {
     std::string TimeInverse = (llvm::Twine("ToUnix") + ScaleName).str();
-    std::optional<DurationScale> Scale = getScaleForTimeInverse(TimeInverse);
+    llvm::Optional<DurationScale> Scale = getScaleForTimeInverse(TimeInverse);
     assert(Scale && "Unknown scale encountered");
 
     auto TimeInverseMatcher = callExpr(callee(
@@ -133,7 +134,7 @@ void TimeSubtractionCheck::check(const MatchFinder::MatchResult &Result) {
   if (insideMacroDefinition(Result, BinOp->getSourceRange()))
     return;
 
-  std::optional<DurationScale> Scale = getScaleForTimeInverse(InverseName);
+  llvm::Optional<DurationScale> Scale = getScaleForTimeInverse(InverseName);
   if (!Scale)
     return;
 
@@ -195,4 +196,6 @@ void TimeSubtractionCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

@@ -3,9 +3,9 @@
 ; CHECK-DAG: @a = global i32 0
 ; CHECK-DAG: @b = global i32 0, !associated !0
 
-; CHECK-DAG: !0 = !{ptr @a}
+; CHECK-DAG: !0 = !{i32* @b}
 
 @a = global i32 0
 @b = global i32 0, !associated !0
 
-!0 = !{ptr @a}
+!0 = !{i32* @b}

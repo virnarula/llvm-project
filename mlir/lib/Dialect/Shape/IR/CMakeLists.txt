@@ -18,10 +18,8 @@ add_mlir_dialect_library(MLIRShapeDialect
   MLIRControlFlowInterfaces
   MLIRDialect
   MLIRFuncDialect
-  MLIRFunctionInterfaces
   MLIRInferTypeOpInterface
   MLIRIR
   MLIRSideEffectInterfaces
   MLIRTensorDialect
-  MLIRUBDialect
   )

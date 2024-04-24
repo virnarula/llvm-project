@@ -8,19 +8,15 @@
 
 #include "mlir/Analysis/Presburger/LinearTransform.h"
 #include "mlir/Analysis/Presburger/IntegerRelation.h"
-#include "mlir/Analysis/Presburger/MPInt.h"
-#include "mlir/Analysis/Presburger/Matrix.h"
-#include "mlir/Support/LLVM.h"
-#include <utility>
 
 using namespace mlir;
 using namespace presburger;
 
-LinearTransform::LinearTransform(IntMatrix &&oMatrix) : matrix(oMatrix) {}
-LinearTransform::LinearTransform(const IntMatrix &oMatrix) : matrix(oMatrix) {}
+LinearTransform::LinearTransform(Matrix &&oMatrix) : matrix(oMatrix) {}
+LinearTransform::LinearTransform(const Matrix &oMatrix) : matrix(oMatrix) {}
 
 std::pair<unsigned, LinearTransform>
-LinearTransform::makeTransformToColumnEchelon(const IntMatrix &m) {
+LinearTransform::makeTransformToColumnEchelon(const Matrix &m) {
   // Compute the hermite normal form of m. This, is by definition, is in column
   // echelon form.
   auto [h, u] = m.computeHermiteNormalForm();

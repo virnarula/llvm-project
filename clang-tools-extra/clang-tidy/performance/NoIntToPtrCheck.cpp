@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 void NoIntToPtrCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(castExpr(hasCastKind(CK_IntegralToPointer),
@@ -27,4 +29,6 @@ void NoIntToPtrCheck::check(const MatchFinder::MatchResult &Result) {
        "integer to pointer cast pessimizes optimization opportunities");
 }
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang

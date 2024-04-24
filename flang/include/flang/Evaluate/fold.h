@@ -92,7 +92,6 @@ constexpr std::optional<std::int64_t> ToInt64(
 
 std::optional<std::int64_t> ToInt64(const Expr<SomeInteger> &);
 std::optional<std::int64_t> ToInt64(const Expr<SomeType> &);
-std::optional<std::int64_t> ToInt64(const ActualArgument &);
 
 template <typename A>
 std::optional<std::int64_t> ToInt64(const std::optional<A> &x) {
@@ -103,13 +102,12 @@ std::optional<std::int64_t> ToInt64(const std::optional<A> &x) {
   }
 }
 
-template <typename A> std::optional<std::int64_t> ToInt64(A *p) {
+template <typename A> std::optional<std::int64_t> ToInt64(const A *p) {
   if (p) {
-    return ToInt64(std::as_const(*p));
+    return ToInt64(*p);
   } else {
     return std::nullopt;
   }
 }
-
 } // namespace Fortran::evaluate
 #endif // FORTRAN_EVALUATE_FOLD_H_

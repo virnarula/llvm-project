@@ -40,7 +40,7 @@ def archive_headers : Flag<["--"], "archive-headers">,
 
 defm build_id :
   Eq<"build-id", "Build ID to look up. Once found, added as an input file">,
-  MetaVarName<"<hex>">;
+  MetaVarName<"<dir>">;
 
 def : Flag<["-"], "a">, Alias<archive_headers>,
   HelpText<"Alias for --archive-headers">;
@@ -65,11 +65,7 @@ def : Flag<["-"], "D">, Alias<disassemble_all>,
 
 def symbol_description : Flag<["--"], "symbol-description">,
   HelpText<"Add symbol description for disassembly. This "
-           "option is for XCOFF files only">;
-
-def traceback_table : Flag<["--"], "traceback-table">,
-  HelpText<"Decode traceback table in disassembly. Implies --disassemble. "
-           "This option is for XCOFF files only">;
+           "option is for XCOFF files only.">;
 
 def disassemble_symbols_EQ : Joined<["--"], "disassemble-symbols=">,
   HelpText<"List of symbols to disassemble. "
@@ -86,11 +82,6 @@ def disassembler_options_EQ : Joined<["--"], "disassembler-options=">,
   HelpText<"Pass target specific disassembler options">;
 def : JoinedOrSeparate<["-"], "M">, Alias<disassembler_options_EQ>,
   HelpText<"Alias for --disassembler-options=">;
-
-def disassembler_color_EQ : Joined<["--"], "disassembler-color=">,
-  MetaVarName<"mode">,
-  HelpText<"Enable or disable disassembler color output. "
-           "Valid options are \"on\", \"off\" and \"terminal\" (default)">;
 
 def dynamic_reloc : Flag<["--"], "dynamic-reloc">,
   HelpText<"Display the dynamic relocation entries in the file">;
@@ -137,9 +128,6 @@ def mattr_EQ : Joined<["--"], "mattr=">,
   MetaVarName<"a1,+a2,-a3,...">,
   HelpText<"Target specific attributes (--mattr=help for details)">;
 
-def mllvm : Separate<["-"], "mllvm">, HelpText<"Specify an argument to forward to LLVM's CommandLine library">, MetaVarName<"<arg>">;
-def : Joined<["-"], "mllvm=">, Alias<mllvm>;
-
 def no_show_raw_insn : Flag<["--"], "no-show-raw-insn">,
   HelpText<"When disassembling instructions, "
            "do not print the instruction bytes.">;
@@ -157,10 +145,10 @@ def reloc : Flag<["--"], "reloc">,
 def : Flag<["-"], "r">, Alias<reloc>, HelpText<"Alias for --reloc">;
 
 def print_imm_hex : Flag<["--"], "print-imm-hex">,
-  HelpText<"Use hex format for immediate values (default)">;
+  HelpText<"Use hex format for immediate values">;
 
 def no_print_imm_hex : Flag<["--"], "no-print-imm-hex">,
-  HelpText<"Do not use hex format for immediate values">;
+  HelpText<"Do not use hex format for immediate values (default)">;
 def : Flag<["--"], "print-imm-hex=false">, Alias<no_print_imm_hex>;
 
 def private_headers : Flag<["--"], "private-headers">,

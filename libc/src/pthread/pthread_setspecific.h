@@ -11,10 +11,10 @@
 
 #include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int pthread_setspecific(pthread_key_t, const void *);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_PTHREAD_PTHREAD_SETSPECIFIC_H

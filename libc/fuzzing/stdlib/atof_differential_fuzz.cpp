@@ -26,8 +26,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     container[i] = data[i];
   container[size] = '\0'; // Add null terminator to container.
 
-  StringParserOutputDiff<double>(&LIBC_NAMESPACE::atof, &::atof, container,
-                                 size);
+  StringParserOutputDiff<double>(&__llvm_libc::atof, &::atof, container, size);
   delete[] container;
   return 0;
 }

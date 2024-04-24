@@ -105,8 +105,8 @@ To see which features and CPUs that LLVM knows about, we can use
       3dnowa                - Enable 3DNow! Athlon instructions.
       ...
 
-For our example, we'll use the generic CPU without any additional feature or
-target option.
+For our example, we'll use the generic CPU without any additional
+features, options or relocation model.
 
 .. code-block:: c++
 
@@ -114,7 +114,8 @@ target option.
   auto Features = "";
 
   TargetOptions opt;
-  auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, Reloc::PIC_);
+  auto RM = Optional<Reloc::Model>();
+  auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
 
 Configuring the Module
@@ -122,7 +123,7 @@ Configuring the Module
 
 We're now ready to configure our module, to specify the target and
 data layout. This isn't strictly necessary, but the `frontend
-performance guide <../../Frontend/PerformanceTips.html>`_ recommends
+performance guide <../Frontend/PerformanceTips.html>`_ recommends
 this. Optimizations benefit from knowing about the target and data
 layout.
 
@@ -154,7 +155,7 @@ pass:
 .. code-block:: c++
 
   legacy::PassManager pass;
-  auto FileType = CodeGenFileType::ObjectFile;
+  auto FileType = CGFT_ObjectFile;
 
   if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
     errs() << "TargetMachine can't emit a file of this type";

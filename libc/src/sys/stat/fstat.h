@@ -11,10 +11,10 @@
 
 #include <sys/stat.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fstat(int fd, struct stat *statbuf);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SYS_STAT_FSTAT_H

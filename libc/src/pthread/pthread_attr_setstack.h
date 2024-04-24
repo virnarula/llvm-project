@@ -11,10 +11,10 @@
 
 #include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int pthread_attr_setstack(pthread_attr_t *attr, void *stack, size_t stacksize);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_PTHREAD_PTHREAD_ATTR_SETSTACK_H

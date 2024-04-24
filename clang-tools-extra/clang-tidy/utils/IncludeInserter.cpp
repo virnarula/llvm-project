@@ -10,9 +10,10 @@
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/Token.h"
-#include <optional>
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 class IncludeInserterCallback : public PPCallbacks {
 public:
@@ -23,7 +24,7 @@ public:
   void InclusionDirective(SourceLocation HashLocation,
                           const Token &IncludeToken, StringRef FileNameRef,
                           bool IsAngled, CharSourceRange FileNameRange,
-                          OptionalFileEntryRef /*IncludedFile*/,
+                          Optional<FileEntryRef> /*IncludedFile*/,
                           StringRef /*SearchPath*/, StringRef /*RelativePath*/,
                           const Module * /*ImportedModule*/,
                           SrcMgr::CharacteristicKind /*FileType*/) override {
@@ -66,22 +67,22 @@ IncludeSorter &IncludeInserter::getOrCreate(FileID FileID) {
   return *Entry;
 }
 
-std::optional<FixItHint>
+llvm::Optional<FixItHint>
 IncludeInserter::createIncludeInsertion(FileID FileID, llvm::StringRef Header) {
   bool IsAngled = Header.consume_front("<");
   if (IsAngled != Header.consume_back(">"))
-    return std::nullopt;
+    return llvm::None;
   // We assume the same Header will never be included both angled and not
   // angled.
   // In self contained diags mode we don't track what headers we have already
   // inserted.
   if (!SelfContainedDiags && !InsertedHeaders[FileID].insert(Header).second)
-    return std::nullopt;
+    return llvm::None;
 
   return getOrCreate(FileID).createIncludeInsertion(Header, IsAngled);
 }
 
-std::optional<FixItHint>
+llvm::Optional<FixItHint>
 IncludeInserter::createMainFileIncludeInsertion(StringRef Header) {
   assert(SourceMgr && "SourceMgr shouldn't be null; did you remember to call "
                       "registerPreprocessor()?");
@@ -97,4 +98,6 @@ void IncludeInserter::addInclude(StringRef FileName, bool IsAngled,
   getOrCreate(FileID).addInclude(FileName, IsAngled, HashLocation, EndLocation);
 }
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang

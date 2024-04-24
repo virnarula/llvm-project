@@ -10,8 +10,8 @@
 #include "src/__support/FPUtil/ManipulationFunctions.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, ilogbl, (long double x)) { return fputil::ilogb(x); }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

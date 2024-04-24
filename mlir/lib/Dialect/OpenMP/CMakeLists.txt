@@ -12,6 +12,4 @@ add_mlir_dialect_library(MLIROpenMPDialect
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRLLVMDialect
-  MLIRFuncDialect
-  MLIROpenACCMPCommon
   )

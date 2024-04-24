@@ -176,11 +176,16 @@ template <typename T>
   return ::testing::AssertionSuccess();
 }
 
-::testing::AssertionResult
-HasParamCommandAt(const Comment *C, const CommandTraits &Traits, size_t Idx,
-                  ParamCommandComment *&PCC, StringRef CommandName,
-                  ParamCommandPassDirection Direction, bool IsDirectionExplicit,
-                  StringRef ParamName, ParagraphComment *&Paragraph) {
+::testing::AssertionResult HasParamCommandAt(
+                              const Comment *C,
+                              const CommandTraits &Traits,
+                              size_t Idx,
+                              ParamCommandComment *&PCC,
+                              StringRef CommandName,
+                              ParamCommandComment::PassDirection Direction,
+                              bool IsDirectionExplicit,
+                              StringRef ParamName,
+                              ParagraphComment *&Paragraph) {
   ::testing::AssertionResult AR = GetChildAt(C, Idx, PCC);
   if (!AR)
     return AR;
@@ -193,9 +198,8 @@ HasParamCommandAt(const Comment *C, const CommandTraits &Traits, size_t Idx,
 
   if (PCC->getDirection() != Direction)
     return ::testing::AssertionFailure()
-           << "ParamCommandComment has direction "
-           << llvm::to_underlying(PCC->getDirection()) << ", expected "
-           << llvm::to_underlying(Direction);
+        << "ParamCommandComment has direction " << PCC->getDirection() << ", "
+           "expected " << Direction;
 
   if (PCC->isDirectionExplicit() != IsDirectionExplicit)
     return ::testing::AssertionFailure()
@@ -752,9 +756,10 @@ TEST_F(CommentParserTest, ParamCommand1) {
   {
     ParamCommandComment *PCC;
     ParagraphComment *PC;
-    ASSERT_TRUE(HasParamCommandAt(
-        FC, Traits, 1, PCC, "param", ParamCommandPassDirection::In,
-        /* IsDirectionExplicit = */ false, "aaa", PC));
+    ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
+                                  ParamCommandComment::In,
+                                  /* IsDirectionExplicit = */ false,
+                                  "aaa", PC));
     ASSERT_TRUE(HasChildCount(PCC, 1));
     ASSERT_TRUE(HasChildCount(PC, 0));
   }
@@ -771,8 +776,9 @@ TEST_F(CommentParserTest, ParamCommand2) {
     ParamCommandComment *PCC;
     ParagraphComment *PC;
     ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
-                                  ParamCommandPassDirection::In,
-                                  /* IsDirectionExplicit = */ false, "", PC));
+                                  ParamCommandComment::In,
+                                  /* IsDirectionExplicit = */ false,
+                                  "", PC));
     ASSERT_TRUE(HasChildCount(PCC, 1));
     ASSERT_TRUE(HasChildCount(PC, 0));
   }
@@ -803,9 +809,10 @@ TEST_F(CommentParserTest, ParamCommand3) {
     {
       ParamCommandComment *PCC;
       ParagraphComment *PC;
-      ASSERT_TRUE(HasParamCommandAt(
-          FC, Traits, 1, PCC, "param", ParamCommandPassDirection::In,
-          /* IsDirectionExplicit = */ false, "aaa", PC));
+      ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
+                                    ParamCommandComment::In,
+                                    /* IsDirectionExplicit = */ false,
+                                    "aaa", PC));
       ASSERT_TRUE(HasChildCount(PCC, 1));
       ASSERT_TRUE(HasParagraphCommentAt(PCC, 0, " Bbb"));
     }
@@ -832,9 +839,10 @@ TEST_F(CommentParserTest, ParamCommand4) {
     {
       ParamCommandComment *PCC;
       ParagraphComment *PC;
-      ASSERT_TRUE(HasParamCommandAt(
-          FC, Traits, 1, PCC, "param", ParamCommandPassDirection::In,
-          /* IsDirectionExplicit = */ true, "aaa", PC));
+      ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
+                                    ParamCommandComment::In,
+                                    /* IsDirectionExplicit = */ true,
+                                    "aaa", PC));
       ASSERT_TRUE(HasChildCount(PCC, 1));
       ASSERT_TRUE(HasParagraphCommentAt(PCC, 0, " Bbb"));
     }
@@ -861,9 +869,10 @@ TEST_F(CommentParserTest, ParamCommand5) {
     {
       ParamCommandComment *PCC;
       ParagraphComment *PC;
-      ASSERT_TRUE(HasParamCommandAt(
-          FC, Traits, 1, PCC, "param", ParamCommandPassDirection::Out,
-          /* IsDirectionExplicit = */ true, "aaa", PC));
+      ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
+                                    ParamCommandComment::Out,
+                                    /* IsDirectionExplicit = */ true,
+                                    "aaa", PC));
       ASSERT_TRUE(HasChildCount(PCC, 1));
       ASSERT_TRUE(HasParagraphCommentAt(PCC, 0, " Bbb"));
     }
@@ -891,9 +900,10 @@ TEST_F(CommentParserTest, ParamCommand6) {
     {
       ParamCommandComment *PCC;
       ParagraphComment *PC;
-      ASSERT_TRUE(HasParamCommandAt(
-          FC, Traits, 1, PCC, "param", ParamCommandPassDirection::InOut,
-          /* IsDirectionExplicit = */ true, "aaa", PC));
+      ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
+                                    ParamCommandComment::InOut,
+                                    /* IsDirectionExplicit = */ true,
+                                    "aaa", PC));
       ASSERT_TRUE(HasChildCount(PCC, 1));
       ASSERT_TRUE(HasParagraphCommentAt(PCC, 0, " Bbb"));
     }
@@ -911,9 +921,10 @@ TEST_F(CommentParserTest, ParamCommand7) {
   {
     ParamCommandComment *PCC;
     ParagraphComment *PC;
-    ASSERT_TRUE(HasParamCommandAt(
-        FC, Traits, 1, PCC, "param", ParamCommandPassDirection::In,
-        /* IsDirectionExplicit = */ false, "aaa", PC));
+    ASSERT_TRUE(HasParamCommandAt(FC, Traits, 1, PCC, "param",
+                                  ParamCommandComment::In,
+                                  /* IsDirectionExplicit = */ false,
+                                  "aaa", PC));
     ASSERT_TRUE(HasChildCount(PCC, 1));
 
     ASSERT_TRUE(HasChildCount(PC, 5));

@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::altera {
+namespace clang {
+namespace tidy {
+namespace altera {
 
 void SingleWorkItemBarrierCheck::registerMatchers(MatchFinder *Finder) {
   // Find any function that calls barrier but does not call an ID function.
@@ -22,16 +24,17 @@ void SingleWorkItemBarrierCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       // Find function declarations...
       functionDecl(
-          // That are OpenCL kernels...
-          hasAttr(attr::Kind::OpenCLKernel),
-          // And call a barrier function (either 1.x or 2.x version)...
-          forEachDescendant(callExpr(callee(functionDecl(hasAnyName(
-                                         "barrier", "work_group_barrier"))))
-                                .bind("barrier")),
-          // But do not call an ID function.
-          unless(hasDescendant(callExpr(callee(functionDecl(
-              hasAnyName("get_global_id", "get_local_id", "get_group_id",
-                         "get_local_linear_id")))))))
+          allOf(
+              // That are OpenCL kernels...
+              hasAttr(attr::Kind::OpenCLKernel),
+              // And call a barrier function (either 1.x or 2.x version)...
+              forEachDescendant(callExpr(callee(functionDecl(hasAnyName(
+                                             "barrier", "work_group_barrier"))))
+                                    .bind("barrier")),
+              // But do not call an ID function.
+              unless(hasDescendant(callExpr(callee(functionDecl(
+                  hasAnyName("get_global_id", "get_local_id", "get_group_id",
+                             "get_local_linear_id"))))))))
           .bind("function"),
       this);
 }
@@ -76,4 +79,6 @@ void SingleWorkItemBarrierCheck::storeOptions(
   Options.store(Opts, "AOCVersion", AOCVersion);
 }
 
-} // namespace clang::tidy::altera
+} // namespace altera
+} // namespace tidy
+} // namespace clang

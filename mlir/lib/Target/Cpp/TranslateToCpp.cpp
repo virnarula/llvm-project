@@ -10,12 +10,12 @@
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/IndentedOstream.h"
-#include "mlir/Support/LLVM.h"
 #include "mlir/Target/Cpp/CppEmitter.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
@@ -64,35 +64,6 @@ inline LogicalResult interleaveCommaWithError(const Container &c,
                                               raw_ostream &os,
                                               UnaryFunctor eachFn) {
   return interleaveWithError(c.begin(), c.end(), eachFn, [&]() { os << ", "; });
-}
-
-/// Return the precedence of a operator as an integer, higher values
-/// imply higher precedence.
-static int getOperatorPrecedence(Operation *operation) {
-  return llvm::TypeSwitch<Operation *, int>(operation)
-      .Case<emitc::AddOp>([&](auto op) { return 11; })
-      .Case<emitc::ApplyOp>([&](auto op) { return 13; })
-      .Case<emitc::CastOp>([&](auto op) { return 13; })
-      .Case<emitc::CmpOp>([&](auto op) {
-        switch (op.getPredicate()) {
-        case emitc::CmpPredicate::eq:
-        case emitc::CmpPredicate::ne:
-          return 8;
-        case emitc::CmpPredicate::lt:
-        case emitc::CmpPredicate::le:
-        case emitc::CmpPredicate::gt:
-        case emitc::CmpPredicate::ge:
-          return 9;
-        case emitc::CmpPredicate::three_way:
-          return 10;
-        }
-      })
-      .Case<emitc::DivOp>([&](auto op) { return 12; })
-      .Case<emitc::MulOp>([&](auto op) { return 12; })
-      .Case<emitc::RemOp>([&](auto op) { return 12; })
-      .Case<emitc::SubOp>([&](auto op) { return 11; })
-      .Case<emitc::CallOpaqueOp>([&](auto op) { return 14; });
-  llvm_unreachable("Unsupported operator");
 }
 
 namespace {
@@ -145,12 +116,6 @@ struct CppEmitter {
   /// Emits the operands of the operation. All operands are emitted in order.
   LogicalResult emitOperands(Operation &op);
 
-  /// Emits value as an operands of an operation
-  LogicalResult emitOperand(Value value);
-
-  /// Emit an expression as a C expression.
-  LogicalResult emitExpression(ExpressionOp expressionOp);
-
   /// Return the existing or a new name for a Value.
   StringRef getOrCreateName(Value val);
 
@@ -192,21 +157,6 @@ struct CppEmitter {
   /// be declared at the beginning of a function.
   bool shouldDeclareVariablesAtTop() { return declareVariablesAtTop; };
 
-  /// Get expression currently being emitted.
-  ExpressionOp getEmittedExpression() { return emittedExpression; }
-
-  /// Determine whether given value is part of the expression potentially being
-  /// emitted.
-  bool isPartOfCurrentExpression(Value value) {
-    if (!emittedExpression)
-      return false;
-    Operation *def = value.getDefiningOp();
-    if (!def)
-      return false;
-    auto operandExpression = dyn_cast<ExpressionOp>(def->getParentOp());
-    return operandExpression == emittedExpression;
-  };
-
 private:
   using ValueMapper = llvm::ScopedHashTable<Value, std::string>;
   using BlockMapper = llvm::ScopedHashTable<Block *, std::string>;
@@ -229,49 +179,8 @@ private:
   /// names of values in a scope.
   std::stack<int64_t> valueInScopeCount;
   std::stack<int64_t> labelInScopeCount;
-
-  /// State of the current expression being emitted.
-  ExpressionOp emittedExpression;
-  SmallVector<int> emittedExpressionPrecedence;
-
-  void pushExpressionPrecedence(int precedence) {
-    emittedExpressionPrecedence.push_back(precedence);
-  }
-  void popExpressionPrecedence() { emittedExpressionPrecedence.pop_back(); }
-  static int lowestPrecedence() { return 0; }
-  int getExpressionPrecedence() {
-    if (emittedExpressionPrecedence.empty())
-      return lowestPrecedence();
-    return emittedExpressionPrecedence.back();
-  }
 };
 } // namespace
-
-/// Determine whether expression \p expressionOp should be emitted inline, i.e.
-/// as part of its user. This function recommends inlining of any expressions
-/// that can be inlined unless it is used by another expression, under the
-/// assumption that  any expression fusion/re-materialization was taken care of
-/// by transformations run by the backend.
-static bool shouldBeInlined(ExpressionOp expressionOp) {
-  // Do not inline if expression is marked as such.
-  if (expressionOp.getDoNotInline())
-    return false;
-
-  // Do not inline expressions with side effects to prevent side-effect
-  // reordering.
-  if (expressionOp.hasSideEffects())
-    return false;
-
-  // Do not inline expressions with multiple uses.
-  Value result = expressionOp.getResult();
-  if (!result.hasOneUse())
-    return false;
-
-  // Do not inline expressions used by other expressions, as any desired
-  // expression folding was taken care of by transformations.
-  Operation *user = *result.getUsers().begin();
-  return !user->getParentOfType<ExpressionOp>();
-}
 
 static LogicalResult printConstantOp(CppEmitter &emitter, Operation *operation,
                                      Attribute value) {
@@ -281,7 +190,7 @@ static LogicalResult printConstantOp(CppEmitter &emitter, Operation *operation,
   // the FuncOp.
   if (emitter.shouldDeclareVariablesAtTop()) {
     // Skip the assignment if the emitc.constant has no value.
-    if (auto oAttr = dyn_cast<emitc::OpaqueAttr>(value)) {
+    if (auto oAttr = value.dyn_cast<emitc::OpaqueAttr>()) {
       if (oAttr.getValue().empty())
         return success();
     }
@@ -292,7 +201,7 @@ static LogicalResult printConstantOp(CppEmitter &emitter, Operation *operation,
   }
 
   // Emit a variable declaration for an emitc.constant op without value.
-  if (auto oAttr = dyn_cast<emitc::OpaqueAttr>(value)) {
+  if (auto oAttr = value.dyn_cast<emitc::OpaqueAttr>()) {
     if (oAttr.getValue().empty())
       // The semicolon gets printed by the emitOperation function.
       return emitter.emitVariableDeclaration(result,
@@ -335,98 +244,6 @@ static LogicalResult printOperation(CppEmitter &emitter,
   Attribute value = constantOp.getValueAttr();
 
   return printConstantOp(emitter, operation, value);
-}
-
-static LogicalResult printOperation(CppEmitter &emitter,
-                                    emitc::AssignOp assignOp) {
-  auto variableOp = cast<emitc::VariableOp>(assignOp.getVar().getDefiningOp());
-  OpResult result = variableOp->getResult(0);
-
-  if (failed(emitter.emitVariableAssignment(result)))
-    return failure();
-
-  return emitter.emitOperand(assignOp.getValue());
-}
-
-static LogicalResult printBinaryOperation(CppEmitter &emitter,
-                                          Operation *operation,
-                                          StringRef binaryOperator) {
-  raw_ostream &os = emitter.ostream();
-
-  if (failed(emitter.emitAssignPrefix(*operation)))
-    return failure();
-
-  if (failed(emitter.emitOperand(operation->getOperand(0))))
-    return failure();
-
-  os << " " << binaryOperator << " ";
-
-  if (failed(emitter.emitOperand(operation->getOperand(1))))
-    return failure();
-
-  return success();
-}
-
-static LogicalResult printOperation(CppEmitter &emitter, emitc::AddOp addOp) {
-  Operation *operation = addOp.getOperation();
-
-  return printBinaryOperation(emitter, operation, "+");
-}
-
-static LogicalResult printOperation(CppEmitter &emitter, emitc::DivOp divOp) {
-  Operation *operation = divOp.getOperation();
-
-  return printBinaryOperation(emitter, operation, "/");
-}
-
-static LogicalResult printOperation(CppEmitter &emitter, emitc::MulOp mulOp) {
-  Operation *operation = mulOp.getOperation();
-
-  return printBinaryOperation(emitter, operation, "*");
-}
-
-static LogicalResult printOperation(CppEmitter &emitter, emitc::RemOp remOp) {
-  Operation *operation = remOp.getOperation();
-
-  return printBinaryOperation(emitter, operation, "%");
-}
-
-static LogicalResult printOperation(CppEmitter &emitter, emitc::SubOp subOp) {
-  Operation *operation = subOp.getOperation();
-
-  return printBinaryOperation(emitter, operation, "-");
-}
-
-static LogicalResult printOperation(CppEmitter &emitter, emitc::CmpOp cmpOp) {
-  Operation *operation = cmpOp.getOperation();
-
-  StringRef binaryOperator;
-
-  switch (cmpOp.getPredicate()) {
-  case emitc::CmpPredicate::eq:
-    binaryOperator = "==";
-    break;
-  case emitc::CmpPredicate::ne:
-    binaryOperator = "!=";
-    break;
-  case emitc::CmpPredicate::lt:
-    binaryOperator = "<";
-    break;
-  case emitc::CmpPredicate::le:
-    binaryOperator = "<=";
-    break;
-  case emitc::CmpPredicate::gt:
-    binaryOperator = ">";
-    break;
-  case emitc::CmpPredicate::ge:
-    binaryOperator = ">=";
-    break;
-  case emitc::CmpPredicate::three_way:
-    binaryOperator = "<=>";
-    break;
-  }
-
-  return printBinaryOperation(emitter, operation, binaryOperator);
 }
 
 static LogicalResult printOperation(CppEmitter &emitter,
@@ -507,27 +324,25 @@ static LogicalResult printOperation(CppEmitter &emitter, func::CallOp callOp) {
   return success();
 }
 
-static LogicalResult printOperation(CppEmitter &emitter,
-                                    emitc::CallOpaqueOp callOpaqueOp) {
+static LogicalResult printOperation(CppEmitter &emitter, emitc::CallOp callOp) {
   raw_ostream &os = emitter.ostream();
-  Operation &op = *callOpaqueOp.getOperation();
+  Operation &op = *callOp.getOperation();
 
   if (failed(emitter.emitAssignPrefix(op)))
     return failure();
-  os << callOpaqueOp.getCallee();
+  os << callOp.getCallee();
 
   auto emitArgs = [&](Attribute attr) -> LogicalResult {
-    if (auto t = dyn_cast<IntegerAttr>(attr)) {
+    if (auto t = attr.dyn_cast<IntegerAttr>()) {
       // Index attributes are treated specially as operand index.
       if (t.getType().isIndex()) {
         int64_t idx = t.getInt();
-        Value operand = op.getOperand(idx);
-        auto literalDef =
-            dyn_cast_if_present<LiteralOp>(operand.getDefiningOp());
-        if (!literalDef && !emitter.hasValueInScope(operand))
+        if ((idx < 0) || (idx >= op.getNumOperands()))
+          return op.emitOpError("invalid operand index");
+        if (!emitter.hasValueInScope(op.getOperand(idx)))
           return op.emitOpError("operand ")
                  << idx << "'s value not defined in scope";
-        os << emitter.getOrCreateName(operand);
+        os << emitter.getOrCreateName(op.getOperand(idx));
         return success();
       }
     }
@@ -537,10 +352,10 @@ static LogicalResult printOperation(CppEmitter &emitter,
     return success();
   };
 
-  if (callOpaqueOp.getTemplateArgs()) {
+  if (callOp.getTemplateArgs()) {
     os << "<";
-    if (failed(interleaveCommaWithError(*callOpaqueOp.getTemplateArgs(), os,
-                                        emitArgs)))
+    if (failed(
+            interleaveCommaWithError(*callOp.getTemplateArgs(), os, emitArgs)))
       return failure();
     os << ">";
   }
@@ -548,8 +363,8 @@ static LogicalResult printOperation(CppEmitter &emitter,
   os << "(";
 
   LogicalResult emittedArgs =
-      callOpaqueOp.getArgs()
-          ? interleaveCommaWithError(*callOpaqueOp.getArgs(), os, emitArgs)
+      callOp.getArgs()
+          ? interleaveCommaWithError(*callOp.getArgs(), os, emitArgs)
           : emitter.emitOperands(op);
   if (failed(emittedArgs))
     return failure();
@@ -580,20 +395,9 @@ static LogicalResult printOperation(CppEmitter &emitter, emitc::CastOp castOp) {
   if (failed(emitter.emitType(op.getLoc(), op.getResult(0).getType())))
     return failure();
   os << ") ";
-  return emitter.emitOperand(castOp.getOperand());
-}
+  os << emitter.getOrCreateName(castOp.getOperand());
 
-static LogicalResult printOperation(CppEmitter &emitter,
-                                    emitc::ExpressionOp expressionOp) {
-  if (shouldBeInlined(expressionOp))
-    return success();
-
-  Operation &op = *expressionOp.getOperation();
-
-  if (failed(emitter.emitAssignPrefix(op)))
-    return failure();
-
-  return emitter.emitExpression(expressionOp);
+  return success();
 }
 
 static LogicalResult printOperation(CppEmitter &emitter,
@@ -609,20 +413,29 @@ static LogicalResult printOperation(CppEmitter &emitter,
   return success();
 }
 
-static LogicalResult printOperation(CppEmitter &emitter, emitc::ForOp forOp) {
+static LogicalResult printOperation(CppEmitter &emitter, scf::ForOp forOp) {
 
   raw_indented_ostream &os = emitter.ostream();
 
-  // Utility function to determine whether a value is an expression that will be
-  // inlined, and as such should be wrapped in parentheses in order to guarantee
-  // its precedence and associativity.
-  auto requiresParentheses = [&](Value value) {
-    auto expressionOp =
-        dyn_cast_if_present<ExpressionOp>(value.getDefiningOp());
-    if (!expressionOp)
-      return false;
-    return shouldBeInlined(expressionOp);
-  };
+  OperandRange operands = forOp.getIterOperands();
+  Block::BlockArgListType iterArgs = forOp.getRegionIterArgs();
+  Operation::result_range results = forOp.getResults();
+
+  if (!emitter.shouldDeclareVariablesAtTop()) {
+    for (OpResult result : results) {
+      if (failed(emitter.emitVariableDeclaration(result,
+                                                 /*trailingSemicolon=*/true)))
+        return failure();
+    }
+  }
+
+  for (auto pair : llvm::zip(iterArgs, operands)) {
+    if (failed(emitter.emitType(forOp.getLoc(), std::get<0>(pair).getType())))
+      return failure();
+    os << " " << emitter.getOrCreateName(std::get<0>(pair)) << " = ";
+    os << emitter.getOrCreateName(std::get<1>(pair)) << ";";
+    os << "\n";
+  }
 
   os << "for (";
   if (failed(
@@ -631,74 +444,121 @@ static LogicalResult printOperation(CppEmitter &emitter, emitc::ForOp forOp) {
   os << " ";
   os << emitter.getOrCreateName(forOp.getInductionVar());
   os << " = ";
-  if (failed(emitter.emitOperand(forOp.getLowerBound())))
-    return failure();
+  os << emitter.getOrCreateName(forOp.getLowerBound());
   os << "; ";
   os << emitter.getOrCreateName(forOp.getInductionVar());
   os << " < ";
-  Value upperBound = forOp.getUpperBound();
-  bool upperBoundRequiresParentheses = requiresParentheses(upperBound);
-  if (upperBoundRequiresParentheses)
-    os << "(";
-  if (failed(emitter.emitOperand(upperBound)))
-    return failure();
-  if (upperBoundRequiresParentheses)
-    os << ")";
+  os << emitter.getOrCreateName(forOp.getUpperBound());
   os << "; ";
   os << emitter.getOrCreateName(forOp.getInductionVar());
   os << " += ";
-  if (failed(emitter.emitOperand(forOp.getStep())))
-    return failure();
+  os << emitter.getOrCreateName(forOp.getStep());
   os << ") {\n";
   os.indent();
 
   Region &forRegion = forOp.getRegion();
   auto regionOps = forRegion.getOps();
 
-  // We skip the trailing yield op.
+  // We skip the trailing yield op because this updates the result variables
+  // of the for op in the generated code. Instead we update the iterArgs at
+  // the end of a loop iteration and set the result variables after the for
+  // loop.
   for (auto it = regionOps.begin(); std::next(it) != regionOps.end(); ++it) {
     if (failed(emitter.emitOperation(*it, /*trailingSemicolon=*/true)))
       return failure();
   }
 
+  Operation *yieldOp = forRegion.getBlocks().front().getTerminator();
+  // Copy yield operands into iterArgs at the end of a loop iteration.
+  for (auto pair : llvm::zip(iterArgs, yieldOp->getOperands())) {
+    BlockArgument iterArg = std::get<0>(pair);
+    Value operand = std::get<1>(pair);
+    os << emitter.getOrCreateName(iterArg) << " = "
+       << emitter.getOrCreateName(operand) << ";\n";
+  }
+
   os.unindent() << "}";
+
+  // Copy iterArgs into results after the for loop.
+  for (auto pair : llvm::zip(results, iterArgs)) {
+    OpResult result = std::get<0>(pair);
+    BlockArgument iterArg = std::get<1>(pair);
+    os << "\n"
+       << emitter.getOrCreateName(result) << " = "
+       << emitter.getOrCreateName(iterArg) << ";";
+  }
 
   return success();
 }
 
-static LogicalResult printOperation(CppEmitter &emitter, emitc::IfOp ifOp) {
+static LogicalResult printOperation(CppEmitter &emitter, scf::IfOp ifOp) {
   raw_indented_ostream &os = emitter.ostream();
 
-  // Helper function to emit all ops except the last one, expected to be
-  // emitc::yield.
-  auto emitAllExceptLast = [&emitter](Region &region) {
-    Region::OpIterator it = region.op_begin(), end = region.op_end();
-    for (; std::next(it) != end; ++it) {
-      if (failed(emitter.emitOperation(*it, /*trailingSemicolon=*/true)))
+  if (!emitter.shouldDeclareVariablesAtTop()) {
+    for (OpResult result : ifOp.getResults()) {
+      if (failed(emitter.emitVariableDeclaration(result,
+                                                 /*trailingSemicolon=*/true)))
         return failure();
     }
-    assert(isa<emitc::YieldOp>(*it) &&
-           "Expected last operation in the region to be emitc::yield");
-    return success();
-  };
+  }
 
   os << "if (";
-  if (failed(emitter.emitOperand(ifOp.getCondition())))
+  if (failed(emitter.emitOperands(*ifOp.getOperation())))
     return failure();
   os << ") {\n";
   os.indent();
-  if (failed(emitAllExceptLast(ifOp.getThenRegion())))
-    return failure();
+
+  Region &thenRegion = ifOp.getThenRegion();
+  for (Operation &op : thenRegion.getOps()) {
+    // Note: This prints a superfluous semicolon if the terminating yield op has
+    // zero results.
+    if (failed(emitter.emitOperation(op, /*trailingSemicolon=*/true)))
+      return failure();
+  }
+
   os.unindent() << "}";
 
   Region &elseRegion = ifOp.getElseRegion();
   if (!elseRegion.empty()) {
     os << " else {\n";
     os.indent();
-    if (failed(emitAllExceptLast(elseRegion)))
-      return failure();
+
+    for (Operation &op : elseRegion.getOps()) {
+      // Note: This prints a superfluous semicolon if the terminating yield op
+      // has zero results.
+      if (failed(emitter.emitOperation(op, /*trailingSemicolon=*/true)))
+        return failure();
+    }
+
     os.unindent() << "}";
   }
+
+  return success();
+}
+
+static LogicalResult printOperation(CppEmitter &emitter, scf::YieldOp yieldOp) {
+  raw_ostream &os = emitter.ostream();
+  Operation &parentOp = *yieldOp.getOperation()->getParentOp();
+
+  if (yieldOp.getNumOperands() != parentOp.getNumResults()) {
+    return yieldOp.emitError("number of operands does not to match the number "
+                             "of the parent op's results");
+  }
+
+  if (failed(interleaveWithError(
+          llvm::zip(parentOp.getResults(), yieldOp.getOperands()),
+          [&](auto pair) -> LogicalResult {
+            auto result = std::get<0>(pair);
+            auto operand = std::get<1>(pair);
+            os << emitter.getOrCreateName(result) << " = ";
+
+            if (!emitter.hasValueInScope(operand))
+              return yieldOp.emitError("operand value not in scope");
+            os << emitter.getOrCreateName(operand);
+            return success();
+          },
+          [&]() { os << ";\n"; })))
+    return failure();
 
   return success();
 }
@@ -711,10 +571,8 @@ static LogicalResult printOperation(CppEmitter &emitter,
   case 0:
     return success();
   case 1:
-    os << " ";
-    if (failed(emitter.emitOperand(returnOp.getOperand(0))))
-      return failure();
-    return success();
+    os << " " << emitter.getOrCreateName(returnOp.getOperand(0));
+    return success(emitter.hasValueInScope(returnOp.getOperand(0)));
   default:
     os << " std::make_tuple(";
     if (failed(emitter.emitOperandsAndAttributes(*returnOp.getOperation())))
@@ -767,11 +625,6 @@ static LogicalResult printOperation(CppEmitter &emitter,
     // regions.
     WalkResult result =
         functionOp.walk<WalkOrder::PreOrder>([&](Operation *op) -> WalkResult {
-          if (isa<emitc::LiteralOp>(op) ||
-              isa<emitc::ExpressionOp>(op->getParentOp()) ||
-              (isa<emitc::ExpressionOp>(op) &&
-               shouldBeInlined(cast<emitc::ExpressionOp>(op))))
-            return WalkResult::skip();
           for (OpResult result : op->getResults()) {
             if (failed(emitter.emitVariableDeclaration(
                     result, /*trailingSemicolon=*/true))) {
@@ -812,13 +665,12 @@ static LogicalResult printOperation(CppEmitter &emitter,
         return failure();
     }
     for (Operation &op : block.getOperations()) {
-      // When generating code for an emitc.if or cf.cond_br op no semicolon
-      // needs to be printed after the closing brace.
-      // When generating code for an emitc.for op, printing a trailing semicolon
+      // When generating code for an scf.if or cf.cond_br op no semicolon needs
+      // to be printed after the closing brace.
+      // When generating code for an scf.for op, printing a trailing semicolon
       // is handled within the printOperation function.
       bool trailingSemicolon =
-          !isa<cf::CondBranchOp, emitc::ForOp, emitc::IfOp, emitc::LiteralOp>(
-              op);
+          !isa<scf::IfOp, scf::ForOp, cf::CondBranchOp>(op);
 
       if (failed(emitter.emitOperation(
               op, /*trailingSemicolon=*/trailingSemicolon)))
@@ -837,8 +689,6 @@ CppEmitter::CppEmitter(raw_ostream &os, bool declareVariablesAtTop)
 
 /// Return the existing or a new name for a Value.
 StringRef CppEmitter::getOrCreateName(Value val) {
-  if (auto literal = dyn_cast_if_present<emitc::LiteralOp>(val.getDefiningOp()))
-    return literal.getValue();
   if (!valueMapper.count(val))
     valueMapper.insert(val, formatv("v{0}", ++valueInScopeCount.top()));
   return *valueMapper.begin(val);
@@ -909,11 +759,11 @@ LogicalResult CppEmitter::emitAttribute(Location loc, Attribute attr) {
   };
 
   // Print floating point attributes.
-  if (auto fAttr = dyn_cast<FloatAttr>(attr)) {
+  if (auto fAttr = attr.dyn_cast<FloatAttr>()) {
     printFloat(fAttr.getValue());
     return success();
   }
-  if (auto dense = dyn_cast<DenseFPElementsAttr>(attr)) {
+  if (auto dense = attr.dyn_cast<DenseFPElementsAttr>()) {
     os << '{';
     interleaveComma(dense, os, [&](const APFloat &val) { printFloat(val); });
     os << '}';
@@ -921,19 +771,21 @@ LogicalResult CppEmitter::emitAttribute(Location loc, Attribute attr) {
   }
 
   // Print integer attributes.
-  if (auto iAttr = dyn_cast<IntegerAttr>(attr)) {
-    if (auto iType = dyn_cast<IntegerType>(iAttr.getType())) {
+  if (auto iAttr = attr.dyn_cast<IntegerAttr>()) {
+    if (auto iType = iAttr.getType().dyn_cast<IntegerType>()) {
       printInt(iAttr.getValue(), shouldMapToUnsigned(iType.getSignedness()));
       return success();
     }
-    if (auto iType = dyn_cast<IndexType>(iAttr.getType())) {
+    if (auto iType = iAttr.getType().dyn_cast<IndexType>()) {
       printInt(iAttr.getValue(), false);
       return success();
     }
   }
-  if (auto dense = dyn_cast<DenseIntElementsAttr>(attr)) {
-    if (auto iType = dyn_cast<IntegerType>(
-            cast<TensorType>(dense.getType()).getElementType())) {
+  if (auto dense = attr.dyn_cast<DenseIntElementsAttr>()) {
+    if (auto iType = dense.getType()
+                         .cast<TensorType>()
+                         .getElementType()
+                         .dyn_cast<IntegerType>()) {
       os << '{';
       interleaveComma(dense, os, [&](const APInt &val) {
         printInt(val, shouldMapToUnsigned(iType.getSignedness()));
@@ -941,8 +793,10 @@ LogicalResult CppEmitter::emitAttribute(Location loc, Attribute attr) {
       os << '}';
       return success();
     }
-    if (auto iType = dyn_cast<IndexType>(
-            cast<TensorType>(dense.getType()).getElementType())) {
+    if (auto iType = dense.getType()
+                         .cast<TensorType>()
+                         .getElementType()
+                         .dyn_cast<IndexType>()) {
       os << '{';
       interleaveComma(dense, os,
                       [&](const APInt &val) { printInt(val, false); });
@@ -952,13 +806,13 @@ LogicalResult CppEmitter::emitAttribute(Location loc, Attribute attr) {
   }
 
   // Print opaque attributes.
-  if (auto oAttr = dyn_cast<emitc::OpaqueAttr>(attr)) {
+  if (auto oAttr = attr.dyn_cast<emitc::OpaqueAttr>()) {
     os << oAttr.getValue();
     return success();
   }
 
   // Print symbolic reference attributes.
-  if (auto sAttr = dyn_cast<SymbolRefAttr>(attr)) {
+  if (auto sAttr = attr.dyn_cast<SymbolRefAttr>()) {
     if (sAttr.getNestedReferences().size() > 1)
       return emitError(loc, "attribute has more than 1 nested reference");
     os << sAttr.getRootReference().getValue();
@@ -966,76 +820,20 @@ LogicalResult CppEmitter::emitAttribute(Location loc, Attribute attr) {
   }
 
   // Print type attributes.
-  if (auto type = dyn_cast<TypeAttr>(attr))
+  if (auto type = attr.dyn_cast<TypeAttr>())
     return emitType(loc, type.getValue());
 
   return emitError(loc, "cannot emit attribute: ") << attr;
 }
 
-LogicalResult CppEmitter::emitExpression(ExpressionOp expressionOp) {
-  assert(emittedExpressionPrecedence.empty() &&
-         "Expected precedence stack to be empty");
-  Operation *rootOp = expressionOp.getRootOp();
-
-  emittedExpression = expressionOp;
-  pushExpressionPrecedence(getOperatorPrecedence(rootOp));
-
-  if (failed(emitOperation(*rootOp, /*trailingSemicolon=*/false)))
-    return failure();
-
-  popExpressionPrecedence();
-  assert(emittedExpressionPrecedence.empty() &&
-         "Expected precedence stack to be empty");
-  emittedExpression = nullptr;
-
-  return success();
-}
-
-LogicalResult CppEmitter::emitOperand(Value value) {
-  if (isPartOfCurrentExpression(value)) {
-    Operation *def = value.getDefiningOp();
-    assert(def && "Expected operand to be defined by an operation");
-    int precedence = getOperatorPrecedence(def);
-    bool encloseInParenthesis = precedence < getExpressionPrecedence();
-    if (encloseInParenthesis) {
-      os << "(";
-      pushExpressionPrecedence(lowestPrecedence());
-    } else
-      pushExpressionPrecedence(precedence);
-
-    if (failed(emitOperation(*def, /*trailingSemicolon=*/false)))
-      return failure();
-
-    if (encloseInParenthesis)
-      os << ")";
-
-    popExpressionPrecedence();
-    return success();
-  }
-
-  auto expressionOp = dyn_cast_if_present<ExpressionOp>(value.getDefiningOp());
-  if (expressionOp && shouldBeInlined(expressionOp))
-    return emitExpression(expressionOp);
-
-  auto literalOp = dyn_cast_if_present<LiteralOp>(value.getDefiningOp());
-  if (!literalOp && !hasValueInScope(value))
-    return failure();
-  os << getOrCreateName(value);
-  return success();
-}
-
 LogicalResult CppEmitter::emitOperands(Operation &op) {
-  return interleaveCommaWithError(op.getOperands(), os, [&](Value operand) {
-    // If an expression is being emitted, push lowest precedence as these
-    // operands are either wrapped by parenthesis.
-    if (getEmittedExpression())
-      pushExpressionPrecedence(lowestPrecedence());
-    if (failed(emitOperand(operand)))
-      return failure();
-    if (getEmittedExpression())
-      popExpressionPrecedence();
+  auto emitOperandName = [&](Value result) -> LogicalResult {
+    if (!hasValueInScope(result))
+      return op.emitOpError() << "operand value not in scope";
+    os << getOrCreateName(result);
     return success();
-  });
+  };
+  return interleaveCommaWithError(op.getOperands(), os, emitOperandName);
 }
 
 LogicalResult
@@ -1088,10 +886,6 @@ LogicalResult CppEmitter::emitVariableDeclaration(OpResult result,
 }
 
 LogicalResult CppEmitter::emitAssignPrefix(Operation &op) {
-  // If op is being emitted as part of an expression, bail out.
-  if (getEmittedExpression())
-    return success();
-
   switch (op.getNumResults()) {
   case 0:
     break;
@@ -1140,41 +934,30 @@ LogicalResult CppEmitter::emitOperation(Operation &op, bool trailingSemicolon) {
           .Case<cf::BranchOp, cf::CondBranchOp>(
               [&](auto op) { return printOperation(*this, op); })
           // EmitC ops.
-          .Case<emitc::AddOp, emitc::ApplyOp, emitc::AssignOp,
-                emitc::CallOpaqueOp, emitc::CastOp, emitc::CmpOp,
-                emitc::ConstantOp, emitc::DivOp, emitc::ExpressionOp,
-                emitc::ForOp, emitc::IfOp, emitc::IncludeOp, emitc::MulOp,
-                emitc::RemOp, emitc::SubOp, emitc::VariableOp>(
+          .Case<emitc::ApplyOp, emitc::CallOp, emitc::CastOp, emitc::ConstantOp,
+                emitc::IncludeOp, emitc::VariableOp>(
               [&](auto op) { return printOperation(*this, op); })
           // Func ops.
           .Case<func::CallOp, func::ConstantOp, func::FuncOp, func::ReturnOp>(
               [&](auto op) { return printOperation(*this, op); })
+          // SCF ops.
+          .Case<scf::ForOp, scf::IfOp, scf::YieldOp>(
+              [&](auto op) { return printOperation(*this, op); })
           // Arithmetic ops.
           .Case<arith::ConstantOp>(
               [&](auto op) { return printOperation(*this, op); })
-          .Case<emitc::LiteralOp>([&](auto op) { return success(); })
           .Default([&](Operation *) {
             return op.emitOpError("unable to find printer for op");
           });
 
   if (failed(status))
     return failure();
-
-  if (isa<emitc::LiteralOp>(op))
-    return success();
-
-  if (getEmittedExpression() ||
-      (isa<emitc::ExpressionOp>(op) &&
-       shouldBeInlined(cast<emitc::ExpressionOp>(op))))
-    return success();
-
   os << (trailingSemicolon ? ";\n" : "\n");
-
   return success();
 }
 
 LogicalResult CppEmitter::emitType(Location loc, Type type) {
-  if (auto iType = dyn_cast<IntegerType>(type)) {
+  if (auto iType = type.dyn_cast<IntegerType>()) {
     switch (iType.getWidth()) {
     case 1:
       return (os << "bool"), success();
@@ -1190,7 +973,7 @@ LogicalResult CppEmitter::emitType(Location loc, Type type) {
       return emitError(loc, "cannot emit integer type ") << type;
     }
   }
-  if (auto fType = dyn_cast<FloatType>(type)) {
+  if (auto fType = type.dyn_cast<FloatType>()) {
     switch (fType.getWidth()) {
     case 32:
       return (os << "float"), success();
@@ -1200,9 +983,9 @@ LogicalResult CppEmitter::emitType(Location loc, Type type) {
       return emitError(loc, "cannot emit float type ") << type;
     }
   }
-  if (auto iType = dyn_cast<IndexType>(type))
+  if (auto iType = type.dyn_cast<IndexType>())
     return (os << "size_t"), success();
-  if (auto tType = dyn_cast<TensorType>(type)) {
+  if (auto tType = type.dyn_cast<TensorType>()) {
     if (!tType.hasRank())
       return emitError(loc, "cannot emit unranked tensor type");
     if (!tType.hasStaticShape())
@@ -1218,13 +1001,13 @@ LogicalResult CppEmitter::emitType(Location loc, Type type) {
     os << ">";
     return success();
   }
-  if (auto tType = dyn_cast<TupleType>(type))
+  if (auto tType = type.dyn_cast<TupleType>())
     return emitTupleType(loc, tType.getTypes());
-  if (auto oType = dyn_cast<emitc::OpaqueType>(type)) {
+  if (auto oType = type.dyn_cast<emitc::OpaqueType>()) {
     os << oType.getValue();
     return success();
   }
-  if (auto pType = dyn_cast<emitc::PointerType>(type)) {
+  if (auto pType = type.dyn_cast<emitc::PointerType>()) {
     if (failed(emitType(loc, pType.getPointee())))
       return failure();
     os << "*";

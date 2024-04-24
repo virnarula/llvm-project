@@ -17,15 +17,17 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::openmp {
+namespace clang {
+namespace tidy {
+namespace openmp {
 
 void UseDefaultNoneCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       ompExecutableDirective(
-          isAllowedToContainClauseKind(llvm::omp::OMPC_default),
-          anyOf(unless(hasAnyClause(ompDefaultClause())),
-                hasAnyClause(
-                    ompDefaultClause(unless(isNoneKind())).bind("clause"))))
+          allOf(isAllowedToContainClauseKind(llvm::omp::OMPC_default),
+                anyOf(unless(hasAnyClause(ompDefaultClause())),
+                      hasAnyClause(ompDefaultClause(unless(isNoneKind()))
+                                       .bind("clause")))))
           .bind("directive"),
       this);
 }
@@ -53,4 +55,6 @@ void UseDefaultNoneCheck::check(const MatchFinder::MatchResult &Result) {
       << getOpenMPDirectiveName(Directive->getDirectiveKind());
 }
 
-} // namespace clang::tidy::openmp
+} // namespace openmp
+} // namespace tidy
+} // namespace clang

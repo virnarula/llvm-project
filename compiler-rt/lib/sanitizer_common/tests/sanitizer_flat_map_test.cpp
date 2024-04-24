@@ -14,6 +14,13 @@
 using namespace __sanitizer;
 
 namespace {
+struct TestMapUnmapCallback1 {
+  static int map_count, unmap_count;
+  void OnMap(uptr p, uptr size) const { map_count++; }
+  void OnUnmap(uptr p, uptr size) const { unmap_count++; }
+};
+int TestMapUnmapCallback1::map_count;
+int TestMapUnmapCallback1::unmap_count;
 
 struct TestStruct {
   int data[125] = {};
@@ -56,7 +63,8 @@ TYPED_TEST(FlatMapTest, TwoLevelByteMap) {
 }
 
 template <typename TypeParam, typename AddressSpaceView>
-using TestMapASVT = TwoLevelMap<TypeParam, 1 << 8, 1 << 7, AddressSpaceView>;
+using TestMapASVT = TwoLevelMap<TypeParam, 1 << 8, 1 << 7, AddressSpaceView,
+                                TestMapUnmapCallback1>;
 template <typename TypeParam>
 using TestMap = TestMapASVT<TypeParam, LocalAddressSpaceView>;
 
@@ -81,6 +89,8 @@ static void *TwoLevelMapUserThread(void *param) {
 TYPED_TEST(FlatMapTest, ThreadedTwoLevelByteMap) {
   TestMap<TypeParam> m;
   m.Init();
+  TestMapUnmapCallback1::map_count = 0;
+  TestMapUnmapCallback1::unmap_count = 0;
   static const int kNumThreads = 4;
   pthread_t t[kNumThreads];
   TestMapParam<TypeParam> p[kNumThreads];
@@ -90,8 +100,14 @@ TYPED_TEST(FlatMapTest, ThreadedTwoLevelByteMap) {
     p[i].num_shards = kNumThreads;
     PTHREAD_CREATE(&t[i], 0, TwoLevelMapUserThread<TypeParam>, &p[i]);
   }
-  for (int i = 0; i < kNumThreads; i++) PTHREAD_JOIN(t[i], 0);
+  for (int i = 0; i < kNumThreads; i++) {
+    PTHREAD_JOIN(t[i], 0);
+  }
+  EXPECT_EQ((uptr)TestMapUnmapCallback1::map_count, m.size1());
+  EXPECT_EQ((uptr)TestMapUnmapCallback1::unmap_count, 0UL);
   m.TestOnlyUnmap();
+  EXPECT_EQ((uptr)TestMapUnmapCallback1::map_count, m.size1());
+  EXPECT_EQ((uptr)TestMapUnmapCallback1::unmap_count, m.size1());
 }
 
 }  // namespace

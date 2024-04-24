@@ -15,7 +15,6 @@
 #include "llvm/DebugInfo/CodeView/CVRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
-#include <optional>
 
 namespace clang {
 class CXXBaseSpecifier;
@@ -128,7 +127,7 @@ private:
   Record m_record;
   clang::QualType AddBaseClassForTypeIndex(
       llvm::codeview::TypeIndex ti, llvm::codeview::MemberAccess access,
-      std::optional<uint64_t> vtable_idx = std::optional<uint64_t>());
+      llvm::Optional<uint64_t> vtable_idx = llvm::Optional<uint64_t>());
   void AddMethod(llvm::StringRef name, llvm::codeview::TypeIndex type_idx,
                  llvm::codeview::MemberAccess access,
                  llvm::codeview::MethodOptions options,

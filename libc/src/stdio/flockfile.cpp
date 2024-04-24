@@ -11,10 +11,10 @@
 
 #include <stdio.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(void, flockfile, (::FILE * stream)) {
-  reinterpret_cast<LIBC_NAMESPACE::File *>(stream)->lock();
+  reinterpret_cast<__llvm_libc::File *>(stream)->lock();
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

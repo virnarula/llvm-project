@@ -9,6 +9,7 @@
 #ifndef PYTHON_BINDINGS_BUFFERIZATION_OPS
 #define PYTHON_BINDINGS_BUFFERIZATION_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/Bufferization/IR/BufferizationOps.td"
 
 #endif

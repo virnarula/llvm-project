@@ -16,7 +16,21 @@
 
 #include <string>
 
-void f() {
+#include "test_macros.h"
+
+TEST_CONSTEXPR_CXX20 bool test() {
   std::string c;
   c.empty(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+
+  return true;
+}
+
+int main(int, char**)
+{
+  test();
+#if TEST_STD_VER > 17
+  static_assert(test());
+#endif
+
+  return 0;
 }

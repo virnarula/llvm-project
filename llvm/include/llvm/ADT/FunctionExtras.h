@@ -35,7 +35,6 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/MemAlloc.h"
 #include "llvm/Support/type_traits.h"
 #include <cstring>
@@ -60,7 +59,7 @@ namespace detail {
 
 template <typename T>
 using EnableIfTrivial =
-    std::enable_if_t<std::is_trivially_move_constructible<T>::value &&
+    std::enable_if_t<llvm::is_trivially_move_constructible<T>::value &&
                      std::is_trivially_destructible<T>::value>;
 template <typename CallableT, typename ThisT>
 using EnableUnlessSameType =
@@ -100,11 +99,11 @@ protected:
   template <typename T> struct AdjustedParamTBase {
     static_assert(!std::is_reference<T>::value,
                   "references should be handled by template specialization");
-    using type =
-        std::conditional_t<std::is_trivially_copy_constructible<T>::value &&
-                               std::is_trivially_move_constructible<T>::value &&
-                               IsSizeLessThanThresholdT<T>::value,
-                           T, T &>;
+    using type = std::conditional_t<
+        llvm::is_trivially_copy_constructible<T>::value &&
+            llvm::is_trivially_move_constructible<T>::value &&
+            IsSizeLessThanThresholdT<T>::value,
+        T, T &>;
   };
 
   // This specialization ensures that 'AdjustedParam<V<T>&>' or
@@ -173,15 +172,16 @@ protected:
   bool isInlineStorage() const { return CallbackAndInlineFlag.getInt(); }
 
   bool isTrivialCallback() const {
-    return isa<TrivialCallback *>(CallbackAndInlineFlag.getPointer());
+    return CallbackAndInlineFlag.getPointer().template is<TrivialCallback *>();
   }
 
   CallPtrT getTrivialCallback() const {
-    return cast<TrivialCallback *>(CallbackAndInlineFlag.getPointer())->CallPtr;
+    return CallbackAndInlineFlag.getPointer().template get<TrivialCallback *>()->CallPtr;
   }
 
   NonTrivialCallbacks *getNonTrivialCallbacks() const {
-    return cast<NonTrivialCallbacks *>(CallbackAndInlineFlag.getPointer());
+    return CallbackAndInlineFlag.getPointer()
+        .template get<NonTrivialCallbacks *>();
   }
 
   CallPtrT getCallPtr() const {
@@ -318,10 +318,8 @@ protected:
     // Clear the old callback and inline flag to get back to as-if-null.
     RHS.CallbackAndInlineFlag = {};
 
-#if !defined(NDEBUG) && !LLVM_ADDRESS_SANITIZER_BUILD
-    // In debug builds without ASan, we also scribble across the rest of the
-    // storage. Scribbling under AddressSanitizer (ASan) is disabled to prevent
-    // overwriting poisoned objects (e.g., annotated short strings).
+#ifndef NDEBUG
+    // In debug builds, we also scribble across the rest of the storage.
     memset(RHS.getInlineStorage(), 0xAD, InlineStorageSize);
 #endif
   }

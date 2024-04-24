@@ -16,7 +16,9 @@
 #include <cctype>
 #include <functional>
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 static bool isCapsOnly(StringRef Name) {
   return llvm::all_of(Name, [](const char C) {
@@ -104,4 +106,6 @@ void MacroUsageCheck::warnNaming(const MacroDirective *MD,
       << MacroName;
 }
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang

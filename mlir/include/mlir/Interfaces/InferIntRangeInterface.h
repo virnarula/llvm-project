@@ -15,7 +15,6 @@
 #define MLIR_INTERFACES_INFERINTRANGEINTERFACE_H
 
 #include "mlir/IR/OpDefinition.h"
-#include <optional>
 
 namespace mlir {
 /// A set of arbitrary-precision integers representing bounds on a given integer
@@ -94,7 +93,7 @@ public:
   /// If either the signed or unsigned interpretations of the range
   /// indicate that the value it bounds is a constant, return that constant
   /// value.
-  std::optional<APInt> getConstantValue() const;
+  Optional<APInt> getConstantValue() const;
 
   friend raw_ostream &operator<<(raw_ostream &os,
                                  const ConstantIntRanges &range);
@@ -102,8 +101,6 @@ public:
 private:
   APInt uminVal, umaxVal, sminVal, smaxVal;
 };
-
-raw_ostream &operator<<(raw_ostream &, const ConstantIntRanges &);
 
 /// The type of the `setResultRanges` callback provided to ops implementing
 /// InferIntRangeInterface. It should be called once for each integer result

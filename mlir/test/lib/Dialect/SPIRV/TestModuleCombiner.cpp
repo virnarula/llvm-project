@@ -34,8 +34,6 @@ public:
 
 void TestModuleCombinerPass::runOnOperation() {
   auto modules = llvm::to_vector<4>(getOperation().getOps<spirv::ModuleOp>());
-  if (modules.empty())
-    return;
 
   OpBuilder combinedModuleBuilder(modules[0]);
 

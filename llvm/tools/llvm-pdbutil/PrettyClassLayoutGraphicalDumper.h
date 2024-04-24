@@ -9,6 +9,8 @@
 #ifndef LLVM_TOOLS_LLVMPDBDUMP_PRETTYCLASSLAYOUTGRAPHICALDUMPER_H
 #define LLVM_TOOLS_LLVMPDBDUMP_PRETTYCLASSLAYOUTGRAPHICALDUMPER_H
 
+#include "llvm/ADT/BitVector.h"
+
 #include "llvm/DebugInfo/PDB/PDBSymDumper.h"
 
 namespace llvm {

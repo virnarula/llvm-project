@@ -8,42 +8,38 @@
 
 #include "src/math/atanhf.h"
 #include "src/__support/FPUtil/FPBits.h"
-#include "src/__support/macros/optimization.h" // LIBC_UNLIKELY
 #include "src/math/generic/explogxf.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(float, atanhf, (float x)) {
   using FPBits = typename fputil::FPBits<float>;
-  using Sign = fputil::Sign;
   FPBits xbits(x);
-  Sign sign = xbits.sign();
-  uint32_t x_abs = xbits.abs().uintval();
+  bool sign = xbits.get_sign();
+  uint32_t x_abs = xbits.uintval() & FPBits::FloatProp::EXP_MANT_MASK;
 
   // |x| >= 1.0
-  if (LIBC_UNLIKELY(x_abs >= 0x3F80'0000U)) {
+  if (unlikely(x_abs >= 0x3F80'0000U)) {
     if (xbits.is_nan()) {
       return x;
     }
-    // |x| == 1.0
+    // |x| == 0
     if (x_abs == 0x3F80'0000U) {
-      fputil::set_errno_if_required(ERANGE);
-      fputil::raise_except_if_required(FE_DIVBYZERO);
-      return FPBits::inf(sign).get_val();
+      fputil::set_except(FE_DIVBYZERO);
+      return with_errno(FPBits::inf(sign).get_val(), ERANGE);
     } else {
-      fputil::set_errno_if_required(EDOM);
-      fputil::raise_except_if_required(FE_INVALID);
-      return FPBits::build_quiet_nan().get_val();
+      fputil::set_except(FE_INVALID);
+      return with_errno(
+          FPBits::build_nan(1 << (fputil::MantissaWidth<float>::VALUE - 1)),
+          EDOM);
     }
   }
 
   // |x| < ~0.10
-  if (LIBC_UNLIKELY(x_abs <= 0x3dcc'0000U)) {
+  if (unlikely(x_abs <= 0x3dcc'0000U)) {
     // |x| <= 2^-26
-    if (LIBC_UNLIKELY(x_abs <= 0x3280'0000U)) {
-      return static_cast<float>(LIBC_UNLIKELY(x_abs == 0)
-                                    ? x
-                                    : (x + 0x1.5555555555555p-2 * x * x * x));
+    if (unlikely(x_abs <= 0x3280'0000U)) {
+      return unlikely(x_abs == 0) ? x : (x + 0x1.5555555555555p-2 * x * x * x);
     }
 
     double xdbl = x;
@@ -52,10 +48,10 @@ LLVM_LIBC_FUNCTION(float, atanhf, (float x)) {
     double pe = fputil::polyeval(x2, 0.0, 0x1.5555555555555p-2,
                                  0x1.999999999999ap-3, 0x1.2492492492492p-3,
                                  0x1.c71c71c71c71cp-4, 0x1.745d1745d1746p-4);
-    return static_cast<float>(fputil::multiply_add(xdbl, pe, xdbl));
+    return fputil::multiply_add(xdbl, pe, xdbl);
   }
   double xdbl = x;
-  return static_cast<float>(0.5 * log_eval((xdbl + 1.0) / (xdbl - 1.0)));
+  return 0.5 * log_eval((xdbl + 1.0) / (xdbl - 1.0));
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

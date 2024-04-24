@@ -38,6 +38,7 @@ public:
   static constexpr uint32_t GetNumHardwareBreakpointSlots() {
     return NUM_HARDWARE_BREAKPOINT_SLOTS;
   }
+  static constexpr bool DoHardwareBreakpointsTriggerAfter() { return true; }
 
   bool AddHardwareBreakpoint(uint32_t slot, lldb::addr_t address, uint32_t size,
                              bool read, bool write);

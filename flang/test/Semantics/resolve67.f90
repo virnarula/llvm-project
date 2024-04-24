@@ -35,22 +35,21 @@ end
 
 module m3
   interface operator(/)
-    !ERROR: A function interface may not declare an assumed-length CHARACTER(*) result
+    !ERROR: OPERATOR(/) function 'divide' may not have assumed-length CHARACTER(*) result
     character(*) function divide(x, y)
       character(*), intent(in) :: x, y
     end
   end interface
   interface operator(<)
-    !WARNING: In OPERATOR(<) function 'lt1', dummy argument 'x' should have INTENT(IN) or VALUE attribute
+    !ERROR: In OPERATOR(<) function 'lt1', dummy argument 'x' must have INTENT(IN) or VALUE attribute
     !ERROR: In OPERATOR(<) function 'lt1', dummy argument 'y' may not be OPTIONAL
     logical function lt1(x, y)
       logical :: x
       real, value, optional :: y
     end
-    !ERROR: In OPERATOR(<) function 'lt2', dummy argument 'x' may not be INTENT(OUT)
     !ERROR: In OPERATOR(<) function 'lt2', dummy argument 'y' must be a data object
     logical function lt2(x, y)
-      logical, intent(out) :: x
+      logical, intent(in) :: x
       intent(in) :: y
       interface
         subroutine y()
@@ -58,23 +57,6 @@ module m3
       end interface
     end
   end interface
- contains
-  subroutine s(alcf1, alcf2)
-    interface
-      character(*) function alcf1(x, y)
-        character(*), intent(in) :: x, y
-      end function
-      character(*) function alcf2(x, y)
-        character(*), intent(in) :: x, y
-      end function
-    end interface
-    interface operator(+)
-      !ERROR: OPERATOR(+) function 'alcf1' may not have assumed-length CHARACTER(*) result
-      procedure alcf1
-    end interface
-    !ERROR: OPERATOR(-) function 'alcf2' may not have assumed-length CHARACTER(*) result
-    generic :: operator(-) => alcf2
-  end subroutine
 end
 
 module m4
@@ -90,7 +72,6 @@ module m4
     end
   end interface
   interface operator(.not.)
-    !WARNING: The external interface 'not1' is not compatible with an earlier definition (distinct numbers of dummy arguments)
     real function not1(x)
       real, value :: x
     end

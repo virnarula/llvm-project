@@ -13,14 +13,14 @@
 #include "MCTargetDesc/PPCInstPrinter.h"
 #include "MCTargetDesc/PPCMCTargetDesc.h"
 #include "MCTargetDesc/PPCPredicates.h"
-#include "llvm/MC/MCAsmInfo.h"
+#include "PPCInstrInfo.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -47,8 +47,8 @@ FullRegNamesWithPercent("ppc-reg-with-percent-prefix", cl::Hidden,
 #define PRINT_ALIAS_INSTR
 #include "PPCGenAsmWriter.inc"
 
-void PPCInstPrinter::printRegName(raw_ostream &OS, MCRegister Reg) const {
-  const char *RegName = getRegisterName(Reg);
+void PPCInstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
+  const char *RegName = getRegisterName(RegNo);
   OS << RegName;
 }
 
@@ -161,7 +161,7 @@ void PPCInstPrinter::printInst(const MCInst *MI, uint64_t Address,
   // On AIX, only emit the extended mnemonics for dcbt and dcbtst if
   // the "modern assembler" is available.
   if ((MI->getOpcode() == PPC::DCBT || MI->getOpcode() == PPC::DCBTST) &&
-      (!TT.isOSAIX() || STI.hasFeature(PPC::FeatureModernAIXAs))) {
+      (!TT.isOSAIX() || STI.getFeatureBits()[PPC::FeatureModernAIXAs])) {
     unsigned char TH = MI->getOperand(0).getImm();
     O << "\tdcbt";
     if (MI->getOpcode() == PPC::DCBTST)
@@ -170,7 +170,7 @@ void PPCInstPrinter::printInst(const MCInst *MI, uint64_t Address,
       O << "t";
     O << " ";
 
-    bool IsBookE = STI.hasFeature(PPC::FeatureBookE);
+    bool IsBookE = STI.getFeatureBits()[PPC::FeatureBookE];
     if (IsBookE && TH != 0 && TH != 16)
       O << (unsigned int) TH << ", ";
 
@@ -484,10 +484,7 @@ void PPCInstPrinter::printAbsBranchOperand(const MCInst *MI, unsigned OpNo,
   if (!MI->getOperand(OpNo).isImm())
     return printOperand(MI, OpNo, STI, O);
 
-  uint64_t Imm = static_cast<uint64_t>(MI->getOperand(OpNo).getImm()) << 2;
-  if (!TT.isPPC64())
-    Imm = static_cast<uint32_t>(Imm);
-  O << formatHex(Imm);
+  O << SignExtend32<32>((unsigned)MI->getOperand(OpNo).getImm() << 2);
 }
 
 void PPCInstPrinter::printcrbitm(const MCInst *MI, unsigned OpNo,
@@ -567,10 +564,10 @@ void PPCInstPrinter::printTLSCall(const MCInst *MI, unsigned OpNo,
   // come at the _end_ of the expression.
   const MCOperand &Op = MI->getOperand(OpNo);
   const MCSymbolRefExpr *RefExp = nullptr;
-  const MCExpr *Rhs = nullptr;
+  const MCConstantExpr *ConstExp = nullptr;
   if (const MCBinaryExpr *BinExpr = dyn_cast<MCBinaryExpr>(Op.getExpr())) {
     RefExp = cast<MCSymbolRefExpr>(BinExpr->getLHS());
-    Rhs = BinExpr->getRHS();
+    ConstExp = cast<MCConstantExpr>(BinExpr->getRHS());
   } else
     RefExp = cast<MCSymbolRefExpr>(Op.getExpr());
 
@@ -587,21 +584,14 @@ void PPCInstPrinter::printTLSCall(const MCInst *MI, unsigned OpNo,
   if (RefExp->getKind() != MCSymbolRefExpr::VK_None &&
       RefExp->getKind() != MCSymbolRefExpr::VK_PPC_NOTOC)
     O << '@' << MCSymbolRefExpr::getVariantKindName(RefExp->getKind());
-  if (Rhs) {
-    SmallString<0> Buf;
-    raw_svector_ostream Tmp(Buf);
-    Rhs->print(Tmp, &MAI);
-    if (isdigit(Buf[0]))
-      O << '+';
-    O << Buf;
-  }
+  if (ConstExp != nullptr)
+    O << '+' << ConstExp->getValue();
 }
 
 /// showRegistersWithPercentPrefix - Check if this register name should be
 /// printed with a percentage symbol as prefix.
 bool PPCInstPrinter::showRegistersWithPercentPrefix(const char *RegName) const {
-  if ((!FullRegNamesWithPercent && !MAI.useFullRegisterNames()) ||
-      TT.getOS() == Triple::AIX)
+  if (!FullRegNamesWithPercent || TT.getOS() == Triple::AIX)
     return false;
 
   switch (RegName[0]) {
@@ -618,10 +608,10 @@ bool PPCInstPrinter::showRegistersWithPercentPrefix(const char *RegName) const {
 
 /// getVerboseConditionalRegName - This method expands the condition register
 /// when requested explicitly or targetting Darwin.
-const char *
-PPCInstPrinter::getVerboseConditionRegName(unsigned RegNum,
-                                           unsigned RegEncoding) const {
-  if (!FullRegNames && !MAI.useFullRegisterNames())
+const char *PPCInstPrinter::getVerboseConditionRegName(unsigned RegNum,
+                                                       unsigned RegEncoding)
+                                                       const {
+  if (!FullRegNames)
     return nullptr;
   if (RegNum < PPC::CR0EQ || RegNum > PPC::CR7UN)
     return nullptr;
@@ -641,7 +631,7 @@ PPCInstPrinter::getVerboseConditionRegName(unsigned RegNum,
 // showRegistersWithPrefix - This method determines whether registers
 // should be number-only or include the prefix.
 bool PPCInstPrinter::showRegistersWithPrefix() const {
-  return FullRegNamesWithPercent || FullRegNames || MAI.useFullRegisterNames();
+  return FullRegNamesWithPercent || FullRegNames;
 }
 
 void PPCInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
@@ -650,7 +640,8 @@ void PPCInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     unsigned Reg = Op.getReg();
     if (!ShowVSRNumsAsVR)
-      Reg = PPC::getRegNumForOperand(MII.get(MI->getOpcode()), Reg, OpNo);
+      Reg = PPCInstrInfo::getRegNumForOperand(MII.get(MI->getOpcode()),
+                                              Reg, OpNo);
 
     const char *RegName;
     RegName = getVerboseConditionRegName(Reg, MRI.getEncodingValue(Reg));
@@ -659,7 +650,7 @@ void PPCInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     if (showRegistersWithPercentPrefix(RegName))
       O << "%";
     if (!showRegistersWithPrefix())
-      RegName = PPC::stripRegisterPrefix(RegName);
+      RegName = PPCRegisterInfo::stripRegisterPrefix(RegName);
 
     O << RegName;
     return;

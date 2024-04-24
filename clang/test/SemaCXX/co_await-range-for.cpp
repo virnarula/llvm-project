@@ -150,7 +150,7 @@ template <class T>
 ForLoopAwaiterCoawaitLookup test_coawait_lookup(T) {
   Range<T> R;
   for co_await(auto i : R) {} // expected-warning {{'for co_await' belongs to CoroutineTS instead of C++20, which is deprecated}}
-  // expected-error@-1 {{no member named 'await_ready' in 'CoawaitTag<Iter<int>>'}}
+  // expected-error@-1 {{no member named 'await_ready' in 'CoawaitTag<Iter<int>, false>'}}
 }
 template ForLoopAwaiterCoawaitLookup test_coawait_lookup(int); // expected-note {{requested here}}
 

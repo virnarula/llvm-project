@@ -12,8 +12,9 @@
 
 // tuple_element<I, pair<T1, T2> >::type
 
-#include <type_traits>
 #include <utility>
+
+#include "test_macros.h"
 
 template <class T1, class T2>
 void test()

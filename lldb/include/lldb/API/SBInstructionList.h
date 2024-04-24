@@ -44,13 +44,11 @@ public:
 
   void AppendInstruction(lldb::SBInstruction inst);
 
-#ifndef SWIG
   void Print(FILE *out);
-#endif
 
   void Print(SBFile out);
 
-  void Print(FileSP BORROWED);
+  void Print(FileSP out);
 
   bool GetDescription(lldb::SBStream &description);
 

@@ -21,45 +21,44 @@ extern "C" {
 // Data pointer initialization for NULLIFY(), "p=>NULL()`, & for ALLOCATE().
 
 // Initializes a pointer to a disassociated state for NULLIFY() or "p=>NULL()".
-void RTDECL(PointerNullifyIntrinsic)(
+void RTNAME(PointerNullifyIntrinsic)(
     Descriptor &, TypeCategory, int kind, int rank = 0, int corank = 0);
-void RTDECL(PointerNullifyCharacter)(Descriptor &, SubscriptValue length = 0,
+void RTNAME(PointerNullifyCharacter)(Descriptor &, SubscriptValue length = 0,
     int kind = 1, int rank = 0, int corank = 0);
-void RTDECL(PointerNullifyDerived)(
+void RTNAME(PointerNullifyDerived)(
     Descriptor &, const typeInfo::DerivedType &, int rank = 0, int corank = 0);
 
 // Explicitly sets the bounds of an initialized disassociated pointer.
 // The upper cobound is ignored for the last codimension.
-void RTDECL(PointerSetBounds)(
+void RTNAME(PointerSetBounds)(
     Descriptor &, int zeroBasedDim, SubscriptValue lower, SubscriptValue upper);
-void RTDECL(PointerSetCoBounds)(Descriptor &, int zeroBasedCoDim,
+void RTNAME(PointerSetCoBounds)(Descriptor &, int zeroBasedCoDim,
     SubscriptValue lower, SubscriptValue upper = 0);
 
 // Length type parameters are indexed in declaration order; i.e., 0 is the
 // first length type parameter in the deepest base type.  (Not for use
 // with CHARACTER; see above.)
-void RTDECL(PointerSetDerivedLength)(Descriptor &, int which, SubscriptValue);
+void RTNAME(PointerSetDerivedLength)(Descriptor &, int which, SubscriptValue);
 
 // For MOLD= allocation: acquires information from another descriptor
 // to initialize a null data pointer.
-void RTDECL(PointerApplyMold)(
-    Descriptor &, const Descriptor &mold, int rank = 0);
+void RTNAME(PointerApplyMold)(Descriptor &, const Descriptor &mold);
 
 // Data pointer association for "p=>TARGET"
 
 // Associates a scalar pointer with a simple scalar target.
-void RTDECL(PointerAssociateScalar)(Descriptor &, void *);
+void RTNAME(PointerAssociateScalar)(Descriptor &, void *);
 
 // Associates a pointer with a target of the same rank, possibly with new lower
 // bounds, which are passed in a vector whose length must equal the rank.
-void RTDECL(PointerAssociate)(Descriptor &, const Descriptor &target);
-void RTDECL(PointerAssociateLowerBounds)(
+void RTNAME(PointerAssociate)(Descriptor &, const Descriptor &target);
+void RTNAME(PointerAssociateLowerBounds)(
     Descriptor &, const Descriptor &target, const Descriptor &lowerBounds);
 
 // Associates a pointer with a target with bounds remapping.  The target must be
 // simply contiguous &/or of rank 1.  The bounds constitute a [2,newRank]
 // integer array whose columns are [lower bound, upper bound] on each dimension.
-void RTDECL(PointerAssociateRemapping)(Descriptor &, const Descriptor &target,
+void RTNAME(PointerAssociateRemapping)(Descriptor &, const Descriptor &target,
     const Descriptor &bounds, const char *sourceFile = nullptr,
     int sourceLine = 0);
 
@@ -70,7 +69,7 @@ void RTDECL(PointerAssociateRemapping)(Descriptor &, const Descriptor &target,
 // a derived type or CHARACTER value, the explicit value has to match
 // the length type parameter's value.  This API checks that requirement.
 // Returns 0 for success, or the STAT= value on failure with hasStat==true.
-int RTDECL(PointerCheckLengthParameter)(Descriptor &,
+int RTNAME(PointerCheckLengthParameter)(Descriptor &,
     int which /* 0 for CHARACTER length */, SubscriptValue other,
     bool hasStat = false, const Descriptor *errMsg = nullptr,
     const char *sourceFile = nullptr, int sourceLine = 0);
@@ -83,36 +82,29 @@ int RTDECL(PointerCheckLengthParameter)(Descriptor &,
 // Successfully allocated memory is initialized if the pointer has a
 // derived type, and is always initialized by PointerAllocateSource().
 // Performs all necessary coarray synchronization and validation actions.
-int RTDECL(PointerAllocate)(Descriptor &, bool hasStat = false,
+int RTNAME(PointerAllocate)(Descriptor &, bool hasStat = false,
     const Descriptor *errMsg = nullptr, const char *sourceFile = nullptr,
     int sourceLine = 0);
-int RTDECL(PointerAllocateSource)(Descriptor &, const Descriptor &source,
+int RTNAME(PointerAllocateSource)(Descriptor &, const Descriptor &source,
     bool hasStat = false, const Descriptor *errMsg = nullptr,
     const char *sourceFile = nullptr, int sourceLine = 0);
 
 // Deallocates a data pointer, which must have been allocated by
 // PointerAllocate(), possibly copied with PointerAssociate().
-// Finalizes elements &/or components as needed. The pointer is left
+// Finalizes elements &/or components as needed.  The pointer is left
 // in an initialized disassociated state suitable for reallocation
 // with the same bounds, cobounds, and length type parameters.
-int RTDECL(PointerDeallocate)(Descriptor &, bool hasStat = false,
-    const Descriptor *errMsg = nullptr, const char *sourceFile = nullptr,
-    int sourceLine = 0);
-
-// Same as PointerDeallocate but also set the dynamic type as the declared type
-// as mentioned in 7.3.2.3 note 7.
-int RTDECL(PointerDeallocatePolymorphic)(Descriptor &,
-    const typeInfo::DerivedType *, bool hasStat = false,
+int RTNAME(PointerDeallocate)(Descriptor &, bool hasStat = false,
     const Descriptor *errMsg = nullptr, const char *sourceFile = nullptr,
     int sourceLine = 0);
 
 // Association inquiries for ASSOCIATED()
 
 // True when the pointer is not disassociated.
-bool RTDECL(PointerIsAssociated)(const Descriptor &);
+bool RTNAME(PointerIsAssociated)(const Descriptor &);
 
 // True when the pointer is associated with a specific target.
-bool RTDECL(PointerIsAssociatedWith)(
+bool RTNAME(PointerIsAssociatedWith)(
     const Descriptor &, const Descriptor *target);
 
 } // extern "C"

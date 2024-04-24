@@ -12,27 +12,23 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
-namespace tensor {
 
-//===----------------------------------------------------------------------===//
-// Passes
-//===----------------------------------------------------------------------===//
+#define GEN_PASS_DECL
+#include "mlir/Dialect/Tensor/Transforms/Passes.h.inc"
 
-/// Creates an instance of the `tensor` subset folding pass.
-std::unique_ptr<Pass> createFoldTensorSubsetOpsPass();
-
-/// Creates an instance of the `tensor` dialect bufferization pass.
+/// Creates an instance of `tensor` dialect bufferization pass.
 std::unique_ptr<Pass> createTensorBufferizePass();
 
 //===----------------------------------------------------------------------===//
 // Registration
 //===----------------------------------------------------------------------===//
 
+namespace tensor {
 /// Generate the code for registering passes.
 #define GEN_PASS_REGISTRATION
 #include "mlir/Dialect/Tensor/Transforms/Passes.h.inc"
-
 } // namespace tensor
+
 } // namespace mlir
 
 #endif // MLIR_DIALECT_TENSOR_TRANSFORMS_PASSES_H_

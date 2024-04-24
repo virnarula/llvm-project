@@ -18,7 +18,6 @@
 // dependences on other parts of the compiler's source code.
 // TODO: support Q formatting extension?
 
-#include "flang/Common/idioms.h"
 #include <cinttypes>
 #include <list>
 #include <optional>

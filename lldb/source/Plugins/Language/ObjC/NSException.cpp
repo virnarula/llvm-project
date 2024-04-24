@@ -13,6 +13,7 @@
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
+#include "lldb/Target/ProcessStructReader.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/Utility/Endian.h"
@@ -68,13 +69,13 @@ static bool ExtractFields(ValueObject &valobj, ValueObjectSP *name_sp,
   InferiorSizedWord userinfo_isw(userinfo, *process_sp);
   InferiorSizedWord reserved_isw(reserved, *process_sp);
 
-  TypeSystemClangSP scratch_ts_sp =
+  auto *clang_ast_context =
       ScratchTypeSystemClang::GetForTarget(process_sp->GetTarget());
-  if (!scratch_ts_sp)
+  if (!clang_ast_context)
     return false;
 
   CompilerType voidstar =
-      scratch_ts_sp->GetBasicType(lldb::eBasicTypeVoid).GetPointerType();
+      clang_ast_context->GetBasicType(lldb::eBasicTypeVoid).GetPointerType();
 
   if (name_sp)
     *name_sp = ValueObject::CreateValueObjectFromData(

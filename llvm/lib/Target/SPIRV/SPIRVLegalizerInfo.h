@@ -29,8 +29,7 @@ class SPIRVLegalizerInfo : public LegalizerInfo {
   SPIRVGlobalRegistry *GR;
 
 public:
-  bool legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
-                      LostDebugLocObserver &LocObserver) const override;
+  bool legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI) const override;
   SPIRVLegalizerInfo(const SPIRVSubtarget &ST);
 };
 } // namespace llvm

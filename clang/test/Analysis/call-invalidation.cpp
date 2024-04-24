@@ -78,7 +78,7 @@ void testReferenceStruct() {
 }
 
 // FIXME: This test is split into two functions because region invalidation
-// does not preserve reference bindings.
+// does not preserve reference bindings. <rdar://problem/13320347>
 void testConstReferenceStruct() {
   int x;
   RefWrapper w = { x };
@@ -90,8 +90,8 @@ void testConstReferenceStruct() {
 }
 
 
-int usePointerPure(int * const *) __attribute__((pure));
-int usePointerConst(int * const *) __attribute__((const));
+void usePointerPure(int * const *) __attribute__((pure));
+void usePointerConst(int * const *) __attribute__((const));
 
 void testPureConst() {
   extern int global;
@@ -104,11 +104,11 @@ void testPureConst() {
   clang_analyzer_eval(x == 42); // expected-warning{{TRUE}}
   clang_analyzer_eval(global == -5); // expected-warning{{TRUE}}
 
-  (void)usePointerPure(&p);
+  usePointerPure(&p);
   clang_analyzer_eval(x == 42); // expected-warning{{TRUE}}
   clang_analyzer_eval(global == -5); // expected-warning{{TRUE}}
 
-  (void)usePointerConst(&p);
+  usePointerConst(&p);
   clang_analyzer_eval(x == 42); // expected-warning{{TRUE}}
   clang_analyzer_eval(global == -5); // expected-warning{{TRUE}}
 

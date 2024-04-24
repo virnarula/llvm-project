@@ -27,7 +27,7 @@
 namespace llvm {
 namespace logicalview {
 
-using LVReaders = std::vector<std::unique_ptr<LVReader>>;
+using LVReaders = std::vector<LVReader *>;
 using ArgVector = std::vector<std::string>;
 using PdbOrObj = PointerUnion<object::ObjectFile *, pdb::PDBFile *>;
 
@@ -45,6 +45,7 @@ class LVReaderHandler {
   LVReaders TheReaders;
 
   Error createReaders();
+  void destroyReaders();
   Error printReaders();
   Error compareReaders();
 
@@ -58,8 +59,6 @@ class LVReaderHandler {
                    object::MachOUniversalBinary &Mach);
   Error handleObject(LVReaders &Readers, StringRef Filename,
                      object::Binary &Binary);
-  Error handleObject(LVReaders &Readers, StringRef Filename, StringRef Buffer,
-                     StringRef ExePath);
 
   Error createReader(StringRef Filename, LVReaders &Readers, PdbOrObj &Input,
                      StringRef FileFormatName, StringRef ExePath = {});
@@ -73,18 +72,20 @@ public:
   }
   LVReaderHandler(const LVReaderHandler &) = delete;
   LVReaderHandler &operator=(const LVReaderHandler &) = delete;
+  ~LVReaderHandler() { destroyReaders(); }
 
   Error createReader(StringRef Filename, LVReaders &Readers) {
     return handleFile(Readers, Filename);
   }
   Error process();
 
-  Expected<std::unique_ptr<LVReader>> createReader(StringRef Pathname) {
+  Expected<LVReader *> createReader(StringRef Pathname) {
     LVReaders Readers;
     if (Error Err = createReader(Pathname, Readers))
       return std::move(Err);
-    return std::move(Readers[0]);
+    return Readers[0];
   }
+  void deleteReader(LVReader *Reader) { delete Reader; }
 
   void print(raw_ostream &OS) const;
 

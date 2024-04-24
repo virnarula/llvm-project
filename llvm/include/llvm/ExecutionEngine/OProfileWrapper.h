@@ -111,7 +111,7 @@ private:
   // daemon is running
   bool initialize();
 
-  // Searches /proc for the oprofile daemon and returns true if the process is
+  // Searches /proc for the oprofile daemon and returns true if the process if
   // found, or false otherwise.
   bool checkForOProfileProcEntry();
 

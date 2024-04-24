@@ -12,16 +12,14 @@ using namespace lldb_private;
 
 static constexpr Log::Category g_categories[] = {
     {{"comp"},
-     {"log struct/union/class type completions"},
+     {"log insertions of object files into DWARF debug maps"},
      DWARFLog::TypeCompletion},
     {{"info"}, {"log the parsing of .debug_info"}, DWARFLog::DebugInfo},
     {{"line"}, {"log the parsing of .debug_line"}, DWARFLog::DebugLine},
     {{"lookups"},
      {"log any lookups that happen by name, regex, or address"},
      DWARFLog::Lookups},
-    {{"map"},
-     {"log insertions of object files into DWARF debug maps"},
-     DWARFLog::DebugMap},
+    {{"map"}, {"log struct/unions/class type completions"}, DWARFLog::DebugMap},
 };
 
 static Log::Channel g_channel(g_categories, DWARFLog::DebugInfo);

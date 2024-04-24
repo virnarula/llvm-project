@@ -31,6 +31,7 @@
 #include <ranges>
 
 #include "almost_satisfies_types.h"
+#include "boolean_testable.h"
 #include "test_iterators.h"
 
 template <class Iter1, class Sent1 = Iter1, class Iter2 = int*, class Sent2 = int*>
@@ -180,6 +181,21 @@ constexpr bool test() {
     {
       S a[] = {1, 2, 3, 4};
       auto ret = std::ranges::lexicographical_compare(a, a, &S::compare, &S::identity, &S::identity);
+      assert(!ret);
+    }
+  }
+
+  { // check that the implicit conversion to bool works
+    {
+      int a[] = {1, 2, 3, 4};
+      auto ret = std::ranges::lexicographical_compare(std::begin(a), std::end(a),
+                                                      std::begin(a), std::end(a),
+                                                      [](int i, int j) { return BooleanTestable{i < j}; });
+      assert(!ret);
+    }
+    {
+      int a[] = {1, 2, 3, 4};
+      auto ret = std::ranges::lexicographical_compare(a, a, [](int i, int j) { return BooleanTestable{i < j}; });
       assert(!ret);
     }
   }

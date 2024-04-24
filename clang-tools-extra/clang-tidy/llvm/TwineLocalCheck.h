@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::llvm_check {
+namespace clang {
+namespace tidy {
+namespace llvm_check {
 
 /// Looks for local `Twine` variables which are prone to use after frees and
 /// should be generally avoided.
@@ -23,6 +25,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::llvm_check
+} // namespace llvm_check
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LLVM_TWINELOCALCHECK_H

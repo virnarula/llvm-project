@@ -17,11 +17,13 @@
 
 #include "test_macros.h"
 
-int main(int, char**) {
-  assert(std::char_traits<char>::eq_int_type('a', 'a'));
-  assert(!std::char_traits<char>::eq_int_type('a', 'A'));
-  assert(!std::char_traits<char>::eq_int_type(std::char_traits<char>::eof(), 'A'));
-  assert(std::char_traits<char>::eq_int_type(std::char_traits<char>::eof(), std::char_traits<char>::eof()));
+int main(int, char**)
+{
+    assert( std::char_traits<char>::eq_int_type('a', 'a'));
+    assert(!std::char_traits<char>::eq_int_type('a', 'A'));
+    assert(!std::char_traits<char>::eq_int_type(std::char_traits<char>::eof(), 'A'));
+    assert( std::char_traits<char>::eq_int_type(std::char_traits<char>::eof(),
+                                                std::char_traits<char>::eof()));
 
   return 0;
 }

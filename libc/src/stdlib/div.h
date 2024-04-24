@@ -6,15 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <stdlib.h>
+
 #ifndef LLVM_LIBC_SRC_STDLIB_DIV_H
 #define LLVM_LIBC_SRC_STDLIB_DIV_H
 
-#include <stdlib.h>
-
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 div_t div(int x, int y);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDLIB_DIV_H

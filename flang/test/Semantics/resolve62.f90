@@ -1,26 +1,26 @@
 ! RUN: %python %S/test_errors.py %s %flang_fc1
 ! Resolve generic based on number of arguments
-subroutine subr1
+subroutine s1
   interface f
-    real function s1f1(x)
+    real function f1(x)
       optional :: x
     end
-    real function s1f2(x, y)
+    real function f2(x, y)
     end
   end interface
   z = f(1.0)
   z = f(1.0, 2.0)
-  !ERROR: No specific function of generic 'f' matches the actual arguments
+  !ERROR: No specific procedure of generic 'f' matches the actual arguments
   z = f(1.0, 2.0, 3.0)
 end
 
 ! Elemental and non-element function both match: non-elemental one should be used
-subroutine subr2
+subroutine s2
   interface f
-    logical elemental function s2f1(x)
+    logical elemental function f1(x)
       intent(in) :: x
     end
-    real function s2f2(x)
+    real function f2(x)
       real :: x(10)
     end
   end interface
@@ -53,10 +53,10 @@ module m4
   real, protected :: x
   real :: y
   interface s
-    pure subroutine s101(x)
+    pure subroutine s1(x)
       real, intent(out) :: x
     end
-    subroutine s102(x, y)
+    subroutine s2(x, y)
       real :: x, y
     end
   end interface
@@ -69,13 +69,11 @@ subroutine s4a
 end
 subroutine s4b
   use m4
-  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-  !BECAUSE: 'x' is protected in this scope
+  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
   call s(x)
 end
 pure subroutine s4c
   use m4
-  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' is not definable
-  !BECAUSE: 'y' may not be defined in pure subprogram 's4c' because it is USE-associated
+  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'x=' must be definable
   call s(y)
 end

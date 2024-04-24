@@ -12,8 +12,9 @@
 #include "lldb/Core/dwarf.h"
 #include <cstdint>
 
-namespace lldb_private::plugin {
-namespace dwarf {
+namespace lldb_private {
+
+enum class DWARFEnumState { MoreItems, Complete };
 
 typedef uint32_t DRC_class; // Holds DRC_* class bitfields
 
@@ -31,7 +32,6 @@ const char *DW_LANG_value_to_name(uint32_t val);
 
 const char *DW_LNS_value_to_name(uint32_t val);
 
-} // namespace dwarf
-} // namespace lldb_private::plugin
+} // namespace lldb_private
 
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFDEFINES_H

@@ -16,7 +16,6 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegisterValue.h"
 #include "lldb/Utility/Status.h"
-#include <optional>
 
 namespace lldb_private {
 
@@ -61,20 +60,20 @@ public:
   bool SetTargetTriple(const ArchSpec &arch) override;
   bool ReadInstruction() override;
   bool EvaluateInstruction(uint32_t options) override;
-  bool TestEmulation(Stream &out_stream, ArchSpec &arch,
+  bool TestEmulation(Stream *out_stream, ArchSpec &arch,
                      OptionValueDictionary *test_data) override;
-  std::optional<RegisterInfo> GetRegisterInfo(lldb::RegisterKind reg_kind,
-                                              uint32_t reg_num) override;
+  llvm::Optional<RegisterInfo> GetRegisterInfo(lldb::RegisterKind reg_kind,
+                                               uint32_t reg_num) override;
 
-  std::optional<lldb::addr_t> ReadPC();
+  llvm::Optional<lldb::addr_t> ReadPC();
   bool WritePC(lldb::addr_t pc);
 
-  std::optional<DecodeResult> ReadInstructionAt(lldb::addr_t addr);
-  std::optional<DecodeResult> Decode(uint32_t inst);
+  llvm::Optional<DecodeResult> ReadInstructionAt(lldb::addr_t addr);
+  llvm::Optional<DecodeResult> Decode(uint32_t inst);
   bool Execute(DecodeResult inst, bool ignore_cond);
 
   template <typename T>
-  std::enable_if_t<std::is_integral_v<T>, std::optional<T>>
+  std::enable_if_t<std::is_integral_v<T>, llvm::Optional<T>>
   ReadMem(uint64_t addr) {
     EmulateInstructionRISCV::Context ctx;
     ctx.type = EmulateInstruction::eContextRegisterLoad;
@@ -92,9 +91,6 @@ public:
     ctx.SetNoArgs();
     return WriteMemoryUnsigned(ctx, addr, value, sizeof(T));
   }
-
-  llvm::RoundingMode GetRoundingMode();
-  bool SetAccruedExceptions(llvm::APFloatBase::opStatus);
 
 private:
   /// Last decoded instruction from m_opcode

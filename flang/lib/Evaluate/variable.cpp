@@ -258,20 +258,7 @@ static std::optional<Expr<SubscriptInteger>> SymbolLEN(const Symbol &symbol) {
     }
   }
   if (auto dyType{DynamicType::From(ultimate)}) {
-    auto len{dyType->GetCharLength()};
-    if (!len && ultimate.attrs().test(semantics::Attr::PARAMETER)) {
-      // Its initializer determines the length of an implied-length named
-      // constant.
-      if (const auto *object{
-              ultimate.detailsIf<semantics::ObjectEntityDetails>()}) {
-        if (object->init()) {
-          if (auto dyType2{DynamicType::From(*object->init())}) {
-            len = dyType2->GetCharLength();
-          }
-        }
-      }
-    }
-    if (len) {
+    if (auto len{dyType->GetCharLength()}) {
       if (auto constLen{ToInt64(*len)}) {
         return Expr<SubscriptInteger>{std::max<std::int64_t>(*constLen, 0)};
       } else if (ultimate.owner().IsDerivedType() ||
@@ -485,23 +472,6 @@ const Symbol &NamedEntity::GetLastSymbol() const {
       u_);
 }
 
-const SymbolRef *NamedEntity::UnwrapSymbolRef() const {
-  return common::visit(
-      common::visitors{
-          [](const SymbolRef &s) { return &s; },
-          [](const Component &) -> const SymbolRef * { return nullptr; },
-      },
-      u_);
-}
-
-SymbolRef *NamedEntity::UnwrapSymbolRef() {
-  return common::visit(common::visitors{
-                           [](SymbolRef &s) { return &s; },
-                           [](Component &) -> SymbolRef * { return nullptr; },
-                       },
-      u_);
-}
-
 const Component *NamedEntity::UnwrapComponent() const {
   return common::visit(
       common::visitors{
@@ -567,7 +537,15 @@ template <typename T> BaseObject Designator<T>::GetBaseObject() const {
       common::visitors{
           [](SymbolRef symbol) { return BaseObject{symbol}; },
           [](const Substring &sstring) { return sstring.GetBaseObject(); },
-          [](const auto &x) { return BaseObject{x.GetFirstSymbol()}; },
+          [](const auto &x) {
+#if !__clang__ && __GNUC__ == 7 && __GNUC_MINOR__ == 2
+            if constexpr (std::is_same_v<std::decay_t<decltype(x)>,
+                              Substring>) {
+              return x.GetBaseObject();
+            } else
+#endif
+              return BaseObject{x.GetFirstSymbol()};
+          },
       },
       u);
 }
@@ -577,7 +555,15 @@ template <typename T> const Symbol *Designator<T>::GetLastSymbol() const {
       common::visitors{
           [](SymbolRef symbol) { return &*symbol; },
           [](const Substring &sstring) { return sstring.GetLastSymbol(); },
-          [](const auto &x) { return &x.GetLastSymbol(); },
+          [](const auto &x) {
+#if !__clang__ && __GNUC__ == 7 && __GNUC_MINOR__ == 2
+            if constexpr (std::is_same_v<std::decay_t<decltype(x)>,
+                              Substring>) {
+              return x.GetLastSymbol();
+            } else
+#endif
+              return &x.GetLastSymbol();
+          },
       },
       u);
 }
@@ -586,19 +572,14 @@ template <typename T>
 std::optional<DynamicType> Designator<T>::GetType() const {
   if constexpr (IsLengthlessIntrinsicType<Result>) {
     return Result::GetType();
-  }
-  if constexpr (Result::category == TypeCategory::Character) {
-    if (std::holds_alternative<Substring>(u)) {
-      if (auto len{LEN()}) {
-        if (auto n{ToInt64(*len)}) {
-          return DynamicType{T::kind, *n};
-        }
-      }
-      return DynamicType{TypeCategory::Character, T::kind};
-    }
-  }
-  if (const Symbol * symbol{GetLastSymbol()}) {
+  } else if (const Symbol * symbol{GetLastSymbol()}) {
     return DynamicType::From(*symbol);
+  } else if constexpr (Result::category == TypeCategory::Character) {
+    if (const Substring * substring{std::get_if<Substring>(&u)}) {
+      const auto *parent{substring->GetParentIf<StaticDataObject::Pointer>()};
+      CHECK(parent);
+      return DynamicType{TypeCategory::Character, (*parent)->itemBytes()};
+    }
   }
   return std::nullopt;
 }
@@ -623,32 +604,16 @@ NamedEntity CoarrayRef::GetBase() const { return AsNamedEntity(base_); }
 
 // For the purposes of comparing type parameter expressions while
 // testing the compatibility of procedure characteristics, two
-// dummy arguments with the same position are considered equal.
-static std::optional<int> GetDummyArgPosition(const Symbol &original) {
-  const Symbol &symbol(original.GetUltimate());
-  if (IsDummy(symbol)) {
-    if (const Symbol * proc{symbol.owner().symbol()}) {
-      if (const auto *subp{proc->detailsIf<semantics::SubprogramDetails>()}) {
-        int j{0};
-        for (const Symbol *arg : subp->dummyArgs()) {
-          if (arg == &symbol) {
-            return j;
-          }
-          ++j;
-        }
-      }
-    }
-  }
-  return std::nullopt;
-}
-
+// object dummy arguments with the same name are considered equal.
 static bool AreSameSymbol(const Symbol &x, const Symbol &y) {
   if (&x == &y) {
     return true;
   }
-  if (auto xPos{GetDummyArgPosition(x)}) {
-    if (auto yPos{GetDummyArgPosition(y)}) {
-      return *xPos == *yPos;
+  if (x.name() == y.name()) {
+    if (const auto *xObject{x.detailsIf<semantics::ObjectEntityDetails>()}) {
+      if (const auto *yObject{y.detailsIf<semantics::ObjectEntityDetails>()}) {
+        return xObject->isDummy() && yObject->isDummy();
+      }
     }
   }
   return false;

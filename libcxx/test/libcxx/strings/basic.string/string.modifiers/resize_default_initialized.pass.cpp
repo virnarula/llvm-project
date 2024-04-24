@@ -15,19 +15,19 @@
 
 #include "test_macros.h"
 
-TEST_CONSTEXPR_CXX20 void write_c_str(char* buf, int size) {
-  for (int i = 0; i < size; ++i) {
+TEST_CONSTEXPR_CXX20 void write_c_str(char *buf, int size) {
+  for (int i=0; i < size; ++i) {
     buf[i] = 'a';
   }
   buf[size] = '\0';
 }
 
-template <class S>
-TEST_CONSTEXPR_CXX20 void test_buffer_usage() {
+TEST_CONSTEXPR_CXX20 void test_buffer_usage()
+{
   {
     unsigned buff_size = 125;
     unsigned used_size = buff_size - 16;
-    S s;
+    std::string s;
     s.__resize_default_init(buff_size);
     write_c_str(&s[0], used_size);
     assert(s.size() == buff_size);
@@ -35,20 +35,19 @@ TEST_CONSTEXPR_CXX20 void test_buffer_usage() {
     s.__resize_default_init(used_size);
     assert(s.size() == used_size);
     assert(s.data()[used_size] == '\0');
-    for (unsigned i = 0; i < used_size; ++i) {
+    for (unsigned i=0; i < used_size; ++i) {
       assert(s[i] == 'a');
     }
   }
 }
 
-template <class S>
 TEST_CONSTEXPR_CXX20 void test_basic() {
   {
-    S s;
+    std::string s;
     s.__resize_default_init(3);
     assert(s.size() == 3);
     assert(s.data()[3] == '\0');
-    for (int i = 0; i < 3; ++i)
+    for (int i=0; i < 3; ++i)
       s[i] = 'a' + i;
     s.__resize_default_init(1);
     assert(s[0] == 'a');
@@ -57,18 +56,17 @@ TEST_CONSTEXPR_CXX20 void test_basic() {
   }
 }
 
-template <class S>
 TEST_CONSTEXPR_CXX20 bool test() {
-  test_basic<S>();
-  test_buffer_usage<S>();
+  test_basic();
+  test_buffer_usage();
 
   return true;
 }
 
 int main(int, char**) {
-  test<std::string>();
+  test();
 #if TEST_STD_VER > 17
-  static_assert(test<std::string>());
+  static_assert(test());
 #endif
 
   return 0;

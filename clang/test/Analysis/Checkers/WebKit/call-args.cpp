@@ -262,6 +262,22 @@ namespace param_forwarding_method {
   }
 }
 
+namespace make_ref {
+  void makeRef(RefCountable*) {}
+  void makeRefPtr(RefCountable*) {}
+  void makeWeakPtr(RefCountable*) {}
+  void makeWeakPtr(RefCountable&) {}
+
+  void foo() {
+    makeRef(provide());
+    makeRefPtr(provide());
+    RefPtr<RefCountable> a(provide());
+    Ref<RefCountable> b(provide());
+    makeWeakPtr(provide());
+    makeWeakPtr(*provide());
+  }
+}
+
 namespace downcast {
   void consume_ref_countable(RefCountable*) {}
   RefCountable* downcast(RefCountable*) { return nullptr; }

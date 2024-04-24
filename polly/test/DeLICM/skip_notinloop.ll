@@ -7,7 +7,7 @@
 ;      A[0] = phi;
 ;    }
 ;
-define void @func(ptr noalias nonnull %A) {
+define void @func(double* noalias nonnull %A) {
 entry:
   br label %reduction.preheader
 
@@ -33,7 +33,7 @@ entry:
     br label %reduction.for
 
   reduction.exit:
-    store double %phi, ptr %A
+    store double %phi, double* %A
     br label %return
 
 

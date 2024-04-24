@@ -36,33 +36,38 @@ class PluginProperties : public Properties {
 public:
   PluginProperties() {
     m_collection_sp = std::make_shared<OptionValueProperties>(
-        PlatformQemuUser::GetPluginNameStatic());
+        ConstString(PlatformQemuUser::GetPluginNameStatic()));
     m_collection_sp->Initialize(g_platformqemuuser_properties);
   }
 
   llvm::StringRef GetArchitecture() {
-    return GetPropertyAtIndexAs<llvm::StringRef>(ePropertyArchitecture, "");
+    return m_collection_sp->GetPropertyAtIndexAsString(
+        nullptr, ePropertyArchitecture, "");
   }
 
   FileSpec GetEmulatorPath() {
-    return GetPropertyAtIndexAs<FileSpec>(ePropertyEmulatorPath, {});
+    return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr,
+                                                         ePropertyEmulatorPath);
   }
 
   Args GetEmulatorArgs() {
     Args result;
-    m_collection_sp->GetPropertyAtIndexAsArgs(ePropertyEmulatorArgs, result);
+    m_collection_sp->GetPropertyAtIndexAsArgs(nullptr, ePropertyEmulatorArgs,
+                                              result);
     return result;
   }
 
   Environment GetEmulatorEnvVars() {
     Args args;
-    m_collection_sp->GetPropertyAtIndexAsArgs(ePropertyEmulatorEnvVars, args);
+    m_collection_sp->GetPropertyAtIndexAsArgs(nullptr, ePropertyEmulatorEnvVars,
+                                              args);
     return Environment(args);
   }
 
   Environment GetTargetEnvVars() {
     Args args;
-    m_collection_sp->GetPropertyAtIndexAsArgs(ePropertyTargetEnvVars, args);
+    m_collection_sp->GetPropertyAtIndexAsArgs(nullptr, ePropertyTargetEnvVars,
+                                              args);
     return Environment(args);
   }
 };
@@ -89,11 +94,11 @@ void PlatformQemuUser::Terminate() {
 }
 
 void PlatformQemuUser::DebuggerInitialize(Debugger &debugger) {
-  if (!PluginManager::GetSettingForPlatformPlugin(debugger,
-                                                  GetPluginNameStatic())) {
+  if (!PluginManager::GetSettingForPlatformPlugin(
+          debugger, ConstString(GetPluginNameStatic()))) {
     PluginManager::CreateSettingForPlatformPlugin(
         debugger, GetGlobalProperties().GetValueProperties(),
-        "Properties for the qemu-user platform plugin.",
+        ConstString("Properties for the qemu-user platform plugin."),
         /*is_global_property=*/true);
   }
 }
@@ -162,18 +167,9 @@ lldb::ProcessSP PlatformQemuUser::DebugProcess(ProcessLaunchInfo &launch_info,
                                                Target &target, Status &error) {
   Log *log = GetLog(LLDBLog::Platform);
 
-  // If platform.plugin.qemu-user.emulator-path is set, use it.
   FileSpec qemu = GetGlobalProperties().GetEmulatorPath();
-  // If platform.plugin.qemu-user.emulator-path is not set, build the
-  // executable name from platform.plugin.qemu-user.architecture.
-  if (!qemu) {
-    llvm::StringRef arch = GetGlobalProperties().GetArchitecture();
-    // If platform.plugin.qemu-user.architecture is not set, build the
-    // executable name from the target Triple's ArchName
-    if (arch.empty())
-      arch = target.GetArchitecture().GetTriple().getArchName();
-    qemu.SetPath(("qemu-" + arch).str());
-  }
+  if (!qemu)
+    qemu.SetPath(("qemu-" + GetGlobalProperties().GetArchitecture()).str());
   FileSystem::Instance().ResolveExecutableLocation(qemu);
 
   llvm::SmallString<0> socket_model, socket_path;
@@ -200,8 +196,8 @@ lldb::ProcessSP PlatformQemuUser::DebugProcess(ProcessLaunchInfo &launch_info,
   launch_info.SetArguments(args, true);
 
   Environment emulator_env = Host::GetEnvironment();
-  if (const std::string &sysroot = GetSDKRootDirectory(); !sysroot.empty())
-    emulator_env["QEMU_LD_PREFIX"] = sysroot;
+  if (ConstString sysroot = GetSDKRootDirectory())
+    emulator_env["QEMU_LD_PREFIX"] = sysroot.GetStringRef().str();
   for (const auto &KV : GetGlobalProperties().GetEmulatorEnvVars())
     emulator_env[KV.first()] = KV.second;
   launch_info.GetEnvironment() = ComputeLaunchEnvironment(

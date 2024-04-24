@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 void DeallocInCategoryCheck::registerMatchers(MatchFinder *Finder) {
   // Non-NSObject/NSProxy-derived objects may not have -dealloc as a special
@@ -35,4 +37,6 @@ void DeallocInCategoryCheck::check(const MatchFinder::MatchResult &Result) {
       << CID;
 }
 
-} // namespace clang::tidy::objc
+} // namespace objc
+} // namespace tidy
+} // namespace clang

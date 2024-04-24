@@ -11,7 +11,7 @@
 
 declare i32 @getInt(i32)
 
-define i32 @main(i32 %argc, ptr %argv) {
+define i32 @main(i32 %argc, i8** %argv) {
 bb0:
         br label %bb2
 

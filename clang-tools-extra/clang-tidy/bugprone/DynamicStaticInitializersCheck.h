@@ -10,9 +10,11 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_DYNAMIC_STATIC_INITIALIZERS_CHECK_H
 
 #include "../ClangTidyCheck.h"
-#include "../FileExtensionsSet.h"
+#include "../utils/FileExtensionsUtils.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Finds dynamically initialized static variables in header files.
 ///
@@ -34,10 +36,12 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
 private:
-  StringRef RawStringHeaderFileExtensions;
-  FileExtensionsSet HeaderFileExtensions;
+  const StringRef RawStringHeaderFileExtensions;
+  utils::FileExtensionsSet HeaderFileExtensions;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_DYNAMIC_STATIC_INITIALIZERS_CHECK_H

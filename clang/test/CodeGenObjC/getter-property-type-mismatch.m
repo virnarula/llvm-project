@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10  -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-apple-darwin10  -emit-llvm -o - %s | FileCheck %s
+// rdar://11515196
 
 @interface NSArray @end
 
@@ -28,6 +29,7 @@
 
 @end
 
-// CHECK: define internal ptr @"\01-[BPXLAppDelegate arrayOfThings
-// CHECK: ret ptr [[TWO:%.*]]
+// CHECK: define internal [[RET:%.*]]* @"\01-[BPXLAppDelegate arrayOfThings
+// CHECK: [[THREE:%.*]] = bitcast [[OPQ:%.*]]* [[TWO:%.*]] to [[RET]]*
+// CHECK: ret [[RET]]* [[THREE]]
 

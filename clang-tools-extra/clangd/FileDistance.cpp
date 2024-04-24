@@ -34,7 +34,6 @@
 #include "URI.h"
 #include "support/Logger.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Path.h"
 #include <queue>
 
@@ -79,7 +78,7 @@ FileDistance::FileDistance(llvm::StringMap<SourceParams> Sources,
         Down.push_back(Hash);
       // We can't just break after MaxUpTraversals, must still set DownEdges.
       if (I > S.getValue().MaxUpTraversals) {
-        if (Cache.contains(Hash))
+        if (Cache.find(Hash) != Cache.end())
           break;
       } else {
         unsigned Cost = S.getValue().Cost + I * Opts.UpCost;
@@ -201,7 +200,7 @@ createScopeFileDistance(llvm::ArrayRef<std::string> QueryScopes) {
     // place of enclosing namespaces (e.g. in implementation files).
     if (S == Preferred)
       Param.Cost = S == "" ? 4 : 0;
-    else if (Preferred.starts_with(S) && !S.empty())
+    else if (Preferred.startswith(S) && !S.empty())
       continue; // just rely on up-traversals.
     else
       Param.Cost = S == "" ? 6 : 2;

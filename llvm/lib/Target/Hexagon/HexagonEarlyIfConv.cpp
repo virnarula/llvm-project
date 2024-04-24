@@ -601,6 +601,8 @@ bool HexagonEarlyIfConversion::visitBlock(MachineBasicBlock *B,
   // Visit all dominated blocks from the same loop first, then process B.
   MachineDomTreeNode *N = MDT->getNode(B);
 
+  using GTN = GraphTraits<MachineDomTreeNode *>;
+
   // We will change CFG/DT during this traversal, so take precautions to
   // avoid problems related to invalidated iterators. In fact, processing
   // a child C of B cannot cause another child to be removed, but it can
@@ -609,7 +611,7 @@ bool HexagonEarlyIfConversion::visitBlock(MachineBasicBlock *B,
   // prior to processing B, so there is no need to process it again.
   // Simply keep a list of children of B, and traverse that list.
   using DTNodeVectType = SmallVector<MachineDomTreeNode *, 4>;
-  DTNodeVectType Cn(llvm::children<MachineDomTreeNode *>(N));
+  DTNodeVectType Cn(GTN::child_begin(N), GTN::child_end(N));
   for (auto &I : Cn) {
     MachineBasicBlock *SB = I->getBlock();
     if (!Deleted.count(SB))

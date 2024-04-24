@@ -19,7 +19,6 @@
 
 #include <limits>
 #include <memory>
-#include <optional>
 #include <unordered_set>
 
 using namespace llvm;
@@ -118,11 +117,13 @@ public:
   Impl(SyntaxTree *Parent, Stmt *N, ASTContext &AST);
   template <class T>
   Impl(SyntaxTree *Parent,
-       std::enable_if_t<std::is_base_of_v<Stmt, T>, T> *Node, ASTContext &AST)
+       std::enable_if_t<std::is_base_of<Stmt, T>::value, T> *Node,
+       ASTContext &AST)
       : Impl(Parent, dyn_cast<Stmt>(Node), AST) {}
   template <class T>
   Impl(SyntaxTree *Parent,
-       std::enable_if_t<std::is_base_of_v<Decl, T>, T> *Node, ASTContext &AST)
+       std::enable_if_t<std::is_base_of<Decl, T>::value, T> *Node,
+       ASTContext &AST)
       : Impl(Parent, dyn_cast<Decl>(Node), AST) {}
 
   SyntaxTree *Parent;
@@ -371,7 +372,7 @@ SyntaxTree::Impl::getRelativeName(const NamedDecl *ND,
   // Strip the qualifier, if Val refers to something in the current scope.
   // But leave one leading ':' in place, so that we know that this is a
   // relative path.
-  if (!ContextPrefix.empty() && StringRef(Val).starts_with(ContextPrefix))
+  if (!ContextPrefix.empty() && StringRef(Val).startswith(ContextPrefix))
     Val = Val.substr(ContextPrefix.size() + 1);
   return Val;
 }
@@ -453,12 +454,12 @@ std::string SyntaxTree::Impl::getStmtValue(const Stmt *S) const {
   if (auto *I = dyn_cast<IntegerLiteral>(S)) {
     SmallString<256> Str;
     I->getValue().toString(Str, /*Radix=*/10, /*Signed=*/false);
-    return std::string(Str);
+    return std::string(Str.str());
   }
   if (auto *F = dyn_cast<FloatingLiteral>(S)) {
     SmallString<256> Str;
     F->getValue().toString(Str);
-    return std::string(Str);
+    return std::string(Str.str());
   }
   if (auto *D = dyn_cast<DeclRefExpr>(S))
     return getRelativeName(D->getDecl(), getEnclosingDeclContext(AST, S));
@@ -687,20 +688,20 @@ ASTNodeKind Node::getType() const { return ASTNode.getNodeKind(); }
 
 StringRef Node::getTypeLabel() const { return getType().asStringRef(); }
 
-std::optional<std::string> Node::getQualifiedIdentifier() const {
+llvm::Optional<std::string> Node::getQualifiedIdentifier() const {
   if (auto *ND = ASTNode.get<NamedDecl>()) {
     if (ND->getDeclName().isIdentifier())
       return ND->getQualifiedNameAsString();
   }
-  return std::nullopt;
+  return llvm::None;
 }
 
-std::optional<StringRef> Node::getIdentifier() const {
+llvm::Optional<StringRef> Node::getIdentifier() const {
   if (auto *ND = ASTNode.get<NamedDecl>()) {
     if (ND->getDeclName().isIdentifier())
       return ND->getName();
   }
-  return std::nullopt;
+  return llvm::None;
 }
 
 namespace {

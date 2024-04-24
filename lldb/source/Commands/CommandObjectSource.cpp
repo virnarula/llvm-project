@@ -22,11 +22,9 @@
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
-#include "lldb/Target/Process.h"
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Utility/FileSpec.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -100,7 +98,7 @@ class CommandObjectSourceInfo : public CommandObjectParsed {
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_source_info_options);
+      return llvm::makeArrayRef(g_source_info_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -147,7 +145,10 @@ protected:
     uint32_t num_matches = 0;
     // Dump all the line entries for the file in the list.
     ConstString last_module_file_name;
-    for (const SymbolContext &sc : sc_list) {
+    uint32_t num_scs = sc_list.GetSize();
+    for (uint32_t i = 0; i < num_scs; ++i) {
+      SymbolContext sc;
+      sc_list.GetContextAtIndex(i, sc);
       if (sc.comp_unit) {
         Module *module = sc.module_sp.get();
         CompileUnit *cu = sc.comp_unit;
@@ -204,7 +205,7 @@ protected:
     if (cu) {
       assert(file_spec.GetFilename().AsCString());
       bool has_path = (file_spec.GetDirectory().AsCString() != nullptr);
-      const SupportFileList &cu_file_list = cu->GetSupportFiles();
+      const FileSpecList &cu_file_list = cu->GetSupportFiles();
       size_t file_idx = cu_file_list.FindFileIndex(0, file_spec, has_path);
       if (file_idx != UINT32_MAX) {
         // Update the file to how it appears in the CU.
@@ -391,7 +392,10 @@ protected:
       SymbolContextList sc_list_symbols;
       module_list.FindFunctionSymbols(name, eFunctionNameTypeAuto,
                                       sc_list_symbols);
-      for (const SymbolContext &sc : sc_list_symbols) {
+      size_t num_symbol_matches = sc_list_symbols.GetSize();
+      for (size_t i = 0; i < num_symbol_matches; i++) {
+        SymbolContext sc;
+        sc_list_symbols.GetContextAtIndex(i, sc);
         if (sc.symbol && sc.symbol->ValueIsAddress()) {
           const Address &base_address = sc.symbol->GetAddressRef();
           Function *function = base_address.CalculateSymbolContextFunction();
@@ -407,7 +411,9 @@ protected:
                                    m_options.symbol_name.c_str());
       return false;
     }
-    for (const SymbolContext &sc : sc_list_funcs) {
+    for (size_t i = 0; i < num_matches; i++) {
+      SymbolContext sc;
+      sc_list_funcs.GetContextAtIndex(i, sc);
       bool context_found_for_symbol = false;
       // Loop through all the ranges in the function.
       AddressRange range;
@@ -532,14 +538,14 @@ protected:
     return true;
   }
 
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target *target = m_exe_ctx.GetTargetPtr();
     if (target == nullptr) {
       target = GetDebugger().GetSelectedTarget().get();
       if (target == nullptr) {
         result.AppendError("invalid target, create a debug target using the "
                            "'target create' command.");
-        return;
+        return false;
       }
     }
 
@@ -562,11 +568,11 @@ protected:
       }
       if (!m_module_list.GetSize()) {
         result.AppendError("No modules match the input.");
-        return;
+        return false;
       }
     } else if (target->GetImages().GetSize() == 0) {
       result.AppendError("The target has no associated executable images.");
-      return;
+      return false;
     }
 
     // Check the arguments to see what lines we should dump.
@@ -595,6 +601,7 @@ protected:
       else
         result.SetStatus(eReturnStatusFailed);
     }
+    return result.Succeeded();
   }
 
   CommandOptions m_options;
@@ -688,7 +695,7 @@ class CommandObjectSourceList : public CommandObjectParsed {
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_source_list_options);
+      return llvm::makeArrayRef(g_source_list_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -714,8 +721,8 @@ public:
 
   Options *GetOptions() override { return &m_options; }
 
-  std::optional<std::string> GetRepeatCommand(Args &current_command_args,
-                                              uint32_t index) override {
+  llvm::Optional<std::string> GetRepeatCommand(Args &current_command_args,
+                                               uint32_t index) override {
     // This is kind of gross, but the command hasn't been parsed yet so we
     // can't look at the option values for this invocation...  I have to scan
     // the arguments directly.
@@ -747,13 +754,13 @@ protected:
 
     bool operator==(const SourceInfo &rhs) const {
       return function == rhs.function &&
-             *line_entry.original_file_sp == *rhs.line_entry.original_file_sp &&
+             line_entry.original_file == rhs.line_entry.original_file &&
              line_entry.line == rhs.line_entry.line;
     }
 
     bool operator!=(const SourceInfo &rhs) const {
       return function != rhs.function ||
-             *line_entry.original_file_sp != *rhs.line_entry.original_file_sp ||
+             line_entry.original_file != rhs.line_entry.original_file ||
              line_entry.line != rhs.line_entry.line;
     }
 
@@ -909,7 +916,7 @@ protected:
     }
   }
 
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     Target *target = m_exe_ctx.GetTargetPtr();
 
     if (!m_options.symbol_name.empty()) {
@@ -918,46 +925,70 @@ protected:
 
       // Displaying the source for a symbol. Search for function named name.
       FindMatchingFunctions(target, name, sc_list);
-      if (sc_list.GetSize() == 0) {
+      size_t num_matches = sc_list.GetSize();
+      if (!num_matches) {
         // If we didn't find any functions with that name, try searching for
         // symbols that line up exactly with function addresses.
         SymbolContextList sc_list_symbols;
         FindMatchingFunctionSymbols(target, name, sc_list_symbols);
-        for (const SymbolContext &sc : sc_list_symbols) {
+        size_t num_symbol_matches = sc_list_symbols.GetSize();
+
+        for (size_t i = 0; i < num_symbol_matches; i++) {
+          SymbolContext sc;
+          sc_list_symbols.GetContextAtIndex(i, sc);
           if (sc.symbol && sc.symbol->ValueIsAddress()) {
             const Address &base_address = sc.symbol->GetAddressRef();
             Function *function = base_address.CalculateSymbolContextFunction();
             if (function) {
               sc_list.Append(SymbolContext(function));
+              num_matches++;
               break;
             }
           }
         }
       }
 
-      if (sc_list.GetSize() == 0) {
+      if (num_matches == 0) {
         result.AppendErrorWithFormat("Could not find function named: \"%s\".\n",
                                      m_options.symbol_name.c_str());
-        return;
+        return false;
       }
 
-      std::set<SourceInfo> source_match_set;
-      bool displayed_something = false;
-      for (const SymbolContext &sc : sc_list) {
-        SourceInfo source_info(sc.GetFunctionName(),
-                               sc.GetFunctionStartLineEntry());
-        if (source_info.IsValid() &&
-            source_match_set.find(source_info) == source_match_set.end()) {
-          source_match_set.insert(source_info);
-          if (DisplayFunctionSource(sc, source_info, result))
-            displayed_something = true;
+      if (num_matches > 1) {
+        std::set<SourceInfo> source_match_set;
+
+        bool displayed_something = false;
+        for (size_t i = 0; i < num_matches; i++) {
+          SymbolContext sc;
+          sc_list.GetContextAtIndex(i, sc);
+          SourceInfo source_info(sc.GetFunctionName(),
+                                 sc.GetFunctionStartLineEntry());
+
+          if (source_info.IsValid()) {
+            if (source_match_set.find(source_info) == source_match_set.end()) {
+              source_match_set.insert(source_info);
+              if (DisplayFunctionSource(sc, source_info, result))
+                displayed_something = true;
+            }
+          }
+        }
+
+        if (displayed_something)
+          result.SetStatus(eReturnStatusSuccessFinishResult);
+        else
+          result.SetStatus(eReturnStatusFailed);
+      } else {
+        SymbolContext sc;
+        sc_list.GetContextAtIndex(0, sc);
+        SourceInfo source_info;
+
+        if (DisplayFunctionSource(sc, source_info, result)) {
+          result.SetStatus(eReturnStatusSuccessFinishResult);
+        } else {
+          result.SetStatus(eReturnStatusFailed);
         }
       }
-      if (displayed_something)
-        result.SetStatus(eReturnStatusSuccessFinishResult);
-      else
-        result.SetStatus(eReturnStatusFailed);
-      return;
+      return result.Succeeded();
     } else if (m_options.address != LLDB_INVALID_ADDRESS) {
       Address so_addr;
       StreamString error_strm;
@@ -986,7 +1017,7 @@ protected:
               "no modules have source information for file address 0x%" PRIx64
               ".\n",
               m_options.address);
-          return;
+          return false;
         }
       } else {
         // The target has some things loaded, resolve this address to a compile
@@ -1008,7 +1039,7 @@ protected:
                                            "is no line table information "
                                            "available for this address.\n",
                                            error_strm.GetData());
-              return;
+              return false;
             }
           }
         }
@@ -1017,10 +1048,13 @@ protected:
           result.AppendErrorWithFormat(
               "no modules contain load address 0x%" PRIx64 ".\n",
               m_options.address);
-          return;
+          return false;
         }
       }
-      for (const SymbolContext &sc : sc_list) {
+      uint32_t num_matches = sc_list.GetSize();
+      for (uint32_t i = 0; i < num_matches; ++i) {
+        SymbolContext sc;
+        sc_list.GetContextAtIndex(i, sc);
         if (sc.comp_unit) {
           if (m_options.show_bp_locs) {
             m_breakpoint_locations.Clear();
@@ -1133,14 +1167,16 @@ protected:
       if (num_matches == 0) {
         result.AppendErrorWithFormat("Could not find source file \"%s\".\n",
                                      m_options.file_name.c_str());
-        return;
+        return false;
       }
 
       if (num_matches > 1) {
         bool got_multiple = false;
         CompileUnit *test_cu = nullptr;
 
-        for (const SymbolContext &sc : sc_list) {
+        for (unsigned i = 0; i < num_matches; i++) {
+          SymbolContext sc;
+          sc_list.GetContextAtIndex(i, sc);
           if (sc.comp_unit) {
             if (test_cu) {
               if (test_cu != sc.comp_unit)
@@ -1154,7 +1190,7 @@ protected:
           result.AppendErrorWithFormat(
               "Multiple source files found matching: \"%s.\"\n",
               m_options.file_name.c_str());
-          return;
+          return false;
         }
       }
 
@@ -1183,9 +1219,11 @@ protected:
         } else {
           result.AppendErrorWithFormat("No comp unit found for: \"%s.\"\n",
                                        m_options.file_name.c_str());
+          return false;
         }
       }
     }
+    return result.Succeeded();
   }
 
   const SymbolContextList *GetBreakpointLocations() {
@@ -1197,76 +1235,6 @@ protected:
   CommandOptions m_options;
   FileLineResolver m_breakpoint_locations;
   std::string m_reverse_name;
-};
-
-class CommandObjectSourceCacheDump : public CommandObjectParsed {
-public:
-  CommandObjectSourceCacheDump(CommandInterpreter &interpreter)
-      : CommandObjectParsed(interpreter, "source cache dump",
-                            "Dump the state of the source code cache. Intended "
-                            "to be used for debugging LLDB itself.",
-                            nullptr) {}
-
-  ~CommandObjectSourceCacheDump() override = default;
-
-protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
-    // Dump the debugger source cache.
-    result.GetOutputStream() << "Debugger Source File Cache\n";
-    SourceManager::SourceFileCache &cache = GetDebugger().GetSourceFileCache();
-    cache.Dump(result.GetOutputStream());
-
-    // Dump the process source cache.
-    if (ProcessSP process_sp = m_exe_ctx.GetProcessSP()) {
-      result.GetOutputStream() << "\nProcess Source File Cache\n";
-      SourceManager::SourceFileCache &cache = process_sp->GetSourceFileCache();
-      cache.Dump(result.GetOutputStream());
-    }
-
-    result.SetStatus(eReturnStatusSuccessFinishResult);
-  }
-};
-
-class CommandObjectSourceCacheClear : public CommandObjectParsed {
-public:
-  CommandObjectSourceCacheClear(CommandInterpreter &interpreter)
-      : CommandObjectParsed(interpreter, "source cache clear",
-                            "Clear the source code cache.\n", nullptr) {}
-
-  ~CommandObjectSourceCacheClear() override = default;
-
-protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override {
-    // Clear the debugger cache.
-    SourceManager::SourceFileCache &cache = GetDebugger().GetSourceFileCache();
-    cache.Clear();
-
-    // Clear the process cache.
-    if (ProcessSP process_sp = m_exe_ctx.GetProcessSP())
-      process_sp->GetSourceFileCache().Clear();
-
-    result.SetStatus(eReturnStatusSuccessFinishNoResult);
-  }
-};
-
-class CommandObjectSourceCache : public CommandObjectMultiword {
-public:
-  CommandObjectSourceCache(CommandInterpreter &interpreter)
-      : CommandObjectMultiword(interpreter, "source cache",
-                               "Commands for managing the source code cache.",
-                               "source cache <sub-command>") {
-    LoadSubCommand(
-        "dump", CommandObjectSP(new CommandObjectSourceCacheDump(interpreter)));
-    LoadSubCommand("clear", CommandObjectSP(new CommandObjectSourceCacheClear(
-                                interpreter)));
-  }
-
-  ~CommandObjectSourceCache() override = default;
-
-private:
-  CommandObjectSourceCache(const CommandObjectSourceCache &) = delete;
-  const CommandObjectSourceCache &
-  operator=(const CommandObjectSourceCache &) = delete;
 };
 
 #pragma mark CommandObjectMultiwordSource
@@ -1284,8 +1252,6 @@ CommandObjectMultiwordSource::CommandObjectMultiwordSource(
                  CommandObjectSP(new CommandObjectSourceInfo(interpreter)));
   LoadSubCommand("list",
                  CommandObjectSP(new CommandObjectSourceList(interpreter)));
-  LoadSubCommand("cache",
-                 CommandObjectSP(new CommandObjectSourceCache(interpreter)));
 }
 
 CommandObjectMultiwordSource::~CommandObjectMultiwordSource() = default;

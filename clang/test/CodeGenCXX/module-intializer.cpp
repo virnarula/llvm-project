@@ -12,23 +12,24 @@
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 O.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-O
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-Part.cpp \
-// RUN:    -emit-module-interface -o M-Part.pcm
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-Part.pcm -S \
-// RUN:    -emit-module-interface  -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-P
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.cpp \
+// RUN:    -emit-module-interface -o M-part.pcm
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.pcm -S \
+// RUN: -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-P
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.cpp \
-// RUN:    -fprebuilt-module-path=%t -emit-module-interface -o M.pcm
+// RUN: -fmodule-file=N.pcm -fmodule-file=O.pcm -fmodule-file=M-part.pcm \
+// RUN:    -emit-module-interface -o M.pcm
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.pcm -S -emit-llvm \
-// RUN:    -fprebuilt-module-path=%t -o - | FileCheck %s --check-prefix=CHECK-M
+// RUN:  -o - | FileCheck %s --check-prefix=CHECK-M
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 useM.cpp \
-// RUN:   -fprebuilt-module-path=%t -S -emit-llvm  -o - \
-// RUN:   | FileCheck %s --check-prefix=CHECK-USE
+// RUN: -fmodule-file=M.pcm -S -emit-llvm  -o - \
+// RUN: | FileCheck %s --check-prefix=CHECK-USE
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-impl.cpp \
-// RUN:   -fprebuilt-module-path=%t -S -emit-llvm  -o - \
-// RUN:   | FileCheck %s --check-prefix=CHECK-IMPL
+// RUN: -fmodule-file=M.pcm -S -emit-llvm  -o - \
+// RUN: | FileCheck %s --check-prefix=CHECK-IMPL
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 N.cpp -S -emit-llvm \
 // RUN:   -o - | FileCheck %s --check-prefix=CHECK-N
@@ -36,11 +37,12 @@
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 O.cpp -S -emit-llvm \
 // RUN:   -o - | FileCheck %s --check-prefix=CHECK-O
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-Part.cpp -S -emit-llvm \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.cpp -S -emit-llvm \
 // RUN:   -o - | FileCheck %s --check-prefix=CHECK-P
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.cpp \
-// RUN:   -fprebuilt-module-path=%t -S -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-M
+// RUN:   -fmodule-file=N.pcm -fmodule-file=O.pcm -fmodule-file=M-part.pcm \
+// RUN:   -S -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-M
 
 //--- N-h.h
 
@@ -110,7 +112,7 @@ struct Croak {
 
 Croak Frog;
 
-//--- M-Part.cpp
+//--- M-part.cpp
 
 module;
 #include "P-h.h"

@@ -97,8 +97,7 @@ class DialectInterfaceCollectionBase {
   using InterfaceVectorT = std::vector<const DialectInterface *>;
 
 public:
-  DialectInterfaceCollectionBase(MLIRContext *ctx, TypeID interfaceKind,
-                                 StringRef interfaceName);
+  DialectInterfaceCollectionBase(MLIRContext *ctx, TypeID interfaceKind);
   virtual ~DialectInterfaceCollectionBase();
 
 protected:
@@ -160,8 +159,7 @@ public:
   /// Collect the registered dialect interfaces within the provided context.
   DialectInterfaceCollection(MLIRContext *ctx)
       : detail::DialectInterfaceCollectionBase(
-            ctx, InterfaceType::getInterfaceID(),
-            llvm::getTypeName<InterfaceType>()) {}
+            ctx, InterfaceType::getInterfaceID()) {}
 
   /// Get the interface for a given object, or null if one is not registered.
   /// The object may be a dialect or an operation instance.

@@ -14,7 +14,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 ComparisonInTempFailureRetryCheck::ComparisonInTempFailureRetryCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -88,4 +90,6 @@ void ComparisonInTempFailureRetryCheck::check(
   // happen, e.g. `TEMP_FAILURE_RETRY(IS_ZERO(foo()))`
 }
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang

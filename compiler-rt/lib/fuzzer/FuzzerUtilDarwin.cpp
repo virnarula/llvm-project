@@ -165,11 +165,6 @@ void DiscardOutput(int Fd) {
   fclose(Temp);
 }
 
-void SetThreadName(std::thread &thread, const std::string &name) {
-  // TODO ?
-  // Darwin allows to set the name only on the current thread it seems
-}
-
 } // namespace fuzzer
 
 #endif // LIBFUZZER_APPLE

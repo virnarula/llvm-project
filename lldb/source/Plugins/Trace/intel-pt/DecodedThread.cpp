@@ -10,7 +10,6 @@
 #include "TraceCursorIntelPT.h"
 #include <intel-pt.h>
 #include <memory>
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -85,11 +84,11 @@ double DecodedThread::NanosecondsRange::GetInterpolatedTime(
   return interpolate(next_range->nanos);
 }
 
-uint64_t DecodedThread::GetItemsCount() const { return m_item_data.size(); }
+uint64_t DecodedThread::GetItemsCount() const { return m_item_kinds.size(); }
 
 lldb::addr_t
 DecodedThread::GetInstructionLoadAddress(uint64_t item_index) const {
-  return std::get<lldb::addr_t>(m_item_data[item_index]);
+  return m_item_data[item_index].load_address;
 }
 
 lldb::addr_t
@@ -99,16 +98,14 @@ DecodedThread::GetSyncPointOffsetByIndex(uint64_t item_index) const {
 
 ThreadSP DecodedThread::GetThread() { return m_thread_sp; }
 
-template <typename Data>
 DecodedThread::TraceItemStorage &
-DecodedThread::CreateNewTraceItem(lldb::TraceItemKind kind, Data &&data) {
-  m_item_data.emplace_back(data);
-
+DecodedThread::CreateNewTraceItem(lldb::TraceItemKind kind) {
+  m_item_kinds.push_back(kind);
+  m_item_data.emplace_back();
   if (m_last_tsc)
     (*m_last_tsc)->second.items_count++;
   if (m_last_nanoseconds)
     (*m_last_nanoseconds)->second.items_count++;
-
   return m_item_data.back();
 }
 
@@ -157,19 +154,19 @@ lldb::cpu_id_t DecodedThread::GetCPUByIndex(uint64_t item_index) const {
   return it == m_cpus.begin() ? LLDB_INVALID_CPU_ID : prev(it)->second;
 }
 
-std::optional<DecodedThread::TSCRange>
+Optional<DecodedThread::TSCRange>
 DecodedThread::GetTSCRangeByIndex(uint64_t item_index) const {
   auto next_it = m_tscs.upper_bound(item_index);
   if (next_it == m_tscs.begin())
-    return std::nullopt;
+    return None;
   return prev(next_it)->second;
 }
 
-std::optional<DecodedThread::NanosecondsRange>
+Optional<DecodedThread::NanosecondsRange>
 DecodedThread::GetNanosecondsRangeByIndex(uint64_t item_index) {
   auto next_it = m_nanoseconds.upper_bound(item_index);
   if (next_it == m_nanoseconds.begin())
-    return std::nullopt;
+    return None;
   return prev(next_it)->second;
 }
 
@@ -178,27 +175,29 @@ uint64_t DecodedThread::GetTotalInstructionCount() const {
 }
 
 void DecodedThread::AppendEvent(lldb::TraceEvent event) {
-  CreateNewTraceItem(lldb::eTraceItemKindEvent, event);
+  CreateNewTraceItem(lldb::eTraceItemKindEvent).event = event;
   m_events_stats.RecordEvent(event);
 }
 
 void DecodedThread::AppendInstruction(const pt_insn &insn) {
-  CreateNewTraceItem(lldb::eTraceItemKindInstruction, insn.ip);
+  CreateNewTraceItem(lldb::eTraceItemKindInstruction).load_address = insn.ip;
   m_insn_count++;
 }
 
 void DecodedThread::AppendError(const IntelPTError &error) {
-  CreateNewTraceItem(lldb::eTraceItemKindError, error.message());
+  CreateNewTraceItem(lldb::eTraceItemKindError).error =
+      ConstString(error.message()).AsCString();
   m_error_stats.RecordError(/*fatal=*/false);
 }
 
 void DecodedThread::AppendCustomError(StringRef err, bool fatal) {
-  CreateNewTraceItem(lldb::eTraceItemKindError, err.str());
+  CreateNewTraceItem(lldb::eTraceItemKindError).error =
+      ConstString(err).AsCString();
   m_error_stats.RecordError(fatal);
 }
 
 lldb::TraceEvent DecodedThread::GetEventByIndex(int item_index) const {
-  return std::get<lldb::TraceEvent>(m_item_data[item_index]);
+  return m_item_data[item_index].event;
 }
 
 const DecodedThread::EventsStats &DecodedThread::GetEventsStats() const {
@@ -235,27 +234,21 @@ const DecodedThread::ErrorStats &DecodedThread::GetErrorStats() const {
 
 lldb::TraceItemKind
 DecodedThread::GetItemKindByIndex(uint64_t item_index) const {
-  return std::visit(
-      llvm::makeVisitor(
-          [](const std::string &) { return lldb::eTraceItemKindError; },
-          [](lldb::TraceEvent) { return lldb::eTraceItemKindEvent; },
-          [](lldb::addr_t) { return lldb::eTraceItemKindInstruction; }),
-      m_item_data[item_index]);
+  return static_cast<lldb::TraceItemKind>(m_item_kinds[item_index]);
 }
 
-llvm::StringRef DecodedThread::GetErrorByIndex(uint64_t item_index) const {
-  if (item_index >= m_item_data.size())
-    return llvm::StringRef();
-  return std::get<std::string>(m_item_data[item_index]);
+const char *DecodedThread::GetErrorByIndex(uint64_t item_index) const {
+  return m_item_data[item_index].error;
 }
 
 DecodedThread::DecodedThread(
     ThreadSP thread_sp,
-    const std::optional<LinuxPerfZeroTscConversion> &tsc_conversion)
+    const llvm::Optional<LinuxPerfZeroTscConversion> &tsc_conversion)
     : m_thread_sp(thread_sp), m_tsc_conversion(tsc_conversion) {}
 
 size_t DecodedThread::CalculateApproximateMemoryUsage() const {
   return sizeof(TraceItemStorage) * m_item_data.size() +
+         sizeof(uint8_t) * m_item_kinds.size() +
          (sizeof(uint64_t) + sizeof(TSC)) * m_tscs.size() +
          (sizeof(uint64_t) + sizeof(uint64_t)) * m_nanoseconds.size() +
          (sizeof(uint64_t) + sizeof(lldb::cpu_id_t)) * m_cpus.size();

@@ -29,40 +29,48 @@
 #undef TODOQUOTE
 #define TODOQUOTE(X) #X
 
-// Give backtrace only in debug builds.
-#undef GEN_TRACE
 #ifdef NDEBUG
-#define GEN_TRACE false
-#else
-#define GEN_TRACE true
-#endif
 
-#undef TODO_NOLOCDEFN
-#define TODO_NOLOCDEFN(ToDoMsg, ToDoFile, ToDoLine, GenTrace)                  \
+// In a release build, just give a message and exit.
+#define TODO_NOLOC(ToDoMsg)                                                    \
   do {                                                                         \
-    llvm::report_fatal_error(llvm::Twine(ToDoFile ":" TODOQUOTE(               \
-                                 ToDoLine) ": not yet implemented: ") +        \
-                                 llvm::Twine(ToDoMsg),                         \
-                             GenTrace);                                        \
+    llvm::errs() << __FILE__ << ':' << __LINE__                                \
+                 << ": not yet implemented: " << ToDoMsg << '\n';              \
+    std::exit(1);                                                              \
   } while (false)
-
-#define TODO_NOLOC(ToDoMsg) TODO_NOLOCDEFN(ToDoMsg, __FILE__, __LINE__, false)
-#define TODO_NOLOC_TRACE(ToDoMsg)                                              \
-  TODO_NOLOCDEFN(ToDoMsg, __FILE__, __LINE__, GENTRACE)
 
 #undef TODO_DEFN
-#define TODO_DEFN(MlirLoc, ToDoMsg, ToDoFile, ToDoLine, GenTrace)              \
+#define TODO_DEFN(MlirLoc, ToDoMsg, ToDoFile, ToDoLine)                        \
   do {                                                                         \
-    fir::emitFatalError(MlirLoc,                                               \
-                        llvm::Twine(ToDoFile ":" TODOQUOTE(                    \
-                            ToDoLine) ": not yet implemented: ") +             \
-                            llvm::Twine(ToDoMsg),                              \
-                        GenTrace);                                             \
+    mlir::emitError(MlirLoc, ToDoFile ":" TODOQUOTE(                           \
+                                 ToDoLine) ": not yet implemented: " ToDoMsg); \
+    std::exit(1);                                                              \
   } while (false)
 
-#define TODO(MlirLoc, ToDoMsg)                                                 \
-  TODO_DEFN(MlirLoc, ToDoMsg, __FILE__, __LINE__, false)
-#define TODO_TRACE(MlirLoc, ToDoMsg)                                           \
-  TODO_DEFN(MlirLoc, ToDoMsg, __FILE__, __LINE__, GEN_TRACE)
+#define TODO(MlirLoc, ToDoMsg) TODO_DEFN(MlirLoc, ToDoMsg, __FILE__, __LINE__)
+
+#else
+
+// In a developer build, print a message and give a backtrace.
+#undef TODO_NOLOCDEFN
+#define TODO_NOLOCDEFN(ToDoMsg, ToDoFile, ToDoLine)                            \
+  do {                                                                         \
+    llvm::report_fatal_error(                                                  \
+        ToDoFile ":" TODOQUOTE(ToDoLine) ": not yet implemented: " ToDoMsg);   \
+  } while (false)
+
+#define TODO_NOLOC(ToDoMsg) TODO_NOLOCDEFN(ToDoMsg, __FILE__, __LINE__)
+
+#undef TODO_DEFN
+#define TODO_DEFN(MlirLoc, ToDoMsg, ToDoFile, ToDoLine)                        \
+  do {                                                                         \
+    fir::emitFatalError(                                                       \
+        MlirLoc,                                                               \
+        ToDoFile ":" TODOQUOTE(ToDoLine) ": not yet implemented: " ToDoMsg);   \
+  } while (false)
+
+#define TODO(MlirLoc, ToDoMsg) TODO_DEFN(MlirLoc, ToDoMsg, __FILE__, __LINE__)
+
+#endif
 
 #endif // FORTRAN_LOWER_TODO_H

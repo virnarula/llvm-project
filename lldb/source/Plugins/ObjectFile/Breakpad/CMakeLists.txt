@@ -9,5 +9,4 @@ add_lldb_library(lldbPluginObjectFileBreakpad PLUGIN
     lldbUtility
   LINK_COMPONENTS
     Support
-    TargetParser
   )

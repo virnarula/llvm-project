@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::google {
+namespace clang {
+namespace tidy {
+namespace google {
 
 void DefaultArgumentsCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -28,4 +30,6 @@ void DefaultArgumentsCheck::check(const MatchFinder::MatchResult &Result) {
        "default arguments on virtual or override methods are prohibited");
 }
 
-} // namespace clang::tidy::google
+} // namespace google
+} // namespace tidy
+} // namespace clang

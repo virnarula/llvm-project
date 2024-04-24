@@ -1,10 +1,8 @@
 set(TARGET_PUBLIC_HEADERS
-    libc.include.assert
+    libc.include.assert_h
     libc.include.ctype
     libc.include.errno
-    libc.include.features
     libc.include.fenv
-    libc.include.float
     libc.include.inttypes
     libc.include.math
     libc.include.pthread
@@ -12,15 +10,9 @@ set(TARGET_PUBLIC_HEADERS
     libc.include.stdio
     libc.include.stdlib
     libc.include.string
-    libc.include.strings
-    libc.include.search
     libc.include.sys_mman
-    libc.include.sys_socket
     libc.include.sys_syscall
-    libc.include.sys_time
     libc.include.threads
     libc.include.time
     libc.include.unistd
-
-    libc.include.sys_ioctl
 )

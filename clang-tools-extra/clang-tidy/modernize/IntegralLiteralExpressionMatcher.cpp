@@ -10,8 +10,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 // Validate that this literal token is a valid integer literal.  A literal token
 // could be a floating-point token, which isn't acceptable as a value for an
@@ -47,10 +50,10 @@ bool IntegralLiteralExpressionMatcher::consume(tok::TokenKind Kind) {
   return false;
 }
 
-template <typename NonTerminalFunctor, typename IsKindFunctor>
 bool IntegralLiteralExpressionMatcher::nonTerminalChainedExpr(
-    const NonTerminalFunctor &NonTerminal, const IsKindFunctor &IsKind) {
-  if (!NonTerminal())
+    bool (IntegralLiteralExpressionMatcher::*NonTerminal)(),
+    const std::function<bool(Token)> &IsKind) {
+  if (!(this->*NonTerminal)())
     return false;
   if (Current == End)
     return true;
@@ -62,26 +65,11 @@ bool IntegralLiteralExpressionMatcher::nonTerminalChainedExpr(
     if (!advance())
       return false;
 
-    if (!NonTerminal())
+    if (!(this->*NonTerminal)())
       return false;
   }
 
   return true;
-}
-
-template <tok::TokenKind Kind, typename NonTerminalFunctor>
-bool IntegralLiteralExpressionMatcher::nonTerminalChainedExpr(
-    const NonTerminalFunctor &NonTerminal) {
-  return nonTerminalChainedExpr(NonTerminal,
-                                [](Token Tok) { return Tok.is(Kind); });
-}
-
-template <tok::TokenKind K1, tok::TokenKind K2, tok::TokenKind... Ks,
-          typename NonTerminalFunctor>
-bool IntegralLiteralExpressionMatcher::nonTerminalChainedExpr(
-    const NonTerminalFunctor &NonTerminal) {
-  return nonTerminalChainedExpr(
-      NonTerminal, [](Token Tok) { return Tok.isOneOf(K1, K2, Ks...); });
 }
 
 // Advance over unary operators.
@@ -169,18 +157,18 @@ bool IntegralLiteralExpressionMatcher::unaryExpr() {
 bool IntegralLiteralExpressionMatcher::multiplicativeExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::star, tok::TokenKind::slash,
                                 tok::TokenKind::percent>(
-      [this] { return unaryExpr(); });
+      &IntegralLiteralExpressionMatcher::unaryExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::additiveExpr() {
   return nonTerminalChainedExpr<tok::plus, tok::minus>(
-      [this] { return multiplicativeExpr(); });
+      &IntegralLiteralExpressionMatcher::multiplicativeExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::shiftExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::lessless,
                                 tok::TokenKind::greatergreater>(
-      [this] { return additiveExpr(); });
+      &IntegralLiteralExpressionMatcher::additiveExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::compareExpr() {
@@ -204,38 +192,38 @@ bool IntegralLiteralExpressionMatcher::relationalExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::less, tok::TokenKind::greater,
                                 tok::TokenKind::lessequal,
                                 tok::TokenKind::greaterequal>(
-      [this] { return compareExpr(); });
+      &IntegralLiteralExpressionMatcher::compareExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::equalityExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::equalequal,
                                 tok::TokenKind::exclaimequal>(
-      [this] { return relationalExpr(); });
+      &IntegralLiteralExpressionMatcher::relationalExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::andExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::amp>(
-      [this] { return equalityExpr(); });
+      &IntegralLiteralExpressionMatcher::equalityExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::exclusiveOrExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::caret>(
-      [this] { return andExpr(); });
+      &IntegralLiteralExpressionMatcher::andExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::inclusiveOrExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::pipe>(
-      [this] { return exclusiveOrExpr(); });
+      &IntegralLiteralExpressionMatcher::exclusiveOrExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::logicalAndExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::ampamp>(
-      [this] { return inclusiveOrExpr(); });
+      &IntegralLiteralExpressionMatcher::inclusiveOrExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::logicalOrExpr() {
   return nonTerminalChainedExpr<tok::TokenKind::pipepipe>(
-      [this] { return logicalAndExpr(); });
+      &IntegralLiteralExpressionMatcher::logicalAndExpr);
 }
 
 bool IntegralLiteralExpressionMatcher::conditionalExpr() {
@@ -277,10 +265,12 @@ bool IntegralLiteralExpressionMatcher::conditionalExpr() {
 }
 
 bool IntegralLiteralExpressionMatcher::commaExpr() {
-  auto NonTerminal = [this] { return conditionalExpr(); };
-  if (CommaAllowed)
-    return nonTerminalChainedExpr<tok::TokenKind::comma>(NonTerminal);
-  return nonTerminalChainedExpr(NonTerminal, [](Token) { return false; });
+  auto Pred = CommaAllowed
+                  ? std::function<bool(Token)>(
+                        [](Token Tok) { return Tok.is(tok::TokenKind::comma); })
+                  : std::function<bool(Token)>([](Token) { return false; });
+  return nonTerminalChainedExpr(
+      &IntegralLiteralExpressionMatcher::conditionalExpr, Pred);
 }
 
 bool IntegralLiteralExpressionMatcher::expr() { return commaExpr(); }
@@ -295,4 +285,6 @@ LiteralSize IntegralLiteralExpressionMatcher::largestLiteralSize() const {
   return LargestSize;
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

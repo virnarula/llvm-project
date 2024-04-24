@@ -9,6 +9,7 @@
 #ifndef LLDB_SOURCE_PLUGINS_LANGUAGERUNTIME_OBJC_APPLEOBJCRUNTIME_APPLEOBJCRUNTIME_H
 #define LLDB_SOURCE_PLUGINS_LANGUAGERUNTIME_OBJC_APPLEOBJCRUNTIME_APPLEOBJCRUNTIME_H
 
+#include "llvm/ADT/Optional.h"
 
 #include "AppleObjCTrampolineHandler.h"
 #include "AppleThreadPlanStepThroughObjCTrampoline.h"
@@ -16,7 +17,6 @@
 #include "lldb/lldb-private.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
-#include <optional>
 
 namespace lldb_private {
 
@@ -127,7 +127,7 @@ protected:
   lldb::ModuleWP m_objc_module_wp;
   std::unique_ptr<FunctionCaller> m_print_object_caller_up;
 
-  std::optional<uint32_t> m_Foundation_major;
+  llvm::Optional<uint32_t> m_Foundation_major;
 };
 
 } // namespace lldb_private

@@ -15,9 +15,6 @@
 // REQUIRES: locale.en_US.UTF-8
 // XFAIL: no-wide-characters
 
-// Bionic has minimal locale support, investigate this later.
-// XFAIL: LIBCXX-ANDROID-FIXME
-
 #include <locale>
 #include <string>
 #include <vector>

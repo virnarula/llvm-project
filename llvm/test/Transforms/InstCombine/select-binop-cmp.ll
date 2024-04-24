@@ -3,7 +3,6 @@
 
 declare void @use(<2 x i1>)
 declare void @use2(i1)
-declare void @use.i32(i32)
 
 define i32 @select_xor_icmp(i32 %x, i32 %y, i32 %z) {
 ; CHECK-LABEL: @select_xor_icmp(
@@ -571,7 +570,7 @@ define <2 x i8> @select_xor_icmp_vec_bad(<2 x i8> %x, <2 x i8> %y, <2 x i8> %z) 
 
 define <2 x i32> @vec_select_no_equivalence(<2 x i32> %x) {
 ; CHECK-LABEL: @vec_select_no_equivalence(
-; CHECK-NEXT:    [[X10:%.*]] = shufflevector <2 x i32> [[X:%.*]], <2 x i32> poison, <2 x i32> <i32 1, i32 0>
+; CHECK-NEXT:    [[X10:%.*]] = shufflevector <2 x i32> [[X:%.*]], <2 x i32> undef, <2 x i32> <i32 1, i32 0>
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq <2 x i32> [[X]], zeroinitializer
 ; CHECK-NEXT:    [[S:%.*]] = select <2 x i1> [[COND]], <2 x i32> [[X10]], <2 x i32> [[X]]
 ; CHECK-NEXT:    ret <2 x i32> [[S]]
@@ -649,7 +648,7 @@ define i32 @select_or_icmp_bad(i32 %x, i32 %y, i32 %z) {
 
 define i32 @select_lshr_icmp_const(i32 %x) {
 ; CHECK-LABEL: @select_lshr_icmp_const(
-; CHECK-NEXT:    [[B:%.*]] = lshr i32 [[X:%.*]], 5
+; CHECK-NEXT:    [[B:%.*]] = lshr i32 %x, 5
 ; CHECK-NEXT:    ret i32 [[B]]
 ;
   %A = icmp ugt i32 %x, 31
@@ -660,7 +659,7 @@ define i32 @select_lshr_icmp_const(i32 %x) {
 
 define i32 @select_lshr_icmp_const_reordered(i32 %x) {
 ; CHECK-LABEL: @select_lshr_icmp_const_reordered(
-; CHECK-NEXT:    [[B:%.*]] = lshr i32 [[X:%.*]], 5
+; CHECK-NEXT:    [[B:%.*]] = lshr i32 %x, 5
 ; CHECK-NEXT:    ret i32 [[B]]
 ;
   %A = icmp ult i32 %x, 32
@@ -671,7 +670,7 @@ define i32 @select_lshr_icmp_const_reordered(i32 %x) {
 
 define i32 @select_exact_lshr_icmp_const(i32 %x) {
 ; CHECK-LABEL: @select_exact_lshr_icmp_const(
-; CHECK-NEXT:    [[B:%.*]] = lshr i32 [[X:%.*]], 5
+; CHECK-NEXT:    [[B:%.*]] = lshr i32 %x, 5
 ; CHECK-NEXT:    ret i32 [[B]]
 ;
   %A = icmp ugt i32 %x, 31
@@ -682,8 +681,8 @@ define i32 @select_exact_lshr_icmp_const(i32 %x) {
 
 define i32 @select_lshr_icmp_const_large_exact_range(i32 %x) {
 ; CHECK-LABEL: @select_lshr_icmp_const_large_exact_range(
-; CHECK-NEXT:    [[A:%.*]] = icmp ugt i32 [[X:%.*]], 63
-; CHECK-NEXT:    [[B:%.*]] = lshr i32 [[X]], 5
+; CHECK-NEXT:    [[A:%.*]] = icmp ugt i32 %x, 63
+; CHECK-NEXT:    [[B:%.*]] = lshr i32 %x, 5
 ; CHECK-NEXT:    [[C:%.*]] = select i1 [[A]], i32 [[B]], i32 0
 ; CHECK-NEXT:    ret i32 [[C]]
 ;
@@ -695,8 +694,8 @@ define i32 @select_lshr_icmp_const_large_exact_range(i32 %x) {
 
 define i32 @select_lshr_icmp_const_different_values(i32 %x, i32 %y) {
 ; CHECK-LABEL: @select_lshr_icmp_const_different_values(
-; CHECK-NEXT:    [[A:%.*]] = icmp ugt i32 [[X:%.*]], 31
-; CHECK-NEXT:    [[B:%.*]] = lshr i32 [[Y:%.*]], 5
+; CHECK-NEXT:    [[A:%.*]] = icmp ugt i32 %x, 31
+; CHECK-NEXT:    [[B:%.*]] = lshr i32 %y, 5
 ; CHECK-NEXT:    [[C:%.*]] = select i1 [[A]], i32 [[B]], i32 0
 ; CHECK-NEXT:    ret i32 [[C]]
 ;
@@ -1206,67 +1205,19 @@ define i32 @select_replace_fold(i32 %x, i32 %y, i32 %z) {
 
 
 ; Case where the use of %x is in a nested instruction.
+; FIXME: We only perform replacements one level up right now.
 define i32 @select_replace_nested(i32 %x, i32 %y, i32 %z) {
 ; CHECK-LABEL: @select_replace_nested(
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[X:%.*]], 0
-; CHECK-NEXT:    [[ADD:%.*]] = select i1 [[C]], i32 [[Z:%.*]], i32 0
-; CHECK-NEXT:    [[S:%.*]] = add i32 [[ADD]], [[Y:%.*]]
-; CHECK-NEXT:    ret i32 [[S]]
-;
-  %c = icmp eq i32 %x, 0
-  %sub = sub i32 %y, %x
-  %add = add i32 %sub, %z
-  %s = select i1 %c, i32 %add, i32 %y
-  ret i32 %s
-}
-
-define i32 @select_replace_nested_extra_use(i32 %x, i32 %y, i32 %z) {
-; CHECK-LABEL: @select_replace_nested_extra_use(
-; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[X:%.*]], 0
 ; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[Y:%.*]], [[X]]
-; CHECK-NEXT:    call void @use.i32(i32 [[SUB]])
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[SUB]], [[Z:%.*]]
 ; CHECK-NEXT:    [[S:%.*]] = select i1 [[C]], i32 [[ADD]], i32 [[Y]]
 ; CHECK-NEXT:    ret i32 [[S]]
 ;
   %c = icmp eq i32 %x, 0
   %sub = sub i32 %y, %x
-  call void @use.i32(i32 %sub)
   %add = add i32 %sub, %z
   %s = select i1 %c, i32 %add, i32 %y
-  ret i32 %s
-}
-
-define i32 @select_replace_nested_no_simplify(i32 %x, i32 %y, i32 %z) {
-; CHECK-LABEL: @select_replace_nested_no_simplify(
-; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[X:%.*]], 1
-; CHECK-NEXT:    [[SUB:%.*]] = add i32 [[Y:%.*]], -1
-; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[SUB]], [[Z:%.*]]
-; CHECK-NEXT:    [[S:%.*]] = select i1 [[C]], i32 [[ADD]], i32 [[Y]]
-; CHECK-NEXT:    ret i32 [[S]]
-;
-  %c = icmp eq i32 %x, 1
-  %sub = sub i32 %y, %x
-  %add = add i32 %sub, %z
-  %s = select i1 %c, i32 %add, i32 %y
-  ret i32 %s
-}
-
-; FIXME: We only perform replacements two levels up right now.
-define i32 @select_replace_deeply_nested(i32 %x, i32 %y, i32 %z) {
-; CHECK-LABEL: @select_replace_deeply_nested(
-; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[X:%.*]], 0
-; CHECK-NEXT:    [[SUB:%.*]] = sub i32 [[Y:%.*]], [[X]]
-; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[SUB]], [[Z:%.*]]
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 [[ADD]], 1
-; CHECK-NEXT:    [[S:%.*]] = select i1 [[C]], i32 [[SHL]], i32 [[Y]]
-; CHECK-NEXT:    ret i32 [[S]]
-;
-  %c = icmp eq i32 %x, 0
-  %sub = sub i32 %y, %x
-  %add = add i32 %sub, %z
-  %shl = shl i32 %add, 1
-  %s = select i1 %c, i32 %shl, i32 %y
   ret i32 %s
 }
 

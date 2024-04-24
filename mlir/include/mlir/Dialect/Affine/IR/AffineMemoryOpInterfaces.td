@@ -20,59 +20,62 @@ def AffineReadOpInterface : OpInterface<"AffineReadOpInterface"> {
       Interface to query characteristics of read-like ops with affine
       restrictions.
   }];
-  let cppNamespace = "::mlir::affine";
 
   let methods = [
     InterfaceMethod<
       /*desc=*/"Returns the memref operand to read from.",
-      /*retTy=*/"::mlir::Value",
+      /*retTy=*/"Value",
       /*methodName=*/"getMemRef",
       /*args=*/(ins),
       /*methodBody*/[{}],
       /*defaultImplementation=*/ [{
-        return $_op.getOperand($_op.getMemRefOperandIndex());
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getOperand(op.getMemRefOperandIndex());
       }]
     >,
     InterfaceMethod<
       /*desc=*/"Returns the type of the memref operand.",
-      /*retTy=*/"::mlir::MemRefType",
+      /*retTy=*/"MemRefType",
       /*methodName=*/"getMemRefType",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return ::llvm::cast<::mlir::MemRefType>($_op.getMemRef().getType());
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getMemRef().getType().template cast<MemRefType>();
       }]
     >,
     InterfaceMethod<
       /*desc=*/"Returns affine map operands.",
-      /*retTy=*/"::mlir::Operation::operand_range",
+      /*retTy=*/"Operation::operand_range",
       /*methodName=*/"getMapOperands",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return llvm::drop_begin($_op.getOperands(), 1);
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return llvm::drop_begin(op.getOperands(), 1);
       }]
     >,
     InterfaceMethod<
       /*desc=*/[{
         Returns the affine map used to index the memref for this operation.
       }],
-      /*retTy=*/"::mlir::AffineMap",
+      /*retTy=*/"AffineMap",
       /*methodName=*/"getAffineMap",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return $_op.getAffineMapAttr().getValue();
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getAffineMapAttr().getValue();
       }]
     >,
     InterfaceMethod<
       /*desc=*/"Returns the value read by this operation.",
-      /*retTy=*/"::mlir::Value",
+      /*retTy=*/"Value",
       /*methodName=*/"getValue",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return $_op;
+        return cast<ConcreteOp>(this->getOperation());
       }]
     >,
   ];
@@ -83,59 +86,63 @@ def AffineWriteOpInterface : OpInterface<"AffineWriteOpInterface"> {
       Interface to query characteristics of write-like ops with affine
       restrictions.
   }];
-  let cppNamespace = "::mlir::affine";
 
   let methods = [
     InterfaceMethod<
       /*desc=*/"Returns the memref operand to write to.",
-      /*retTy=*/"::mlir::Value",
+      /*retTy=*/"Value",
       /*methodName=*/"getMemRef",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return $_op.getOperand($_op.getMemRefOperandIndex());
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getOperand(op.getMemRefOperandIndex());
       }]
     >,
     InterfaceMethod<
       /*desc=*/"Returns the type of the memref operand.",
-      /*retTy=*/"::mlir::MemRefType",
+      /*retTy=*/"MemRefType",
       /*methodName=*/"getMemRefType",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return ::llvm::cast<::mlir::MemRefType>($_op.getMemRef().getType());
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getMemRef().getType().template cast<MemRefType>();
       }]
     >,
     InterfaceMethod<
       /*desc=*/"Returns affine map operands.",
-      /*retTy=*/"::mlir::Operation::operand_range",
+      /*retTy=*/"Operation::operand_range",
       /*methodName=*/"getMapOperands",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return llvm::drop_begin($_op.getOperands(), 2);
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return llvm::drop_begin(op.getOperands(), 2);
       }]
     >,
     InterfaceMethod<
       /*desc=*/[{
         Returns the affine map used to index the memref for this operation.
       }],
-      /*retTy=*/"::mlir::AffineMap",
+      /*retTy=*/"AffineMap",
       /*methodName=*/"getAffineMap",
       /*args=*/(ins),
       /*methodName=*/[{}],
       /*defaultImplementation=*/[{
-        return $_op.getAffineMapAttr().getValue();
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getAffineMapAttr().getValue();
       }]
     >,
     InterfaceMethod<
       /*desc=*/"Returns the value to store.",
-      /*retTy=*/"::mlir::Value",
+      /*retTy=*/"Value",
       /*methodName=*/"getValueToStore",
       /*args=*/(ins),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        return $_op.getOperand($_op.getStoredValOperandIndex());
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        return op.getOperand(op.getStoredValOperandIndex());
       }]
     >,
   ];
@@ -148,21 +155,20 @@ def AffineMapAccessInterface : OpInterface<"AffineMapAccessInterface"> {
       memref operand.  The memref argument given to this interface much match
       one of those memref operands.
   }];
-  let cppNamespace = "::mlir::affine";
 
   let methods = [
     InterfaceMethod<
       /*desc=*/"Returns the AffineMapAttr associated with 'memref'.",
-      /*retTy=*/"::mlir::NamedAttribute",
+      /*retTy=*/"NamedAttribute",
       /*methodName=*/"getAffineMapAttrForMemRef",
-      /*args=*/(ins "::mlir::Value":$memref),
+      /*args=*/(ins "Value":$memref),
       /*methodBody=*/[{}],
       /*defaultImplementation=*/[{
-        assert(memref == $_op.getMemRef() &&
+        ConcreteOp op = cast<ConcreteOp>(this->getOperation());
+        assert(memref == op.getMemRef() &&
                "Expected memref argument to match memref operand");
-        return {::mlir::StringAttr::get(
-                    $_op.getContext(), $_op.getMapAttrStrName()),
-                    $_op.getAffineMapAttr()};
+        return {StringAttr::get(op.getContext(), op.getMapAttrStrName()),
+                op.getAffineMapAttr()};
       }]
     >,
   ];

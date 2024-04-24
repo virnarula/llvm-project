@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_FENV_FETESTEXCEPT_H
 #define LLVM_LIBC_SRC_FENV_FETESTEXCEPT_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fetestexcept(int);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_FENV_FETESTEXCEPT_H

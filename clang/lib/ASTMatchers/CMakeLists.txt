@@ -17,5 +17,4 @@ add_clang_library(clangASTMatchers
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )

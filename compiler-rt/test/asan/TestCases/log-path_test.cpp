@@ -35,7 +35,7 @@
 // RUN: not cat %t.log.*
 
 // FIXME: log_path is not supported on Windows yet.
-// XFAIL: target={{.*windows-msvc.*}}
+// XFAIL: windows-msvc
 
 #include <stdlib.h>
 #include <string.h>

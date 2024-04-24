@@ -40,6 +40,7 @@
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PredIteratorCache.h"
@@ -76,13 +77,14 @@ static bool isExitBlock(BasicBlock *BB,
 /// rewrite the uses.
 bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
                                     const DominatorTree &DT, const LoopInfo &LI,
-                                    ScalarEvolution *SE,
-                                    SmallVectorImpl<PHINode *> *PHIsToRemove,
-                                    SmallVectorImpl<PHINode *> *InsertedPHIs) {
+                                    ScalarEvolution *SE, IRBuilderBase &Builder,
+                                    SmallVectorImpl<PHINode *> *PHIsToRemove) {
   SmallVector<Use *, 16> UsesToRewrite;
   SmallSetVector<PHINode *, 16> LocalPHIsToRemove;
   PredIteratorCache PredCache;
   bool Changed = false;
+
+  IRBuilderBase::InsertPointGuard InsertPtGuard(Builder);
 
   // Cache the Loop ExitBlocks across this loop.  We expect to get a lot of
   // instructions within the same loops, computing the exit blocks is
@@ -144,14 +146,17 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
     SmallVector<PHINode *, 16> AddedPHIs;
     SmallVector<PHINode *, 8> PostProcessPHIs;
 
-    SmallVector<PHINode *, 4> LocalInsertedPHIs;
-    SSAUpdater SSAUpdate(&LocalInsertedPHIs);
+    SmallVector<PHINode *, 4> InsertedPHIs;
+    SSAUpdater SSAUpdate(&InsertedPHIs);
     SSAUpdate.Initialize(I->getType(), I->getName());
+
+    // Force re-computation of I, as some users now need to use the new PHI
+    // node.
+    if (SE)
+      SE->forgetValue(I);
 
     // Insert the LCSSA phi's into all of the exit blocks dominated by the
     // value, and add them to the Phi's map.
-    bool HasSCEV = SE && SE->isSCEVable(I->getType()) &&
-                   SE->getExistingSCEV(I) != nullptr;
     for (BasicBlock *ExitBB : ExitBlocks) {
       if (!DT.dominates(DomNode, DT.getNode(ExitBB)))
         continue;
@@ -159,11 +164,9 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
       // If we already inserted something for this BB, don't reprocess it.
       if (SSAUpdate.HasValueForBlock(ExitBB))
         continue;
-      PHINode *PN = PHINode::Create(I->getType(), PredCache.size(ExitBB),
-                                    I->getName() + ".lcssa");
-      PN->insertBefore(ExitBB->begin());
-      if (InsertedPHIs)
-        InsertedPHIs->push_back(PN);
+      Builder.SetInsertPoint(&ExitBB->front());
+      PHINode *PN = Builder.CreatePHI(I->getType(), PredCache.size(ExitBB),
+                                      I->getName() + ".lcssa");
       // Get the debug location from the original instruction.
       PN->setDebugLoc(I->getDebugLoc());
 
@@ -200,13 +203,6 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
       if (auto *OtherLoop = LI.getLoopFor(ExitBB))
         if (!L->contains(OtherLoop))
           PostProcessPHIs.push_back(PN);
-
-      // If we have a cached SCEV for the original instruction, make sure the
-      // new LCSSA phi node is also cached. This makes sures that BECounts
-      // based on it will be invalidated when the LCSSA phi node is invalidated,
-      // which some passes rely on.
-      if (HasSCEV)
-        SE->getSCEV(PN);
     }
 
     // Rewrite all uses outside the loop in terms of the new PHIs we just
@@ -242,8 +238,7 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
     }
 
     SmallVector<DbgValueInst *, 4> DbgValues;
-    SmallVector<DPValue *, 4> DPValues;
-    llvm::findDbgValues(DbgValues, I, &DPValues);
+    llvm::findDbgValues(DbgValues, I);
 
     // Update pre-existing debug value uses that reside outside the loop.
     for (auto *DVI : DbgValues) {
@@ -259,29 +254,12 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
         DVI->replaceVariableLocationOp(I, V);
     }
 
-    // RemoveDIs: copy-paste of block above, using non-instruction debug-info
-    // records.
-    for (DPValue *DPV : DPValues) {
-      BasicBlock *UserBB = DPV->getMarker()->getParent();
-      if (InstBB == UserBB || L->contains(UserBB))
-        continue;
-      // We currently only handle debug values residing in blocks that were
-      // traversed while rewriting the uses. If we inserted just a single PHI,
-      // we will handle all relevant debug values.
-      Value *V = AddedPHIs.size() == 1 ? AddedPHIs[0]
-                                       : SSAUpdate.FindValueForBlock(UserBB);
-      if (V)
-        DPV->replaceVariableLocationOp(I, V);
-    }
-
     // SSAUpdater might have inserted phi-nodes inside other loops. We'll need
     // to post-process them to keep LCSSA form.
-    for (PHINode *InsertedPN : LocalInsertedPHIs) {
+    for (PHINode *InsertedPN : InsertedPHIs) {
       if (auto *OtherLoop = LI.getLoopFor(InsertedPN->getParent()))
         if (!L->contains(OtherLoop))
           PostProcessPHIs.push_back(InsertedPN);
-      if (InsertedPHIs)
-        InsertedPHIs->push_back(InsertedPN);
     }
 
     // Post process PHI instructions that were inserted into another disjoint
@@ -414,7 +392,14 @@ bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
     }
   }
 
-  Changed = formLCSSAForInstructions(Worklist, DT, *LI, SE);
+  IRBuilder<> Builder(L.getHeader()->getContext());
+  Changed = formLCSSAForInstructions(Worklist, DT, *LI, SE, Builder);
+
+  // If we modified the code, remove any caches about the loop from SCEV to
+  // avoid dangling entries.
+  // FIXME: This is a big hammer, can we clear the cache more selectively?
+  if (SE && Changed)
+    SE->forgetLoop(&L);
 
   assert(L.isLCSSAForm(DT));
 

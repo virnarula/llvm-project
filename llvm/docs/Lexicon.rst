@@ -232,9 +232,6 @@ O
 P
 -
 
-**PGO**
-    Profile-Guided Optimization
-
 **PR**
     Problem report. A bug filed on `the LLVM Bug Tracking System
     <https://bugs.llvm.org/enter_bug.cgi>`_.
@@ -274,9 +271,6 @@ R
 
 **RPO**
     Reverse postorder
-
-**RTTI**
-    Run-time Type Information
 
 S
 -

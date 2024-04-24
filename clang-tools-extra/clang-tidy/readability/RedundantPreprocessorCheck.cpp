@@ -12,7 +12,9 @@
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 namespace {
 /// Information about an opening preprocessor directive.
@@ -102,4 +104,6 @@ void RedundantPreprocessorCheck::registerPPCallbacks(
       ::std::make_unique<RedundantPreprocessorCallbacks>(*this, *PP));
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

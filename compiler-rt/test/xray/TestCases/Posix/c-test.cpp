@@ -4,7 +4,7 @@
 // RUN:     2>&1 | FileCheck %s
 // RUN: rm -f xray-log.c-test.*
 //
-// REQUIRES: target={{(aarch64|loongarch64|x86_64)-.*}}
+// REQUIRES: x86_64-target-arch
 // REQUIRES: built-in-llvm-tree
 __attribute__((xray_always_instrument)) void always() {}
 

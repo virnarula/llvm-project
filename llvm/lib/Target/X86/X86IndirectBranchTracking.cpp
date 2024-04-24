@@ -102,10 +102,23 @@ static bool needsPrologueENDBR(MachineFunction &MF, const Module *M) {
   if (F.doesNoCfCheck())
     return false;
 
-  switch (MF.getTarget().getCodeModel()) {
+  const X86TargetMachine *TM =
+      static_cast<const X86TargetMachine *>(&MF.getTarget());
+  Metadata *IBTSeal = M->getModuleFlag("ibt-seal");
+
+  switch (TM->getCodeModel()) {
   // Large code model functions always reachable through indirect calls.
   case CodeModel::Large:
     return true;
+  // Only address taken functions in LTO'ed kernel are reachable indirectly.
+  // IBTSeal implies LTO, thus only check if function is address taken.
+  case CodeModel::Kernel:
+    // Check if ibt-seal was enabled (implies LTO is being used).
+    if (IBTSeal) {
+      return F.hasAddressTaken();
+    }
+    // if !IBTSeal, fall into default case.
+    [[fallthrough]];
   // Address taken or externally linked functions may be reachable.
   default:
     return (F.hasAddressTaken() || !F.hasLocalLinkage());
@@ -169,7 +182,7 @@ bool X86IndirectBranchTrackingPass::runOnMachineFunction(MachineFunction &MF) {
           break;
         } else if (I->isEHLabel()) {
           // Old Landingpad BB (is not Landingpad now) with
-          // the old "callee" EHLabel.
+          // the the old "callee" EHLabel.
           MCSymbol *Sym = I->getOperand(0).getMCSymbol();
           if (!MF.hasCallSiteLandingPad(Sym))
             continue;

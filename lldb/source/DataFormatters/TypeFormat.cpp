@@ -23,7 +23,6 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/StreamString.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -81,9 +80,9 @@ bool TypeFormatImpl_Format::FormatObject(ValueObject *valobj,
               WritableDataBufferSP buffer_sp(
                   new DataBufferHeap(max_len + 1, 0));
               Address address(valobj->GetPointerValue());
-              target_sp->ReadCStringFromMemory(
-                  address, (char *)buffer_sp->GetBytes(), max_len, error);
-              if (error.Success())
+              if (target_sp->ReadCStringFromMemory(
+                      address, (char *)buffer_sp->GetBytes(), max_len, error) &&
+                  error.Success())
                 data.SetData(buffer_sp);
             }
           }
@@ -96,7 +95,7 @@ bool TypeFormatImpl_Format::FormatObject(ValueObject *valobj,
 
         ExecutionContextScope *exe_scope =
             exe_ctx.GetBestExecutionContextScope();
-        std::optional<uint64_t> size = compiler_type.GetByteSize(exe_scope);
+        llvm::Optional<uint64_t> size = compiler_type.GetByteSize(exe_scope);
         if (!size)
           return false;
         StreamString sstr;
@@ -161,12 +160,13 @@ bool TypeFormatImpl_EnumType::FormatObject(ValueObject *valobj,
     if (!target_sp)
       return false;
     const ModuleList &images(target_sp->GetImages());
-    TypeQuery query(m_enum_type.GetStringRef());
-    TypeResults results;
-    images.FindTypes(nullptr, query, results);
-    if (results.GetTypeMap().Empty())
+    TypeList types;
+    llvm::DenseSet<lldb_private::SymbolFile *> searched_symbol_files;
+    images.FindTypes(nullptr, m_enum_type, false, UINT32_MAX,
+                     searched_symbol_files, types);
+    if (types.Empty())
       return false;
-    for (lldb::TypeSP type_sp : results.GetTypeMap().Types()) {
+    for (lldb::TypeSP type_sp : types.Types()) {
       if (!type_sp)
         continue;
       if ((type_sp->GetForwardCompilerType().GetTypeInfo() &

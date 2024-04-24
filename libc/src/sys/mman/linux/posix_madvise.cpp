@@ -13,7 +13,7 @@
 
 #include <sys/syscall.h> // For syscall numbers.
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 // This function is currently linux only. It has to be refactored suitably if
 // posix_madvise is to be supported on non-linux operating systems also.
@@ -23,9 +23,9 @@ LLVM_LIBC_FUNCTION(int, posix_madvise, (void *addr, size_t size, int advice)) {
   if (advice == POSIX_MADV_DONTNEED) {
     return 0;
   }
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(
+  long ret_val = __llvm_libc::syscall_impl(
       SYS_madvise, reinterpret_cast<long>(addr), size, advice);
-  return ret < 0 ? -ret : 0;
+  return ret_val < 0 ? -ret_val : 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

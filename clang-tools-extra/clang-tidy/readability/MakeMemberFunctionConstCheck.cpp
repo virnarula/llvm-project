@@ -15,7 +15,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 AST_MATCHER(CXXMethodDecl, isStatic) { return Node.isStatic(); }
 
@@ -241,7 +243,8 @@ static SourceLocation getConstInsertionPoint(const CXXMethodDecl *M) {
   if (!TSI)
     return {};
 
-  auto FTL = TSI->getTypeLoc().IgnoreParens().getAs<FunctionTypeLoc>();
+  FunctionTypeLoc FTL =
+      TSI->getTypeLoc().IgnoreParens().getAs<FunctionTypeLoc>();
   if (!FTL)
     return {};
 
@@ -264,4 +267,6 @@ void MakeMemberFunctionConstCheck::check(
   }
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

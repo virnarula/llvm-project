@@ -83,7 +83,7 @@ let NumMicroOps = 0 in {
   def : WriteRes<LSU, [ZEC12_LSUnit]>;
   def : WriteRes<FPU, [ZEC12_FPUnit]>;
   def : WriteRes<DFU, [ZEC12_DFUnit]>;
-  foreach Num = 2-6 in { let ReleaseAtCycles = [Num] in {
+  foreach Num = 2-6 in { let ResourceCycles = [Num] in {
     def : WriteRes<!cast<SchedWrite>("FXU"#Num), [ZEC12_FXUnit]>;
     def : WriteRes<!cast<SchedWrite>("LSU"#Num), [ZEC12_LSUnit]>;
     def : WriteRes<!cast<SchedWrite>("FPU"#Num), [ZEC12_FPUnit]>;
@@ -754,7 +754,8 @@ def : InstRW<[WLat2, FXU2, GroupAlone], (instregex "LXR$")>;
 
 // Load and Test
 def : InstRW<[WLat9, WLat9, FPU, NormalGr], (instregex "LT(E|D)BR$")>;
-def : InstRW<[WLat10, WLat10, FPU4, GroupAlone], (instregex "LTXBR$")>;
+def : InstRW<[WLat9, FPU, NormalGr], (instregex "LT(E|D)BRCompare$")>;
+def : InstRW<[WLat10, WLat10, FPU4, GroupAlone], (instregex "LTXBR(Compare)?$")>;
 
 // Copy sign
 def : InstRW<[WLat5, FXU2, GroupAlone], (instregex "CPSDR(d|s)(d|s)$")>;

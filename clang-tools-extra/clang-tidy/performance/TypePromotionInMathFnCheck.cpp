@@ -15,7 +15,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 namespace {
 AST_MATCHER_P(Type, isBuiltinType, BuiltinType::Kind, Kind) {
@@ -193,4 +195,6 @@ void TypePromotionInMathFnCheck::check(const MatchFinder::MatchResult &Result) {
         "<cmath>");
 }
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang

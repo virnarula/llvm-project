@@ -13,10 +13,10 @@
 
 #include <threads.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(void, tss_delete, (tss_t key)) {
-  LIBC_NAMESPACE::tss_key_delete(key);
+  __llvm_libc::tss_key_delete(key);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

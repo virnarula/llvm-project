@@ -34,8 +34,6 @@ public:
     AppleTVOS,
     WatchSimulator,
     watchOS,
-    XRSimulator,
-    XROS,
     bridgeOS,
     Linux,
     unknown = -1
@@ -71,7 +69,7 @@ public:
 
   XcodeSDK &operator=(const XcodeSDK &other);
   XcodeSDK(const XcodeSDK&) = default;
-  bool operator==(const XcodeSDK &other) const;
+  bool operator==(const XcodeSDK &other);
 
   /// Return parsed SDK type and version number.
   Info Parse() const;

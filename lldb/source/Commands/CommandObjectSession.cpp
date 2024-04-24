@@ -31,12 +31,13 @@ public:
   void
   HandleArgumentCompletion(CompletionRequest &request,
                            OptionElementVector &opt_element_vector) override {
-    lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), lldb::eDiskFileCompletion, request, nullptr);
+    CommandCompletions::InvokeCommonCompletionCallbacks(
+        GetCommandInterpreter(), CommandCompletions::eDiskFileCompletion,
+        request, nullptr);
   }
 
 protected:
-  void DoExecute(Args &args, CommandReturnObject &result) override {
+  bool DoExecute(Args &args, CommandReturnObject &result) override {
     llvm::StringRef file_path;
 
     if (!args.empty())
@@ -46,6 +47,7 @@ protected:
       result.SetStatus(eReturnStatusSuccessFinishNoResult);
     else
       result.SetStatus(eReturnStatusFailed);
+    return result.Succeeded();
   }
 };
 
@@ -115,7 +117,7 @@ protected:
     }
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
-      return llvm::ArrayRef(g_history_options);
+      return llvm::makeArrayRef(g_history_options);
     }
 
     // Instance variables to hold the values for command options.
@@ -126,7 +128,7 @@ protected:
     OptionValueBoolean m_clear;
   };
 
-  void DoExecute(Args &command, CommandReturnObject &result) override {
+  bool DoExecute(Args &command, CommandReturnObject &result) override {
     if (m_options.m_clear.GetCurrentValue() &&
         m_options.m_clear.OptionWasSet()) {
       m_interpreter.GetCommandHistory().Clear();
@@ -188,6 +190,7 @@ protected:
                      stop_idx.second);
       }
     }
+    return result.Succeeded();
   }
 
   CommandOptions m_options;

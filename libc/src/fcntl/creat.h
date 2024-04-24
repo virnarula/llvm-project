@@ -11,10 +11,10 @@
 
 #include <fcntl.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int creat(const char *path, int mode);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_FCNTL_CREAT_H

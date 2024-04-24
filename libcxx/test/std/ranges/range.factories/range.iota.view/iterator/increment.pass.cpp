@@ -12,9 +12,8 @@
 // constexpr void operator++(int);
 // constexpr iterator operator++(int) requires incrementable<W>;
 
-#include <cassert>
 #include <ranges>
-#include <type_traits>
+#include <cassert>
 
 #include "test_macros.h"
 #include "../types.h"

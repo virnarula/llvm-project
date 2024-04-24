@@ -57,4 +57,6 @@ typedef int __ptrace_request;
 #define PTRACE_POKEMTETAGS 34
 #endif
 
+#define LLDB_PTRACE_NT_ARM_TLS 0x401 // ARM TLS register
+
 #endif // liblldb_Host_linux_Ptrace_h_

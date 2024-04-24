@@ -15,10 +15,10 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 namespace printf_core {
 
-LIBC_INLINE uintmax_t apply_length_modifier(uintmax_t num, LengthModifier lm) {
+inline uintmax_t apply_length_modifier(uintmax_t num, LengthModifier lm) {
   switch (lm) {
   case LengthModifier::none:
     return num & cpp::numeric_limits<unsigned int>::max();
@@ -41,7 +41,6 @@ LIBC_INLINE uintmax_t apply_length_modifier(uintmax_t num, LengthModifier lm) {
   case LengthModifier::j:
     return num; // j is intmax, so no mask is necessary.
   }
-  __builtin_unreachable();
 }
 
 #define RET_IF_RESULT_NEGATIVE(func)                                           \
@@ -52,6 +51,6 @@ LIBC_INLINE uintmax_t apply_length_modifier(uintmax_t num, LengthModifier lm) {
   }
 
 } // namespace printf_core
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDIO_PRINTF_CORE_CONVERTER_UTILS_H

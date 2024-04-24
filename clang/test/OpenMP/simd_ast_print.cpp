@@ -1,29 +1,16 @@
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=45 -ast-print %s | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -x c++ -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=45 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
+// RUN: %clang_cc1 -verify -fopenmp -ast-print %s | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=50 -ast-print %s -DOMP5 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP50
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=50 -x c++ -std=c++11 -emit-pch -o %t %s -DOMP5
 // RUN: %clang_cc1 -fopenmp -fopenmp-version=50 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print -DOMP5 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP50
-// RUN: %clang_cc1 -verify -fopenmp -ast-print %s -DOMP51 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP51
-// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -emit-pch -o %t %s -DOMP51
-// RUN: %clang_cc1 -fopenmp -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print -DOMP51 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP51
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=52 -ast-print %s -DOMP52 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP52
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=52 -x c++ -std=c++11 -emit-pch -o %t %s -DOMP52
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=52 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print -DOMP52 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP52
 
-// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=45 -ast-print %s | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -x c++ -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=45 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
+// RUN: %clang_cc1 -verify -fopenmp-simd -ast-print %s | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
+// RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s --check-prefix=CHECK --check-prefix=OMP45
 // RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=50 -ast-print %s -DOMP5 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP50
 // RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=50 -x c++ -std=c++11 -emit-pch -o %t %s -DOMP5
 // RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=50 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print -DOMP5 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP50
-// RUN: %clang_cc1 -verify -fopenmp-simd -ast-print %s -DOMP51 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP51
-// RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -emit-pch -o %t %s -DOMP51
-// RUN: %clang_cc1 -fopenmp-simd -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print -DOMP51 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP51
-// expected-no-diagnostics
-// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=52 -ast-print %s -DOMP52 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP52
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=52 -x c++ -std=c++11 -emit-pch -o %t %s -DOMP52
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=52 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print -DOMP52 | FileCheck %s --check-prefix=CHECK --check-prefix=OMP52
 // expected-no-diagnostics
 
 #ifndef HEADER
@@ -87,15 +74,11 @@ template<class T, class N> T reduct(T* arr, N num) {
   N i;
   N ind;
   N myind;
-  N &r = i;
+  N &ref = i;
   T sum = (T)0;
 // CHECK: T sum = (T)0;
-#ifdef OMP52
-#pragma omp simd private(myind, g_ind), linear(ind), aligned(arr), linear(r: uval)
-#else
-#pragma omp simd private(myind, g_ind), linear(ind), aligned(arr), linear(uval(r))
-#endif
-// CHECK-NEXT: #pragma omp simd private(myind,g_ind) linear(ind) aligned(arr) linear(r: uval)
+#pragma omp simd private(myind, g_ind), linear(ind), aligned(arr), linear(uval(ref))
+// CHECK-NEXT: #pragma omp simd private(myind,g_ind) linear(ind) aligned(arr) linear(uval(ref))
   for (i = 0; i < num; ++i) {
     myind = ind;
     T cur = arr[myind];
@@ -112,17 +95,13 @@ template<class T> struct S {
     T res;
     T val;
     T lin = 0;
-    T &r = res;
+    T &ref = res;
 // CHECK: T res;
 // CHECK: T val;
 // CHECK: T lin = 0;
-// CHECK: T &r = res;
-#ifdef OMP52
-    #pragma omp simd allocate(res) private(val)  safelen(7) linear(lin : step(-5)) lastprivate(res) simdlen(5) linear(r: ref)
-#else
-    #pragma omp simd allocate(res) private(val)  safelen(7) linear(lin : -5) lastprivate(res) simdlen(5) linear(ref(r))
-#endif
-// CHECK-NEXT: #pragma omp simd allocate(res) private(val) safelen(7) linear(lin: step(-5)) lastprivate(res) simdlen(5) linear(r: ref)
+// CHECK: T &ref = res;
+    #pragma omp simd allocate(res) private(val)  safelen(7) linear(lin : -5) lastprivate(res) simdlen(5) linear(ref(ref))
+// CHECK-NEXT: #pragma omp simd allocate(res) private(val) safelen(7) linear(lin: -5) lastprivate(res) simdlen(5) linear(ref(ref))
     for (T i = 7; i < m_a; ++i) {
       val = v[i-7] + m_a;
       res = val;
@@ -163,7 +142,7 @@ template<int LEN> struct S2 {
 // CHECK: template<> struct S2<4> {
 // CHECK-NEXT: static void func(int n, float *a, float *b, float *c)     {
 // CHECK-NEXT:   int k1 = 0, k2 = 0;
-// CHECK-NEXT: #pragma omp simd safelen(4) linear(k1,k2: step(4)) aligned(a: 4) simdlen(4) allocate(k1)
+// CHECK-NEXT: #pragma omp simd safelen(4) linear(k1,k2: 4) aligned(a: 4) simdlen(4) allocate(k1)
 // CHECK-NEXT:   for (int i = 0; i < n; i++) {
 // CHECK-NEXT:     c[i] = a[i] + b[i];
 // CHECK-NEXT:     c[k1] = a[k1] + b[k1];
@@ -176,7 +155,7 @@ template<int LEN> struct S2 {
 int main (int argc, char **argv) {
   int b = argc, c, d, e, f, g;
   int k1=0,k2=0;
-  int &r = b;
+  int &ref = b;
   static int *a;
 // CHECK: static int *a;
 #pragma omp simd
@@ -184,19 +163,13 @@ int main (int argc, char **argv) {
   for (int i=0; i < 2; ++i)*a=2;
 // CHECK-NEXT: for (int i = 0; i < 2; ++i)
 // CHECK-NEXT: *a = 2;
-#ifdef OMP52
-#pragma omp simd private(argc, b),lastprivate(d,f) collapse(2) aligned(a : 4) if(simd:a) nontemporal(argc, c, d) lastprivate(conditional: e, f) order(unconstrained:concurrent)
-// OMP52-NEXT: #pragma omp simd private(argc,b) lastprivate(d,f) collapse(2) aligned(a: 4) if(simd: a) nontemporal(argc,c,d) lastprivate(conditional: e,f) order(unconstrained: concurrent)
-#elif OMP51
-#pragma omp simd private(argc, b),lastprivate(d,f) collapse(2) aligned(a : 4) if(simd:a) nontemporal(argc, c, d) lastprivate(conditional: e, f) order(unconstrained:concurrent)
-// OMP51-NEXT: #pragma omp simd private(argc,b) lastprivate(d,f) collapse(2) aligned(a: 4) if(simd: a) nontemporal(argc,c,d) lastprivate(conditional: e,f) order(unconstrained: concurrent)
-#elif OMP5
+#ifdef OMP5
 #pragma omp simd private(argc, b),lastprivate(d,f) collapse(2) aligned(a : 4) if(simd:a) nontemporal(argc, c, d) lastprivate(conditional: e, f) order(concurrent)
 // OMP50-NEXT: #pragma omp simd private(argc,b) lastprivate(d,f) collapse(2) aligned(a: 4) if(simd: a) nontemporal(argc,c,d) lastprivate(conditional: e,f) order(concurrent)
 #else
 #pragma omp simd private(argc, b),lastprivate(d,f) collapse(2) aligned(a : 4)
 // OMP45-NEXT: #pragma omp simd private(argc,b) lastprivate(d,f) collapse(2) aligned(a: 4)
-#endif // OMP51
+#endif // OMP5
   for (int i = 0; i < 10; ++i)
   for (int j = 0; j < 10; ++j) {foo(); k1 += 8; k2 += 8;}
 // CHECK-NEXT: for (int i = 0; i < 10; ++i)
@@ -210,16 +183,12 @@ int main (int argc, char **argv) {
 // CHECK-NEXT: foo();
   const int CLEN = 4;
 // CHECK-NEXT: const int CLEN = 4;
-#ifdef OMP52  
-  #pragma omp simd aligned(a:CLEN) linear(a: step(CLEN)) safelen(CLEN) collapse( 1 ) simdlen(CLEN) linear(r: val, step(CLEN)) if(a)
-#elif OMP5
-  #pragma omp simd aligned(a:CLEN) linear(a:CLEN) safelen(CLEN) collapse( 1 ) simdlen(CLEN) linear(val(r): CLEN) if(a)
-// OMP50-NEXT: #pragma omp simd aligned(a: CLEN) linear(a: step(CLEN)) safelen(CLEN) collapse(1) simdlen(CLEN) linear(r: val, step(CLEN)) if(a)
+#ifdef OMP5
+  #pragma omp simd aligned(a:CLEN) linear(a:CLEN) safelen(CLEN) collapse( 1 ) simdlen(CLEN) linear(val(ref): CLEN) if(a)
+// OMP50-NEXT: #pragma omp simd aligned(a: CLEN) linear(a: CLEN) safelen(CLEN) collapse(1) simdlen(CLEN) linear(val(ref): CLEN) if(a)
 #else
-  #pragma omp simd aligned(a:CLEN) linear(a:CLEN) safelen(CLEN) collapse( 1 ) simdlen(CLEN) linear(val(r): CLEN)
-// OMP45-NEXT: #pragma omp simd aligned(a: CLEN) linear(a: step(CLEN)) safelen(CLEN) collapse(1) simdlen(CLEN) linear(r: val, step(CLEN))
-// OMP51-NEXT: #pragma omp simd aligned(a: CLEN) linear(a: step(CLEN)) safelen(CLEN) collapse(1) simdlen(CLEN) linear(r: val, step(CLEN))
-// OMP52-NEXT: #pragma omp simd aligned(a: CLEN) linear(a: step(CLEN)) safelen(CLEN) collapse(1) simdlen(CLEN) linear(r: val, step(CLEN))
+  #pragma omp simd aligned(a:CLEN) linear(a:CLEN) safelen(CLEN) collapse( 1 ) simdlen(CLEN) linear(val(ref): CLEN)
+// OMP45-NEXT: #pragma omp simd aligned(a: CLEN) linear(a: CLEN) safelen(CLEN) collapse(1) simdlen(CLEN) linear(val(ref): CLEN)
 #endif // OMP5
   for (int i = 0; i < 10; ++i)foo();
 // CHECK-NEXT: for (int i = 0; i < 10; ++i)

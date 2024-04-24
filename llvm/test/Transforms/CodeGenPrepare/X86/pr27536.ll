@@ -1,20 +1,21 @@
-; RUN: opt -S -passes='require<profile-summary>,function(codegenprepare)' < %s | FileCheck %s
+; RUN: opt -S -codegenprepare < %s | FileCheck %s
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
 @rtti = external global i8
 
-define void @test1() personality ptr @__CxxFrameHandler3 {
+define void @test1() personality i32 (...)* @__CxxFrameHandler3 {
 entry:
   %e = alloca i8
-  invoke void @_CxxThrowException(ptr null, ptr null)
+  %tmpcast = bitcast i8* %e to i16*
+  invoke void @_CxxThrowException(i8* null, i8* null)
           to label %catchret.dest unwind label %catch.dispatch
 
 catch.dispatch:                                   ; preds = %entry
   %0 = catchswitch within none [label %catch] unwind to caller
 
 catch:                                            ; preds = %catch.dispatch
-  %1 = catchpad within %0 [ptr @rtti, i32 0, ptr %e]
+  %1 = catchpad within %0 [i8* @rtti, i32 0, i16* %tmpcast]
   catchret from %1 to label %catchret.dest
 
 catchret.dest:                                    ; preds = %catch
@@ -22,9 +23,10 @@ catchret.dest:                                    ; preds = %catch
 }
 ; CHECK-LABEL: define void @test1(
 ; CHECK: %[[alloca:.*]] = alloca i8
+; CHECK-NEXT: %[[bc:.*]] = bitcast i8* %[[alloca]] to i16*
 
-; CHECK: catchpad within {{.*}} [ptr @rtti, i32 0, ptr %[[alloca]]]
+; CHECK: catchpad within {{.*}} [i8* @rtti, i32 0, i16* %[[bc]]]
 
-declare void @_CxxThrowException(ptr, ptr)
+declare void @_CxxThrowException(i8*, i8*)
 
 declare i32 @__CxxFrameHandler3(...)

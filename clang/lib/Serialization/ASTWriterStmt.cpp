@@ -11,16 +11,15 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTConcept.h"
+#include "clang/AST/ExprOpenMP.h"
+#include "clang/Serialization/ASTRecordWriter.h"
+#include "clang/Sema/DeclSpec.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Lex/Token.h"
-#include "clang/Sema/DeclSpec.h"
-#include "clang/Serialization/ASTRecordWriter.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
 using namespace clang;
 
@@ -37,70 +36,14 @@ namespace clang {
     serialization::StmtCode Code;
     unsigned AbbrevToUse;
 
-    /// A helper that can help us to write a packed bit across function
-    /// calls. For example, we may write seperate bits in seperate functions:
-    ///
-    ///  void VisitA(A* a) {
-    ///     Record.push_back(a->isSomething());
-    ///  }
-    ///
-    ///  void Visitb(B *b) {
-    ///     VisitA(b);
-    ///     Record.push_back(b->isAnother());
-    ///  }
-    ///
-    /// In such cases, it'll be better if we can pack these 2 bits. We achieve
-    /// this by writing a zero value in `VisitA` and recorded that first and add
-    /// the new bit to the recorded value.
-    class PakedBitsWriter {
-    public:
-      PakedBitsWriter(ASTRecordWriter &Record) : RecordRef(Record) {}
-      ~PakedBitsWriter() { assert(!CurrentIndex); }
-
-      void addBit(bool Value) {
-        assert(CurrentIndex && "Writing Bits without recording first!");
-        PackingBits.addBit(Value);
-      }
-      void addBits(uint32_t Value, uint32_t BitsWidth) {
-        assert(CurrentIndex && "Writing Bits without recording first!");
-        PackingBits.addBits(Value, BitsWidth);
-      }
-
-      void writeBits() {
-        if (!CurrentIndex)
-          return;
-
-        RecordRef[*CurrentIndex] = (uint32_t)PackingBits;
-        CurrentIndex = std::nullopt;
-        PackingBits.reset(0);
-      }
-
-      void updateBits() {
-        writeBits();
-
-        CurrentIndex = RecordRef.size();
-        RecordRef.push_back(0);
-      }
-
-    private:
-      BitsPacker PackingBits;
-      ASTRecordWriter &RecordRef;
-      std::optional<unsigned> CurrentIndex;
-    };
-
-    PakedBitsWriter CurrentPackingBits;
-
   public:
     ASTStmtWriter(ASTWriter &Writer, ASTWriter::RecordData &Record)
         : Writer(Writer), Record(Writer, Record),
-          Code(serialization::STMT_NULL_PTR), AbbrevToUse(0),
-          CurrentPackingBits(this->Record) {}
+          Code(serialization::STMT_NULL_PTR), AbbrevToUse(0) {}
 
     ASTStmtWriter(const ASTStmtWriter&) = delete;
-    ASTStmtWriter &operator=(const ASTStmtWriter &) = delete;
 
     uint64_t Emit() {
-      CurrentPackingBits.writeBits();
       assert(Code != serialization::STMT_NULL_PTR &&
              "unhandled sub-statement writing AST file");
       return Record.EmitStmt(Code, AbbrevToUse);
@@ -137,20 +80,14 @@ void ASTStmtWriter::VisitNullStmt(NullStmt *S) {
 
 void ASTStmtWriter::VisitCompoundStmt(CompoundStmt *S) {
   VisitStmt(S);
-
   Record.push_back(S->size());
   Record.push_back(S->hasStoredFPFeatures());
-
   for (auto *CS : S->body())
     Record.AddStmt(CS);
   if (S->hasStoredFPFeatures())
     Record.push_back(S->getStoredFPFeatures().getAsOpaqueInt());
   Record.AddSourceLocation(S->getLBracLoc());
   Record.AddSourceLocation(S->getRBracLoc());
-
-  if (!S->hasStoredFPFeatures())
-    AbbrevToUse = Writer.getCompoundStmtAbbrev();
-
   Code = serialization::STMT_COMPOUND;
 }
 
@@ -204,18 +141,16 @@ void ASTStmtWriter::VisitIfStmt(IfStmt *S) {
   bool HasVar = S->getConditionVariableDeclStmt() != nullptr;
   bool HasInit = S->getInit() != nullptr;
 
-  CurrentPackingBits.updateBits();
-
-  CurrentPackingBits.addBit(HasElse);
-  CurrentPackingBits.addBit(HasVar);
-  CurrentPackingBits.addBit(HasInit);
+  Record.push_back(HasElse);
+  Record.push_back(HasVar);
+  Record.push_back(HasInit);
   Record.push_back(static_cast<uint64_t>(S->getStatementKind()));
   Record.AddStmt(S->getCond());
   Record.AddStmt(S->getThen());
   if (HasElse)
     Record.AddStmt(S->getElse());
   if (HasVar)
-    Record.AddStmt(S->getConditionVariableDeclStmt());
+    Record.AddDeclRef(S->getConditionVariable());
   if (HasInit)
     Record.AddStmt(S->getInit());
 
@@ -242,7 +177,7 @@ void ASTStmtWriter::VisitSwitchStmt(SwitchStmt *S) {
   if (HasInit)
     Record.AddStmt(S->getInit());
   if (HasVar)
-    Record.AddStmt(S->getConditionVariableDeclStmt());
+    Record.AddDeclRef(S->getConditionVariable());
 
   Record.AddSourceLocation(S->getSwitchLoc());
   Record.AddSourceLocation(S->getLParenLoc());
@@ -263,7 +198,7 @@ void ASTStmtWriter::VisitWhileStmt(WhileStmt *S) {
   Record.AddStmt(S->getCond());
   Record.AddStmt(S->getBody());
   if (HasVar)
-    Record.AddStmt(S->getConditionVariableDeclStmt());
+    Record.AddDeclRef(S->getConditionVariable());
 
   Record.AddSourceLocation(S->getWhileLoc());
   Record.AddSourceLocation(S->getLParenLoc());
@@ -285,7 +220,7 @@ void ASTStmtWriter::VisitForStmt(ForStmt *S) {
   VisitStmt(S);
   Record.AddStmt(S->getInit());
   Record.AddStmt(S->getCond());
-  Record.AddStmt(S->getConditionVariableDeclStmt());
+  Record.AddDeclRef(S->getConditionVariable());
   Record.AddStmt(S->getInc());
   Record.AddStmt(S->getBody());
   Record.AddSourceLocation(S->getForLoc());
@@ -381,10 +316,7 @@ void ASTStmtWriter::VisitGCCAsmStmt(GCCAsmStmt *S) {
     Record.AddStmt(S->getClobberStringLiteral(I));
 
   // Labels
-  for (unsigned I = 0, N = S->getNumLabels(); I != N; ++I) {
-    Record.AddIdentifierRef(S->getLabelIdentifier(I));
-    Record.AddStmt(S->getLabelExpr(I));
-  }
+  for (auto *E : S->labels()) Record.AddStmt(E);
 
   Code = serialization::STMT_GCCASM;
 }
@@ -501,11 +433,13 @@ addSubstitutionDiagnostic(
 void ASTStmtWriter::VisitConceptSpecializationExpr(
         ConceptSpecializationExpr *E) {
   VisitExpr(E);
+  Record.AddNestedNameSpecifierLoc(E->getNestedNameSpecifierLoc());
+  Record.AddSourceLocation(E->getTemplateKWLoc());
+  Record.AddDeclarationNameInfo(E->getConceptNameInfo());
+  Record.AddDeclRef(E->getNamedConcept());
+  Record.AddDeclRef(E->getFoundDecl());
   Record.AddDeclRef(E->getSpecializationDecl());
-  const ConceptReference *CR = E->getConceptReference();
-  Record.push_back(CR != nullptr);
-  if (CR)
-    Record.AddConceptReference(CR);
+  Record.AddASTTemplateArgumentListInfo(E->getTemplateArgsAsWritten());
   if (!E->isValueDependent())
     addConstraintSatisfaction(Record, E->getSatisfaction());
 
@@ -559,19 +493,17 @@ void ASTStmtWriter::VisitRequiresExpr(RequiresExpr *E) {
     } else {
       auto *NestedReq = cast<concepts::NestedRequirement>(R);
       Record.push_back(concepts::Requirement::RK_Nested);
-      Record.push_back(NestedReq->hasInvalidConstraint());
-      if (NestedReq->hasInvalidConstraint()) {
-        Record.AddString(NestedReq->getInvalidConstraintEntity());
-        addConstraintSatisfaction(Record, *NestedReq->Satisfaction);
+      Record.push_back(NestedReq->isSubstitutionFailure());
+      if (NestedReq->isSubstitutionFailure()){
+        addSubstitutionDiagnostic(Record,
+                                  NestedReq->getSubstitutionDiagnostic());
       } else {
-        Record.AddStmt(NestedReq->getConstraintExpr());
+        Record.AddStmt(NestedReq->Value.get<Expr *>());
         if (!NestedReq->isDependent())
           addConstraintSatisfaction(Record, *NestedReq->Satisfaction);
       }
     }
   }
-  Record.AddSourceLocation(E->getLParenLoc());
-  Record.AddSourceLocation(E->getRParenLoc());
   Record.AddSourceLocation(E->getEndLoc());
 
   Code = serialization::EXPR_REQUIRES;
@@ -611,13 +543,10 @@ void ASTStmtWriter::VisitCapturedStmt(CapturedStmt *S) {
 
 void ASTStmtWriter::VisitExpr(Expr *E) {
   VisitStmt(E);
-
-  CurrentPackingBits.updateBits();
-  CurrentPackingBits.addBits(E->getDependence(), /*BitsWidth=*/5);
-  CurrentPackingBits.addBits(E->getValueKind(), /*BitsWidth=*/2);
-  CurrentPackingBits.addBits(E->getObjectKind(), /*BitsWidth=*/3);
-
   Record.AddTypeRef(E->getType());
+  Record.push_back(E->getDependence());
+  Record.push_back(E->getValueKind());
+  Record.push_back(E->getObjectKind());
 }
 
 void ASTStmtWriter::VisitConstantExpr(ConstantExpr *E) {
@@ -630,15 +559,17 @@ void ASTStmtWriter::VisitConstantExpr(ConstantExpr *E) {
   // HasCleanup not serialized since we can just query the APValue.
   Record.push_back(E->ConstantExprBits.IsImmediateInvocation);
 
-  switch (E->getResultStorageKind()) {
-  case ConstantResultStorageKind::None:
+  switch (E->ConstantExprBits.ResultKind) {
+  case ConstantExpr::RSK_None:
     break;
-  case ConstantResultStorageKind::Int64:
+  case ConstantExpr::RSK_Int64:
     Record.push_back(E->Int64Result());
     break;
-  case ConstantResultStorageKind::APValue:
+  case ConstantExpr::RSK_APValue:
     Record.AddAPValue(E->APValueResult());
     break;
+  default:
+    llvm_unreachable("unexpected ResultKind!");
   }
 
   Record.AddStmt(E->getSubExpr());
@@ -661,9 +592,7 @@ void ASTStmtWriter::VisitPredefinedExpr(PredefinedExpr *E) {
 
   bool HasFunctionName = E->getFunctionName() != nullptr;
   Record.push_back(HasFunctionName);
-  Record.push_back(
-      llvm::to_underlying(E->getIdentKind())); // FIXME: stable encoding
-  Record.push_back(E->isTransparent());
+  Record.push_back(E->getIdentKind()); // FIXME: stable encoding
   Record.AddSourceLocation(E->getLocation());
   if (HasFunctionName)
     Record.AddStmt(E->getFunctionName());
@@ -673,15 +602,12 @@ void ASTStmtWriter::VisitPredefinedExpr(PredefinedExpr *E) {
 void ASTStmtWriter::VisitDeclRefExpr(DeclRefExpr *E) {
   VisitExpr(E);
 
-  CurrentPackingBits.updateBits();
-
-  CurrentPackingBits.addBit(E->hadMultipleCandidates());
-  CurrentPackingBits.addBit(E->refersToEnclosingVariableOrCapture());
-  CurrentPackingBits.addBits(E->isNonOdrUse(), /*Width=*/2);
-  CurrentPackingBits.addBit(E->isImmediateEscalating());
-  CurrentPackingBits.addBit(E->getDecl() != E->getFoundDecl());
-  CurrentPackingBits.addBit(E->hasQualifier());
-  CurrentPackingBits.addBit(E->hasTemplateKWAndArgsInfo());
+  Record.push_back(E->hasQualifier());
+  Record.push_back(E->getDecl() != E->getFoundDecl());
+  Record.push_back(E->hasTemplateKWAndArgsInfo());
+  Record.push_back(E->hadMultipleCandidates());
+  Record.push_back(E->refersToEnclosingVariableOrCapture());
+  Record.push_back(E->isNonOdrUse());
 
   if (E->hasTemplateKWAndArgsInfo()) {
     unsigned NumTemplateArgs = E->getNumTemplateArgs();
@@ -692,7 +618,8 @@ void ASTStmtWriter::VisitDeclRefExpr(DeclRefExpr *E) {
 
   if ((!E->hasTemplateKWAndArgsInfo()) && (!E->hasQualifier()) &&
       (E->getDecl() == E->getFoundDecl()) &&
-      nk == DeclarationName::Identifier && E->getObjectKind() == OK_Ordinary) {
+      nk == DeclarationName::Identifier &&
+      !E->refersToEnclosingVariableOrCapture() && !E->isNonOdrUse()) {
     AbbrevToUse = Writer.getDeclRefExprAbbrev();
   }
 
@@ -754,7 +681,7 @@ void ASTStmtWriter::VisitStringLiteral(StringLiteral *E) {
   Record.push_back(E->getNumConcatenated());
   Record.push_back(E->getLength());
   Record.push_back(E->getCharByteWidth());
-  Record.push_back(llvm::to_underlying(E->getKind()));
+  Record.push_back(E->getKind());
   Record.push_back(E->isPascal());
 
   // Store the trailing array of SourceLocation.
@@ -773,7 +700,7 @@ void ASTStmtWriter::VisitCharacterLiteral(CharacterLiteral *E) {
   VisitExpr(E);
   Record.push_back(E->getValue());
   Record.AddSourceLocation(E->getLocation());
-  Record.push_back(llvm::to_underlying(E->getKind()));
+  Record.push_back(E->getKind());
 
   AbbrevToUse = Writer.getCharacterLiteralAbbrev();
 
@@ -803,13 +730,11 @@ void ASTStmtWriter::VisitUnaryOperator(UnaryOperator *E) {
   bool HasFPFeatures = E->hasStoredFPFeatures();
   // Write this first for easy access when deserializing, as they affect the
   // size of the UnaryOperator.
-  CurrentPackingBits.addBit(HasFPFeatures);
+  Record.push_back(HasFPFeatures);
   Record.AddStmt(E->getSubExpr());
-  CurrentPackingBits.addBits(E->getOpcode(),
-                             /*Width=*/5); // FIXME: stable encoding
+  Record.push_back(E->getOpcode()); // FIXME: stable encoding
   Record.AddSourceLocation(E->getOperatorLoc());
-  CurrentPackingBits.addBit(E->canOverflow());
-
+  Record.push_back(E->canOverflow());
   if (HasFPFeatures)
     Record.push_back(E->getStoredFPFeatures().getAsOpaqueInt());
   Code = serialization::EXPR_UNARY_OPERATOR;
@@ -934,25 +859,16 @@ void ASTStmtWriter::VisitOMPIteratorExpr(OMPIteratorExpr *E) {
 
 void ASTStmtWriter::VisitCallExpr(CallExpr *E) {
   VisitExpr(E);
-
   Record.push_back(E->getNumArgs());
-  CurrentPackingBits.updateBits();
-  CurrentPackingBits.addBit(static_cast<bool>(E->getADLCallKind()));
-  CurrentPackingBits.addBit(E->hasStoredFPFeatures());
-
+  Record.push_back(E->hasStoredFPFeatures());
   Record.AddSourceLocation(E->getRParenLoc());
   Record.AddStmt(E->getCallee());
   for (CallExpr::arg_iterator Arg = E->arg_begin(), ArgEnd = E->arg_end();
        Arg != ArgEnd; ++Arg)
     Record.AddStmt(*Arg);
-
+  Record.push_back(static_cast<unsigned>(E->getADLCallKind()));
   if (E->hasStoredFPFeatures())
     Record.push_back(E->getFPFeatures().getAsOpaqueInt());
-
-  if (!E->hasStoredFPFeatures() && !static_cast<bool>(E->getADLCallKind()) &&
-      E->getStmtClass() == Stmt::CallExprClass)
-    AbbrevToUse = Writer.getCallExprAbbrev();
-
   Code = serialization::EXPR_CALL;
 }
 
@@ -979,10 +895,9 @@ void ASTStmtWriter::VisitMemberExpr(MemberExpr *E) {
 
   // Write these first for easy access when deserializing, as they affect the
   // size of the MemberExpr.
-  CurrentPackingBits.updateBits();
-  CurrentPackingBits.addBit(HasQualifier);
-  CurrentPackingBits.addBit(HasFoundDecl);
-  CurrentPackingBits.addBit(HasTemplateInfo);
+  Record.push_back(HasQualifier);
+  Record.push_back(HasFoundDecl);
+  Record.push_back(HasTemplateInfo);
   Record.push_back(NumTemplateArgs);
 
   Record.AddStmt(E->getBase());
@@ -990,15 +905,15 @@ void ASTStmtWriter::VisitMemberExpr(MemberExpr *E) {
   Record.AddDeclarationNameLoc(E->MemberDNLoc,
                                E->getMemberDecl()->getDeclName());
   Record.AddSourceLocation(E->getMemberLoc());
-  CurrentPackingBits.addBit(E->isArrow());
-  CurrentPackingBits.addBit(E->hadMultipleCandidates());
-  CurrentPackingBits.addBits(E->isNonOdrUse(), /*Width=*/2);
+  Record.push_back(E->isArrow());
+  Record.push_back(E->hadMultipleCandidates());
+  Record.push_back(E->isNonOdrUse());
   Record.AddSourceLocation(E->getOperatorLoc());
 
   if (HasFoundDecl) {
     DeclAccessPair FoundDecl = E->getFoundDecl();
     Record.AddDeclRef(FoundDecl.getDecl());
-    CurrentPackingBits.addBits(FoundDecl.getAccess(), /*BitWidth=*/2);
+    Record.push_back(FoundDecl.getAccess());
   }
 
   if (HasQualifier)
@@ -1038,13 +953,10 @@ void ASTStmtWriter::VisitObjCBridgedCastExpr(ObjCBridgedCastExpr *E) {
 
 void ASTStmtWriter::VisitCastExpr(CastExpr *E) {
   VisitExpr(E);
-
   Record.push_back(E->path_size());
-  CurrentPackingBits.updateBits();
-  // 7 bits should be enough to store the casting kinds.
-  CurrentPackingBits.addBits(E->getCastKind(), /*Width=*/7);
-  CurrentPackingBits.addBit(E->hasStoredFPFeatures());
+  Record.push_back(E->hasStoredFPFeatures());
   Record.AddStmt(E->getSubExpr());
+  Record.push_back(E->getCastKind()); // FIXME: stable encoding
 
   for (CastExpr::path_iterator
          PI = E->path_begin(), PE = E->path_end(); PI != PE; ++PI)
@@ -1056,23 +968,16 @@ void ASTStmtWriter::VisitCastExpr(CastExpr *E) {
 
 void ASTStmtWriter::VisitBinaryOperator(BinaryOperator *E) {
   VisitExpr(E);
-
+  bool HasFPFeatures = E->hasStoredFPFeatures();
   // Write this first for easy access when deserializing, as they affect the
   // size of the UnaryOperator.
-  CurrentPackingBits.updateBits();
-  CurrentPackingBits.addBits(E->getOpcode(), /*Width=*/6);
-  bool HasFPFeatures = E->hasStoredFPFeatures();
-  CurrentPackingBits.addBit(HasFPFeatures);
+  Record.push_back(HasFPFeatures);
+  Record.push_back(E->getOpcode()); // FIXME: stable encoding
   Record.AddStmt(E->getLHS());
   Record.AddStmt(E->getRHS());
   Record.AddSourceLocation(E->getOperatorLoc());
   if (HasFPFeatures)
     Record.push_back(E->getStoredFPFeatures().getAsOpaqueInt());
-
-  if (!HasFPFeatures && E->getValueKind() == VK_PRValue &&
-      E->getObjectKind() == OK_Ordinary)
-    AbbrevToUse = Writer.getBinaryOperatorAbbrev();
-
   Code = serialization::EXPR_BINARY_OPERATOR;
 }
 
@@ -1080,11 +985,6 @@ void ASTStmtWriter::VisitCompoundAssignOperator(CompoundAssignOperator *E) {
   VisitBinaryOperator(E);
   Record.AddTypeRef(E->getComputationLHSType());
   Record.AddTypeRef(E->getComputationResultType());
-
-  if (!E->hasStoredFPFeatures() && E->getValueKind() == VK_PRValue &&
-      E->getObjectKind() == OK_Ordinary)
-    AbbrevToUse = Writer.getCompoundAssignOperatorAbbrev();
-
   Code = serialization::EXPR_COMPOUND_ASSIGN_OPERATOR;
 }
 
@@ -1113,7 +1013,7 @@ ASTStmtWriter::VisitBinaryConditionalOperator(BinaryConditionalOperator *E) {
 
 void ASTStmtWriter::VisitImplicitCastExpr(ImplicitCastExpr *E) {
   VisitCastExpr(E);
-  CurrentPackingBits.addBit(E->isPartOfExplicitCast());
+  Record.push_back(E->isPartOfExplicitCast());
 
   if (E->path_size() == 0 && !E->hasStoredFPFeatures())
     AbbrevToUse = Writer.getExprImplicitCastAbbrev();
@@ -1187,7 +1087,7 @@ void ASTStmtWriter::VisitDesignatedInitExpr(DesignatedInitExpr *E) {
   Record.push_back(E->usesGNUSyntax());
   for (const DesignatedInitExpr::Designator &D : E->designators()) {
     if (D.isFieldDesignator()) {
-      if (FieldDecl *Field = D.getFieldDecl()) {
+      if (FieldDecl *Field = D.getField()) {
         Record.push_back(serialization::DESIG_FIELD_DECL);
         Record.AddDeclRef(Field);
       } else {
@@ -1198,13 +1098,13 @@ void ASTStmtWriter::VisitDesignatedInitExpr(DesignatedInitExpr *E) {
       Record.AddSourceLocation(D.getFieldLoc());
     } else if (D.isArrayDesignator()) {
       Record.push_back(serialization::DESIG_ARRAY);
-      Record.push_back(D.getArrayIndex());
+      Record.push_back(D.getFirstExprIndex());
       Record.AddSourceLocation(D.getLBracketLoc());
       Record.AddSourceLocation(D.getRBracketLoc());
     } else {
       assert(D.isArrayRangeDesignator() && "Unknown designator");
       Record.push_back(serialization::DESIG_ARRAY_RANGE);
-      Record.push_back(D.getArrayIndex());
+      Record.push_back(D.getFirstExprIndex());
       Record.AddSourceLocation(D.getLBracketLoc());
       Record.AddSourceLocation(D.getEllipsisLoc());
       Record.AddSourceLocation(D.getRBracketLoc());
@@ -1257,7 +1157,7 @@ void ASTStmtWriter::VisitSourceLocExpr(SourceLocExpr *E) {
   Record.AddDeclRef(cast_or_null<Decl>(E->getParentContext()));
   Record.AddSourceLocation(E->getBeginLoc());
   Record.AddSourceLocation(E->getEndLoc());
-  Record.push_back(llvm::to_underlying(E->getIdentKind()));
+  Record.push_back(E->getIdentKind());
   Code = serialization::EXPR_SOURCE_LOC;
 }
 
@@ -1324,7 +1224,6 @@ void ASTStmtWriter::VisitGenericSelectionExpr(GenericSelectionExpr *E) {
   VisitExpr(E);
 
   Record.push_back(E->getNumAssocs());
-  Record.push_back(E->isExprPredicate());
   Record.push_back(E->ResultIndex);
   Record.AddSourceLocation(E->getGenericLoc());
   Record.AddSourceLocation(E->getDefaultLoc());
@@ -1670,19 +1569,11 @@ void ASTStmtWriter::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   VisitCallExpr(E);
   Record.push_back(E->getOperator());
   Record.AddSourceRange(E->Range);
-
-  if (!E->hasStoredFPFeatures() && !static_cast<bool>(E->getADLCallKind()))
-    AbbrevToUse = Writer.getCXXOperatorCallExprAbbrev();
-
   Code = serialization::EXPR_CXX_OPERATOR_CALL;
 }
 
 void ASTStmtWriter::VisitCXXMemberCallExpr(CXXMemberCallExpr *E) {
   VisitCallExpr(E);
-
-  if (!E->hasStoredFPFeatures() && !static_cast<bool>(E->getADLCallKind()))
-    AbbrevToUse = Writer.getCXXMemberCallExprAbbrev();
-
   Code = serialization::EXPR_CXX_MEMBER_CALL;
 }
 
@@ -1703,9 +1594,7 @@ void ASTStmtWriter::VisitCXXConstructExpr(CXXConstructExpr *E) {
   Record.push_back(E->isListInitialization());
   Record.push_back(E->isStdInitListInitialization());
   Record.push_back(E->requiresZeroInitialization());
-  Record.push_back(
-      llvm::to_underlying(E->getConstructionKind())); // FIXME: stable encoding
-  Record.push_back(E->isImmediateEscalating());
+  Record.push_back(E->getConstructionKind()); // FIXME: stable encoding
   Record.AddSourceLocation(E->getLocation());
   Record.AddDeclRef(E->getConstructor());
   Record.AddSourceRange(E->getParenOrBraceRange());
@@ -1763,9 +1652,7 @@ void ASTStmtWriter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E)
 void ASTStmtWriter::VisitCXXNamedCastExpr(CXXNamedCastExpr *E) {
   VisitExplicitCastExpr(E);
   Record.AddSourceRange(SourceRange(E->getOperatorLoc(), E->getRParenLoc()));
-  CurrentPackingBits.addBit(E->getAngleBrackets().isValid());
-  if (E->getAngleBrackets().isValid())
-    Record.AddSourceRange(E->getAngleBrackets());
+  Record.AddSourceRange(E->getAngleBrackets());
 }
 
 void ASTStmtWriter::VisitCXXStaticCastExpr(CXXStaticCastExpr *E) {
@@ -1842,7 +1729,6 @@ void ASTStmtWriter::VisitCXXThisExpr(CXXThisExpr *E) {
   VisitExpr(E);
   Record.AddSourceLocation(E->getLocation());
   Record.push_back(E->isImplicit());
-
   Code = serialization::EXPR_CXX_THIS;
 }
 
@@ -1859,20 +1745,14 @@ void ASTStmtWriter::VisitCXXDefaultArgExpr(CXXDefaultArgExpr *E) {
   Record.AddDeclRef(E->getParam());
   Record.AddDeclRef(cast_or_null<Decl>(E->getUsedContext()));
   Record.AddSourceLocation(E->getUsedLocation());
-  Record.push_back(E->hasRewrittenInit());
-  if (E->hasRewrittenInit())
-    Record.AddStmt(E->getRewrittenExpr());
   Code = serialization::EXPR_CXX_DEFAULT_ARG;
 }
 
 void ASTStmtWriter::VisitCXXDefaultInitExpr(CXXDefaultInitExpr *E) {
   VisitExpr(E);
-  Record.push_back(E->hasRewrittenInit());
   Record.AddDeclRef(E->getField());
   Record.AddDeclRef(cast_or_null<Decl>(E->getUsedContext()));
   Record.AddSourceLocation(E->getExprLoc());
-  if (E->hasRewrittenInit())
-    Record.AddStmt(E->getRewrittenExpr());
   Code = serialization::EXPR_CXX_DEFAULT_INIT;
 }
 
@@ -1901,7 +1781,6 @@ void ASTStmtWriter::VisitCXXNewExpr(CXXNewExpr *E) {
   Record.push_back(E->isGlobalNew());
   Record.push_back(E->passAlignment());
   Record.push_back(E->doesUsualArrayDeleteWantSize());
-  Record.push_back(E->CXXNewExprBits.HasInitializer);
   Record.push_back(E->CXXNewExprBits.StoredInitializationStyle);
 
   Record.AddDeclRef(E->getOperatorNew());
@@ -1977,10 +1856,10 @@ void ASTStmtWriter::VisitCXXDependentScopeMemberExpr(
 
   // Don't emit anything here (or if you do you will have to update
   // the corresponding deserialization function).
+
+  Record.push_back(E->hasTemplateKWAndArgsInfo());
   Record.push_back(E->getNumTemplateArgs());
-  CurrentPackingBits.updateBits();
-  CurrentPackingBits.addBit(E->hasTemplateKWAndArgsInfo());
-  CurrentPackingBits.addBit(E->hasFirstQualifierFoundInScope());
+  Record.push_back(E->hasFirstQualifierFoundInScope());
 
   if (E->hasTemplateKWAndArgsInfo()) {
     const ASTTemplateKWAndArgsInfo &ArgInfo =
@@ -1989,15 +1868,14 @@ void ASTStmtWriter::VisitCXXDependentScopeMemberExpr(
                              E->getTrailingObjects<TemplateArgumentLoc>());
   }
 
-  CurrentPackingBits.addBit(E->isArrow());
-
+  Record.push_back(E->isArrow());
+  Record.AddSourceLocation(E->getOperatorLoc());
   Record.AddTypeRef(E->getBaseType());
   Record.AddNestedNameSpecifierLoc(E->getQualifierLoc());
-  CurrentPackingBits.addBit(!E->isImplicitAccess());
   if (!E->isImplicitAccess())
     Record.AddStmt(E->getBase());
-
-  Record.AddSourceLocation(E->getOperatorLoc());
+  else
+    Record.AddStmt(nullptr);
 
   if (E->hasFirstQualifierFoundInScope())
     Record.AddDeclRef(E->getFirstQualifierFoundInScope());
@@ -2012,14 +1890,12 @@ ASTStmtWriter::VisitDependentScopeDeclRefExpr(DependentScopeDeclRefExpr *E) {
 
   // Don't emit anything here, HasTemplateKWAndArgsInfo must be
   // emitted first.
-  CurrentPackingBits.addBit(
-      E->DependentScopeDeclRefExprBits.HasTemplateKWAndArgsInfo);
 
+  Record.push_back(E->DependentScopeDeclRefExprBits.HasTemplateKWAndArgsInfo);
   if (E->DependentScopeDeclRefExprBits.HasTemplateKWAndArgsInfo) {
     const ASTTemplateKWAndArgsInfo &ArgInfo =
         *E->getTrailingObjects<ASTTemplateKWAndArgsInfo>();
-    // 16 bits should be enought to store the number of args
-    CurrentPackingBits.addBits(ArgInfo.NumTemplateArgs, /*Width=*/16);
+    Record.push_back(ArgInfo.NumTemplateArgs);
     AddTemplateKWAndArgsInfo(ArgInfo,
                              E->getTrailingObjects<TemplateArgumentLoc>());
   }
@@ -2039,7 +1915,6 @@ ASTStmtWriter::VisitCXXUnresolvedConstructExpr(CXXUnresolvedConstructExpr *E) {
   Record.AddTypeSourceInfo(E->getTypeSourceInfo());
   Record.AddSourceLocation(E->getLParenLoc());
   Record.AddSourceLocation(E->getRParenLoc());
-  Record.push_back(E->isListInitialization());
   Code = serialization::EXPR_CXX_UNRESOLVED_CONSTRUCT;
 }
 
@@ -2047,9 +1922,7 @@ void ASTStmtWriter::VisitOverloadExpr(OverloadExpr *E) {
   VisitExpr(E);
 
   Record.push_back(E->getNumDecls());
-
-  CurrentPackingBits.updateBits();
-  CurrentPackingBits.addBit(E->hasTemplateKWAndArgsInfo());
+  Record.push_back(E->hasTemplateKWAndArgsInfo());
   if (E->hasTemplateKWAndArgsInfo()) {
     const ASTTemplateKWAndArgsInfo &ArgInfo =
         *E->getTrailingASTTemplateKWAndArgsInfo();
@@ -2070,22 +1943,18 @@ void ASTStmtWriter::VisitOverloadExpr(OverloadExpr *E) {
 
 void ASTStmtWriter::VisitUnresolvedMemberExpr(UnresolvedMemberExpr *E) {
   VisitOverloadExpr(E);
-  CurrentPackingBits.addBit(E->isArrow());
-  CurrentPackingBits.addBit(E->hasUnresolvedUsing());
-  CurrentPackingBits.addBit(!E->isImplicitAccess());
-  if (!E->isImplicitAccess())
-    Record.AddStmt(E->getBase());
-
-  Record.AddSourceLocation(E->getOperatorLoc());
-
+  Record.push_back(E->isArrow());
+  Record.push_back(E->hasUnresolvedUsing());
+  Record.AddStmt(!E->isImplicitAccess() ? E->getBase() : nullptr);
   Record.AddTypeRef(E->getBaseType());
+  Record.AddSourceLocation(E->getOperatorLoc());
   Code = serialization::EXPR_CXX_UNRESOLVED_MEMBER;
 }
 
 void ASTStmtWriter::VisitUnresolvedLookupExpr(UnresolvedLookupExpr *E) {
   VisitOverloadExpr(E);
-  CurrentPackingBits.addBit(E->requiresADL());
-  CurrentPackingBits.addBit(E->isOverloaded());
+  Record.push_back(E->requiresADL());
+  Record.push_back(E->isOverloaded());
   Record.AddDeclRef(E->getNamingClass());
   Code = serialization::EXPR_CXX_UNRESOLVED_LOOKUP;
 }
@@ -2157,12 +2026,12 @@ void ASTStmtWriter::VisitSubstNonTypeTemplateParmExpr(
                                               SubstNonTypeTemplateParmExpr *E) {
   VisitExpr(E);
   Record.AddDeclRef(E->getAssociatedDecl());
-  CurrentPackingBits.addBit(E->isReferenceParameter());
-  CurrentPackingBits.addBits(E->getIndex(), /*Width=*/12);
-  CurrentPackingBits.addBit((bool)E->getPackIndex());
+  Record.push_back(E->isReferenceParameter());
+  Record.push_back(E->getIndex());
   if (auto PackIndex = E->getPackIndex())
     Record.push_back(*PackIndex + 1);
-
+  else
+    Record.push_back(0);
   Record.AddSourceLocation(E->getNameLoc());
   Record.AddStmt(E->getReplacement());
   Code = serialization::EXPR_SUBST_NON_TYPE_TEMPLATE_PARM;
@@ -2210,30 +2079,6 @@ void ASTStmtWriter::VisitCXXFoldExpr(CXXFoldExpr *E) {
   Record.AddStmt(E->SubExprs[2]);
   Record.push_back(E->Opcode);
   Code = serialization::EXPR_CXX_FOLD;
-}
-
-void ASTStmtWriter::VisitCXXParenListInitExpr(CXXParenListInitExpr *E) {
-  VisitExpr(E);
-  ArrayRef<Expr *> InitExprs = E->getInitExprs();
-  Record.push_back(InitExprs.size());
-  Record.push_back(E->getUserSpecifiedInitExprs().size());
-  Record.AddSourceLocation(E->getInitLoc());
-  Record.AddSourceLocation(E->getBeginLoc());
-  Record.AddSourceLocation(E->getEndLoc());
-  for (Expr *InitExpr : E->getInitExprs())
-    Record.AddStmt(InitExpr);
-  Expr *ArrayFiller = E->getArrayFiller();
-  FieldDecl *UnionField = E->getInitializedFieldInUnion();
-  bool HasArrayFillerOrUnionDecl = ArrayFiller || UnionField;
-  Record.push_back(HasArrayFillerOrUnionDecl);
-  if (HasArrayFillerOrUnionDecl) {
-    Record.push_back(static_cast<bool>(ArrayFiller));
-    if (ArrayFiller)
-      Record.AddStmt(ArrayFiller);
-    else
-      Record.AddDeclRef(UnionField);
-  }
-  Code = serialization::EXPR_CXX_PAREN_LIST_INIT;
 }
 
 void ASTStmtWriter::VisitOpaqueValueExpr(OpaqueValueExpr *E) {
@@ -2350,7 +2195,6 @@ void ASTStmtWriter::VisitOMPExecutableDirective(OMPExecutableDirective *E) {
   Record.writeOMPChildren(E->Data);
   Record.AddSourceLocation(E->getBeginLoc());
   Record.AddSourceLocation(E->getEndLoc());
-  Record.writeEnum(E->getMappedDirective());
 }
 
 void ASTStmtWriter::VisitOMPLoopBasedDirective(OMPLoopBasedDirective *D) {
@@ -2421,12 +2265,6 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
   VisitOMPExecutableDirective(D);
   Record.writeBool(D->hasCancel());
   Code = serialization::STMT_OMP_SECTION_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPScopeDirective(OMPScopeDirective *D) {
-  VisitStmt(D);
-  VisitOMPExecutableDirective(D);
-  Code = serialization::STMT_OMP_SCOPE_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
@@ -2556,13 +2394,6 @@ void ASTStmtWriter::VisitOMPTaskwaitDirective(OMPTaskwaitDirective *D) {
   Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TASKWAIT_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPErrorDirective(OMPErrorDirective *D) {
-  VisitStmt(D);
-  Record.push_back(D->getNumClauses());
-  VisitOMPExecutableDirective(D);
-  Code = serialization::STMT_OMP_ERROR_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTaskgroupDirective(OMPTaskgroupDirective *D) {
@@ -2830,14 +2661,16 @@ void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
 //===----------------------------------------------------------------------===//
 
 unsigned ASTWriter::RecordSwitchCaseID(SwitchCase *S) {
-  assert(!SwitchCaseIDs.contains(S) && "SwitchCase recorded twice");
+  assert(SwitchCaseIDs.find(S) == SwitchCaseIDs.end() &&
+         "SwitchCase recorded twice");
   unsigned NextID = SwitchCaseIDs.size();
   SwitchCaseIDs[S] = NextID;
   return NextID;
 }
 
 unsigned ASTWriter::getSwitchCaseID(SwitchCase *S) {
-  assert(SwitchCaseIDs.contains(S) && "SwitchCase hasn't been seen yet");
+  assert(SwitchCaseIDs.find(S) != SwitchCaseIDs.end() &&
+         "SwitchCase hasn't been seen yet");
   return SwitchCaseIDs[S];
 }
 

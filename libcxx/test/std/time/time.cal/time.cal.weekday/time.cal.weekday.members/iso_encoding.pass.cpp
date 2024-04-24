@@ -20,25 +20,29 @@
 
 #include "test_macros.h"
 
-using weekday = std::chrono::weekday;
-
-constexpr bool test() {
-  //  This is different than all the other tests, because the '7' gets converted to
-  //  a zero in the constructor, but then back to '7' by iso_encoding().
-  for (unsigned i = 0; i <= 10; ++i) {
-    weekday wd(i);
-    assert(wd.iso_encoding() == (i == 0 ? 7 : i));
-  }
-
-  return true;
+template <typename WD>
+constexpr bool testConstexpr()
+{
+    WD wd{5};
+    return wd.c_encoding() == 5;
 }
 
-int main(int, char**) {
-  ASSERT_NOEXCEPT(std::declval<weekday&>().iso_encoding());
-  ASSERT_SAME_TYPE(unsigned, decltype(std::declval<weekday&>().iso_encoding()));
+int main(int, char**)
+{
+    using weekday = std::chrono::weekday;
 
-  test();
-  static_assert(test());
+    ASSERT_NOEXCEPT(                    std::declval<weekday&>().iso_encoding());
+    ASSERT_SAME_TYPE(unsigned, decltype(std::declval<weekday&>().iso_encoding()));
 
-  return 0;
+    static_assert(testConstexpr<weekday>(), "");
+
+    //  This is different than all the other tests, because the '7' gets converted to
+    //  a zero in the constructor, but then back to '7' by iso_encoding().
+    for (unsigned i = 0; i <= 10; ++i)
+    {
+        weekday wd(i);
+        assert(wd.iso_encoding() == (i == 0 ? 7 : i));
+    }
+
+    return 0;
 }

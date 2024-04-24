@@ -4,7 +4,7 @@
 ; Every combination of
 ;  - starting at 0, 1, or %x
 ;  - steping by 1 or 2
-;  - stopping at %n or ptr2
+;  - stopping at %n or %n*2
 ;  - using nsw, or not
 
 ; Some of these represent missed opportunities.
@@ -13,11 +13,10 @@ define void @foo(i4 %n) {
 ; CHECK-LABEL: 'foo'
 ; CHECK-NEXT:  Determining loop execution counts for: @foo
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %n)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 6
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + %n)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 6
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + %n)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -35,8 +34,7 @@ define void @step2(i4 %n) {
 ; CHECK-LABEL: 'step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @step2
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable symbolic max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -55,11 +53,10 @@ define void @start1(i4 %n) {
 ; CHECK-LABEL: 'start1'
 ; CHECK-NEXT:  Determining loop execution counts for: @start1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-2 + (2 smax %n))<nsw>
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 5
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-2 + (2 smax %n))<nsw>
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 5
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-2 + (2 smax %n))<nsw>
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -77,8 +74,7 @@ define void @start1_step2(i4 %n) {
 ; CHECK-LABEL: 'start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @start1_step2
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable symbolic max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -97,11 +93,10 @@ define void @startx(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'startx'
 ; CHECK-NEXT:  Determining loop execution counts for: @startx
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax %n))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax %n))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is -1
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -119,8 +114,7 @@ define void @startx_step2(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'startx_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @startx_step2
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.
-; CHECK-NEXT:  Loop %loop: Unpredictable symbolic max backedge-taken count.
+; CHECK-NEXT:  Loop %loop: Unpredictable max backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable predicated backedge-taken count.
 ;
 entry:
@@ -139,11 +133,10 @@ define void @nsw(i4 %n) {
 ; CHECK-LABEL: 'nsw'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + %n)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 6
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + %n)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 6
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + %n)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -169,11 +162,10 @@ define void @nsw_step2(i4 %n) {
 ; CHECK-LABEL: 'nsw_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-1 + %n) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-1 + %n) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-1 + %n) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -191,11 +183,10 @@ define void @nsw_start1(i4 %n) {
 ; CHECK-LABEL: 'nsw_start1'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw_start1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-2 + (2 smax %n))<nsw>
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 5
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-2 + (2 smax %n))<nsw>
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 5
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-2 + (2 smax %n))<nsw>
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -213,11 +204,10 @@ define void @nsw_start1_step2(i4 %n) {
 ; CHECK-LABEL: 'nsw_start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw_start1_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + (3 smax %n))<nsw> /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-2 + (3 smax %n))<nsw> /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + (3 smax %n))<nsw> /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -235,11 +225,10 @@ define void @nsw_startx(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'nsw_startx'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw_startx
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax %n))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -1
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax %n))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is -1
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -257,11 +246,10 @@ define void @nsw_startx_step2(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'nsw_startx_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw_startx_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax %n)) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 7
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax %n)) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 7
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax %n)) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %s = icmp sgt i4 %n, 0
@@ -279,11 +267,10 @@ define void @even(i4 %n) {
 ; CHECK-LABEL: 'even'
 ; CHECK-NEXT:  Determining loop execution counts for: @even
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + (2 * %n))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 5
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (2 * %n))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 5
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (2 * %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 2
+; CHECK:       Loop %loop: Trip multiple is 2
 ;
 entry:
   %m = shl i4 %n, 1
@@ -302,11 +289,10 @@ define void @even_step2(i4 %n) {
 ; CHECK-LABEL: 'even_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-1 + (2 * %n)) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-1 + (2 * %n)) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-1 + (2 * %n)) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -325,11 +311,10 @@ define void @even_start1(i4 %n) {
 ; CHECK-LABEL: 'even_start1'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_start1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-2 + (2 * %n))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 4
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-2 + (2 * %n))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 4
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-2 + (2 * %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -348,11 +333,10 @@ define void @even_start1_step2(i4 %n) {
 ; CHECK-LABEL: 'even_start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_start1_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + (2 * %n)) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-2 + (2 * %n)) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + (2 * %n)) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -371,11 +355,10 @@ define void @even_startx(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'even_startx'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_startx
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax (2 * %n)))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax (2 * %n)))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is -2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax (2 * %n)))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -394,11 +377,10 @@ define void @even_startx_step2(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'even_startx_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_startx_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax (2 * %n))) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 7
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax (2 * %n))) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 7
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax (2 * %n))) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -417,11 +399,10 @@ define void @even_nsw(i4 %n) {
 ; CHECK-LABEL: 'even_nsw'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + (2 * %n))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 5
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (2 * %n))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 5
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (2 * %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 2
+; CHECK:       Loop %loop: Trip multiple is 2
 ;
 entry:
   %m = shl i4 %n, 1
@@ -440,11 +421,10 @@ define void @even_nsw_step2(i4 %n) {
 ; CHECK-LABEL: 'even_nsw_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-1 + (2 * %n)) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-1 + (2 * %n)) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-1 + (2 * %n)) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -463,11 +443,10 @@ define void @even_nsw_start1(i4 %n) {
 ; CHECK-LABEL: 'even_nsw_start1'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw_start1
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-2 + (2 * %n))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 4
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-2 + (2 * %n))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 4
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-2 + (2 * %n))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -486,11 +465,10 @@ define void @even_nsw_start1_step2(i4 %n) {
 ; CHECK-LABEL: 'even_nsw_start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw_start1_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + (2 * %n)) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-2 + (2 * %n)) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + (2 * %n)) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -509,11 +487,10 @@ define void @even_nsw_startx(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'even_nsw_startx'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw_startx
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax (2 * %n)))
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is -2
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax (2 * %n)))
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is -2
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is (-1 + (-1 * %x) + ((1 + %x) smax (2 * %n)))
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1
@@ -532,11 +509,10 @@ define void @even_nsw_startx_step2(i4 %n, i4 %x) {
 ; CHECK-LABEL: 'even_nsw_startx_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw_startx_step2
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax (2 * %n))) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 7
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax (2 * %n))) /u 2)
+; CHECK-NEXT:  Loop %loop: max backedge-taken count is 7
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-1 + (-1 * %x) + ((2 + %x) smax (2 * %n))) /u 2)
 ; CHECK-NEXT:   Predicates:
-; CHECK-NEXT:  Loop %loop: Trip multiple is 1
+; CHECK:       Loop %loop: Trip multiple is 1
 ;
 entry:
   %m = shl i4 %n, 1

@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_MODFL_H
 #define LLVM_LIBC_SRC_MATH_MODFL_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 long double modfl(long double x, long double *iptr);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_MODFL_H

@@ -38,7 +38,7 @@ public:
 
   // This one takes a C++ array of names.  It is always MatchType = Exact.
   BreakpointResolverName(const lldb::BreakpointSP &bkpt,
-                         const std::vector<std::string> &names,
+                         std::vector<std::string> names,
                          lldb::FunctionNameType name_type_mask,
                          lldb::LanguageType language, lldb::addr_t offset,
                          bool skip_prologue);
@@ -50,8 +50,9 @@ public:
                          lldb::LanguageType language, lldb::addr_t offset,
                          bool skip_prologue);
 
-  static lldb::BreakpointResolverSP
-  CreateFromStructuredData(const StructuredData::Dictionary &data_dict,
+  static BreakpointResolver *
+  CreateFromStructuredData(const lldb::BreakpointSP &bkpt,
+                           const StructuredData::Dictionary &data_dict,
                            Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;

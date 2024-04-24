@@ -1,7 +1,6 @@
 // RUN: %clangxx_tsan -O1 %s -o %t && %deflake %run %t | FileCheck %s
 #include "java.h"
 #include <memory.h>
-#include <sanitizer/tsan_interface.h>
 
 #if (__APPLE__)
 __attribute__((weak)) // Required for dyld macOS 12.0+

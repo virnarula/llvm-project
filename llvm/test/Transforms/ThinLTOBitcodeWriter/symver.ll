@@ -14,9 +14,9 @@ declare !type !0 void @used()
 declare !type !0 void @unused()
 @variable = global i32 0
 
-define ptr @use() {
+define i32* @use() {
   call void @used()
-  ret ptr @variable
+  ret i32* @variable
 }
 
 ; CHECK: !symvers = !{![[SYMVER:[0-9]+]]}

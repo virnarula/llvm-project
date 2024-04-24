@@ -19,8 +19,7 @@
 
 using namespace llvm;
 
-static void reduceUsingSimplifyCFG(Oracle &O, ReducerWorkItem &WorkItem) {
-  Module &Program = WorkItem.getModule();
+static void reduceUsingSimplifyCFG(Oracle &O, Module &Program) {
   SmallVector<BasicBlock *, 16> ToSimplify;
   for (auto &F : Program)
     for (auto &BB : F)
@@ -34,9 +33,7 @@ static void reduceUsingSimplifyCFG(Oracle &O, ReducerWorkItem &WorkItem) {
 void llvm::reduceUsingSimplifyCFGDeltaPass(TestRunner &Test) {
   runDeltaPass(Test, reduceUsingSimplifyCFG, "Reducing using SimplifyCFG");
 }
-static void reduceConditionals(Oracle &O, ReducerWorkItem &WorkItem,
-                               bool Direction) {
-  Module &M = WorkItem.getModule();
+static void reduceConditionals(Oracle &O, Module &M, bool Direction) {
   SmallVector<BasicBlock *, 16> ToSimplify;
 
   for (auto &F : M) {
@@ -61,18 +58,12 @@ static void reduceConditionals(Oracle &O, ReducerWorkItem &WorkItem,
 
 void llvm::reduceConditionalsTrueDeltaPass(TestRunner &Test) {
   runDeltaPass(
-      Test,
-      [](Oracle &O, ReducerWorkItem &WorkItem) {
-        reduceConditionals(O, WorkItem, true);
-      },
+      Test, [](Oracle &O, Module &M) { reduceConditionals(O, M, true); },
       "Reducing conditional branches to true");
 }
 
 void llvm::reduceConditionalsFalseDeltaPass(TestRunner &Test) {
   runDeltaPass(
-      Test,
-      [](Oracle &O, ReducerWorkItem &WorkItem) {
-        reduceConditionals(O, WorkItem, false);
-      },
+      Test, [](Oracle &O, Module &M) { reduceConditionals(O, M, false); },
       "Reducing conditional branches to false");
 }

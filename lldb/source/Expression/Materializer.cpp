@@ -25,7 +25,6 @@
 #include "lldb/lldb-forward.h"
 
 #include <memory>
-#include <optional>
 
 using namespace lldb_private;
 
@@ -544,7 +543,7 @@ public:
           return;
         }
 
-        std::optional<size_t> opt_bit_align = GetTypeBitAlign(scope);
+        llvm::Optional<size_t> opt_bit_align = GetTypeBitAlign(scope);
         if (!opt_bit_align) {
           err.SetErrorStringWithFormat("can't get the type alignment for %s",
                                        GetName().AsCString());
@@ -774,8 +773,8 @@ private:
   /// Returns size in bytes of the type associated with this variable
   ///
   /// \returns On success, returns byte size of the type associated
-  ///          with this variable. Returns std::nullopt otherwise.
-  virtual std::optional<uint64_t>
+  ///          with this variable. Returns NoneType otherwise.
+  virtual llvm::Optional<uint64_t>
   GetByteSize(ExecutionContextScope *scope) const = 0;
 
   /// Returns 'true' if the location expression associated with this variable
@@ -785,8 +784,8 @@ private:
   /// Returns alignment of the type associated with this variable in bits.
   ///
   /// \returns On success, returns alignment in bits for the type associated
-  ///          with this variable. Returns std::nullopt otherwise.
-  virtual std::optional<size_t>
+  ///          with this variable. Returns NoneType otherwise.
+  virtual llvm::Optional<size_t>
   GetTypeBitAlign(ExecutionContextScope *scope) const = 0;
 
 protected:
@@ -816,7 +815,7 @@ public:
     return ValueObjectVariable::Create(scope, m_variable_sp);
   }
 
-  std::optional<uint64_t>
+  llvm::Optional<uint64_t>
   GetByteSize(ExecutionContextScope *scope) const override {
     return m_variable_sp->GetType()->GetByteSize(scope);
   }
@@ -825,7 +824,7 @@ public:
     return m_variable_sp->LocationExpressionList().IsValid();
   }
 
-  std::optional<size_t>
+  llvm::Optional<size_t>
   GetTypeBitAlign(ExecutionContextScope *scope) const override {
     return m_variable_sp->GetType()->GetLayoutCompilerType().GetTypeBitAlign(
         scope);
@@ -859,7 +858,7 @@ public:
     return m_valobj_sp;
   }
 
-  std::optional<uint64_t>
+  llvm::Optional<uint64_t>
   GetByteSize(ExecutionContextScope *scope) const override {
     if (m_valobj_sp)
       return m_valobj_sp->GetCompilerType().GetByteSize(scope);
@@ -874,7 +873,7 @@ public:
     return false;
   }
 
-  std::optional<size_t>
+  llvm::Optional<size_t>
   GetTypeBitAlign(ExecutionContextScope *scope) const override {
     if (m_valobj_sp)
       return m_valobj_sp->GetCompilerType().GetTypeBitAlign(scope);
@@ -935,14 +934,14 @@ public:
       if (!exe_scope)
         exe_scope = map.GetBestExecutionContextScope();
 
-      std::optional<uint64_t> byte_size = m_type.GetByteSize(exe_scope);
+      llvm::Optional<uint64_t> byte_size = m_type.GetByteSize(exe_scope);
       if (!byte_size) {
         err.SetErrorStringWithFormat("can't get size of type \"%s\"",
                                      m_type.GetTypeName().AsCString());
         return;
       }
 
-      std::optional<size_t> opt_bit_align = m_type.GetTypeBitAlign(exe_scope);
+      llvm::Optional<size_t> opt_bit_align = m_type.GetTypeBitAlign(exe_scope);
       if (!opt_bit_align) {
         err.SetErrorStringWithFormat("can't get the alignment of type  \"%s\"",
                                      m_type.GetTypeName().AsCString());
@@ -1024,15 +1023,8 @@ public:
                                    llvm::toString(std::move(error)).c_str());
       return;
     }
-    auto ts = *type_system_or_err;
-    if (!ts) {
-      err.SetErrorStringWithFormat("Couldn't dematerialize a result variable: "
-                                   "couldn't corresponding type system is "
-                                   "no longer live.");
-      return;
-    }
     PersistentExpressionState *persistent_state =
-        ts->GetPersistentExpressionState();
+        type_system_or_err->GetPersistentExpressionState();
 
     if (!persistent_state) {
       err.SetErrorString("Couldn't dematerialize a result variable: "
@@ -1598,7 +1590,5 @@ void Materializer::Dematerializer::Wipe() {
   m_process_address = LLDB_INVALID_ADDRESS;
 }
 
-Materializer::PersistentVariableDelegate::PersistentVariableDelegate() =
-    default;
 Materializer::PersistentVariableDelegate::~PersistentVariableDelegate() =
     default;

@@ -1,6 +1,4 @@
-if(CLANGD_DECISION_FOREST)
-  add_subdirectory(CompletionModel)
-endif()
+add_subdirectory(CompletionModel)
 
 add_benchmark(IndexBenchmark IndexBenchmark.cpp)
 

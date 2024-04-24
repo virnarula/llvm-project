@@ -11,10 +11,10 @@
 
 #include <pthread.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int pthread_attr_getdetachstate(const pthread_attr_t *attr, int *detach_state);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_PTHREAD_PTHREAD_ATTR_GETDETACHSTATE_H

@@ -49,8 +49,8 @@ template <typename SetupType, typename ConfigurationType> struct Runner {
   }
 
   ~Runner() {
-    const size_t TotalBytes =
-        (State.iterations() * Setup.getBatchBytes()) / Setup.BatchSize;
+    const size_t AvgBytesPerIteration = Setup.getBatchBytes() / Setup.BatchSize;
+    const size_t TotalBytes = State.iterations() * AvgBytesPerIteration;
     State.SetBytesProcessed(TotalBytes);
     State.SetItemsProcessed(State.iterations());
     State.SetLabel((Twine(Configuration.Name) + "," + Distribution.Name).str());

@@ -13,6 +13,7 @@
 #include "lldb/Symbol/Variable.h"
 #include "lldb/lldb-enumerations.h"
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"

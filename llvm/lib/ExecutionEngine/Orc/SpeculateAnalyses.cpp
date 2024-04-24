@@ -10,6 +10,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
@@ -66,7 +67,7 @@ void SpeculateQuery::findCalles(const BasicBlock *BB,
 }
 
 bool SpeculateQuery::isStraightLine(const Function &F) {
-  return llvm::all_of(F, [](const BasicBlock &BB) {
+  return llvm::all_of(F.getBasicBlockList(), [](const BasicBlock &BB) {
     return BB.getSingleSuccessor() != nullptr;
   });
 }
@@ -96,7 +97,7 @@ BlockFreqQuery::ResultTy BlockFreqQuery::operator()(Function &F) {
   auto IBBs = findBBwithCalls(F);
 
   if (IBBs.empty())
-    return std::nullopt;
+    return None;
 
   auto &BFI = FAM.getResult<BlockFrequencyAnalysis>(F);
 
@@ -135,7 +136,7 @@ SequenceBBQuery::BlockListTy
 SequenceBBQuery::rearrangeBB(const Function &F, const BlockListTy &BBList) {
   BlockListTy RearrangedBBSet;
 
-  for (auto &Block : F)
+  for (auto &Block : F.getBasicBlockList())
     if (llvm::is_contained(BBList, &Block))
       RearrangedBBSet.push_back(&Block);
 
@@ -226,7 +227,7 @@ void SequenceBBQuery::traverseToExitBlock(const BasicBlock *AtBB,
                           VisitedBlocks);
 }
 
-// Get Block frequencies for blocks and take most frequently executed block,
+// Get Block frequencies for blocks and take most frquently executed block,
 // walk towards the entry block from those blocks and discover the basic blocks
 // with call.
 SequenceBBQuery::BlockListTy
@@ -287,7 +288,7 @@ SpeculateQuery::ResultTy SequenceBBQuery::operator()(Function &F) {
 
   CallerBlocks = findBBwithCalls(F);
   if (CallerBlocks.empty())
-    return std::nullopt;
+    return None;
 
   if (isStraightLine(F))
     SequencedBlocks = rearrangeBB(F, CallerBlocks);

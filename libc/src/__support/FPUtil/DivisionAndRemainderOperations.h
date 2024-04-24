@@ -6,17 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_FPUTIL_DIVISIONANDREMAINDEROPERATIONS_H
-#define LLVM_LIBC_SRC___SUPPORT_FPUTIL_DIVISIONANDREMAINDEROPERATIONS_H
+#ifndef LLVM_LIBC_SRC_SUPPORT_FPUTIL_DIVISION_AND_REMAINDER_OPERATIONS_H
+#define LLVM_LIBC_SRC_SUPPORT_FPUTIL_DIVISION_AND_REMAINDER_OPERATIONS_H
 
 #include "FPBits.h"
 #include "ManipulationFunctions.h"
 #include "NormalFloat.h"
 
 #include "src/__support/CPP/type_traits.h"
-#include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 namespace fputil {
 
 static constexpr int QUOTIENT_LSB_BITS = 3;
@@ -24,18 +23,18 @@ static constexpr int QUOTIENT_LSB_BITS = 3;
 // The implementation is a bit-by-bit algorithm which uses integer division
 // to evaluate the quotient and remainder.
 template <typename T, cpp::enable_if_t<cpp::is_floating_point_v<T>, int> = 0>
-LIBC_INLINE T remquo(T x, T y, int &q) {
+static inline T remquo(T x, T y, int &q) {
   FPBits<T> xbits(x), ybits(y);
   if (xbits.is_nan())
     return x;
   if (ybits.is_nan())
     return y;
   if (xbits.is_inf() || ybits.is_zero())
-    return FPBits<T>::build_quiet_nan().get_val();
+    return FPBits<T>::build_quiet_nan(1);
 
   if (xbits.is_zero()) {
     q = 0;
-    return LIBC_NAMESPACE::fputil::copysign(T(0.0), x);
+    return __llvm_libc::fputil::copysign(T(0.0), x);
   }
 
   if (ybits.is_inf()) {
@@ -43,24 +42,23 @@ LIBC_INLINE T remquo(T x, T y, int &q) {
     return x;
   }
 
-  const Sign result_sign =
-      (xbits.sign() == ybits.sign() ? Sign::POS : Sign::NEG);
+  bool result_sign = (xbits.get_sign() == ybits.get_sign() ? false : true);
 
   // Once we know the sign of the result, we can just operate on the absolute
   // values. The correct sign can be applied to the result after the result
   // is evaluated.
-  xbits.set_sign(Sign::POS);
-  ybits.set_sign(Sign::POS);
+  xbits.set_sign(0);
+  ybits.set_sign(0);
 
   NormalFloat<T> normalx(xbits), normaly(ybits);
   int exp = normalx.exponent - normaly.exponent;
-  typename NormalFloat<T>::StorageType mx = normalx.mantissa,
-                                       my = normaly.mantissa;
+  typename NormalFloat<T>::UIntType mx = normalx.mantissa,
+                                    my = normaly.mantissa;
 
   q = 0;
   while (exp >= 0) {
     unsigned shift_count = 0;
-    typename NormalFloat<T>::StorageType n = mx;
+    typename NormalFloat<T>::UIntType n = mx;
     for (shift_count = 0; n < my; n <<= 1, ++shift_count)
       ;
 
@@ -73,12 +71,12 @@ LIBC_INLINE T remquo(T x, T y, int &q) {
 
     mx = n - my;
     if (mx == 0) {
-      q = result_sign.is_neg() ? -q : q;
-      return LIBC_NAMESPACE::fputil::copysign(T(0.0), x);
+      q = result_sign ? -q : q;
+      return __llvm_libc::fputil::copysign(T(0.0), x);
     }
   }
 
-  NormalFloat<T> remainder(Sign::POS, exp + normaly.exponent, mx);
+  NormalFloat<T> remainder(exp + normaly.exponent, mx, 0);
 
   // Since NormalFloat to native type conversion is a truncation operation
   // currently, the remainder value in the native type is correct as is.
@@ -86,7 +84,7 @@ LIBC_INLINE T remquo(T x, T y, int &q) {
   // then the conversion to native remainder value should be updated
   // appropriately and some directed tests added.
   T native_remainder(remainder);
-  T absy = ybits.get_val();
+  T absy = T(ybits);
   int cmp = remainder.mul2(1).cmp(normaly);
   if (cmp > 0) {
     q = q + 1;
@@ -108,13 +106,13 @@ LIBC_INLINE T remquo(T x, T y, int &q) {
       native_remainder = -native_remainder;
   }
 
-  q = result_sign.is_neg() ? -q : q;
+  q = result_sign ? -q : q;
   if (native_remainder == T(0.0))
-    return LIBC_NAMESPACE::fputil::copysign(T(0.0), x);
+    return __llvm_libc::fputil::copysign(T(0.0), x);
   return native_remainder;
 }
 
 } // namespace fputil
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC___SUPPORT_FPUTIL_DIVISIONANDREMAINDEROPERATIONS_H
+#endif // LLVM_LIBC_SRC_SUPPORT_FPUTIL_DIVISION_AND_REMAINDER_OPERATIONS_H

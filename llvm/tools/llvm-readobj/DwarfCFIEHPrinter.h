@@ -113,7 +113,8 @@ void PrinterContext<ELFT>::printEHFrameHdr(const Elf_Phdr *EHFramePHdr) const {
   if (!Content)
     reportError(Content.takeError(), ObjF.getFileName());
 
-  DataExtractor DE(*Content, ELFT::TargetEndianness == llvm::endianness::little,
+  DataExtractor DE(*Content,
+                   ELFT::TargetEndianness == support::endianness::little,
                    ELFT::Is64Bits ? 8 : 4);
 
   DictScope D(W, "Header");
@@ -188,7 +189,7 @@ void PrinterContext<ELFT>::printEHFrame(const Elf_Shdr *EHFrameShdr) const {
       ObjF, DWARFContext::ProcessDebugRelocations::Process, nullptr);
   DWARFDataExtractor DE(DICtx->getDWARFObj(),
                         DICtx->getDWARFObj().getEHFrameSection(),
-                        ELFT::TargetEndianness == llvm::endianness::little,
+                        ELFT::TargetEndianness == support::endianness::little,
                         ELFT::Is64Bits ? 8 : 4);
   DWARFDebugFrame EHFrame(Triple::ArchType(ObjF.getArch()), /*IsEH=*/true,
                           /*EHFrameAddress=*/Address);
@@ -225,9 +226,8 @@ void PrinterContext<ELFT>::printEHFrame(const Elf_Shdr *EHFrameShdr) const {
     W.getOStream() << "\n";
     W.startLine() << "Program:\n";
     W.indent();
-    auto DumpOpts = DIDumpOptions();
-    DumpOpts.IsEH = true;
-    Entry.cfis().dump(W.getOStream(), DumpOpts, W.getIndentLevel());
+    Entry.cfis().dump(W.getOStream(), DIDumpOptions(), nullptr,
+                      W.getIndentLevel());
     W.unindent();
     W.unindent();
     W.getOStream() << "\n";

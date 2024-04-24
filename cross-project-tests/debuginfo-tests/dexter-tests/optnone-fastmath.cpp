@@ -1,13 +1,12 @@
-// RUN: %clang -std=gnu++11 -O2 -ffast-math -g %s -o %t
 // RUN: %dexter --fail-lt 1.0 -w \
-// RUN:     --binary %t --debugger 'lldb' -- %s
-// RUN: %clang -std=gnu++11 -O0 -ffast-math -g %s -o %t
+// RUN:     --builder 'clang' --debugger 'lldb' \
+// RUN:     --cflags "-ffast-math -O2 -g" -- %s
 // RUN: %dexter --fail-lt 1.0 -w \
-// RUN:     --binary %t --debugger 'lldb' -- %s
+// RUN:     --builder 'clang' --debugger 'lldb' \
+// RUN:     --cflags "-ffast-math -O0 -g" -- %s
 
 // REQUIRES: lldb
-// Currently getting intermittent failures on darwin.
-// UNSUPPORTED: system-windows, system-darwin
+// UNSUPPORTED: system-windows
 
 //// Check that the debugging experience with __attribute__((optnone)) at O2
 //// matches O0. Test scalar floating point arithmetic with -ffast-math.

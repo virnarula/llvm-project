@@ -471,7 +471,7 @@ template <typename CHAR> bool FormatValidator<CHAR>::check_w() {
     NextToken();
     return true;
   }
-  if (*argString_ != 'A' && *argString_ != 'L') {
+  if (*argString_ != 'A') {
     ReportWarning("Expected '%s' edit descriptor 'w' value"); // C1306
   }
   return false;

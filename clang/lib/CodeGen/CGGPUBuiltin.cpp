@@ -23,8 +23,8 @@ using namespace CodeGen;
 
 namespace {
 llvm::Function *GetVprintfDeclaration(llvm::Module &M) {
-  llvm::Type *ArgTypes[] = {llvm::PointerType::getUnqual(M.getContext()),
-                            llvm::PointerType::getUnqual(M.getContext())};
+  llvm::Type *ArgTypes[] = {llvm::Type::getInt8PtrTy(M.getContext()),
+                            llvm::Type::getInt8PtrTy(M.getContext())};
   llvm::FunctionType *VprintfFuncType = llvm::FunctionType::get(
       llvm::Type::getInt32Ty(M.getContext()), ArgTypes, false);
 
@@ -45,8 +45,8 @@ llvm::Function *GetVprintfDeclaration(llvm::Module &M) {
 llvm::Function *GetOpenMPVprintfDeclaration(CodeGenModule &CGM) {
   const char *Name = "__llvm_omp_vprintf";
   llvm::Module &M = CGM.getModule();
-  llvm::Type *ArgTypes[] = {llvm::PointerType::getUnqual(M.getContext()),
-                            llvm::PointerType::getUnqual(M.getContext()),
+  llvm::Type *ArgTypes[] = {llvm::Type::getInt8PtrTy(M.getContext()),
+                            llvm::Type::getInt8PtrTy(M.getContext()),
                             llvm::Type::getInt32Ty(M.getContext())};
   llvm::FunctionType *VprintfFuncType = llvm::FunctionType::get(
       llvm::Type::getInt32Ty(M.getContext()), ArgTypes, false);
@@ -99,9 +99,8 @@ packArgsIntoNVPTXFormatBuffer(CodeGenFunction *CGF, const CallArgList &Args) {
   // Construct and fill the args buffer that we'll pass to vprintf.
   if (Args.size() <= 1) {
     // If there are no args, pass a null pointer and size 0
-    llvm::Value *BufferPtr =
-        llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(Ctx));
-    return {BufferPtr, llvm::TypeSize::getFixed(0)};
+    llvm::Value * BufferPtr = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(Ctx));
+    return {BufferPtr, llvm::TypeSize::Fixed(0)};
   } else {
     llvm::SmallVector<llvm::Type *, 8> ArgTypes;
     for (unsigned I = 1, NumArgs = Args.size(); I < NumArgs; ++I)
@@ -121,12 +120,12 @@ packArgsIntoNVPTXFormatBuffer(CodeGenFunction *CGF, const CallArgList &Args) {
       Builder.CreateAlignedStore(Arg, P, DL.getPrefTypeAlign(Arg->getType()));
     }
     llvm::Value *BufferPtr =
-        Builder.CreatePointerCast(Alloca, llvm::PointerType::getUnqual(Ctx));
+        Builder.CreatePointerCast(Alloca, llvm::Type::getInt8PtrTy(Ctx));
     return {BufferPtr, DL.getTypeAllocSize(AllocaTy)};
   }
 }
 
-bool containsNonScalarVarargs(CodeGenFunction *CGF, const CallArgList &Args) {
+bool containsNonScalarVarargs(CodeGenFunction *CGF, CallArgList Args) {
   return llvm::any_of(llvm::drop_begin(Args), [&](const CallArg &A) {
     return !A.getRValue(*CGF).isScalar();
   });
@@ -163,7 +162,7 @@ RValue EmitDevicePrintfCallExpr(const CallExpr *E, CodeGenFunction *CGF,
     // amdgpu
     llvm::Constant *Size =
         llvm::ConstantInt::get(llvm::Type::getInt32Ty(CGM.getLLVMContext()),
-                               static_cast<uint32_t>(r.second.getFixedValue()));
+                               static_cast<uint32_t>(r.second.getFixedSize()));
 
     Vec.push_back(Size);
   }
@@ -190,7 +189,7 @@ RValue CodeGenFunction::EmitAMDGPUDevicePrintfCallExpr(const CallExpr *E) {
                /* ParamsToSkip = */ 0);
 
   SmallVector<llvm::Value *, 8> Args;
-  for (const auto &A : CallArgs) {
+  for (auto A : CallArgs) {
     // We don't know how to emit non-scalar varargs.
     if (!A.getRValue(*this).isScalar()) {
       CGM.ErrorUnsupported(E, "non-scalar arg to printf");
@@ -203,10 +202,7 @@ RValue CodeGenFunction::EmitAMDGPUDevicePrintfCallExpr(const CallExpr *E) {
 
   llvm::IRBuilder<> IRB(Builder.GetInsertBlock(), Builder.GetInsertPoint());
   IRB.SetCurrentDebugLocation(Builder.getCurrentDebugLocation());
-
-  bool isBuffered = (CGM.getTarget().getTargetOpts().AMDGPUPrintfKindVal ==
-                     clang::TargetOptions::AMDGPUPrintfKind::Buffered);
-  auto Printf = llvm::emitAMDGPUPrintfCall(IRB, Args, isBuffered);
+  auto Printf = llvm::emitAMDGPUPrintfCall(IRB, Args);
   Builder.SetInsertPoint(IRB.GetInsertBlock(), IRB.GetInsertPoint());
   return RValue::get(Printf);
 }

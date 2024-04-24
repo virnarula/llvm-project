@@ -2,7 +2,7 @@
 
 source_filename = "test/DebugInfo/AArch64/big-endian.ll"
 target datalayout = "E-m:e-i64:64-i128:128-n32:64-S128"
-target triple = "aarch64_be"
+target triple = "aarch64_be--none-eabi"
 
 @a = common global i32 0, align 4, !dbg !0
 

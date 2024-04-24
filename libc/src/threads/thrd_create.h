@@ -11,10 +11,10 @@
 
 #include <threads.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int thrd_create(thrd_t *thread, thrd_start_t func, void *arg);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_THRD_CREATE_H

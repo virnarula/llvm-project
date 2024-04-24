@@ -52,6 +52,8 @@ static const size_t MaxSize = 128 * 1024;
 // cleanly.
 BENCHMARK_TEMPLATE(BM_malloc_free, scudo::AndroidConfig)
     ->Range(MinSize, MaxSize);
+BENCHMARK_TEMPLATE(BM_malloc_free, scudo::AndroidSvelteConfig)
+    ->Range(MinSize, MaxSize);
 #if SCUDO_CAN_USE_PRIMARY64
 BENCHMARK_TEMPLATE(BM_malloc_free, scudo::FuchsiaConfig)
     ->Range(MinSize, MaxSize);
@@ -96,6 +98,8 @@ static const size_t MaxIters = 32 * 1024;
 // FIXME: Add DefaultConfig here once we can tear down the exclusive TSD
 // cleanly.
 BENCHMARK_TEMPLATE(BM_malloc_free_loop, scudo::AndroidConfig)
+    ->Range(MinIters, MaxIters);
+BENCHMARK_TEMPLATE(BM_malloc_free_loop, scudo::AndroidSvelteConfig)
     ->Range(MinIters, MaxIters);
 #if SCUDO_CAN_USE_PRIMARY64
 BENCHMARK_TEMPLATE(BM_malloc_free_loop, scudo::FuchsiaConfig)

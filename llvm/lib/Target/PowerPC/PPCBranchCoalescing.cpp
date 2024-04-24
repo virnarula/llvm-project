@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "PPC.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -345,7 +346,8 @@ bool PPCBranchCoalescing::identicalOperands(
 
     if (Op1.isIdenticalTo(Op2)) {
       // filter out instructions with physical-register uses
-      if (Op1.isReg() && Op1.getReg().isPhysical()
+      if (Op1.isReg() &&
+          Register::isPhysicalRegister(Op1.getReg())
           // If the physical register is constant then we can assume the value
           // has not changed between uses.
           && !(Op1.isUse() && MRI->isConstantPhysReg(Op1.getReg()))) {
@@ -359,8 +361,9 @@ bool PPCBranchCoalescing::identicalOperands(
     // If the operands are not identical, but are registers, check to see if the
     // definition of the register produces the same value. If they produce the
     // same value, consider them to be identical.
-    if (Op1.isReg() && Op2.isReg() && Op1.getReg().isVirtual() &&
-        Op2.getReg().isVirtual()) {
+    if (Op1.isReg() && Op2.isReg() &&
+        Register::isVirtualRegister(Op1.getReg()) &&
+        Register::isVirtualRegister(Op2.getReg())) {
       MachineInstr *Op1Def = MRI->getVRegDef(Op1.getReg());
       MachineInstr *Op2Def = MRI->getVRegDef(Op2.getReg());
       if (TII->produceSameValue(*Op1Def, *Op2Def, MRI)) {
@@ -460,7 +463,7 @@ bool PPCBranchCoalescing::canMoveToEnd(const MachineInstr &MI,
                     << TargetMBB.getNumber() << "\n");
 
   for (auto &Use : MI.uses()) {
-    if (Use.isReg() && Use.getReg().isVirtual()) {
+    if (Use.isReg() && Register::isVirtualRegister(Use.getReg())) {
       MachineInstr *DefInst = MRI->getVRegDef(Use.getReg());
       if (DefInst->isPHI() && DefInst->getParent() == MI.getParent()) {
         LLVM_DEBUG(dbgs() << "    *** Cannot move this instruction ***\n");
@@ -701,7 +704,6 @@ bool PPCBranchCoalescing::mergeCandidates(CoalescingCandidateInfo &SourceRegion,
   TargetRegion.FallThroughBlock->transferSuccessorsAndUpdatePHIs(
       SourceRegion.FallThroughBlock);
   TargetRegion.FallThroughBlock->removeSuccessor(SourceRegion.BranchBlock);
-  TargetRegion.FallThroughBlock->normalizeSuccProbs();
 
   // Remove the blocks from the function.
   assert(SourceRegion.BranchBlock->empty() &&

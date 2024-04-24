@@ -65,7 +65,7 @@ TEST(AnalysisManagerTest, FineGrainFunctionAnalysisPreservation) {
   OwningOpRef<ModuleOp> module(ModuleOp::create(UnknownLoc::get(&context)));
   func::FuncOp func1 =
       func::FuncOp::create(builder.getUnknownLoc(), "foo",
-                           builder.getFunctionType(std::nullopt, std::nullopt));
+                           builder.getFunctionType(llvm::None, llvm::None));
   func1.setPrivate();
   module->push_back(func1);
 
@@ -96,7 +96,7 @@ TEST(AnalysisManagerTest, FineGrainChildFunctionAnalysisPreservation) {
   OwningOpRef<ModuleOp> module(ModuleOp::create(UnknownLoc::get(&context)));
   func::FuncOp func1 =
       func::FuncOp::create(builder.getUnknownLoc(), "foo",
-                           builder.getFunctionType(std::nullopt, std::nullopt));
+                           builder.getFunctionType(llvm::None, llvm::None));
   func1.setPrivate();
   module->push_back(func1);
 

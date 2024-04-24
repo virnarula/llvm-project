@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
 template <typename IntType, typename ReturnType>
-class DivTest : public LIBC_NAMESPACE::testing::Test {
+class DivTest : public __llvm_libc::testing::Test {
 public:
   using DivFunc = ReturnType(IntType, IntType);
 

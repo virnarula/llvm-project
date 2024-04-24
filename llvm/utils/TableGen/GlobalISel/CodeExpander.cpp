@@ -31,21 +31,24 @@ void CodeExpander::emit(raw_ostream &OS) const {
     OS << Current.substr(0, Pos);
     Current = Current.substr(Pos);
 
-    if (Current.consume_front("\n")) {
+    if (Current.startswith("\n")) {
       OS << "\n" << Indent;
+      Current = Current.drop_front(1);
       continue;
     }
 
-    if (Current.starts_with("\\$") || Current.starts_with("\\\\")) {
+    if (Current.startswith("\\$") || Current.startswith("\\\\")) {
       OS << Current[1];
       Current = Current.drop_front(2);
       continue;
     }
 
-    if (Current.consume_front("\\"))
+    if (Current.startswith("\\")) {
+      Current = Current.drop_front(1);
       continue;
+    }
 
-    if (Current.starts_with("${")) {
+    if (Current.startswith("${")) {
       StringRef StartVar = Current;
       Current = Current.drop_front(2);
       StringRef Var;

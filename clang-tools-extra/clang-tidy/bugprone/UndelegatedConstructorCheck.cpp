@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 namespace {
 AST_MATCHER_P(Stmt, ignoringTemporaryExpr,
@@ -73,4 +75,6 @@ void UndelegatedConstructorCheck::check(
                          "A temporary object is created here instead");
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

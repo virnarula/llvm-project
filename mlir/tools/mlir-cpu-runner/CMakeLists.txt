@@ -11,7 +11,6 @@ add_mlir_tool(mlir-cpu-runner
 llvm_update_compile_flags(mlir-cpu-runner)
 target_link_libraries(mlir-cpu-runner PRIVATE
   MLIRAnalysis
-  MLIRBuiltinToLLVMIRTranslation
   MLIRExecutionEngine
   MLIRIR
   MLIRJitRunner
@@ -22,5 +21,3 @@ target_link_libraries(mlir-cpu-runner PRIVATE
   MLIRTargetLLVMIRExport
   MLIRSupport
   )
-
-export_executable_symbols(mlir-cpu-runner)

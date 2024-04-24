@@ -52,6 +52,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <list>
 #include <map>
 #include <memory>
 #include <string>
@@ -316,11 +317,11 @@ namespace {
       if (!CurrentActivity.empty())
         OS << ' ' << CurrentActivity;
       OS << ": ";
-
+  
       DiagnosticPrinterRawOStream DP(OS);
       DI.print(DP);
       OS << '\n';
-
+  
       if (DI.getSeverity() == DS_Error)
         exit(1);
       return true;
@@ -480,11 +481,12 @@ static void printMachOCPUOnly() {
 /// currently available via the gold plugin via -thinlto.
 static void createCombinedModuleSummaryIndex() {
   ModuleSummaryIndex CombinedIndex(/*HaveGVs=*/false);
+  uint64_t NextModuleId = 0;
   for (auto &Filename : InputFilenames) {
     ExitOnError ExitOnErr("llvm-lto: error loading file '" + Filename + "': ");
     std::unique_ptr<MemoryBuffer> MB =
         ExitOnErr(errorOrToExpected(MemoryBuffer::getFileOrSTDIN(Filename)));
-    ExitOnErr(readModuleSummaryIndex(*MB, CombinedIndex));
+    ExitOnErr(readModuleSummaryIndex(*MB, CombinedIndex, NextModuleId++));
   }
   // In order to use this index for testing, specifically import testing, we
   // need to update any indirect call edges created from SamplePGO, so that they
@@ -514,10 +516,11 @@ static void getThinLTOOldAndNewPrefix(std::string &OldPrefix,
 /// Given the original \p Path to an output file, replace any path
 /// prefix matching \p OldPrefix with \p NewPrefix. Also, create the
 /// resulting directory if it does not yet exist.
-static std::string getThinLTOOutputFile(StringRef Path, StringRef OldPrefix,
-                                        StringRef NewPrefix) {
+static std::string getThinLTOOutputFile(const std::string &Path,
+                                        const std::string &OldPrefix,
+                                        const std::string &NewPrefix) {
   if (OldPrefix.empty() && NewPrefix.empty())
-    return std::string(Path);
+    return Path;
   SmallString<128> NewPath(Path);
   llvm::sys::path::replace_path_prefix(NewPath, OldPrefix, NewPrefix);
   StringRef ParentPath = llvm::sys::path::parent_path(NewPath.str());
@@ -526,7 +529,7 @@ static std::string getThinLTOOutputFile(StringRef Path, StringRef OldPrefix,
     if (std::error_code EC = llvm::sys::fs::create_directories(ParentPath))
       error(EC, "error creating the directory '" + ParentPath + "'");
   }
-  return std::string(NewPath);
+  return std::string(NewPath.str());
 }
 
 namespace thinlto {
@@ -1096,9 +1099,7 @@ int main(int argc, char **argv) {
         error("writing merged module failed.");
     }
 
-    auto AddStream =
-        [&](size_t Task,
-            const Twine &ModuleName) -> std::unique_ptr<CachedFileStream> {
+    auto AddStream = [&](size_t Task) -> std::unique_ptr<CachedFileStream> {
       std::string PartFilename = OutputFilename;
       if (Parallelism != 1)
         PartFilename += "." + utostr(Task);

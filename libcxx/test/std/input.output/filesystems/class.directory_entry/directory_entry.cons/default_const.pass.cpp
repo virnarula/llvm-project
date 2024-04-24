@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -14,12 +14,11 @@
 
 //          directory_entry() noexcept = default;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
-namespace fs = std::filesystem;
 
 int main(int, char**) {
   using namespace fs;

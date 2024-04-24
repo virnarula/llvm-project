@@ -12,7 +12,6 @@
 #include "Protocol.h"
 #include "support/Context.h"
 #include "support/Logger.h"
-#include "clang/Basic/FileEntry.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
@@ -26,6 +25,7 @@
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
@@ -41,7 +41,6 @@
 #include "llvm/Support/xxhash.h"
 #include <algorithm>
 #include <cstddef>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -73,7 +72,7 @@ static bool iterateCodepoints(llvm::StringRef U8, const Callback &CB) {
       continue;
     }
     // This convenient property of UTF-8 holds for all non-ASCII characters.
-    size_t UTF8Length = llvm::countl_one(C);
+    size_t UTF8Length = llvm::countLeadingOnes(C);
     // 0xxx is ASCII, handled above. 10xxx is a trailing byte, invalid here.
     // 11111xxx is not valid UTF-8 at all, maybe some ISO-8859-*.
     if (LLVM_UNLIKELY(UTF8Length < 2 || UTF8Length > 4)) {
@@ -423,16 +422,16 @@ bool isInsideMainFile(SourceLocation Loc, const SourceManager &SM) {
   return FID == SM.getMainFileID() || FID == SM.getPreambleFileID();
 }
 
-std::optional<SourceRange> toHalfOpenFileRange(const SourceManager &SM,
-                                               const LangOptions &LangOpts,
-                                               SourceRange R) {
+llvm::Optional<SourceRange> toHalfOpenFileRange(const SourceManager &SM,
+                                                const LangOptions &LangOpts,
+                                                SourceRange R) {
   SourceRange R1 = getTokenFileRange(R.getBegin(), SM, LangOpts);
   if (!isValidFileRange(SM, R1))
-    return std::nullopt;
+    return llvm::None;
 
   SourceRange R2 = getTokenFileRange(R.getEnd(), SM, LangOpts);
   if (!isValidFileRange(SM, R2))
-    return std::nullopt;
+    return llvm::None;
 
   SourceRange Result =
       rangeInCommonFile(unionTokenRange(R1, R2, SM, LangOpts), SM, LangOpts);
@@ -440,7 +439,7 @@ std::optional<SourceRange> toHalfOpenFileRange(const SourceManager &SM,
   // Convert from closed token range to half-open (char) range
   Result.setEnd(Result.getEnd().getLocWithOffset(TokLen));
   if (!isValidFileRange(SM, Result))
-    return std::nullopt;
+    return llvm::None;
 
   return Result;
 }
@@ -513,16 +512,19 @@ std::vector<TextEdit> replacementsToEdits(llvm::StringRef Code,
   return Edits;
 }
 
-std::optional<std::string> getCanonicalPath(const FileEntryRef F,
-                                            FileManager &FileMgr) {
-  llvm::SmallString<128> FilePath = F.getName();
+llvm::Optional<std::string> getCanonicalPath(const FileEntry *F,
+                                             const SourceManager &SourceMgr) {
+  if (!F)
+    return None;
+
+  llvm::SmallString<128> FilePath = F->getName();
   if (!llvm::sys::path::is_absolute(FilePath)) {
     if (auto EC =
-            FileMgr.getVirtualFileSystem().makeAbsolute(
+            SourceMgr.getFileManager().getVirtualFileSystem().makeAbsolute(
                 FilePath)) {
       elog("Could not turn relative path '{0}' to absolute: {1}", FilePath,
            EC.message());
-      return std::nullopt;
+      return None;
     }
   }
 
@@ -537,10 +539,10 @@ std::optional<std::string> getCanonicalPath(const FileEntryRef F,
   //
   //  The file path of Symbol is "/project/src/foo.h" instead of
   //  "/tmp/build/foo.h"
-  if (auto Dir = FileMgr.getOptionalDirectoryRef(
+  if (auto Dir = SourceMgr.getFileManager().getDirectory(
           llvm::sys::path::parent_path(FilePath))) {
     llvm::SmallString<128> RealPath;
-    llvm::StringRef DirName = FileMgr.getCanonicalName(*Dir);
+    llvm::StringRef DirName = SourceMgr.getFileManager().getCanonicalName(*Dir);
     llvm::sys::path::append(RealPath, DirName,
                             llvm::sys::path::filename(FilePath));
     return RealPath.str().str();
@@ -559,7 +561,7 @@ TextEdit toTextEdit(const FixItHint &FixIt, const SourceManager &M,
 }
 
 FileDigest digest(llvm::StringRef Content) {
-  uint64_t Hash{llvm::xxh3_64bits(Content)};
+  uint64_t Hash{llvm::xxHash64(Content)};
   FileDigest Result;
   for (unsigned I = 0; I < Result.size(); ++I) {
     Result[I] = uint8_t(Hash);
@@ -568,11 +570,11 @@ FileDigest digest(llvm::StringRef Content) {
   return Result;
 }
 
-std::optional<FileDigest> digestFile(const SourceManager &SM, FileID FID) {
+llvm::Optional<FileDigest> digestFile(const SourceManager &SM, FileID FID) {
   bool Invalid = false;
   llvm::StringRef Content = SM.getBufferData(FID, &Invalid);
   if (Invalid)
-    return std::nullopt;
+    return None;
   return digest(Content);
 }
 
@@ -581,7 +583,7 @@ format::FormatStyle getFormatStyleForFile(llvm::StringRef File,
                                           const ThreadsafeFS &TFS) {
   auto Style = format::getStyle(format::DefaultFormatStyle, File,
                                 format::DefaultFallbackStyle, Content,
-                                TFS.view(/*CWD=*/std::nullopt).get());
+                                TFS.view(/*CWD=*/llvm::None).get());
   if (!Style) {
     log("getStyle() failed for file {0}: {1}. Fallback is LLVM style.", File,
         Style.takeError());
@@ -794,12 +796,6 @@ llvm::SmallVector<llvm::StringRef> ancestorNamespaces(llvm::StringRef NS) {
   return Results;
 }
 
-// Checks whether \p FileName is a valid spelling of main file.
-bool isMainFile(llvm::StringRef FileName, const SourceManager &SM) {
-  auto FE = SM.getFileManager().getFile(FileName);
-  return FE && *FE == SM.getFileEntryForID(SM.getMainFileID());
-}
-
 } // namespace
 
 std::vector<std::string> visibleNamespaces(llvm::StringRef Code,
@@ -891,10 +887,10 @@ llvm::StringSet<> collectWords(llvm::StringRef Content) {
 static bool isLikelyIdentifier(llvm::StringRef Word, llvm::StringRef Before,
                                llvm::StringRef After) {
   // `foo` is an identifier.
-  if (Before.ends_with("`") && After.starts_with("`"))
+  if (Before.endswith("`") && After.startswith("`"))
     return true;
   // In foo::bar, both foo and bar are identifiers.
-  if (Before.ends_with("::") || After.starts_with("::"))
+  if (Before.endswith("::") || After.startswith("::"))
     return true;
   // Doxygen tags like \c foo indicate identifiers.
   // Don't search too far back.
@@ -928,9 +924,9 @@ static bool isLikelyIdentifier(llvm::StringRef Word, llvm::StringRef Before,
   return false;
 }
 
-std::optional<SpelledWord> SpelledWord::touching(SourceLocation SpelledLoc,
-                                                 const syntax::TokenBuffer &TB,
-                                                 const LangOptions &LangOpts) {
+llvm::Optional<SpelledWord> SpelledWord::touching(SourceLocation SpelledLoc,
+                                                  const syntax::TokenBuffer &TB,
+                                                  const LangOptions &LangOpts) {
   const auto &SM = TB.sourceManager();
   auto Touching = syntax::spelledTokensTouching(SpelledLoc, TB);
   for (const auto &T : Touching) {
@@ -955,14 +951,14 @@ std::optional<SpelledWord> SpelledWord::touching(SourceLocation SpelledLoc,
   bool Invalid = false;
   llvm::StringRef Code = SM.getBufferData(File, &Invalid);
   if (Invalid)
-    return std::nullopt;
+    return llvm::None;
   unsigned B = Offset, E = Offset;
   while (B > 0 && isAsciiIdentifierContinue(Code[B - 1]))
     --B;
   while (E < Code.size() && isAsciiIdentifierContinue(Code[E]))
     ++E;
   if (B == E)
-    return std::nullopt;
+    return llvm::None;
 
   SpelledWord Result;
   Result.Location = SM.getComposedLoc(File, B);
@@ -978,16 +974,16 @@ std::optional<SpelledWord> SpelledWord::touching(SourceLocation SpelledLoc,
   return Result;
 }
 
-std::optional<DefinedMacro> locateMacroAt(const syntax::Token &SpelledTok,
-                                          Preprocessor &PP) {
+llvm::Optional<DefinedMacro> locateMacroAt(const syntax::Token &SpelledTok,
+                                           Preprocessor &PP) {
   if (SpelledTok.kind() != tok::identifier)
-    return std::nullopt;
+    return None;
   SourceLocation Loc = SpelledTok.location();
   assert(Loc.isFileID());
   const auto &SM = PP.getSourceManager();
   IdentifierInfo *IdentifierInfo = PP.getIdentifierInfo(SpelledTok.text(SM));
   if (!IdentifierInfo || !IdentifierInfo->hadMacroDefinition())
-    return std::nullopt;
+    return None;
 
   // We need to take special case to handle #define and #undef.
   // Preprocessor::getMacroDefinitionAtLoc() only considers a macro
@@ -1008,7 +1004,7 @@ std::optional<DefinedMacro> locateMacroAt(const syntax::Token &SpelledTok,
                     .getMacroInfo();
   }
   if (!MacroInfo) {
-    return std::nullopt;
+    return None;
   }
   return DefinedMacro{
       IdentifierInfo->getName(), MacroInfo,
@@ -1067,40 +1063,6 @@ llvm::Error reformatEdit(Edit &E, const format::FormatStyle &Style) {
   return llvm::Error::success();
 }
 
-// Workaround for editors that have buggy handling of newlines at end of file.
-//
-// The editor is supposed to expose document contents over LSP as an exact
-// string, with whitespace and newlines well-defined. But internally many
-// editors treat text as an array of lines, and there can be ambiguity over
-// whether the last line ends with a newline or not.
-//
-// This confusion can lead to incorrect edits being sent. Failing to apply them
-// is catastrophic: we're desynced, LSP has no mechanism to get back in sync.
-// We apply a heuristic to avoid this state.
-//
-// If our current view of an N-line file does *not* end in a newline, but the
-// editor refers to the start of the next line (an impossible location), then
-// we silently add a newline to make this valid.
-// We will still validate that the rangeLength is correct, *including* the
-// inferred newline.
-//
-// See https://github.com/neovim/neovim/issues/17085
-static void inferFinalNewline(llvm::Expected<size_t> &Err,
-                              std::string &Contents, const Position &Pos) {
-  if (Err)
-    return;
-  if (!Contents.empty() && Contents.back() == '\n')
-    return;
-  if (Pos.character != 0)
-    return;
-  if (Pos.line != llvm::count(Contents, '\n') + 1)
-    return;
-  log("Editor sent invalid change coordinates, inferring newline at EOF");
-  Contents.push_back('\n');
-  consumeError(Err.takeError());
-  Err = Contents.size();
-}
-
 llvm::Error applyChange(std::string &Contents,
                         const TextDocumentContentChangeEvent &Change) {
   if (!Change.range) {
@@ -1110,13 +1072,11 @@ llvm::Error applyChange(std::string &Contents,
 
   const Position &Start = Change.range->start;
   llvm::Expected<size_t> StartIndex = positionToOffset(Contents, Start, false);
-  inferFinalNewline(StartIndex, Contents, Start);
   if (!StartIndex)
     return StartIndex.takeError();
 
   const Position &End = Change.range->end;
   llvm::Expected<size_t> EndIndex = positionToOffset(Contents, End, false);
-  inferFinalNewline(EndIndex, Contents, End);
   if (!EndIndex)
     return EndIndex.takeError();
 
@@ -1180,7 +1140,7 @@ EligibleRegion getEligiblePoints(llvm::StringRef Code,
     }
 
     // Ignore namespaces that are not a prefix of the target.
-    if (!FullyQualifiedName.starts_with(CurrentNamespace))
+    if (!FullyQualifiedName.startswith(CurrentNamespace))
       return;
 
     // Prefer the namespace that shares the longest prefix with target.
@@ -1200,7 +1160,7 @@ EligibleRegion getEligiblePoints(llvm::StringRef Code,
 }
 
 bool isHeaderFile(llvm::StringRef FileName,
-                  std::optional<LangOptions> LangOpts) {
+                  llvm::Optional<LangOptions> LangOpts) {
   // Respect the langOpts, for non-file-extension cases, e.g. standard library
   // files.
   if (LangOpts && LangOpts->IsHeaderFile)
@@ -1213,46 +1173,68 @@ bool isHeaderFile(llvm::StringRef FileName,
 
 bool isProtoFile(SourceLocation Loc, const SourceManager &SM) {
   auto FileName = SM.getFilename(Loc);
-  if (!FileName.ends_with(".proto.h") && !FileName.ends_with(".pb.h"))
+  if (!FileName.endswith(".proto.h") && !FileName.endswith(".pb.h"))
     return false;
   auto FID = SM.getFileID(Loc);
   // All proto generated headers should start with this line.
   static const char *ProtoHeaderComment =
       "// Generated by the protocol buffer compiler.  DO NOT EDIT!";
   // Double check that this is an actual protobuf header.
-  return SM.getBufferData(FID).starts_with(ProtoHeaderComment);
+  return SM.getBufferData(FID).startswith(ProtoHeaderComment);
 }
 
-SourceLocation translatePreamblePatchLocation(SourceLocation Loc,
-                                              const SourceManager &SM) {
-  auto DefFile = SM.getFileID(Loc);
-  if (auto FE = SM.getFileEntryRefForID(DefFile)) {
-    auto IncludeLoc = SM.getIncludeLoc(DefFile);
-    // Preamble patch is included inside the builtin file.
-    if (IncludeLoc.isValid() && SM.isWrittenInBuiltinFile(IncludeLoc) &&
-        FE->getName().ends_with(PreamblePatch::HeaderName)) {
-      auto Presumed = SM.getPresumedLoc(Loc);
-      // Check that line directive is pointing at main file.
-      if (Presumed.isValid() && Presumed.getFileID().isInvalid() &&
-          isMainFile(Presumed.getFilename(), SM)) {
-        Loc = SM.translateLineCol(SM.getMainFileID(), Presumed.getLine(),
-                                  Presumed.getColumn());
-      }
-    }
+namespace {
+
+// Is Line an #if or #ifdef directive?
+// FIXME: This makes headers with #ifdef LINUX/WINDOWS/MACOS marked as non
+// self-contained and is probably not what we want.
+bool isIf(llvm::StringRef Line) {
+  Line = Line.ltrim();
+  if (!Line.consume_front("#"))
+    return false;
+  Line = Line.ltrim();
+  return Line.startswith("if");
+}
+
+// Is Line an #error directive mentioning includes?
+bool isErrorAboutInclude(llvm::StringRef Line) {
+  Line = Line.ltrim();
+  if (!Line.consume_front("#"))
+    return false;
+  Line = Line.ltrim();
+  if (!Line.startswith("error"))
+    return false;
+  return Line.contains_insensitive(
+      "includ"); // Matches "include" or "including".
+}
+
+// Heuristically headers that only want to be included via an umbrella.
+bool isDontIncludeMeHeader(llvm::StringRef Content) {
+  llvm::StringRef Line;
+  // Only sniff up to 100 lines or 10KB.
+  Content = Content.take_front(100 * 100);
+  for (unsigned I = 0; I < 100 && !Content.empty(); ++I) {
+    std::tie(Line, Content) = Content.split('\n');
+    if (isIf(Line) && isErrorAboutInclude(Content.split('\n').first))
+      return true;
   }
-  return Loc;
+  return false;
 }
 
-clangd::Range rangeTillEOL(llvm::StringRef Code, unsigned HashOffset) {
-  clangd::Range Result;
-  Result.end = Result.start = offsetToPosition(Code, HashOffset);
+} // namespace
 
-  // Span the warning until the EOL or EOF.
-  Result.end.character +=
-      lspLength(Code.drop_front(HashOffset).take_until([](char C) {
-        return C == '\n' || C == '\r';
-      }));
-  return Result;
+bool isSelfContainedHeader(const FileEntry *FE, FileID FID,
+                           const SourceManager &SM, HeaderSearch &HeaderInfo) {
+  // FIXME: Should files that have been #import'd be considered
+  // self-contained? That's really a property of the includer,
+  // not of the file.
+  if (!HeaderInfo.isFileMultipleIncludeGuarded(FE) &&
+      !HeaderInfo.hasFileBeenImported(FE))
+    return false;
+  // This pattern indicates that a header can't be used without
+  // particular preprocessor state, usually set up by another header.
+  return !isDontIncludeMeHeader(SM.getBufferData(FID));
 }
+
 } // namespace clangd
 } // namespace clang

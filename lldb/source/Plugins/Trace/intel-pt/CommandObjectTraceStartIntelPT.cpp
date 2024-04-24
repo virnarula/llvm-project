@@ -13,7 +13,6 @@
 #include "lldb/Interpreter/CommandOptionArgumentTable.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Trace.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -33,7 +32,7 @@ Status CommandObjectThreadTraceStartIntelPT::CommandOptions::SetOptionValue(
 
   switch (short_option) {
   case 's': {
-    if (std::optional<uint64_t> bytes =
+    if (Optional<uint64_t> bytes =
             ParsingUtils::ParseUserFriendlySizeExpression(option_arg))
       m_ipt_trace_size = *bytes;
     else
@@ -70,7 +69,7 @@ void CommandObjectThreadTraceStartIntelPT::CommandOptions::
 
 llvm::ArrayRef<OptionDefinition>
 CommandObjectThreadTraceStartIntelPT::CommandOptions::GetDefinitions() {
-  return llvm::ArrayRef(g_thread_trace_start_intel_pt_options);
+  return llvm::makeArrayRef(g_thread_trace_start_intel_pt_options);
 }
 
 bool CommandObjectThreadTraceStartIntelPT::DoExecuteOnThreads(
@@ -98,7 +97,7 @@ Status CommandObjectProcessTraceStartIntelPT::CommandOptions::SetOptionValue(
 
   switch (short_option) {
   case 's': {
-    if (std::optional<uint64_t> bytes =
+    if (Optional<uint64_t> bytes =
             ParsingUtils::ParseUserFriendlySizeExpression(option_arg))
       m_ipt_trace_size = *bytes;
     else
@@ -107,7 +106,7 @@ Status CommandObjectProcessTraceStartIntelPT::CommandOptions::SetOptionValue(
     break;
   }
   case 'l': {
-    if (std::optional<uint64_t> bytes =
+    if (Optional<uint64_t> bytes =
             ParsingUtils::ParseUserFriendlySizeExpression(option_arg))
       m_process_buffer_size_limit = *bytes;
     else
@@ -155,10 +154,10 @@ void CommandObjectProcessTraceStartIntelPT::CommandOptions::
 
 llvm::ArrayRef<OptionDefinition>
 CommandObjectProcessTraceStartIntelPT::CommandOptions::GetDefinitions() {
-  return llvm::ArrayRef(g_process_trace_start_intel_pt_options);
+  return llvm::makeArrayRef(g_process_trace_start_intel_pt_options);
 }
 
-void CommandObjectProcessTraceStartIntelPT::DoExecute(
+bool CommandObjectProcessTraceStartIntelPT::DoExecute(
     Args &command, CommandReturnObject &result) {
   if (Error err = m_trace.Start(
           m_options.m_ipt_trace_size, m_options.m_process_buffer_size_limit,
@@ -167,12 +166,14 @@ void CommandObjectProcessTraceStartIntelPT::DoExecute(
     result.SetError(Status(std::move(err)));
   else
     result.SetStatus(eReturnStatusSuccessFinishResult);
+
+  return result.Succeeded();
 }
 
-std::optional<uint64_t>
+Optional<uint64_t>
 ParsingUtils::ParseUserFriendlySizeExpression(llvm::StringRef size_expression) {
   if (size_expression.empty()) {
-    return std::nullopt;
+    return llvm::None;
   }
   const uint64_t kBytesMultiplier = 1;
   const uint64_t kKibiBytesMultiplier = 1024;
@@ -186,7 +187,7 @@ ParsingUtils::ParseUserFriendlySizeExpression(llvm::StringRef size_expression) {
 
   const auto non_digit_index = size_expression.find_first_not_of("0123456789");
   if (non_digit_index == 0) { // expression starts from from non-digit char.
-    return std::nullopt;
+    return llvm::None;
   }
 
   const llvm::StringRef number_part =
@@ -195,7 +196,7 @@ ParsingUtils::ParseUserFriendlySizeExpression(llvm::StringRef size_expression) {
           : size_expression.substr(0, non_digit_index);
   uint64_t parsed_number;
   if (number_part.getAsInteger(10, parsed_number)) {
-    return std::nullopt;
+    return llvm::None;
   }
 
   if (non_digit_index != llvm::StringRef::npos) { // if expression has units.
@@ -203,7 +204,7 @@ ParsingUtils::ParseUserFriendlySizeExpression(llvm::StringRef size_expression) {
 
     auto it = multipliers.find(multiplier);
     if (it == multipliers.end())
-      return std::nullopt;
+      return llvm::None;
 
     return parsed_number * it->second;
   } else {

@@ -1,11 +1,12 @@
-!RUN: %flang_fc1 -emit-hlfir -fopenmp %s -o - | FileCheck %s
+!RUN: %flang_fc1 -emit-fir -fopenmp %s -o - | FileCheck %s --check-prefixes="FIRDialect,OMPDialect"
+!RUN: %flang_fc1 -emit-fir -fopenmp %s -o - | fir-opt --fir-to-llvm-ir | FileCheck %s --check-prefixes="OMPDialect"
 
-!CHECK-LABEL: @_QPomp_taskwait
+!FIRDialect-LABEL: @_QPomp_taskwait
 subroutine omp_taskwait
-  !CHECK: omp.taskwait
+  !OMPDialect: omp.taskwait
   !$omp taskwait
-  !CHECK: fir.call @_QPfoo() {{.*}}: () -> ()
+  !FIRDialect: fir.call @_QPfoo() : () -> ()
   call foo()
-  !CHECK: omp.taskwait
+  !OMPDialect: omp.taskwait
   !$omp taskwait
 end subroutine omp_taskwait

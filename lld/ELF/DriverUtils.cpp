@@ -16,14 +16,14 @@
 #include "Driver.h"
 #include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/Reproduce.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/Triple.h"
-#include <optional>
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -34,21 +34,20 @@ using namespace lld::elf;
 // Create OptTable
 
 // Create prefix string literals used in Options.td
-#define PREFIX(NAME, VALUE)                                                    \
-  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
-  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
-                                                std::size(NAME##_init) - 1);
+#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
 #include "Options.inc"
 #undef PREFIX
 
 // Create table mapping all options defined in Options.td
-static constexpr opt::OptTable::Info optInfo[] = {
-#define OPTION(...) LLVM_CONSTRUCT_OPT_INFO(__VA_ARGS__),
+static const opt::OptTable::Info optInfo[] = {
+#define OPTION(X1, X2, ID, KIND, GROUP, ALIAS, X7, X8, X9, X10, X11, X12)      \
+  {X1, X2, X10,         X11,         OPT_##ID, opt::Option::KIND##Class,       \
+   X9, X8, OPT_##GROUP, OPT_##ALIAS, X7,       X12},
 #include "Options.inc"
 #undef OPTION
 };
 
-ELFOptTable::ELFOptTable() : GenericOptTable(optInfo) {}
+ELFOptTable::ELFOptTable() : OptTable(optInfo) {}
 
 // Set color diagnostics according to --color-diagnostics={auto,always,never}
 // or --no-color-diagnostics flags.
@@ -190,7 +189,6 @@ std::string elf::createResponseFile(const opt::InputArgList &args) {
     case OPT_export_dynamic_symbol_list:
     case OPT_just_symbols:
     case OPT_library_path:
-    case OPT_remap_inputs_file:
     case OPT_retain_symbols_file:
     case OPT_rpath:
     case OPT_script:
@@ -204,48 +202,47 @@ std::string elf::createResponseFile(const opt::InputArgList &args) {
       os << toString(*arg) << "\n";
     }
   }
-  return std::string(data);
+  return std::string(data.str());
 }
 
 // Find a file by concatenating given paths. If a resulting path
 // starts with "=", the character is replaced with a --sysroot value.
-static std::optional<std::string> findFile(StringRef path1,
-                                           const Twine &path2) {
+static Optional<std::string> findFile(StringRef path1, const Twine &path2) {
   SmallString<128> s;
-  if (path1.starts_with("="))
+  if (path1.startswith("="))
     path::append(s, config->sysroot, path1.substr(1), path2);
   else
     path::append(s, path1, path2);
 
   if (fs::exists(s))
     return std::string(s);
-  return std::nullopt;
+  return None;
 }
 
-std::optional<std::string> elf::findFromSearchPaths(StringRef path) {
+Optional<std::string> elf::findFromSearchPaths(StringRef path) {
   for (StringRef dir : config->searchPaths)
-    if (std::optional<std::string> s = findFile(dir, path))
+    if (Optional<std::string> s = findFile(dir, path))
       return s;
-  return std::nullopt;
+  return None;
 }
 
 // This is for -l<basename>. We'll look for lib<basename>.so or lib<basename>.a from
 // search paths.
-std::optional<std::string> elf::searchLibraryBaseName(StringRef name) {
+Optional<std::string> elf::searchLibraryBaseName(StringRef name) {
   for (StringRef dir : config->searchPaths) {
     if (!config->isStatic)
-      if (std::optional<std::string> s = findFile(dir, "lib" + name + ".so"))
+      if (Optional<std::string> s = findFile(dir, "lib" + name + ".so"))
         return s;
-    if (std::optional<std::string> s = findFile(dir, "lib" + name + ".a"))
+    if (Optional<std::string> s = findFile(dir, "lib" + name + ".a"))
       return s;
   }
-  return std::nullopt;
+  return None;
 }
 
 // This is for -l<namespec>.
-std::optional<std::string> elf::searchLibrary(StringRef name) {
+Optional<std::string> elf::searchLibrary(StringRef name) {
   llvm::TimeTraceScope timeScope("Locate library", name);
-  if (name.starts_with(":"))
+  if (name.startswith(":"))
     return findFromSearchPaths(name.substr(1));
   return searchLibraryBaseName(name);
 }
@@ -253,7 +250,7 @@ std::optional<std::string> elf::searchLibrary(StringRef name) {
 // If a linker/version script doesn't exist in the current directory, we also
 // look for the script in the '-L' search paths. This matches the behaviour of
 // '-T', --version-script=, and linker script INPUT() command in ld.bfd.
-std::optional<std::string> elf::searchScript(StringRef name) {
+Optional<std::string> elf::searchScript(StringRef name) {
   if (fs::exists(name))
     return name.str();
   return findFromSearchPaths(name);

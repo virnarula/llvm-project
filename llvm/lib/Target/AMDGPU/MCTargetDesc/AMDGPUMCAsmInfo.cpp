@@ -8,9 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUMCAsmInfo.h"
-#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/TargetParser/Triple.h"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 
 using namespace llvm;
 
@@ -31,6 +31,7 @@ AMDGPUMCAsmInfo::AMDGPUMCAsmInfo(const Triple &TT,
   InlineAsmEnd = ";#ASMEND";
 
   //===--- Data Emission Directives -------------------------------------===//
+  SunStyleELFSectionSwitchSyntax = true;
   UsesELFSectionDirectiveForBSS = true;
 
   //===--- Global Variable Emission Directives --------------------------===//
@@ -39,7 +40,7 @@ AMDGPUMCAsmInfo::AMDGPUMCAsmInfo(const Triple &TT,
   HasNoDeadStrip = true;
   //===--- Dwarf Emission Directives -----------------------------------===//
   SupportsDebugInformation = true;
-  UsesCFIWithoutEH = true;
+  UsesCFIForDebug = true;
   DwarfRegNumForCFI = true;
 
   UseIntegratedAssembler = false;
@@ -57,11 +58,11 @@ unsigned AMDGPUMCAsmInfo::getMaxInstLength(const MCSubtargetInfo *STI) const {
     return MaxInstLength;
 
   // Maximum for NSA encoded images
-  if (STI->hasFeature(AMDGPU::FeatureNSAEncoding))
+  if (STI->getFeatureBits()[AMDGPU::FeatureNSAEncoding])
     return 20;
 
   // 64-bit instruction with 32-bit literal.
-  if (STI->hasFeature(AMDGPU::FeatureVOP3Literal))
+  if (STI->getFeatureBits()[AMDGPU::FeatureVOP3Literal])
     return 12;
 
   return 8;

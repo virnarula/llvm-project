@@ -10,7 +10,6 @@ static_library("Orc") {
     "//llvm/lib/Object",
     "//llvm/lib/Passes",
     "//llvm/lib/Support",
-    "//llvm/lib/TargetParser",
     "//llvm/lib/Transforms/Utils",
     "//llvm/lib/WindowsDriver",
   ]
@@ -22,6 +21,7 @@ static_library("Orc") {
     "Core.cpp",
     "DebugObjectManagerPlugin.cpp",
     "DebugUtils.cpp",
+    "DebuggerSupportPlugin.cpp",
     "ELFNixPlatform.cpp",
     "EPCDebugObjectRegistrar.cpp",
     "EPCDynamicLibrarySearchGenerator.cpp",

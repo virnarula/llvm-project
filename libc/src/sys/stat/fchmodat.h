@@ -11,10 +11,10 @@
 
 #include <sys/stat.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int fchmodat(int dirfd, const char *path, mode_t mode, int flags);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SYS_STAT_FCHMODAT_H

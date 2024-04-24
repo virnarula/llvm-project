@@ -24,12 +24,10 @@ using namespace lldb_private;
 AppleObjCTypeEncodingParser::AppleObjCTypeEncodingParser(
     ObjCLanguageRuntime &runtime)
     : ObjCLanguageRuntime::EncodingToType(), m_runtime(runtime) {
-  if (m_scratch_ast_ctx_sp)
-    return;
-
-  m_scratch_ast_ctx_sp = std::make_shared<TypeSystemClang>(
-      "AppleObjCTypeEncodingParser ASTContext",
-      runtime.GetProcess()->GetTarget().GetArchitecture().GetTriple());
+  if (!m_scratch_ast_ctx_up)
+    m_scratch_ast_ctx_up = std::make_unique<TypeSystemClang>(
+        "AppleObjCTypeEncodingParser ASTContext",
+        runtime.GetProcess()->GetTarget().GetArchitecture().GetTriple());
 }
 
 std::string AppleObjCTypeEncodingParser::ReadStructName(StringLexer &type) {
@@ -81,13 +79,13 @@ AppleObjCTypeEncodingParser::ReadStructElement(TypeSystemClang &ast_ctx,
 clang::QualType AppleObjCTypeEncodingParser::BuildStruct(
     TypeSystemClang &ast_ctx, StringLexer &type, bool for_expression) {
   return BuildAggregate(ast_ctx, type, for_expression, _C_STRUCT_B, _C_STRUCT_E,
-                        llvm::to_underlying(clang::TagTypeKind::Struct));
+                        clang::TTK_Struct);
 }
 
 clang::QualType AppleObjCTypeEncodingParser::BuildUnion(
     TypeSystemClang &ast_ctx, StringLexer &type, bool for_expression) {
   return BuildAggregate(ast_ctx, type, for_expression, _C_UNION_B, _C_UNION_E,
-                        llvm::to_underlying(clang::TagTypeKind::Union));
+                        clang::TTK_Union);
 }
 
 clang::QualType AppleObjCTypeEncodingParser::BuildAggregate(
@@ -157,8 +155,7 @@ clang::QualType AppleObjCTypeEncodingParser::BuildArray(
   if (!type.NextIf(_C_ARY_E))
     return clang::QualType();
   CompilerType array_type(ast_ctx.CreateArrayType(
-      CompilerType(ast_ctx.weak_from_this(), element_type.getAsOpaquePtr()),
-      size, false));
+      CompilerType(&ast_ctx, element_type.getAsOpaquePtr()), size, false));
   return ClangUtil::GetQualType(array_type);
 }
 
@@ -234,12 +231,15 @@ clang::QualType AppleObjCTypeEncodingParser::BuildObjCObjectPointerType(
 
     auto types = decl_vendor->FindTypes(ConstString(name), /*max_matches*/ 1);
 
-    // The user can forward-declare something that has no definition.  The runtime
-    // doesn't prohibit this at all. This is a rare and very weird case.  We keep
-    // this assert in debug builds so we catch other weird cases.
-    lldbassert(!types.empty());
+// The user can forward-declare something that has no definition.  The runtime
+// doesn't prohibit this at all. This is a rare and very weird case.  We keep
+// this assert in debug builds so we catch other weird cases.
+#ifdef LLDB_CONFIGURATION_DEBUG
+    assert(!types.empty());
+#else
     if (types.empty())
       return ast_ctx.getObjCIdType();
+#endif
 
     return ClangUtil::GetQualType(types.front().GetPointerType());
   } else {

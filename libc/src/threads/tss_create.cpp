@@ -13,14 +13,14 @@
 
 #include <threads.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, tss_create, (tss_t * key, tss_dtor_t dtor)) {
-  auto k = LIBC_NAMESPACE::new_tss_key(dtor);
+  auto k = __llvm_libc::new_tss_key(dtor);
   if (!k)
     return thrd_error;
   *key = *k;
   return thrd_success;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

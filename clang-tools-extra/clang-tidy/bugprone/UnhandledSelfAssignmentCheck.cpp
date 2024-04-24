@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 UnhandledSelfAssignmentCheck::UnhandledSelfAssignmentCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -105,4 +107,6 @@ void UnhandledSelfAssignmentCheck::check(
        "operator=() does not handle self-assignment properly");
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

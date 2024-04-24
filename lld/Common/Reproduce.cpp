@@ -32,9 +32,9 @@ std::string lld::relativeToRoot(StringRef path) {
   // of the result.
   SmallString<128> res;
   StringRef root = path::root_name(abs);
-  if (root.ends_with(":"))
+  if (root.endswith(":"))
     res = root.drop_back();
-  else if (root.starts_with("//"))
+  else if (root.startswith("//"))
     res = root.substr(2);
 
   path::append(res, path::relative_path(abs));

@@ -18,6 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/Support/raw_ostream.h"
@@ -54,7 +55,7 @@ public:
     OperandBundlesToKeepIndexes.reserve(Call.getNumOperandBundles());
 
     // Enumerate every operand bundle on this call.
-    for (unsigned BundleIndex : seq(Call.getNumOperandBundles()))
+    for (unsigned BundleIndex : seq(0U, Call.getNumOperandBundles()))
       if (O.shouldKeep()) // Should we keep this one?
         OperandBundlesToKeepIndexes.emplace_back(BundleIndex);
   }
@@ -94,9 +95,7 @@ static void maybeRewriteCallWithDifferentBundles(
 }
 
 /// Removes out-of-chunk operand bundles from calls.
-static void extractOperandBundesFromModule(Oracle &O,
-                                           ReducerWorkItem &WorkItem) {
-  Module &Program = WorkItem.getModule();
+static void extractOperandBundesFromModule(Oracle &O, Module &Program) {
   OperandBundleRemapper R(O);
   R.visit(Program);
 

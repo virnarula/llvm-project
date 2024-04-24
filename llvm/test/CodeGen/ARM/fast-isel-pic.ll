@@ -27,7 +27,7 @@ entry:
 ; ARMv7-ELF: .LPC
 ; ARMv7-ELF-NEXT: ldr r[[reg2]], [pc, r[[reg2]]]
 ; ARMv7-ELF: ldr r[[reg2]], [r[[reg2]]]
-  %tmp = load i32, ptr @g
+  %tmp = load i32, i32* @g
   ret i32 %tmp
 }
 
@@ -57,6 +57,6 @@ entry:
 ; ARMv7-ELF: .LPC
 ; ARMv7-ELF: ldr r[[reg6:[0-9]+]], [pc, r[[reg5]]]
 ; ARMv7-ELF: ldr r0, [r[[reg5]]]
-  %tmp = load i32, ptr @i
+  %tmp = load i32, i32* @i
   ret i32 %tmp
 }

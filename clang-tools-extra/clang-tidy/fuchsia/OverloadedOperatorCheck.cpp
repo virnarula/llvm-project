@@ -10,7 +10,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::fuchsia {
+namespace clang {
+namespace tidy {
+namespace fuchsia {
 
 namespace {
 AST_MATCHER(FunctionDecl, isFuchsiaOverloadedOperator) {
@@ -39,4 +41,6 @@ void OverloadedOperatorCheck::check(const MatchFinder::MatchResult &Result) {
     diag(Loc, "overloading %0 is disallowed") << D;
 }
 
-} // namespace clang::tidy::fuchsia
+} // namespace fuchsia
+} // namespace tidy
+} // namespace clang

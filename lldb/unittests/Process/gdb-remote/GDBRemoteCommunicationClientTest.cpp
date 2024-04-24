@@ -18,7 +18,6 @@
 #include "gmock/gmock.h"
 #include <future>
 #include <limits>
-#include <optional>
 
 using namespace lldb_private::process_gdb_remote;
 using namespace lldb_private;
@@ -179,7 +178,7 @@ TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfo) {
       // the FileSpecs they create.
       FileSpec("/foo/baw.so", FileSpec::Style::windows),
   };
-  std::future<std::optional<std::vector<ModuleSpec>>> async_result =
+  std::future<llvm::Optional<std::vector<ModuleSpec>>> async_result =
       std::async(std::launch::async,
                  [&] { return client.GetModulesInfo(file_specs, triple); });
   HandlePacket(
@@ -193,18 +192,19 @@ TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfo) {
   auto result = async_result.get();
   ASSERT_TRUE(result.has_value());
   ASSERT_EQ(1u, result->size());
-  EXPECT_EQ("/foo/bar.so", (*result)[0].GetFileSpec().GetPath());
-  EXPECT_EQ(triple, (*result)[0].GetArchitecture().GetTriple());
-  EXPECT_EQ(UUID("@ABCDEFGHIJKLMNO", 16), (*result)[0].GetUUID());
-  EXPECT_EQ(0u, (*result)[0].GetObjectOffset());
-  EXPECT_EQ(1234u, (*result)[0].GetObjectSize());
+  EXPECT_EQ("/foo/bar.so", result.value()[0].GetFileSpec().GetPath());
+  EXPECT_EQ(triple, result.value()[0].GetArchitecture().GetTriple());
+  EXPECT_EQ(UUID("@ABCDEFGHIJKLMNO", 16),
+            result.value()[0].GetUUID());
+  EXPECT_EQ(0u, result.value()[0].GetObjectOffset());
+  EXPECT_EQ(1234u, result.value()[0].GetObjectSize());
 }
 
 TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfo_UUID20) {
   llvm::Triple triple("i386-pc-linux");
 
   FileSpec file_spec("/foo/bar.so", FileSpec::Style::posix);
-  std::future<std::optional<std::vector<ModuleSpec>>> async_result =
+  std::future<llvm::Optional<std::vector<ModuleSpec>>> async_result =
       std::async(std::launch::async,
                  [&] { return client.GetModulesInfo(file_spec, triple); });
   HandlePacket(
@@ -217,11 +217,12 @@ TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfo_UUID20) {
   auto result = async_result.get();
   ASSERT_TRUE(result.has_value());
   ASSERT_EQ(1u, result->size());
-  EXPECT_EQ("/foo/bar.so", (*result)[0].GetFileSpec().GetPath());
-  EXPECT_EQ(triple, (*result)[0].GetArchitecture().GetTriple());
-  EXPECT_EQ(UUID("@ABCDEFGHIJKLMNOPQRS", 20), (*result)[0].GetUUID());
-  EXPECT_EQ(0u, (*result)[0].GetObjectOffset());
-  EXPECT_EQ(1234u, (*result)[0].GetObjectSize());
+  EXPECT_EQ("/foo/bar.so", result.value()[0].GetFileSpec().GetPath());
+  EXPECT_EQ(triple, result.value()[0].GetArchitecture().GetTriple());
+  EXPECT_EQ(UUID("@ABCDEFGHIJKLMNOPQRS", 20),
+            result.value()[0].GetUUID());
+  EXPECT_EQ(0u, result.value()[0].GetObjectOffset());
+  EXPECT_EQ(1234u, result.value()[0].GetObjectSize());
 }
 
 TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfoInvalidResponse) {
@@ -250,7 +251,7 @@ TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfoInvalidResponse) {
   };
 
   for (const char *response : invalid_responses) {
-    std::future<std::optional<std::vector<ModuleSpec>>> async_result =
+    std::future<llvm::Optional<std::vector<ModuleSpec>>> async_result =
         std::async(std::launch::async,
                    [&] { return client.GetModulesInfo(file_spec, triple); });
     HandlePacket(
@@ -287,7 +288,7 @@ TEST_F(GDBRemoteCommunicationClientTest, TestPacketSpeedJSON) {
   server_thread.join();
 
   GTEST_LOG_(INFO) << "Formatted output: " << ss.GetData();
-  auto object_sp = StructuredData::ParseJSON(ss.GetString());
+  auto object_sp = StructuredData::ParseJSON(std::string(ss.GetString()));
   ASSERT_TRUE(bool(object_sp));
   auto dict_sp = object_sp->GetAsDictionary();
   ASSERT_TRUE(bool(dict_sp));
@@ -297,10 +298,10 @@ TEST_F(GDBRemoteCommunicationClientTest, TestPacketSpeedJSON) {
   dict_sp = object_sp->GetAsDictionary();
   ASSERT_TRUE(bool(dict_sp));
 
-  size_t num_packets;
+  int num_packets;
   ASSERT_TRUE(dict_sp->GetValueForKeyAsInteger("num_packets", num_packets))
       << ss.GetString();
-  ASSERT_EQ(10, (int)num_packets);
+  ASSERT_EQ(10, num_packets);
 }
 
 TEST_F(GDBRemoteCommunicationClientTest, SendSignalsToIgnore) {
@@ -443,8 +444,8 @@ TEST_F(GDBRemoteCommunicationClientTest, SendTraceSupportedPacket) {
 
 TEST_F(GDBRemoteCommunicationClientTest, GetQOffsets) {
   const auto &GetQOffsets = [&](llvm::StringRef response) {
-    std::future<std::optional<QOffsets>> result =
-        std::async(std::launch::async, [&] { return client.GetQOffsets(); });
+    std::future<Optional<QOffsets>> result = std::async(
+        std::launch::async, [&] { return client.GetQOffsets(); });
 
     HandlePacket(server, "qOffsets", response);
     return result.get();
@@ -457,20 +458,20 @@ TEST_F(GDBRemoteCommunicationClientTest, GetQOffsets) {
   EXPECT_EQ((QOffsets{true, {0x1234, 0x2345}}),
             GetQOffsets("TextSeg=1234;DataSeg=2345"));
 
-  EXPECT_EQ(std::nullopt, GetQOffsets("E05"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("Text=bogus"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("Text=1234"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("Text=1234;Data=1234;"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("Text=1234;Data=1234;Bss=1234;"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("TEXTSEG=1234"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("TextSeg=0x1234"));
-  EXPECT_EQ(std::nullopt, GetQOffsets("TextSeg=12345678123456789"));
+  EXPECT_EQ(llvm::None, GetQOffsets("E05"));
+  EXPECT_EQ(llvm::None, GetQOffsets("Text=bogus"));
+  EXPECT_EQ(llvm::None, GetQOffsets("Text=1234"));
+  EXPECT_EQ(llvm::None, GetQOffsets("Text=1234;Data=1234;"));
+  EXPECT_EQ(llvm::None, GetQOffsets("Text=1234;Data=1234;Bss=1234;"));
+  EXPECT_EQ(llvm::None, GetQOffsets("TEXTSEG=1234"));
+  EXPECT_EQ(llvm::None, GetQOffsets("TextSeg=0x1234"));
+  EXPECT_EQ(llvm::None, GetQOffsets("TextSeg=12345678123456789"));
 }
 
 static void
 check_qmemtags(TestClient &client, MockServer &server, size_t read_len,
                int32_t type, const char *packet, llvm::StringRef response,
-               std::optional<std::vector<uint8_t>> expected_tag_data) {
+               llvm::Optional<std::vector<uint8_t>> expected_tag_data) {
   const auto &ReadMemoryTags = [&]() {
     std::future<DataBufferSP> result = std::async(std::launch::async, [&] {
       return client.ReadMemoryTags(0xDEF0, read_len, type);
@@ -521,28 +522,26 @@ TEST_F(GDBRemoteCommunicationClientTest, ReadMemoryTags) {
                  std::vector<uint8_t>{0x1, 0x2});
 
   // Empty response is an error
-  check_qmemtags(client, server, 17, 1, "qMemTags:def0,11:1", "", std::nullopt);
+  check_qmemtags(client, server, 17, 1, "qMemTags:def0,11:1", "", llvm::None);
   // Usual error response
   check_qmemtags(client, server, 17, 1, "qMemTags:def0,11:1", "E01",
-                 std::nullopt);
+                 llvm::None);
   // Leading m missing
-  check_qmemtags(client, server, 17, 1, "qMemTags:def0,11:1", "01",
-                 std::nullopt);
+  check_qmemtags(client, server, 17, 1, "qMemTags:def0,11:1", "01", llvm::None);
   // Anything other than m is an error
   check_qmemtags(client, server, 17, 1, "qMemTags:def0,11:1", "z01",
-                 std::nullopt);
+                 llvm::None);
   // Decoding tag data doesn't use all the chars in the packet
   check_qmemtags(client, server, 32, 1, "qMemTags:def0,20:1", "m09zz",
-                 std::nullopt);
+                 llvm::None);
   // Data that is not hex bytes
   check_qmemtags(client, server, 32, 1, "qMemTags:def0,20:1", "mhello",
-                 std::nullopt);
+                 llvm::None);
   // Data is not a complete hex char
-  check_qmemtags(client, server, 32, 1, "qMemTags:def0,20:1", "m9",
-                 std::nullopt);
+  check_qmemtags(client, server, 32, 1, "qMemTags:def0,20:1", "m9", llvm::None);
   // Data has a trailing hex char
   check_qmemtags(client, server, 32, 1, "qMemTags:def0,20:1", "m01020",
-                 std::nullopt);
+                 llvm::None);
 }
 
 static void check_Qmemtags(TestClient &client, MockServer &server,

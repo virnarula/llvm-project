@@ -11,10 +11,10 @@
 
 #include <threads.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void call_once(once_flag *flag, __call_once_func_t func);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_CALL_ONCE_H

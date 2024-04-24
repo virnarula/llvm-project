@@ -8,11 +8,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#if __has_feature(ptrauth_calls)
-  #include <ptrauth.h>
-#else
-  #define ptrauth_strip(__value, __key) (__value)
-#endif
 
 uintptr_t *CFS_BEG, *CFS_END;
 
@@ -57,8 +52,8 @@ void check_cfs_section(uintptr_t main_ptr, uintptr_t foo_ptr) {
 }
 
 int main() {
-  auto main_ptr = ptrauth_strip(&main, ptrauth_key_function_pointer);
-  auto foo_ptr = ptrauth_strip(&foo, ptrauth_key_function_pointer);
+  auto main_ptr = &main;
+  auto foo_ptr = &foo;
   int x = 10;
 
   if (x > 0)

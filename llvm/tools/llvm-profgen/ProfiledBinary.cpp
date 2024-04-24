@@ -8,18 +8,15 @@
 
 #include "ProfiledBinary.h"
 #include "ErrorHandling.h"
-#include "MissingFrameInferrer.h"
 #include "ProfileGenerator.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/DebugInfo/Symbolize/SymbolizableModule.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/TargetParser/Triple.h"
-#include <optional>
 
 #define DEBUG_TYPE "load-binary"
 
@@ -56,7 +53,6 @@ static cl::list<std::string> DisassembleFunctions(
              "names only. Only work with show-disassembly-only"));
 
 extern cl::opt<bool> ShowDetailedWarning;
-extern cl::opt<bool> InferMissingFrames;
 
 namespace llvm {
 namespace sampleprof {
@@ -77,7 +73,7 @@ void BinarySizeContextTracker::addInstructionForContext(
   ContextTrieNode *CurNode = &RootContext;
   bool IsLeaf = true;
   for (const auto &Callsite : reverse(Context)) {
-    FunctionId CallerName = Callsite.Func;
+    StringRef CallerName = Callsite.FuncName;
     LineLocation CallsiteLoc = IsLeaf ? LineLocation(0, 0) : Callsite.Location;
     CurNode = CurNode->getOrCreateChildContext(CallsiteLoc, CallerName);
     IsLeaf = false;
@@ -91,7 +87,7 @@ BinarySizeContextTracker::getFuncSizeForContext(const ContextTrieNode *Node) {
   ContextTrieNode *CurrNode = &RootContext;
   ContextTrieNode *PrevNode = nullptr;
 
-  std::optional<uint32_t> Size;
+  Optional<uint32_t> Size;
 
   // Start from top-level context-less function, traverse down the reverse
   // context trie to find the best/longest match for given context, then
@@ -101,7 +97,7 @@ BinarySizeContextTracker::getFuncSizeForContext(const ContextTrieNode *Node) {
     PrevNode = CurrNode;
     CurrNode = CurrNode->getChildContext(CallSiteLoc, Node->getFuncName());
     if (CurrNode && CurrNode->getFunctionSize())
-      Size = *CurrNode->getFunctionSize();
+      Size = CurrNode->getFunctionSize().value();
     CallSiteLoc = Node->getCallSiteLoc();
     Node = Node->getParentContext();
   }
@@ -115,12 +111,12 @@ BinarySizeContextTracker::getFuncSizeForContext(const ContextTrieNode *Node) {
     while (!Size && CurrNode && !CurrNode->getAllChildContext().empty()) {
       CurrNode = &CurrNode->getAllChildContext().begin()->second;
       if (CurrNode->getFunctionSize())
-        Size = *CurrNode->getFunctionSize();
+        Size = CurrNode->getFunctionSize().value();
     }
   }
 
   assert(Size && "We should at least find one context size.");
-  return *Size;
+  return Size.value();
 }
 
 void BinarySizeContextTracker::trackInlineesOptimizedAway(
@@ -145,8 +141,7 @@ void BinarySizeContextTracker::trackInlineesOptimizedAway(
       StringRef CallerName = ProbeFrame.first;
       LineLocation CallsiteLoc(ProbeFrame.second, 0);
       SizeContext =
-          SizeContext->getOrCreateChildContext(CallsiteLoc,
-                                               FunctionId(CallerName));
+          SizeContext->getOrCreateChildContext(CallsiteLoc, CallerName);
     }
     // Add 0 size to make known.
     SizeContext->addFunctionSize(0);
@@ -162,21 +157,6 @@ void BinarySizeContextTracker::trackInlineesOptimizedAway(
 
   ProbeContext.pop_back();
 }
-
-ProfiledBinary::ProfiledBinary(const StringRef ExeBinPath,
-                               const StringRef DebugBinPath)
-    : Path(ExeBinPath), DebugBinaryPath(DebugBinPath),
-      SymbolizerOpts(getSymbolizerOpts()), ProEpilogTracker(this),
-      Symbolizer(std::make_unique<symbolize::LLVMSymbolizer>(SymbolizerOpts)),
-      TrackFuncContextSize(EnableCSPreInliner && UseContextCostForPreInliner) {
-  // Point to executable binary if debug info binary is not specified.
-  SymbolizerPath = DebugBinPath.empty() ? ExeBinPath : DebugBinPath;
-  if (InferMissingFrames)
-    MissingContextInferrer = std::make_unique<MissingFrameInferrer>(this);
-  load();
-}
-
-ProfiledBinary::~ProfiledBinary() {}
 
 void ProfiledBinary::warnNoFuncEntry() {
   uint64_t NoFuncEntryNum = 0;
@@ -216,7 +196,9 @@ void ProfiledBinary::load() {
     exitWithError("not a valid Elf image", Path);
 
   TheTriple = Obj->makeTriple();
-
+  // Current only support X86
+  if (!TheTriple.isX86())
+    exitWithError("unsupported target", TheTriple.getTriple());
   LLVM_DEBUG(dbgs() << "Loading " << Path << "\n");
 
   // Find the preferred load address for text sections.
@@ -446,8 +428,10 @@ void ProfiledBinary::decodePseudoProbe() {
   decodePseudoProbe(Obj);
 }
 
-void ProfiledBinary::setIsFuncEntry(FuncRange *FuncRange,
-                                    StringRef RangeSymName) {
+void ProfiledBinary::setIsFuncEntry(uint64_t Address, StringRef RangeSymName) {
+  // Note that the start address of each ELF section can be a non-function
+  // symbol, we need to binary search for the start of a real function range.
+  auto *FuncRange = findFuncRange(Address);
   // Skip external function symbol.
   if (!FuncRange)
     return;
@@ -468,8 +452,9 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
   uint64_t StartAddress = Symbols[SI].Addr;
   uint64_t NextStartAddress =
       (SI + 1 < SE) ? Symbols[SI + 1].Addr : SectionAddress + SectSize;
-  FuncRange *FRange = findFuncRange(StartAddress);
-  setIsFuncEntry(FRange, FunctionSamples::getCanonicalFnName(Symbols[SI].Name));
+  setIsFuncEntry(StartAddress,
+                 FunctionSamples::getCanonicalFnName(Symbols[SI].Name));
+
   StringRef SymbolName =
       ShowCanonicalFnName
           ? FunctionSamples::getCanonicalFnName(Symbols[SI].Name)
@@ -479,6 +464,12 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
                               DisassembleFunctionSet.count(SymbolName));
   if (ShowDisassembly)
     outs() << '<' << SymbolName << ">:\n";
+
+  auto WarnInvalidInsts = [](uint64_t Start, uint64_t End) {
+    WithColor::warning() << "Invalid instructions at "
+                         << format("%8" PRIx64, Start) << " - "
+                         << format("%8" PRIx64, End) << "\n";
+  };
 
   uint64_t Address = StartAddress;
   // Size of a consecutive invalid instruction range starting from Address -1
@@ -534,46 +525,8 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
         BranchAddressSet.insert(Address);
       }
 
-      // Record potential call targets for tail frame inference later-on.
-      if (InferMissingFrames && FRange) {
-        uint64_t Target = 0;
-        MIA->evaluateBranch(Inst, Address, Size, Target);
-        if (MCDesc.isCall()) {
-          // Indirect call targets are unknown at this point. Recording the
-          // unknown target (zero) for further LBR-based refinement.
-          MissingContextInferrer->CallEdges[Address].insert(Target);
-        } else if (MCDesc.isUnconditionalBranch()) {
-          assert(Target &&
-                 "target should be known for unconditional direct branch");
-          // Any inter-function unconditional jump is considered tail call at
-          // this point. This is not 100% accurate and could further be
-          // optimized based on some source annotation.
-          FuncRange *ToFRange = findFuncRange(Target);
-          if (ToFRange && ToFRange->Func != FRange->Func)
-            MissingContextInferrer->TailCallEdges[Address].insert(Target);
-          LLVM_DEBUG({
-            dbgs() << "Direct Tail call: " << format("%8" PRIx64 ":", Address);
-            IPrinter->printInst(&Inst, Address + Size, "", *STI.get(), dbgs());
-            dbgs() << "\n";
-          });
-        } else if (MCDesc.isIndirectBranch() && MCDesc.isBarrier()) {
-          // This is an indirect branch but not necessarily an indirect tail
-          // call. The isBarrier check is to filter out conditional branch.
-          // Similar with indirect call targets, recording the unknown target
-          // (zero) for further LBR-based refinement.
-          MissingContextInferrer->TailCallEdges[Address].insert(Target);
-          LLVM_DEBUG({
-            dbgs() << "Indirect Tail call: "
-                   << format("%8" PRIx64 ":", Address);
-            IPrinter->printInst(&Inst, Address + Size, "", *STI.get(), dbgs());
-            dbgs() << "\n";
-          });
-        }
-      }
-
       if (InvalidInstLength) {
-        AddrsWithInvalidInstruction.insert(
-            {Address - InvalidInstLength, Address - 1});
+        WarnInvalidInsts(Address - InvalidInstLength, Address - 1);
         InvalidInstLength = 0;
       }
     } else {
@@ -584,8 +537,7 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
   }
 
   if (InvalidInstLength)
-    AddrsWithInvalidInstruction.insert(
-        {Address - InvalidInstLength, Address - 1});
+    WarnInvalidInsts(Address - InvalidInstLength, Address - 1);
 
   if (ShowDisassembly)
     outs() << "\n";
@@ -607,11 +559,9 @@ void ProfiledBinary::setUpDisassembler(const ELFObjectFileBase *Obj) {
   if (!AsmInfo)
     exitWithError("no assembly info for target " + TripleName, FileName);
 
-  Expected<SubtargetFeatures> Features = Obj->getFeatures();
-  if (!Features)
-    exitWithError(Features.takeError(), FileName);
+  SubtargetFeatures Features = Obj->getFeatures();
   STI.reset(
-      TheTarget->createMCSubtargetInfo(TripleName, "", Features->getString()));
+      TheTarget->createMCSubtargetInfo(TripleName, "", Features.getString()));
   if (!STI)
     exitWithError("no subtarget info for target " + TripleName, FileName);
 
@@ -704,19 +654,6 @@ void ProfiledBinary::disassemble(const ELFObjectFileBase *Obj) {
     }
   }
 
-  if (!AddrsWithInvalidInstruction.empty()) {
-    if (ShowDetailedWarning) {
-      for (auto &Addr : AddrsWithInvalidInstruction) {
-        WithColor::warning()
-            << "Invalid instructions at " << format("%8" PRIx64, Addr.first)
-            << " - " << format("%8" PRIx64, Addr.second) << "\n";
-      }
-    }
-    WithColor::warning() << "Found " << AddrsWithInvalidInstruction.size()
-                         << " invalid instructions\n";
-    AddrsWithInvalidInstruction.clear();
-  }
-
   // Dissassemble rodata section to check if FS discriminator symbol exists.
   checkUseFSDiscriminator(Obj, AllSymbols);
 }
@@ -801,12 +738,10 @@ void ProfiledBinary::loadSymbolsFromDWARFUnit(DWARFUnit &CompilationUnit) {
         FRange.StartAddress = StartAddress;
         FRange.EndAddress = EndAddress;
       } else {
-        AddrsWithMultipleSymbols.insert(StartAddress);
-        if (ShowDetailedWarning)
-          WithColor::warning()
-              << "Duplicated symbol start address at "
-              << format("%8" PRIx64, StartAddress) << " "
-              << R.first->second.getFuncName() << " and " << Name << "\n";
+        WithColor::warning()
+            << "Duplicated symbol start address at "
+            << format("%8" PRIx64, StartAddress) << " "
+            << R.first->second.getFuncName() << " and " << Name << "\n";
       }
     }
   }
@@ -822,46 +757,27 @@ void ProfiledBinary::loadSymbolsFromDWARF(ObjectFile &Obj) {
     loadSymbolsFromDWARFUnit(*CompilationUnit.get());
 
   // Handles DWO sections that can either be in .o, .dwo or .dwp files.
-  uint32_t NumOfDWOMissing = 0;
   for (const auto &CompilationUnit : DebugContext->compile_units()) {
     DWARFUnit *const DwarfUnit = CompilationUnit.get();
-    if (DwarfUnit->getDWOId()) {
+    if (llvm::Optional<uint64_t> DWOId = DwarfUnit->getDWOId()) {
       DWARFUnit *DWOCU = DwarfUnit->getNonSkeletonUnitDIE(false).getDwarfUnit();
       if (!DWOCU->isDWOUnit()) {
-        NumOfDWOMissing++;
-        if (ShowDetailedWarning) {
-          std::string DWOName = dwarf::toString(
-              DwarfUnit->getUnitDIE().find(
-                  {dwarf::DW_AT_dwo_name, dwarf::DW_AT_GNU_dwo_name}),
-              "");
-          WithColor::warning() << "DWO debug information for " << DWOName
-                               << " was not loaded.\n";
-        }
+        std::string DWOName = dwarf::toString(
+            DwarfUnit->getUnitDIE().find(
+                {dwarf::DW_AT_dwo_name, dwarf::DW_AT_GNU_dwo_name}),
+            "");
+        WithColor::warning()
+            << "DWO debug information for " << DWOName
+            << " was not loaded. Please check the .o, .dwo or .dwp path.\n";
         continue;
       }
       loadSymbolsFromDWARFUnit(*DWOCU);
     }
   }
 
-  if (NumOfDWOMissing)
-    WithColor::warning()
-        << " DWO debug information was not loaded for " << NumOfDWOMissing
-        << " modules. Please check the .o, .dwo or .dwp path.\n";
   if (BinaryFunctions.empty())
     WithColor::warning() << "Loading of DWARF info completed, but no binary "
                             "functions have been retrieved.\n";
-  // Populate the hash binary function map for MD5 function name lookup. This
-  // is done after BinaryFunctions are finalized.
-  for (auto &BinaryFunction : BinaryFunctions) {
-    HashBinaryFunctions[MD5Hash(StringRef(BinaryFunction.first))] =
-        &BinaryFunction.second;
-  }
-
-  if (!AddrsWithMultipleSymbols.empty()) {
-    WithColor::warning() << "Found " << AddrsWithMultipleSymbols.size()
-                         << " start addresses with multiple symbols\n";
-    AddrsWithMultipleSymbols.clear();
-  }
 }
 
 void ProfiledBinary::populateSymbolListFromDWARF(
@@ -870,7 +786,7 @@ void ProfiledBinary::populateSymbolListFromDWARF(
     SymbolList.add(I.second.getFuncName());
 }
 
-symbolize::LLVMSymbolizer::Options ProfiledBinary::getSymbolizerOpts() const {
+void ProfiledBinary::setupSymbolizer() {
   symbolize::LLVMSymbolizer::Options SymbolizerOpts;
   SymbolizerOpts.PrintFunctions =
       DILineInfoSpecifier::FunctionNameKind::LinkageName;
@@ -879,7 +795,7 @@ symbolize::LLVMSymbolizer::Options ProfiledBinary::getSymbolizerOpts() const {
   SymbolizerOpts.UseSymbolTable = false;
   SymbolizerOpts.RelativeAddresses = false;
   SymbolizerOpts.DWPName = DWPPath;
-  return SymbolizerOpts;
+  Symbolizer = std::make_unique<symbolize::LLVMSymbolizer>(SymbolizerOpts);
 }
 
 SampleContextFrameVector ProfiledBinary::symbolize(const InstructionPointer &IP,
@@ -896,8 +812,7 @@ SampleContextFrameVector ProfiledBinary::symbolize(const InstructionPointer &IP,
   SampleContextFrameVector CallStack;
   for (int32_t I = InlineStack.getNumberOfFrames() - 1; I >= 0; I--) {
     const auto &CallerFrame = InlineStack.getFrame(I);
-    if (CallerFrame.FunctionName.empty() ||
-        (CallerFrame.FunctionName == "<invalid>"))
+    if (CallerFrame.FunctionName == "<invalid>")
       break;
 
     StringRef FunctionName(CallerFrame.FunctionName);
@@ -914,7 +829,7 @@ SampleContextFrameVector ProfiledBinary::symbolize(const InstructionPointer &IP,
 
     LineLocation Line(LineOffset, Discriminator);
     auto It = NameStrings.insert(FunctionName.str());
-    CallStack.emplace_back(FunctionId(StringRef(*It.first)), Line);
+    CallStack.emplace_back(*It.first, Line);
   }
 
   return CallStack;
@@ -958,12 +873,6 @@ void ProfiledBinary::computeInlinedContextSizeForFunc(
                                                  ProbeContext);
     }
   }
-}
-
-void ProfiledBinary::inferMissingFrames(
-    const SmallVectorImpl<uint64_t> &Context,
-    SmallVectorImpl<uint64_t> &NewContext) {
-  MissingContextInferrer->inferMissingFrames(Context, NewContext);
 }
 
 InstructionPointer::InstructionPointer(const ProfiledBinary *Binary,

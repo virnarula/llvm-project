@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 void CloexecEpollCreate1Check::registerMatchers(MatchFinder *Finder) {
   registerMatchersImpl(
@@ -25,4 +27,6 @@ void CloexecEpollCreate1Check::check(const MatchFinder::MatchResult &Result) {
   insertMacroFlag(Result, /*MacroFlag=*/"EPOLL_CLOEXEC", /*ArgPos=*/0);
 }
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang

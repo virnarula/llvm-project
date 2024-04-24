@@ -150,24 +150,24 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
 
     return (Value >> 1) & 0x3ff;
   case CSKY::fixup_csky_pcrel_uimm7_scale4:
-    if ((Value >> 2) > 0xfe)
+    if (!isUIntN(9, Value))
       Ctx.reportError(Fixup.getLoc(), "out of range pc-relative fixup value.");
     if (Value & 0x3)
       Ctx.reportError(Fixup.getLoc(), "fixup value must be 4-byte aligned.");
 
-    if ((Value >> 2) <= 0x7f) {
+    if ((Value & 0xff) <= 0b111111100) {
       unsigned IMM5L = (Value >> 2) & 0x1f;
       unsigned IMM2H = (Value >> 7) & 0x3;
 
       Value = (1 << 12) | (IMM2H << 8) | IMM5L;
     } else {
-      unsigned IMM5L = (~Value >> 2) & 0x1f;
-      unsigned IMM2H = (~Value >> 7) & 0x3;
+      unsigned IMM5L = (!Value >> 2) & 0x1f;
+      unsigned IMM2H = (!Value >> 7) & 0x3;
 
       Value = (IMM2H << 8) | IMM5L;
     }
 
-    return Value;
+    return Value & 0xffff;
   }
 }
 
@@ -194,7 +194,7 @@ bool CSKYAsmBackend::fixupNeedsRelaxationAdvanced(const MCFixup &Fixup,
   case CSKY::fixup_csky_pcrel_imm26_scale2:
     return !isShiftedInt<26, 1>(Offset);
   case CSKY::fixup_csky_pcrel_uimm7_scale4:
-    return ((Value >> 2) > 0xfe) || (Value & 0x3);
+    return !isShiftedUInt<8, 2>(Offset);
   }
 }
 
@@ -223,7 +223,7 @@ void CSKYAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
 
   // For each byte of the fragment that the fixup touches, mask in the
   // bits from the fixup value.
-  bool IsLittleEndian = (Endian == llvm::endianness::little);
+  bool IsLittleEndian = (Endian == support::little);
   bool IsInstFixup = (Kind >= FirstTargetFixupKind);
 
   if (IsLittleEndian && IsInstFixup && (NumBytes == 4)) {
@@ -248,7 +248,7 @@ bool CSKYAsmBackend::mayNeedRelaxation(const MCInst &Inst,
   case CSKY::JBT32:
   case CSKY::JBF32:
   case CSKY::JBSR32:
-    if (!STI.hasFeature(CSKY::Has2E3))
+    if (!STI.getFeatureBits()[CSKY::Has2E3])
       return false;
     return true;
   case CSKY::JBR16:
@@ -262,8 +262,7 @@ bool CSKYAsmBackend::mayNeedRelaxation(const MCInst &Inst,
 
 bool CSKYAsmBackend::shouldForceRelocation(const MCAssembler &Asm,
                                            const MCFixup &Fixup,
-                                           const MCValue &Target,
-                                           const MCSubtargetInfo * /*STI*/) {
+                                           const MCValue &Target) {
   if (Fixup.getKind() >= FirstLiteralRelocationKind)
     return true;
   switch (Fixup.getTargetKind()) {
@@ -331,7 +330,7 @@ void CSKYAsmBackend::relaxInstruction(MCInst &Inst,
   case CSKY::JBF16:
     // ck801
     unsigned opcode;
-    if (STI.hasFeature(CSKY::HasE2))
+    if (STI.getFeatureBits()[CSKY::HasE2])
       opcode = Inst.getOpcode() == CSKY::JBT16 ? CSKY::JBT32 : CSKY::JBF32;
     else
       opcode = Inst.getOpcode() == CSKY::JBT16 ? CSKY::JBT_E : CSKY::JBF_E;

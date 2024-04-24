@@ -11,7 +11,7 @@
 // RUN: FileCheck %s < %t.out
 
 // Reported deadly signal due to stack-overflow
-// XFAIL: target={{.*netbsd.*}}
+// XFAIL: netbsd
 
 #include <signal.h>
 #include <stdio.h>

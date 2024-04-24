@@ -49,7 +49,7 @@ public:
         MachineFunctionProperties::Property::Selected);
   }
 
-  InstructionSelect(CodeGenOptLevel OL);
+  InstructionSelect(CodeGenOpt::Level OL);
   InstructionSelect();
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -58,7 +58,7 @@ protected:
   BlockFrequencyInfo *BFI = nullptr;
   ProfileSummaryInfo *PSI = nullptr;
 
-  CodeGenOptLevel OptLevel = CodeGenOptLevel::None;
+  CodeGenOpt::Level OptLevel = CodeGenOpt::None;
 };
 } // End namespace llvm.
 

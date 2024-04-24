@@ -37,12 +37,12 @@
 #include "../readability/NamedParameterCheck.h"
 #include "../readability/UppercaseLiteralSuffixCheck.h"
 #include "ExceptionBaseclassCheck.h"
-#include "IgnoredRemoveResultCheck.h"
 #include "MultiwayPathsCoveredCheck.h"
 #include "NoAssemblerCheck.h"
 #include "SignedBitwiseCheck.h"
 
-namespace clang::tidy {
+namespace clang {
+namespace tidy {
 namespace hicpp {
 
 class HICPPModule : public ClangTidyModule {
@@ -58,8 +58,6 @@ public:
         "hicpp-deprecated-headers");
     CheckFactories.registerCheck<ExceptionBaseclassCheck>(
         "hicpp-exception-baseclass");
-    CheckFactories.registerCheck<IgnoredRemoveResultCheck>(
-        "hicpp-ignored-remove-result");
     CheckFactories.registerCheck<MultiwayPathsCoveredCheck>(
         "hicpp-multiway-paths-covered");
     CheckFactories.registerCheck<SignedBitwiseCheck>("hicpp-signed-bitwise");
@@ -122,4 +120,5 @@ static ClangTidyModuleRegistry::Add<HICPPModule>
 // and thus register the HICPPModule.
 volatile int HICPPModuleAnchorSource = 0;
 
-} // namespace clang::tidy
+} // namespace tidy
+} // namespace clang

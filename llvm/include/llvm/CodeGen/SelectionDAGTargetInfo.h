@@ -158,7 +158,7 @@ public:
   }
 
   // Return true if the DAG Combiner should disable generic combines.
-  virtual bool disableGenericCombines(CodeGenOptLevel OptLevel) const {
+  virtual bool disableGenericCombines(CodeGenOpt::Level OptLevel) const {
     return false;
   }
 };

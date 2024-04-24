@@ -38,12 +38,9 @@ namespace fir::factory {
 /// \p nonDeferredParams must provide the non deferred LEN parameters so that
 /// they can already be placed in the unallocated box (inquiries about these
 /// parameters are legal even in unallocated state).
-/// \p typeSourceBox provides the dynamic type information when the box is
-/// created for a polymorphic temporary.
 mlir::Value createUnallocatedBox(fir::FirOpBuilder &builder, mlir::Location loc,
                                  mlir::Type boxType,
-                                 mlir::ValueRange nonDeferredParams,
-                                 mlir::Value typeSourceBox = {});
+                                 mlir::ValueRange nonDeferredParams);
 
 /// Create a MutableBoxValue for a temporary allocatable.
 /// The created MutableBoxValue wraps a fir.ref<fir.box<fir.heap<type>>> and is
@@ -51,9 +48,7 @@ mlir::Value createUnallocatedBox(fir::FirOpBuilder &builder, mlir::Location loc,
 /// given to the created !fir.ref<fir.box>.
 fir::MutableBoxValue createTempMutableBox(fir::FirOpBuilder &builder,
                                           mlir::Location loc, mlir::Type type,
-                                          llvm::StringRef name = {},
-                                          mlir::Value sourceBox = {},
-                                          bool isPolymorphic = false);
+                                          llvm::StringRef name = {});
 
 /// Update a MutableBoxValue to describe entity \p source (that must be in
 /// memory). If \lbounds is not empty, it is used to defined the MutableBoxValue
@@ -79,8 +74,7 @@ void associateMutableBoxWithRemap(fir::FirOpBuilder &builder,
 /// previously associated/allocated. The function generates code that sets the
 /// address field of the MutableBoxValue to zero.
 void disassociateMutableBox(fir::FirOpBuilder &builder, mlir::Location loc,
-                            const fir::MutableBoxValue &box,
-                            bool polymorphicSetType = true);
+                            const fir::MutableBoxValue &box);
 
 /// Generate code to conditionally reallocate a MutableBoxValue with a new
 /// shape, lower bounds, and LEN parameters if it is unallocated or if its
@@ -120,22 +114,19 @@ void finalizeRealloc(fir::FirOpBuilder &builder, mlir::Location loc,
                      bool takeLboundsIfRealloc,
                      const MutableBoxReallocation &realloc);
 
-/// Deallocate a mutable box with fir.freemem if it is allocated or associated.
-/// This only deallocates the storage and does not call finalization, the
-/// mutable box is not nullified.
-void genFreememIfAllocated(fir::FirOpBuilder &builder, mlir::Location loc,
-                           const fir::MutableBoxValue &box);
+/// Finalize a mutable box if it is allocated or associated. This includes both
+/// calling the finalizer, if any, and deallocating the storage.
+void genFinalization(fir::FirOpBuilder &builder, mlir::Location loc,
+                     const fir::MutableBoxValue &box);
 
 void genInlinedAllocation(fir::FirOpBuilder &builder, mlir::Location loc,
                           const fir::MutableBoxValue &box,
                           mlir::ValueRange lbounds, mlir::ValueRange extents,
-                          mlir::ValueRange lenParams, llvm::StringRef allocName,
-                          bool mustBeHeap = false);
+                          mlir::ValueRange lenParams,
+                          llvm::StringRef allocName);
 
-/// Deallocate an mutable box storage with fir.freemem without calling any
-/// final procedures. The mutable box is not nullified.
-mlir::Value genFreemem(fir::FirOpBuilder &builder, mlir::Location loc,
-                       const fir::MutableBoxValue &box);
+void genInlinedDeallocate(fir::FirOpBuilder &builder, mlir::Location loc,
+                          const fir::MutableBoxValue &box);
 
 /// When the MutableBoxValue was passed as a fir.ref<fir.box> to a call that may
 /// have modified it, update the MutableBoxValue according to the
@@ -164,18 +155,6 @@ mlir::Value getMutableIRBox(fir::FirOpBuilder &builder, mlir::Location loc,
 mlir::Value genIsAllocatedOrAssociatedTest(fir::FirOpBuilder &builder,
                                            mlir::Location loc,
                                            const fir::MutableBoxValue &box);
-
-/// Generate allocation or association status test and returns the resulting
-/// i1. This is testing this for a valid/non-null base address value.
-mlir::Value genIsNotAllocatedOrAssociatedTest(fir::FirOpBuilder &builder,
-                                              mlir::Location loc,
-                                              const fir::MutableBoxValue &box);
-
-/// Generate an unallocated box of the given \p boxTy
-/// and store it into a temporary storage.
-/// Return address of the temporary storage.
-mlir::Value genNullBoxStorage(fir::FirOpBuilder &builder, mlir::Location loc,
-                              mlir::Type boxTy);
 
 } // namespace fir::factory
 

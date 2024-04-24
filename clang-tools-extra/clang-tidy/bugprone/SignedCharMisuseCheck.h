@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Finds those ``signed char`` -> integer conversions which might indicate a
 /// programming error. The basic problem with the ``signed char``, that it might
@@ -39,6 +41,8 @@ private:
   const bool DiagnoseSignedUnsignedCharComparisons;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_SIGNEDCHARMISUSECHECK_H

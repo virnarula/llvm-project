@@ -1,4 +1,5 @@
 // RUN: %clangxx_msan -O0 -g %s -o %t && %run %t
+// UNSUPPORTED: aarch64-target-arch
 
 #include <assert.h>
 #include <malloc.h>

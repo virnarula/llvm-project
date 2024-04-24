@@ -1,13 +1,8 @@
 #ifndef LLVM_TABLEGEN_DIRECTIVEEMITTER_H
 #define LLVM_TABLEGEN_DIRECTIVEEMITTER_H
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/TableGen/Record.h"
-#include <algorithm>
-#include <string>
-#include <vector>
 
 namespace llvm {
 
@@ -157,7 +152,7 @@ public:
       }
       return C;
     });
-    llvm::erase(N, '_');
+    llvm::erase_value(N, '_');
     return N;
   }
 

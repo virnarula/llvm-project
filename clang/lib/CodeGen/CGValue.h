@@ -225,9 +225,6 @@ class LValue {
   // this lvalue.
   bool Nontemporal : 1;
 
-  // The pointer is known not to be null.
-  bool IsKnownNonNull : 1;
-
   LValueBaseInfo BaseInfo;
   TBAAAccessInfo TBAAInfo;
 
@@ -241,7 +238,9 @@ private:
     if (isGlobalReg())
       assert(ElementType == nullptr && "Global reg does not store elem type");
     else
-      assert(ElementType != nullptr && "Must have elem type");
+      assert(llvm::cast<llvm::PointerType>(V->getType())
+                 ->isOpaqueOrPointeeTypeMatches(ElementType) &&
+             "Pointer element type mismatch");
 
     this->Type = Type;
     this->Quals = Quals;
@@ -334,35 +333,24 @@ public:
   LValueBaseInfo getBaseInfo() const { return BaseInfo; }
   void setBaseInfo(LValueBaseInfo Info) { BaseInfo = Info; }
 
-  KnownNonNull_t isKnownNonNull() const {
-    return (KnownNonNull_t)IsKnownNonNull;
-  }
-  LValue setKnownNonNull() {
-    IsKnownNonNull = true;
-    return *this;
-  }
-
   // simple lvalue
   llvm::Value *getPointer(CodeGenFunction &CGF) const {
     assert(isSimple());
     return V;
   }
   Address getAddress(CodeGenFunction &CGF) const {
-    return Address(getPointer(CGF), ElementType, getAlignment(),
-                   isKnownNonNull());
+    return Address(getPointer(CGF), ElementType, getAlignment());
   }
   void setAddress(Address address) {
     assert(isSimple());
     V = address.getPointer();
     ElementType = address.getElementType();
     Alignment = address.getAlignment().getQuantity();
-    IsKnownNonNull = address.isKnownNonNull();
   }
 
   // vector elt lvalue
   Address getVectorAddress() const {
-    return Address(getVectorPointer(), ElementType, getAlignment(),
-                   (KnownNonNull_t)isKnownNonNull());
+    return Address(getVectorPointer(), ElementType, getAlignment());
   }
   llvm::Value *getVectorPointer() const {
     assert(isVectorElt());
@@ -374,8 +362,7 @@ public:
   }
 
   Address getMatrixAddress() const {
-    return Address(getMatrixPointer(), ElementType, getAlignment(),
-                   (KnownNonNull_t)isKnownNonNull());
+    return Address(getMatrixPointer(), ElementType, getAlignment());
   }
   llvm::Value *getMatrixPointer() const {
     assert(isMatrixElt());
@@ -388,8 +375,7 @@ public:
 
   // extended vector elements.
   Address getExtVectorAddress() const {
-    return Address(getExtVectorPointer(), ElementType, getAlignment(),
-                   (KnownNonNull_t)isKnownNonNull());
+    return Address(getExtVectorPointer(), ElementType, getAlignment());
   }
   llvm::Value *getExtVectorPointer() const {
     assert(isExtVectorElt());
@@ -402,8 +388,7 @@ public:
 
   // bitfield lvalue
   Address getBitFieldAddress() const {
-    return Address(getBitFieldPointer(), ElementType, getAlignment(),
-                   (KnownNonNull_t)isKnownNonNull());
+    return Address(getBitFieldPointer(), ElementType, getAlignment());
   }
   llvm::Value *getBitFieldPointer() const { assert(isBitField()); return V; }
   const CGBitFieldInfo &getBitFieldInfo() const {
@@ -424,7 +409,6 @@ public:
     assert(address.getPointer()->getType()->isPointerTy());
     R.V = address.getPointer();
     R.ElementType = address.getElementType();
-    R.IsKnownNonNull = address.isKnownNonNull();
     R.Initialize(type, qs, address.getAlignment(), BaseInfo, TBAAInfo);
     return R;
   }
@@ -437,7 +421,6 @@ public:
     R.V = vecAddress.getPointer();
     R.ElementType = vecAddress.getElementType();
     R.VectorIdx = Idx;
-    R.IsKnownNonNull = vecAddress.isKnownNonNull();
     R.Initialize(type, type.getQualifiers(), vecAddress.getAlignment(),
                  BaseInfo, TBAAInfo);
     return R;
@@ -451,7 +434,6 @@ public:
     R.V = vecAddress.getPointer();
     R.ElementType = vecAddress.getElementType();
     R.VectorElts = Elts;
-    R.IsKnownNonNull = vecAddress.isKnownNonNull();
     R.Initialize(type, type.getQualifiers(), vecAddress.getAlignment(),
                  BaseInfo, TBAAInfo);
     return R;
@@ -471,7 +453,6 @@ public:
     R.V = Addr.getPointer();
     R.ElementType = Addr.getElementType();
     R.BitFieldInfo = &Info;
-    R.IsKnownNonNull = Addr.isKnownNonNull();
     R.Initialize(type, type.getQualifiers(), Addr.getAlignment(), BaseInfo,
                  TBAAInfo);
     return R;
@@ -483,7 +464,6 @@ public:
     R.LVType = GlobalReg;
     R.V = V;
     R.ElementType = nullptr;
-    R.IsKnownNonNull = true;
     R.Initialize(type, type.getQualifiers(), alignment,
                  LValueBaseInfo(AlignmentSource::Decl), TBAAAccessInfo());
     return R;
@@ -497,7 +477,6 @@ public:
     R.V = matAddress.getPointer();
     R.ElementType = matAddress.getElementType();
     R.VectorIdx = Idx;
-    R.IsKnownNonNull = matAddress.isKnownNonNull();
     R.Initialize(type, type.getQualifiers(), matAddress.getAlignment(),
                  BaseInfo, TBAAInfo);
     return R;
@@ -600,8 +579,6 @@ public:
                               Overlap_t mayOverlap,
                               IsZeroed_t isZeroed = IsNotZeroed,
                        IsSanitizerChecked_t isChecked = IsNotSanitizerChecked) {
-    if (addr.isValid())
-      addr.setKnownNonNull();
     return AggValueSlot(addr, quals, isDestructed, needsGC, isZeroed, isAliased,
                         mayOverlap, isChecked);
   }

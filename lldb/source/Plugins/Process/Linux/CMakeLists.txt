@@ -28,5 +28,4 @@ add_lldb_library(lldbPluginProcessLinux
     lldbPluginProcessUtility
   LINK_COMPONENTS
     Support
-    TargetParser
   )

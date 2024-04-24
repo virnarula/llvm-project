@@ -6,9 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 // UNSUPPORTED: no-localization
-// UNSUPPORTED: availability-filesystem-missing
 
 // <filesystem>
 
@@ -23,17 +22,16 @@
 // operator>>(basic_istream<charT, traits>& is, path& p)
 //
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <sstream>
 #include <cassert>
 #include <iostream>
 
-#include "count_new.h"
-#include "make_string.h"
-#include "test_iterators.h"
 #include "test_macros.h"
-namespace fs = std::filesystem;
+#include "test_iterators.h"
+#include "count_new.h"
+#include "filesystem_test_helper.h"
 
 MultiStringType InStr =  MKSTR("abcdefg/\"hijklmnop\"/qrstuvwxyz/123456789");
 MultiStringType OutStr = MKSTR("\"abcdefg/\\\"hijklmnop\\\"/qrstuvwxyz/123456789\"");

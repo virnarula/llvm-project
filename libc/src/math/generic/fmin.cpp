@@ -10,10 +10,10 @@
 #include "src/__support/FPUtil/BasicOperations.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(double, fmin, (double x, double y)) {
   return fputil::fmin(x, y);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

@@ -11,13 +11,13 @@
 
 #include <spawn.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int posix_spawn(pid_t *__restrict pid, const char *__restrict path,
                 const posix_spawn_file_actions_t *file_actions,
                 const posix_spawnattr_t *__restrict attr,
                 char *const *__restrict argv, char *const *__restrict envp);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SPAWN_POSIX_SPAWN_H

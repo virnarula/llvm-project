@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 // TODO: Features to add to the check:
 //  - Make it work if num_args > 26.
@@ -103,9 +105,9 @@ StrCatCheckResult processCall(const CallExpr *RootCall, bool IsAppend,
 }  // namespace
 
 void RedundantStrcatCallsCheck::check(const MatchFinder::MatchResult& Result) {
-  bool IsAppend = false;
+  bool IsAppend;
 
-  const CallExpr *RootCall = nullptr;
+  const CallExpr* RootCall;
   if ((RootCall = Result.Nodes.getNodeAs<CallExpr>("StrCat"))) 
   	IsAppend = false;
   else if ((RootCall = Result.Nodes.getNodeAs<CallExpr>("StrAppend"))) 
@@ -132,4 +134,6 @@ void RedundantStrcatCallsCheck::check(const MatchFinder::MatchResult& Result) {
       << CheckResult.Hints;
 }
 
-} // namespace clang::tidy::abseil
+}  // namespace abseil
+}  // namespace tidy
+}  // namespace clang

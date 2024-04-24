@@ -14,7 +14,7 @@
 #ifndef LLVM_CODEGEN_MACHINESTABLEHASH_H
 #define LLVM_CODEGEN_MACHINESTABLEHASH_H
 
-#include "llvm/ADT/StableHashing.h"
+#include "llvm/CodeGen/StableHashing.h"
 
 namespace llvm {
 class MachineBasicBlock;

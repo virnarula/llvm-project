@@ -10,9 +10,7 @@
 
 // shared_ptr
 
-// bool unique() const; // deprecated in C++17, removed in C++20
-
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS -D_LIBCPP_ENABLE_CXX20_REMOVED_SHARED_PTR_UNIQUE
+// bool unique() const;
 
 #include <memory>
 #include <cassert>

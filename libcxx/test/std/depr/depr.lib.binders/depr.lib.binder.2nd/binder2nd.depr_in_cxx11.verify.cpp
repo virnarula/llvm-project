@@ -16,5 +16,11 @@
 #include <functional>
 
 #include "../test_func.h"
+#include "test_macros.h"
 
-typedef std::binder2nd<test_func> B2ND; // expected-warning {{'binder2nd<test_func>' is deprecated}}
+int main(int, char**)
+{
+    typedef std::binder2nd<test_func> B2ND; // expected-warning {{'binder2nd<test_func>' is deprecated}}
+
+    return 0;
+}

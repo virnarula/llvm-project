@@ -11,7 +11,6 @@ add_mlir_conversion_library(MLIRMemRefToSPIRV
   MLIRConversionPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRFunctionInterfaces
   MLIRIR
   MLIRMemRefDialect
   MLIRPass

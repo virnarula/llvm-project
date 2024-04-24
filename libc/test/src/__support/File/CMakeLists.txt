@@ -1,14 +1,13 @@
-if(NOT (TARGET libc.src.__support.threads.mutex) OR LIBC_TARGET_ARCHITECTURE_IS_GPU)
+if(NOT (TARGET libc.src.__support.threads.mutex))
   # Not all platforms have a mutex implementation. If mutex is unvailable,
-  # we just skip everything about files. The GPU does not currently support
-  # files as well.
+  # we just skip everything about files.
   return()
 endif()
 
-add_libc_test(
+add_libc_unittest(
   file_test
   SUITE
-    libc-support-tests
+    libc_support_unittests
   SRCS
     file_test.cpp
   LINK_LIBRARIES
@@ -17,38 +16,21 @@ add_libc_test(
     libc.include.errno
     libc.include.stdio
     libc.include.stdlib
-    libc.src.__support.CPP.new
     libc.src.__support.File.file
 )
 
-add_libc_test(
-  platform_file_test
-  SUITE
-    libc-support-tests
-  SRCS
-    platform_file_test.cpp
-  DEPENDS
-    libc.src.__support.File.file
-    libc.src.__support.File.platform_file
-    libc.include.stdio
-)
-
-set(platform_stream_targets "platform_stdout;platform_stdin;platform_stderr")
-foreach(target IN LISTS platform_file_targets)
-  if(TARGET libc.src.__support.File.${target})
-    add_libc_test(
-      ${target}_test
-      HERMETIC_TEST_ONLY
-      SUITE
-        libc-support-tests
-      SRCS
-        ${target}_test.cpp
-      DEPENDS
-        libc.src.__support.File.file
-        libc.src.__support.File.${target}
-        libc.include.stdio
-    )
-  endif()
-endforeach()
+if (TARGET libc.src.__support.File.platform_file)
+  add_libc_unittest(
+    platform_file_test
+    SUITE
+      libc_support_unittests
+    SRCS
+      platform_file_test.cpp
+    DEPENDS
+      libc.src.__support.File.file
+      libc.src.__support.File.platform_file
+      libc.include.stdio
+  )
+endif()
 
 add_subdirectory(testdata)

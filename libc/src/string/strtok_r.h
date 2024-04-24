@@ -9,11 +9,11 @@
 #ifndef LLVM_LIBC_SRC_STRING_STRTOK_R_H
 #define LLVM_LIBC_SRC_STRING_STRTOK_R_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 char *strtok_r(char *__restrict src, const char *__restrict delimiter_string,
                char **__restrict saveptr);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_STRTOK_R_H

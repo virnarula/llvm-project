@@ -30,7 +30,12 @@ using namespace ento;
 
 namespace {
 class DynamicTypeChecker : public Checker<check::PostStmt<ImplicitCastExpr>> {
-  const BugType BT{this, "Dynamic and static type mismatch", "Type Error"};
+  mutable std::unique_ptr<BugType> BT;
+  void initBugType() const {
+    if (!BT)
+      BT.reset(
+          new BugType(this, "Dynamic and static type mismatch", "Type Error"));
+  }
 
   class DynamicTypeBugVisitor : public BugReporterVisitor {
   public:
@@ -65,6 +70,7 @@ void DynamicTypeChecker::reportTypeError(QualType DynamicType,
                                          const MemRegion *Reg,
                                          const Stmt *ReportedNode,
                                          CheckerContext &C) const {
+  initBugType();
   SmallString<192> Buf;
   llvm::raw_svector_ostream OS(Buf);
   OS << "Object has a dynamic type '";
@@ -75,7 +81,7 @@ void DynamicTypeChecker::reportTypeError(QualType DynamicType,
                   llvm::Twine());
   OS << "'";
   auto R = std::make_unique<PathSensitiveBugReport>(
-      BT, OS.str(), C.generateNonFatalErrorNode());
+      *BT, OS.str(), C.generateNonFatalErrorNode());
   R->markInteresting(Reg);
   R->addVisitor(std::make_unique<DynamicTypeBugVisitor>(Reg));
   R->addRange(ReportedNode->getSourceRange());

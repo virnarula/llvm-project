@@ -18,7 +18,6 @@
 #ifndef LLVM_TRANSFORMS_INSTCOMBINE_INSTCOMBINER_H
 #define LLVM_TRANSFORMS_INSTCOMBINE_INSTCOMBINER_H
 
-#include "llvm/Analysis/DomConditionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -35,7 +34,6 @@ namespace llvm {
 
 class AAResults;
 class AssumptionCache;
-class OptimizationRemarkEmitter;
 class ProfileSummaryInfo;
 class TargetLibraryInfo;
 class TargetTransformInfo;
@@ -73,23 +71,16 @@ protected:
   TargetLibraryInfo &TLI;
   DominatorTree &DT;
   const DataLayout &DL;
-  SimplifyQuery SQ;
+  const SimplifyQuery SQ;
   OptimizationRemarkEmitter &ORE;
   BlockFrequencyInfo *BFI;
   ProfileSummaryInfo *PSI;
-  DomConditionCache DC;
 
   // Optional analyses. When non-null, these can both be used to do better
   // combining and will be updated to reflect any changes.
   LoopInfo *LI;
 
   bool MadeIRChange = false;
-
-  /// Edges that are known to never be taken.
-  SmallDenseSet<std::pair<BasicBlock *, BasicBlock *>, 8> DeadEdges;
-
-  /// Order of predecessors to canonicalize phi nodes towards.
-  SmallDenseMap<BasicBlock *, SmallVector<BasicBlock *>, 8> PredOrder;
 
 public:
   InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
@@ -100,9 +91,7 @@ public:
                const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),
-        SQ(DL, &TLI, &DT, &AC, nullptr, /*UseInstrInfo*/ true,
-           /*CanUseUndef*/ true, &DC),
-        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}
+        SQ(DL, &TLI, &DT, &AC), ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}
 
   virtual ~InstCombiner() = default;
 
@@ -219,7 +208,7 @@ public:
     return ConstantExpr::getSub(C, ConstantInt::get(C->getType(), 1));
   }
 
-  std::optional<std::pair<
+  llvm::Optional<std::pair<
       CmpInst::Predicate,
       Constant *>> static getFlippedStrictnessPredicateAndConstant(CmpInst::
                                                                        Predicate
@@ -237,53 +226,56 @@ public:
                                                 PatternMatch::m_Value()));
   }
 
-  /// Return nonnull value if V is free to invert under the condition of
-  /// WillInvertAllUses.
-  /// If Builder is nonnull, it will return a simplified ~V.
-  /// If Builder is null, it will return an arbitrary nonnull value (not
-  /// dereferenceable).
-  /// If the inversion will consume instructions, `DoesConsume` will be set to
-  /// true. Otherwise it will be false.
-  Value *getFreelyInvertedImpl(Value *V, bool WillInvertAllUses,
-                                      BuilderTy *Builder, bool &DoesConsume,
-                                      unsigned Depth);
-
-  Value *getFreelyInverted(Value *V, bool WillInvertAllUses,
-                                  BuilderTy *Builder, bool &DoesConsume) {
-    DoesConsume = false;
-    return getFreelyInvertedImpl(V, WillInvertAllUses, Builder, DoesConsume,
-                                 /*Depth*/ 0);
-  }
-
-  Value *getFreelyInverted(Value *V, bool WillInvertAllUses,
-                                  BuilderTy *Builder) {
-    bool Unused;
-    return getFreelyInverted(V, WillInvertAllUses, Builder, Unused);
-  }
-
   /// Return true if the specified value is free to invert (apply ~ to).
   /// This happens in cases where the ~ can be eliminated.  If WillInvertAllUses
   /// is true, work under the assumption that the caller intends to remove all
   /// uses of V and only keep uses of ~V.
   ///
   /// See also: canFreelyInvertAllUsersOf()
-  bool isFreeToInvert(Value *V, bool WillInvertAllUses,
-                             bool &DoesConsume) {
-    return getFreelyInverted(V, WillInvertAllUses, /*Builder*/ nullptr,
-                             DoesConsume) != nullptr;
-  }
+  static bool isFreeToInvert(Value *V, bool WillInvertAllUses) {
+    // ~(~(X)) -> X.
+    if (match(V, m_Not(PatternMatch::m_Value())))
+      return true;
 
-  bool isFreeToInvert(Value *V, bool WillInvertAllUses) {
-    bool Unused;
-    return isFreeToInvert(V, WillInvertAllUses, Unused);
+    // Constants can be considered to be not'ed values.
+    if (match(V, PatternMatch::m_AnyIntegralConstant()))
+      return true;
+
+    // Compares can be inverted if all of their uses are being modified to use
+    // the ~V.
+    if (isa<CmpInst>(V))
+      return WillInvertAllUses;
+
+    // If `V` is of the form `A + Constant` then `-1 - V` can be folded into
+    // `(-1 - Constant) - A` if we are willing to invert all of the uses.
+    if (match(V, m_Add(PatternMatch::m_Value(), PatternMatch::m_ImmConstant())))
+      return WillInvertAllUses;
+
+    // If `V` is of the form `Constant - A` then `-1 - V` can be folded into
+    // `A + (-1 - Constant)` if we are willing to invert all of the uses.
+    if (match(V, m_Sub(PatternMatch::m_ImmConstant(), PatternMatch::m_Value())))
+      return WillInvertAllUses;
+
+    // Selects with invertible operands are freely invertible
+    if (match(V,
+              m_Select(PatternMatch::m_Value(), m_Not(PatternMatch::m_Value()),
+                       m_Not(PatternMatch::m_Value()))))
+      return WillInvertAllUses;
+
+    // Min/max may be in the form of intrinsics, so handle those identically
+    // to select patterns.
+    if (match(V, m_MaxOrMin(m_Not(PatternMatch::m_Value()),
+                            m_Not(PatternMatch::m_Value()))))
+      return WillInvertAllUses;
+
+    return false;
   }
 
   /// Given i1 V, can every user of V be freely adapted if V is changed to !V ?
   /// InstCombine's freelyInvertAllUsersOf() must be kept in sync with this fn.
-  /// NOTE: for Instructions only!
   ///
   /// See also: isFreeToInvert()
-  bool canFreelyInvertAllUsersOf(Instruction *V, Value *IgnoredUser) {
+  static bool canFreelyInvertAllUsersOf(Value *V, Value *IgnoredUser) {
     // Look at every user of V.
     for (Use &U : V->uses()) {
       if (U.getUser() == IgnoredUser)
@@ -386,12 +378,12 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
 
   // Call target specific combiners
-  std::optional<Instruction *> targetInstCombineIntrinsic(IntrinsicInst &II);
-  std::optional<Value *>
+  Optional<Instruction *> targetInstCombineIntrinsic(IntrinsicInst &II);
+  Optional<Value *>
   targetSimplifyDemandedUseBitsIntrinsic(IntrinsicInst &II, APInt DemandedMask,
                                          KnownBits &Known,
                                          bool &KnownBitsComputed);
-  std::optional<Value *> targetSimplifyDemandedVectorEltsIntrinsic(
+  Optional<Value *> targetSimplifyDemandedVectorEltsIntrinsic(
       IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
       APInt &UndefElts2, APInt &UndefElts3,
       std::function<void(Instruction *, unsigned, APInt, APInt &)>
@@ -401,17 +393,18 @@ public:
   ///
   /// Also adds the new instruction to the worklist and returns \p New so that
   /// it is suitable for use as the return from the visitation patterns.
-  Instruction *InsertNewInstBefore(Instruction *New, BasicBlock::iterator Old) {
+  Instruction *InsertNewInstBefore(Instruction *New, Instruction &Old) {
     assert(New && !New->getParent() &&
            "New instruction already inserted into a basic block!");
-    New->insertBefore(Old); // Insert inst
-    Worklist.add(New);
+    BasicBlock *BB = Old.getParent();
+    BB->getInstList().insert(Old.getIterator(), New); // Insert inst
+    Worklist.push(New);
     return New;
   }
 
   /// Same as InsertNewInstBefore, but also sets the debug loc.
-  Instruction *InsertNewInstWith(Instruction *New, BasicBlock::iterator Old) {
-    New->setDebugLoc(Old->getDebugLoc());
+  Instruction *InsertNewInstWith(Instruction *New, Instruction &Old) {
+    New->setDebugLoc(Old.getDebugLoc());
     return InsertNewInstBefore(New, Old);
   }
 
@@ -424,7 +417,8 @@ public:
   Instruction *replaceInstUsesWith(Instruction &I, Value *V) {
     // If there are no uses to replace, then we return nullptr to indicate that
     // no changes were made to the program.
-    if (I.use_empty()) return nullptr;
+    if (I.use_empty())
+      return nullptr;
 
     Worklist.pushUsersToWorkList(I); // Add all modified instrs to worklist.
 
@@ -436,27 +430,21 @@ public:
     LLVM_DEBUG(dbgs() << "IC: Replacing " << I << "\n"
                       << "    with " << *V << '\n');
 
-    // If V is a new unnamed instruction, take the name from the old one.
-    if (V->use_empty() && isa<Instruction>(V) && !V->hasName() && I.hasName())
-      V->takeName(&I);
-
     I.replaceAllUsesWith(V);
     return &I;
   }
 
   /// Replace operand of instruction and add old operand to the worklist.
   Instruction *replaceOperand(Instruction &I, unsigned OpNum, Value *V) {
-    Value *OldOp = I.getOperand(OpNum);
+    Worklist.addValue(I.getOperand(OpNum));
     I.setOperand(OpNum, V);
-    Worklist.handleUseCountDecrement(OldOp);
     return &I;
   }
 
   /// Replace use and add the previously used value to the worklist.
   void replaceUse(Use &U, Value *NewValue) {
-    Value *OldOp = U;
+    Worklist.addValue(U);
     U = NewValue;
-    Worklist.handleUseCountDecrement(OldOp);
   }
 
   /// Combiner aware instruction erasure.
@@ -468,12 +456,12 @@ public:
 
   void computeKnownBits(const Value *V, KnownBits &Known, unsigned Depth,
                         const Instruction *CxtI) const {
-    llvm::computeKnownBits(V, Known, Depth, SQ.getWithInstruction(CxtI));
+    llvm::computeKnownBits(V, Known, DL, Depth, &AC, CxtI, &DT);
   }
 
   KnownBits computeKnownBits(const Value *V, unsigned Depth,
                              const Instruction *CxtI) const {
-    return llvm::computeKnownBits(V, Depth, SQ.getWithInstruction(CxtI));
+    return llvm::computeKnownBits(V, DL, Depth, &AC, CxtI, &DT);
   }
 
   bool isKnownToBeAPowerOfTwo(const Value *V, bool OrZero = false,
@@ -484,7 +472,7 @@ public:
 
   bool MaskedValueIsZero(const Value *V, const APInt &Mask, unsigned Depth = 0,
                          const Instruction *CxtI = nullptr) const {
-    return llvm::MaskedValueIsZero(V, Mask, SQ.getWithInstruction(CxtI), Depth);
+    return llvm::MaskedValueIsZero(V, Mask, DL, Depth, &AC, CxtI, &DT);
   }
 
   unsigned ComputeNumSignBits(const Value *Op, unsigned Depth = 0,
@@ -500,43 +488,34 @@ public:
   OverflowResult computeOverflowForUnsignedMul(const Value *LHS,
                                                const Value *RHS,
                                                const Instruction *CxtI) const {
-    return llvm::computeOverflowForUnsignedMul(LHS, RHS,
-                                               SQ.getWithInstruction(CxtI));
+    return llvm::computeOverflowForUnsignedMul(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
   OverflowResult computeOverflowForSignedMul(const Value *LHS, const Value *RHS,
                                              const Instruction *CxtI) const {
-    return llvm::computeOverflowForSignedMul(LHS, RHS,
-                                             SQ.getWithInstruction(CxtI));
+    return llvm::computeOverflowForSignedMul(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
-  OverflowResult
-  computeOverflowForUnsignedAdd(const WithCache<const Value *> &LHS,
-                                const WithCache<const Value *> &RHS,
-                                const Instruction *CxtI) const {
-    return llvm::computeOverflowForUnsignedAdd(LHS, RHS,
-                                               SQ.getWithInstruction(CxtI));
+  OverflowResult computeOverflowForUnsignedAdd(const Value *LHS,
+                                               const Value *RHS,
+                                               const Instruction *CxtI) const {
+    return llvm::computeOverflowForUnsignedAdd(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
-  OverflowResult
-  computeOverflowForSignedAdd(const WithCache<const Value *> &LHS,
-                              const WithCache<const Value *> &RHS,
-                              const Instruction *CxtI) const {
-    return llvm::computeOverflowForSignedAdd(LHS, RHS,
-                                             SQ.getWithInstruction(CxtI));
+  OverflowResult computeOverflowForSignedAdd(const Value *LHS, const Value *RHS,
+                                             const Instruction *CxtI) const {
+    return llvm::computeOverflowForSignedAdd(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
   OverflowResult computeOverflowForUnsignedSub(const Value *LHS,
                                                const Value *RHS,
                                                const Instruction *CxtI) const {
-    return llvm::computeOverflowForUnsignedSub(LHS, RHS,
-                                               SQ.getWithInstruction(CxtI));
+    return llvm::computeOverflowForUnsignedSub(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
   OverflowResult computeOverflowForSignedSub(const Value *LHS, const Value *RHS,
                                              const Instruction *CxtI) const {
-    return llvm::computeOverflowForSignedSub(LHS, RHS,
-                                             SQ.getWithInstruction(CxtI));
+    return llvm::computeOverflowForSignedSub(LHS, RHS, DL, &AC, CxtI, &DT);
   }
 
   virtual bool SimplifyDemandedBits(Instruction *I, unsigned OpNo,
@@ -546,8 +525,6 @@ public:
   SimplifyDemandedVectorElts(Value *V, APInt DemandedElts, APInt &UndefElts,
                              unsigned Depth = 0,
                              bool AllowMultipleUsers = false) = 0;
-
-  bool isValidAddrSpaceCast(unsigned FromAS, unsigned ToAS) const;
 };
 
 } // namespace llvm

@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::hicpp {
+namespace clang {
+namespace tidy {
+namespace hicpp {
 
 namespace {
 AST_MATCHER(VarDecl, isAsm) { return Node.hasAttr<clang::AsmLabelAttr>(); }
@@ -42,4 +44,6 @@ void NoAssemblerCheck::check(const MatchFinder::MatchResult &Result) {
   diag(ASMLocation, "do not use inline assembler in safety-critical code");
 }
 
-} // namespace clang::tidy::hicpp
+} // namespace hicpp
+} // namespace tidy
+} // namespace clang

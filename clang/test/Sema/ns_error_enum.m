@@ -53,6 +53,7 @@ typedef NS_ERROR_ENUM(unsigned char, MyCFTypedefErrorEnum, MyCFTypedefErrorDomai
 
 extern char *const WrongErrorDomainType;
 enum __attribute__((ns_error_domain(WrongErrorDomainType))) MyWrongErrorDomainType { MyWrongErrorDomain };
+// expected-error@-1{{domain argument 'WrongErrorDomainType' does not point to an NSString or CFString constant}}
 
 struct __attribute__((ns_error_domain(MyErrorDomain))) MyStructWithErrorDomain {};
 // expected-error@-1{{'ns_error_domain' attribute only applies to enums}}
@@ -67,7 +68,7 @@ enum __attribute__((ns_error_domain(MyErrorDomain, MyErrorDomain))) TwoArgs { Tw
 // expected-error@-1{{'ns_error_domain' attribute takes one argument}}
 
 typedef NS_ERROR_ENUM(unsigned char, MyErrorEnumInvalid, InvalidDomain) {
-	// expected-error@-1{{domain argument 'InvalidDomain' does not refer to global constant}}
+	// expected-error@-1{{use of undeclared identifier 'InvalidDomain'}}
 	MyErrFirstInvalid,
 	MyErrSecondInvalid,
 };

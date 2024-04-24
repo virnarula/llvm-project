@@ -13,11 +13,12 @@ start:
 
 loop.header:
   %i = phi i64 [ 0, %start ], [ %i.next, %loop.backedge ]
+  %scevgep = getelementptr [1024 x i32], [1024 x i32]* @A, i64 0, i64 0
   %exitcond = icmp ne i64 %i, %n
   br i1 %exitcond, label %loop.body, label %ret
 
 loop.body:
-  store i32 1, ptr @A
+  store i32 1, i32* %scevgep
   br label %loop.backedge
 
 loop.backedge:

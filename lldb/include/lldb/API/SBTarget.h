@@ -21,13 +21,6 @@
 #include "lldb/API/SBType.h"
 #include "lldb/API/SBValue.h"
 #include "lldb/API/SBWatchpoint.h"
-#include "lldb/API/SBWatchpointOptions.h"
-
-namespace lldb_private {
-namespace python {
-class SWIGBridge;
-}
-} // namespace lldb_private
 
 namespace lldb {
 
@@ -48,6 +41,8 @@ public:
   SBTarget();
 
   SBTarget(const lldb::SBTarget &rhs);
+
+  SBTarget(const lldb::TargetSP &target_sp);
 
   // Destructor
   ~SBTarget();
@@ -329,10 +324,6 @@ public:
   
   const char *GetABIName();
 
-  const char *GetLabel() const;
-
-  SBError SetLabel(const char *label);
-
   /// Architecture data byte width accessor
   ///
   /// \return
@@ -378,7 +369,6 @@ public:
   ///     failure.
   lldb::SBError ClearSectionLoadAddress(lldb::SBSection section);
 
-#ifndef SWIG
   /// Slide all file addresses for all module sections so that \a module
   /// appears to loaded at these slide addresses.
   ///
@@ -397,32 +387,8 @@ public:
   /// \return
   ///     An error to indicate success, fail, and any reason for
   ///     failure.
-  LLDB_DEPRECATED_FIXME("Use SetModuleLoadAddress(lldb::SBModule, uint64_t)",
-                        "SetModuleLoadAddress(lldb::SBModule, uint64_t)")
   lldb::SBError SetModuleLoadAddress(lldb::SBModule module,
                                      int64_t sections_offset);
-#endif
-
-  /// Slide all file addresses for all module sections so that \a module
-  /// appears to loaded at these slide addresses.
-  ///
-  /// When you need all sections within a module to be loaded at a
-  /// rigid slide from the addresses found in the module object file,
-  /// this function will allow you to easily and quickly slide all
-  /// module sections.
-  ///
-  /// \param[in] module
-  ///     The module to load.
-  ///
-  /// \param[in] sections_offset
-  ///     An offset that will be applied to all section file addresses
-  ///     (the virtual addresses found in the object file itself).
-  ///
-  /// \return
-  ///     An error to indicate success, fail, and any reason for
-  ///     failure.
-  lldb::SBError SetModuleLoadAddress(lldb::SBModule module,
-                                     uint64_t sections_offset);
 
   /// Clear the section base load addresses for all sections in a module.
   ///
@@ -630,29 +596,6 @@ public:
       lldb::LanguageType symbol_language,
       const SBFileSpecList &module_list, const SBFileSpecList &comp_unit_list);
 
-#ifdef SWIG
-  lldb::SBBreakpoint BreakpointCreateByNames(
-      const char **symbol_name, uint32_t num_names,
-      uint32_t
-          name_type_mask, // Logical OR one or more FunctionNameType enum bits
-      const SBFileSpecList &module_list,
-      const SBFileSpecList &comp_unit_list);
-
-  lldb::SBBreakpoint BreakpointCreateByNames(
-      const char **symbol_name, uint32_t num_names,
-      uint32_t
-          name_type_mask, // Logical OR one or more FunctionNameType enum bits
-      lldb::LanguageType symbol_language,
-      const SBFileSpecList &module_list, const SBFileSpecList &comp_unit_list);
-
-  lldb::SBBreakpoint BreakpointCreateByNames(
-      const char **symbol_name, uint32_t num_names,
-      uint32_t
-          name_type_mask, // Logical OR one or more FunctionNameType enum bits
-      lldb::LanguageType symbol_language,
-      lldb::addr_t offset, const SBFileSpecList &module_list,
-      const SBFileSpecList &comp_unit_list);
-#else
   lldb::SBBreakpoint BreakpointCreateByNames(
       const char *symbol_name[], uint32_t num_names,
       uint32_t
@@ -674,7 +617,6 @@ public:
       lldb::LanguageType symbol_language,
       lldb::addr_t offset, const SBFileSpecList &module_list,
       const SBFileSpecList &comp_unit_list);
-#endif
 
   lldb::SBBreakpoint BreakpointCreateByRegex(const char *symbol_name_regex,
                                              const char *module_name = nullptr);
@@ -829,13 +771,8 @@ public:
 
   lldb::SBWatchpoint FindWatchpointByID(lldb::watch_id_t watch_id);
 
-  LLDB_DEPRECATED("WatchAddress deprecated, use WatchpointCreateByAddress")
   lldb::SBWatchpoint WatchAddress(lldb::addr_t addr, size_t size, bool read,
-                                  bool modify, SBError &error);
-
-  lldb::SBWatchpoint
-  WatchpointCreateByAddress(lldb::addr_t addr, size_t size,
-                            lldb::SBWatchpointOptions options, SBError &error);
+                                  bool write, SBError &error);
 
   bool EnableAllWatchpoints();
 
@@ -879,14 +816,13 @@ public:
                                                     const void *buf,
                                                     size_t size);
 
-#ifndef SWIG
   lldb::SBInstructionList GetInstructions(lldb::addr_t base_addr,
                                           const void *buf, size_t size);
+
   lldb::SBInstructionList GetInstructionsWithFlavor(lldb::addr_t base_addr,
                                                     const char *flavor_string,
                                                     const void *buf,
                                                     size_t size);
-#endif
 
   lldb::SBSymbolContextList FindSymbols(const char *name,
                                         lldb::SymbolType type = eSymbolTypeAny);
@@ -929,12 +865,10 @@ public:
 protected:
   friend class SBAddress;
   friend class SBBlock;
-  friend class SBBreakpoint;
   friend class SBBreakpointList;
   friend class SBBreakpointNameImpl;
   friend class SBDebugger;
   friend class SBExecutionContext;
-  friend class SBFrame;
   friend class SBFunction;
   friend class SBInstruction;
   friend class SBModule;
@@ -946,12 +880,8 @@ protected:
   friend class SBValue;
   friend class SBVariablesOptions;
 
-  friend class lldb_private::python::SWIGBridge;
-
   // Constructors are private, use static Target::Create function to create an
   // instance of this class.
-
-  SBTarget(const lldb::TargetSP &target_sp);
 
   lldb::TargetSP GetSP() const;
 

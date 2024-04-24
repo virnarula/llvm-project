@@ -16,7 +16,8 @@
 
 #include <iterator>
 
-void f() {
+int main(int, char**) {
     char const* it = "";
     std::reverse_iterator<char const*> r = it; // expected-error{{no viable conversion from 'const char *' to 'std::reverse_iterator<const char *>'}}
+    return 0;
 }

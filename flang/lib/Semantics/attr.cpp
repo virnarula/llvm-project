@@ -30,7 +30,7 @@ std::string AttrToString(Attr attr) {
   case Attr::INTENT_OUT:
     return "INTENT(OUT)";
   default:
-    return std::string{EnumToString(attr)};
+    return EnumToString(attr);
   }
 }
 

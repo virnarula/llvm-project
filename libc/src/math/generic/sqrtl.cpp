@@ -10,10 +10,10 @@
 #include "src/__support/FPUtil/sqrt.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(long double, sqrtl, (long double x)) {
   return fputil::sqrt(x);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

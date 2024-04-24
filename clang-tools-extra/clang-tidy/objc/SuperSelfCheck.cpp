@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 namespace {
 
@@ -102,4 +104,6 @@ void SuperSelfCheck::check(const MatchFinder::MatchResult &Result) {
                                        StringRef("[super init]"));
 }
 
-} // namespace clang::tidy::objc
+} // namespace objc
+} // namespace tidy
+} // namespace clang

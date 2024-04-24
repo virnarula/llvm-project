@@ -9,16 +9,15 @@
 #include "NativeProcessELF.h"
 
 #include "lldb/Utility/DataExtractor.h"
-#include <optional>
 
 namespace lldb_private {
 
-std::optional<uint64_t>
+llvm::Optional<uint64_t>
 NativeProcessELF::GetAuxValue(enum AuxVector::EntryType type) {
   if (m_aux_vector == nullptr) {
     auto buffer_or_error = GetAuxvData();
     if (!buffer_or_error)
-      return std::nullopt;
+      return llvm::None;
     DataExtractor auxv_data(buffer_or_error.get()->getBufferStart(),
                             buffer_or_error.get()->getBufferSize(),
                             GetByteOrder(), GetAddressByteSize());
@@ -45,11 +44,11 @@ lldb::addr_t NativeProcessELF::GetSharedLibraryInfoAddress() {
 
 template <typename ELF_EHDR, typename ELF_PHDR, typename ELF_DYN>
 lldb::addr_t NativeProcessELF::GetELFImageInfoAddress() {
-  std::optional<uint64_t> maybe_phdr_addr =
+  llvm::Optional<uint64_t> maybe_phdr_addr =
       GetAuxValue(AuxVector::AUXV_AT_PHDR);
-  std::optional<uint64_t> maybe_phdr_entry_size =
+  llvm::Optional<uint64_t> maybe_phdr_entry_size =
       GetAuxValue(AuxVector::AUXV_AT_PHENT);
-  std::optional<uint64_t> maybe_phdr_num_entries =
+  llvm::Optional<uint64_t> maybe_phdr_num_entries =
       GetAuxValue(AuxVector::AUXV_AT_PHNUM);
   if (!maybe_phdr_addr || !maybe_phdr_entry_size || !maybe_phdr_num_entries)
     return LLDB_INVALID_ADDRESS;

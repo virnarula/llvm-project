@@ -15,25 +15,13 @@ find_library(Terminfo_LIBRARIES NAMES terminfo tinfo curses ncurses ncursesw)
 
 if(Terminfo_LIBRARIES)
   include(CMakePushCheckState)
+  include(CheckCSourceCompiles)
   cmake_push_check_state()
   list(APPEND CMAKE_REQUIRED_LIBRARIES ${Terminfo_LIBRARIES})
-  set(Terminfo_LINKABLE_SRC [=[
-    #ifdef __cplusplus
-    extern "C" {
-    #endif
+  check_c_source_compiles("
     int setupterm(char *term, int filedes, int *errret);
-    #ifdef __cplusplus
-    }
-    #endif
-    int main(void) { return setupterm(0, 0, 0); }
-    ]=])
-  if(DEFINED CMAKE_C_COMPILER)
-    include(CheckCSourceCompiles)
-    check_c_source_compiles("${Terminfo_LINKABLE_SRC}" Terminfo_LINKABLE)
-  else()
-    include(CheckCXXSourceCompiles)
-    check_cxx_source_compiles("${Terminfo_LINKABLE_SRC}" Terminfo_LINKABLE)
-  endif()
+    int main() { return setupterm(0, 0, 0); }"
+    Terminfo_LINKABLE)
   cmake_pop_check_state()
 endif()
 

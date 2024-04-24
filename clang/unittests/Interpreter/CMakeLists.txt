@@ -3,13 +3,11 @@ set(LLVM_LINK_COMPONENTS
   Core
   OrcJIT
   Support
-  TargetParser
   )
 
 add_clang_unittest(ClangReplInterpreterTests
   IncrementalProcessingTest.cpp
   InterpreterTest.cpp
-  CodeCompletionTest.cpp
   )
 target_link_libraries(ClangReplInterpreterTests PUBLIC
   clangAST
@@ -23,5 +21,3 @@ target_link_libraries(ClangReplInterpreterTests PUBLIC
 if(NOT WIN32)
   add_subdirectory(ExceptionTests)
 endif()
-
-export_executable_symbols(ClangReplInterpreterTests)

@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::llvm_check {
+namespace clang {
+namespace tidy {
+namespace llvm_check {
 
 /// Looks at conditionals and finds and replaces cases of ``cast<>``, which will
 /// assert rather than return a null pointer, and ``dyn_cast<>`` where
@@ -58,6 +60,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::llvm_check
+} // namespace llvm_check
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LLVM_PREFERISAORDYNCASTINCONDITIONALSCHECK_H

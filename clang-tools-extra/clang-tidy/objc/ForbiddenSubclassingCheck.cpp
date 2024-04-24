@@ -15,7 +15,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 namespace {
 
@@ -78,4 +80,6 @@ void ForbiddenSubclassingCheck::storeOptions(
       utils::options::serializeStringList(ForbiddenSuperClassNames));
 }
 
-} // namespace clang::tidy::objc
+} // namespace objc
+} // namespace tidy
+} // namespace clang

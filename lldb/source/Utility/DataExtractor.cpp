@@ -23,7 +23,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/MathExtras.h"
@@ -71,39 +70,39 @@ static inline uint16_t ReadSwapInt16(const unsigned char *ptr,
                                      offset_t offset) {
   uint16_t value;
   memcpy(&value, ptr + offset, 2);
-  return llvm::byteswap<uint16_t>(value);
+  return llvm::ByteSwap_16(value);
 }
 
 static inline uint32_t ReadSwapInt32(const unsigned char *ptr,
                                      offset_t offset) {
   uint32_t value;
   memcpy(&value, ptr + offset, 4);
-  return llvm::byteswap<uint32_t>(value);
+  return llvm::ByteSwap_32(value);
 }
 
 static inline uint64_t ReadSwapInt64(const unsigned char *ptr,
                                      offset_t offset) {
   uint64_t value;
   memcpy(&value, ptr + offset, 8);
-  return llvm::byteswap<uint64_t>(value);
+  return llvm::ByteSwap_64(value);
 }
 
 static inline uint16_t ReadSwapInt16(const void *ptr) {
   uint16_t value;
   memcpy(&value, ptr, 2);
-  return llvm::byteswap<uint16_t>(value);
+  return llvm::ByteSwap_16(value);
 }
 
 static inline uint32_t ReadSwapInt32(const void *ptr) {
   uint32_t value;
   memcpy(&value, ptr, 4);
-  return llvm::byteswap<uint32_t>(value);
+  return llvm::ByteSwap_32(value);
 }
 
 static inline uint64_t ReadSwapInt64(const void *ptr) {
   uint64_t value;
   memcpy(&value, ptr, 8);
-  return llvm::byteswap<uint64_t>(value);
+  return llvm::ByteSwap_64(value);
 }
 
 static inline uint64_t ReadMaxInt64(const uint8_t *data, size_t byte_size,

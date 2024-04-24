@@ -11,10 +11,10 @@
 
 #include <signal.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int kill(pid_t pid, int sig);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SIGNAL_KILL_H

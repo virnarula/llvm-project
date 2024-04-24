@@ -8,6 +8,7 @@
 
 #ifndef LLDB_HOST_TERMINAL_H
 #define LLDB_HOST_TERMINAL_H
+#if defined(__cplusplus)
 
 #include "lldb/lldb-private.h"
 #include "llvm/Support/Error.h"
@@ -171,4 +172,5 @@ protected:
 
 } // namespace lldb_private
 
+#endif // #if defined(__cplusplus)
 #endif // LLDB_HOST_TERMINAL_H

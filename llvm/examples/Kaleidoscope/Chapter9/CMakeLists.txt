@@ -4,7 +4,6 @@ set(LLVM_LINK_COMPONENTS
   Object
   OrcJIT
   Support
-  TargetParser
   native
   )
 

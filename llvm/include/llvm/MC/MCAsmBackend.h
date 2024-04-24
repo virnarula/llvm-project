@@ -10,6 +10,7 @@
 #define LLVM_MC_MCASMBACKEND_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/Support/Endian.h"
@@ -21,13 +22,11 @@ class MCAlignFragment;
 class MCDwarfCallFrameFragment;
 class MCDwarfLineAddrFragment;
 class MCFragment;
-class MCLEBFragment;
 class MCRelaxableFragment;
 class MCSymbol;
 class MCAsmLayout;
 class MCAssembler;
-class MCContext;
-struct MCDwarfFrameInfo;
+class MCCFIInstruction;
 struct MCFixupKindInfo;
 class MCInst;
 class MCObjectStreamer;
@@ -42,17 +41,14 @@ class raw_ostream;
 /// Generic interface to target specific assembler backends.
 class MCAsmBackend {
 protected: // Can only create subclasses.
-  MCAsmBackend(llvm::endianness Endian, unsigned RelaxFixupKind = MaxFixupKind);
+  MCAsmBackend(support::endianness Endian);
 
 public:
   MCAsmBackend(const MCAsmBackend &) = delete;
   MCAsmBackend &operator=(const MCAsmBackend &) = delete;
   virtual ~MCAsmBackend();
 
-  const llvm::endianness Endian;
-
-  /// Fixup kind used for linker relaxation. Currently only used by RISC-V.
-  const unsigned RelaxFixupKind;
+  const support::endianness Endian;
 
   /// Return true if this target might automatically pad instructions and thus
   /// need to emit padding enable/disable directives around sensative code.
@@ -93,7 +89,7 @@ public:
   virtual unsigned getNumFixupKinds() const = 0;
 
   /// Map a relocation name used in .reloc to a fixup kind.
-  virtual std::optional<MCFixupKind> getFixupKind(StringRef Name) const;
+  virtual Optional<MCFixupKind> getFixupKind(StringRef Name) const;
 
   /// Get information on a fixup kind.
   virtual const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const;
@@ -101,8 +97,7 @@ public:
   /// Hook to check if a relocation is needed for some target specific reason.
   virtual bool shouldForceRelocation(const MCAssembler &Asm,
                                      const MCFixup &Fixup,
-                                     const MCValue &Target,
-                                     const MCSubtargetInfo *STI) {
+                                     const MCValue &Target) {
     return false;
   }
 
@@ -125,18 +120,9 @@ public:
   virtual bool evaluateTargetFixup(const MCAssembler &Asm,
                                    const MCAsmLayout &Layout,
                                    const MCFixup &Fixup, const MCFragment *DF,
-                                   const MCValue &Target,
-                                   const MCSubtargetInfo *STI, uint64_t &Value,
+                                   const MCValue &Target, uint64_t &Value,
                                    bool &WasForced) {
     llvm_unreachable("Need to implement hook if target has custom fixups");
-  }
-
-  virtual bool handleAddSubRelocations(const MCAsmLayout &Layout,
-                                       const MCFragment &F,
-                                       const MCFixup &Fixup,
-                                       const MCValue &Target,
-                                       uint64_t &FixedValue) const {
-    return false;
   }
 
   /// Apply the \p Value for given \p Fixup into the provided data fragment, at
@@ -196,13 +182,6 @@ public:
     return false;
   }
 
-  // Defined by linker relaxation targets to possibly emit LEB128 relocations
-  // and set Value at the relocated location.
-  virtual std::pair<bool, bool>
-  relaxLEB128(MCLEBFragment &LF, MCAsmLayout &Layout, int64_t &Value) const {
-    return std::make_pair(false, false);
-  }
-
   /// @}
 
   /// Returns the minimum size of a nop in bytes on this target. The assembler
@@ -232,8 +211,8 @@ public:
   virtual void handleAssemblerFlag(MCAssemblerFlag Flag) {}
 
   /// Generate the compact unwind encoding for the CFI instructions.
-  virtual uint32_t generateCompactUnwindEncoding(const MCDwarfFrameInfo *FI,
-                                                 const MCContext *Ctxt) const {
+  virtual uint32_t
+      generateCompactUnwindEncoding(ArrayRef<MCCFIInstruction>) const {
     return 0;
   }
 
@@ -241,8 +220,6 @@ public:
   virtual bool isMicroMips(const MCSymbol *Sym) const {
     return false;
   }
-
-  bool isDarwinCanonicalPersonality(const MCSymbol *Sym) const;
 };
 
 } // end namespace llvm

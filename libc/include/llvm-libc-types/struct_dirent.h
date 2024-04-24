@@ -14,11 +14,10 @@
 
 struct dirent {
   ino_t d_ino;
-#ifdef __linux__
+#ifdef __unix__
   off_t d_off;
   unsigned short d_reclen;
 #endif
-  unsigned char d_type;
   // The user code should use strlen to determine actual the size of d_name.
   // Likewise, it is incorrect and prohibited by the POSIX standard to detemine
   // the size of struct dirent type using sizeof. The size should be got using

@@ -173,20 +173,20 @@ const uint8_t *SBModule::GetUUIDBytes() const {
 const char *SBModule::GetUUIDString() const {
   LLDB_INSTRUMENT_VA(this);
 
+  const char *uuid_cstr = nullptr;
   ModuleSP module_sp(GetSP());
-  if (!module_sp)
-    return nullptr;
+  if (module_sp) {
+    // We are going to return a "const char *" value through the public API, so
+    // we need to constify it so it gets added permanently the string pool and
+    // then we don't need to worry about the lifetime of the string as it will
+    // never go away once it has been put into the ConstString string pool
+    uuid_cstr = ConstString(module_sp->GetUUID().GetAsString()).GetCString();
+  }
 
-  // We are going to return a "const char *" value through the public API, so
-  // we need to constify it so it gets added permanently the string pool and
-  // then we don't need to worry about the lifetime of the string as it will
-  // never go away once it has been put into the ConstString string pool
-  const char *uuid_cstr =
-      ConstString(module_sp->GetUUID().GetAsString()).GetCString();
-  // Note: SBModule::GetUUIDString's expected behavior is to return nullptr if
-  // the string we get is empty, so we must perform this check before returning.
-  if (uuid_cstr && uuid_cstr[0])
+  if (uuid_cstr && uuid_cstr[0]) {
     return uuid_cstr;
+  }
+
   return nullptr;
 }
 
@@ -436,27 +436,26 @@ lldb::SBValue SBModule::FindFirstGlobalVariable(lldb::SBTarget &target,
 lldb::SBType SBModule::FindFirstType(const char *name_cstr) {
   LLDB_INSTRUMENT_VA(this, name_cstr);
 
+  SBType sb_type;
   ModuleSP module_sp(GetSP());
   if (name_cstr && module_sp) {
+    SymbolContext sc;
+    const bool exact_match = false;
     ConstString name(name_cstr);
-    TypeQuery query(name.GetStringRef(), TypeQueryOptions::e_find_one);
-    TypeResults results;
-    module_sp->FindTypes(query, results);
-    TypeSP type_sp = results.GetFirstType();
-    if (type_sp)
-      return SBType(type_sp);
 
-    auto type_system_or_err =
-        module_sp->GetTypeSystemForLanguage(eLanguageTypeC);
-    if (auto err = type_system_or_err.takeError()) {
-      llvm::consumeError(std::move(err));
-      return {};
+    sb_type = SBType(module_sp->FindFirstType(sc, name, exact_match));
+
+    if (!sb_type.IsValid()) {
+      auto type_system_or_err =
+          module_sp->GetTypeSystemForLanguage(eLanguageTypeC);
+      if (auto err = type_system_or_err.takeError()) {
+        llvm::consumeError(std::move(err));
+        return SBType();
+      }
+      sb_type = SBType(type_system_or_err->GetBuiltinTypeByName(name));
     }
-
-    if (auto ts = *type_system_or_err)
-      return SBType(ts->GetBuiltinTypeByName(name));
   }
-  return {};
+  return sb_type;
 }
 
 lldb::SBType SBModule::GetBasicType(lldb::BasicType type) {
@@ -469,8 +468,7 @@ lldb::SBType SBModule::GetBasicType(lldb::BasicType type) {
     if (auto err = type_system_or_err.takeError()) {
       llvm::consumeError(std::move(err));
     } else {
-      if (auto ts = *type_system_or_err)
-        return SBType(ts->GetBasicTypeFromAST(type));
+      return SBType(type_system_or_err->GetBasicTypeFromAST(type));
     }
   }
   return SBType();
@@ -484,23 +482,29 @@ lldb::SBTypeList SBModule::FindTypes(const char *type) {
   ModuleSP module_sp(GetSP());
   if (type && module_sp) {
     TypeList type_list;
-    TypeQuery query(type);
-    TypeResults results;
-    module_sp->FindTypes(query, results);
-    if (results.GetTypeMap().Empty()) {
-      ConstString name(type);
+    const bool exact_match = false;
+    ConstString name(type);
+    llvm::DenseSet<SymbolFile *> searched_symbol_files;
+    module_sp->FindTypes(name, exact_match, UINT32_MAX, searched_symbol_files,
+                         type_list);
+
+    if (type_list.Empty()) {
       auto type_system_or_err =
           module_sp->GetTypeSystemForLanguage(eLanguageTypeC);
       if (auto err = type_system_or_err.takeError()) {
         llvm::consumeError(std::move(err));
       } else {
-        if (auto ts = *type_system_or_err)
-          if (CompilerType compiler_type = ts->GetBuiltinTypeByName(name))
-            retval.Append(SBType(compiler_type));
+        CompilerType compiler_type =
+            type_system_or_err->GetBuiltinTypeByName(name);
+        if (compiler_type)
+          retval.Append(SBType(compiler_type));
       }
     } else {
-      for (const TypeSP &type_sp : results.GetTypeMap().Types())
-        retval.Append(SBType(type_sp));
+      for (size_t idx = 0; idx < type_list.GetSize(); idx++) {
+        TypeSP type_sp(type_list.GetTypeAtIndex(idx));
+        if (type_sp)
+          retval.Append(SBType(type_sp));
+      }
     }
   }
   return retval;
@@ -573,15 +577,15 @@ const char *SBModule::GetTriple() {
   LLDB_INSTRUMENT_VA(this);
 
   ModuleSP module_sp(GetSP());
-  if (!module_sp)
-    return nullptr;
-
-  std::string triple(module_sp->GetArchitecture().GetTriple().str());
-  // Unique the string so we don't run into ownership issues since the const
-  // strings put the string into the string pool once and the strings never
-  // comes out
-  ConstString const_triple(triple.c_str());
-  return const_triple.GetCString();
+  if (module_sp) {
+    std::string triple(module_sp->GetArchitecture().GetTriple().str());
+    // Unique the string so we don't run into ownership issues since the const
+    // strings put the string into the string pool once and the strings never
+    // comes out
+    ConstString const_triple(triple.c_str());
+    return const_triple.GetCString();
+  }
+  return nullptr;
 }
 
 uint32_t SBModule::GetAddressByteSize() {

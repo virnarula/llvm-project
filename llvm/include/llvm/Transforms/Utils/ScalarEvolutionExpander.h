@@ -219,11 +219,11 @@ public:
   /// Return true for expressions that can't be evaluated at runtime
   /// within given \b Budget.
   ///
-  /// \p At is a parameter which specifies point in code where user is going to
-  /// expand these expressions. Sometimes this knowledge can lead to
+  /// At is a parameter which specifies point in code where user is going to
+  /// expand this expression. Sometimes this knowledge can lead to
   /// a less pessimistic cost estimation.
-  bool isHighCostExpansion(ArrayRef<const SCEV *> Exprs, Loop *L,
-                           unsigned Budget, const TargetTransformInfo *TTI,
+  bool isHighCostExpansion(const SCEV *Expr, Loop *L, unsigned Budget,
+                           const TargetTransformInfo *TTI,
                            const Instruction *At) {
     assert(TTI && "This function requires TTI to be provided.");
     assert(At && "This function requires At instruction to be provided.");
@@ -233,8 +233,7 @@ public:
     SmallPtrSet<const SCEV *, 8> Processed;
     InstructionCost Cost = 0;
     unsigned ScaledBudget = Budget * TargetTransformInfo::TCC_Basic;
-    for (auto *Expr : Exprs)
-      Worklist.emplace_back(-1, -1, Expr);
+    Worklist.emplace_back(-1, -1, Expr);
     while (!Worklist.empty()) {
       const SCEVOperand WorkItem = Worklist.pop_back_val();
       if (isHighCostExpansionHelper(WorkItem, L, *At, Cost, ScaledBudget, *TTI,
@@ -276,16 +275,17 @@ public:
 
   /// Insert code to directly compute the specified SCEV expression into the
   /// program.  The code is inserted into the specified block.
-  Value *expandCodeFor(const SCEV *SH, Type *Ty, BasicBlock::iterator I);
   Value *expandCodeFor(const SCEV *SH, Type *Ty, Instruction *I) {
-    return expandCodeFor(SH, Ty, I->getIterator());
+    return expandCodeForImpl(SH, Ty, I);
   }
 
   /// Insert code to directly compute the specified SCEV expression into the
   /// program.  The code is inserted into the SCEVExpander's current
   /// insertion point. If a type is specified, the result will be expanded to
   /// have that type, with a cast if necessary.
-  Value *expandCodeFor(const SCEV *SH, Type *Ty = nullptr);
+  Value *expandCodeFor(const SCEV *SH, Type *Ty = nullptr) {
+    return expandCodeForImpl(SH, Ty);
+  }
 
   /// Generates a code sequence that evaluates this predicate.  The inserted
   /// instructions will be at position \p Loc.  The result will be of type i1
@@ -350,10 +350,6 @@ public:
     Builder.SetInsertPoint(IP);
   }
 
-  void setInsertPoint(BasicBlock::iterator IP) {
-    Builder.SetInsertPoint(IP->getParent(), IP);
-  }
-
   /// Clear the current insertion point. This is useful if the instruction
   /// that had been serving as the insertion point may have been deleted.
   void clearInsertPoint() { Builder.ClearInsertionPoint(); }
@@ -377,15 +373,20 @@ public:
 
   void setChainedPhi(PHINode *PN) { ChainedPhis.insert(PN); }
 
-  /// Determine whether there is an existing expansion of S that can be reused.
-  /// This is used to check whether S can be expanded cheaply.
+  /// Try to find the ValueOffsetPair for S. The function is mainly used to
+  /// check whether S can be expanded cheaply.  If this returns a non-None
+  /// value, we know we can codegen the `ValueOffsetPair` into a suitable
+  /// expansion identical with S so that S can be expanded cheaply.
   ///
   /// L is a hint which tells in which loop to look for the suitable value.
+  /// On success return value which is equivalent to the expanded S at point
+  /// At. Return nullptr if value was not found.
   ///
   /// Note that this function does not perform an exhaustive search. I.e if it
   /// didn't find any value it does not mean that there is no such value.
-  bool hasRelatedExistingExpansion(const SCEV *S, const Instruction *At,
-                                   Loop *L);
+  ///
+  Value *getRelatedExistingExpansion(const SCEV *S, const Instruction *At,
+                                     Loop *L);
 
   /// Returns a suitable insert point after \p I, that dominates \p
   /// MustDominate. Skips instructions inserted by the expander.
@@ -394,6 +395,20 @@ public:
 
 private:
   LLVMContext &getContext() const { return SE.getContext(); }
+
+  /// Insert code to directly compute the specified SCEV expression into the
+  /// program. The code is inserted into the SCEVExpander's current
+  /// insertion point. If a type is specified, the result will be expanded to
+  /// have that type, with a cast if necessary. If \p Root is true, this
+  /// indicates that \p SH is the top-level expression to expand passed from
+  /// an external client call.
+  Value *expandCodeForImpl(const SCEV *SH, Type *Ty);
+
+  /// Insert code to directly compute the specified SCEV expression into the
+  /// program. The code is inserted into the specified block. If \p
+  /// Root is true, this indicates that \p SH is the top-level expression to
+  /// expand passed from an external client call.
+  Value *expandCodeForImpl(const SCEV *SH, Type *Ty, Instruction *I);
 
   /// Recursive helper function for isHighCostExpansion.
   bool isHighCostExpansionHelper(const SCEVOperand &WorkItem, Loop *L,
@@ -424,24 +439,14 @@ private:
 
   /// Expand a SCEVAddExpr with a pointer type into a GEP instead of using
   /// ptrtoint+arithmetic+inttoptr.
-  Value *expandAddToGEP(const SCEV *Op, Value *V);
+  Value *expandAddToGEP(const SCEV *const *op_begin, const SCEV *const *op_end,
+                        PointerType *PTy, Type *Ty, Value *V);
+  Value *expandAddToGEP(const SCEV *Op, PointerType *PTy, Type *Ty, Value *V);
 
   /// Find a previous Value in ExprValueMap for expand.
-  /// DropPoisonGeneratingInsts is populated with instructions for which
-  /// poison-generating flags must be dropped if the value is reused.
-  Value *FindValueInExprValueMap(
-      const SCEV *S, const Instruction *InsertPt,
-      SmallVectorImpl<Instruction *> &DropPoisonGeneratingInsts);
+  Value *FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
 
   Value *expand(const SCEV *S);
-  Value *expand(const SCEV *S, BasicBlock::iterator I) {
-    setInsertPoint(I);
-    return expand(S);
-  }
-  Value *expand(const SCEV *S, Instruction *I) {
-    setInsertPoint(I);
-    return expand(S);
-  }
 
   /// Determine the most "relevant" loop for the given SCEV.
   const Loop *getRelevantLoop(const SCEV *);
@@ -450,8 +455,6 @@ private:
                           Twine Name, bool IsSequential = false);
 
   Value *visitConstant(const SCEVConstant *S) { return S->getValue(); }
-
-  Value *visitVScale(const SCEVVScale *S);
 
   Value *visitPtrToIntExpr(const SCEVPtrToIntExpr *S);
 
@@ -489,10 +492,10 @@ private:
 
   Value *expandAddRecExprLiterally(const SCEVAddRecExpr *);
   PHINode *getAddRecExprPHILiterally(const SCEVAddRecExpr *Normalized,
-                                     const Loop *L, Type *&TruncTy,
-                                     bool &InvertStep);
-  Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L,
-                     bool useSubtract);
+                                     const Loop *L, Type *ExpandTy, Type *IntTy,
+                                     Type *&TruncTy, bool &InvertStep);
+  Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L, Type *ExpandTy,
+                     Type *IntTy, bool useSubtract);
 
   void fixupInsertPoints(Instruction *I);
 

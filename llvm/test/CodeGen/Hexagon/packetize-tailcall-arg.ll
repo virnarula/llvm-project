@@ -8,14 +8,15 @@
 ; CHECK: {
 ; CHECK-NOT: {
 
-define void @fred(ptr %p) nounwind {
+define void @fred(i8* %p) nounwind {
 entry:
-  %arrayidx = getelementptr inbounds i8, ptr %p, i32 -4
-  %t1 = load ptr, ptr %arrayidx, align 4
-  tail call void @free(ptr %t1)
+  %arrayidx = getelementptr inbounds i8, i8* %p, i32 -4
+  %t0 = bitcast i8* %arrayidx to i8**
+  %t1 = load i8*, i8** %t0, align 4
+  tail call void @free(i8* %t1)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @free(ptr nocapture) nounwind
+declare void @free(i8* nocapture) nounwind
 

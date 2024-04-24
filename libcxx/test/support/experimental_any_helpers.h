@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef EXPERIMENTAL_ANY_HELPERS_H
 #define EXPERIMENTAL_ANY_HELPERS_H
 

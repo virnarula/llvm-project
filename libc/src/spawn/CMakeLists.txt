@@ -30,7 +30,6 @@ add_entrypoint_object(
     .file_actions
     libc.include.errno
     libc.include.spawn
-    libc.src.__support.CPP.new
 )
 
 add_entrypoint_object(
@@ -43,7 +42,6 @@ add_entrypoint_object(
     .file_actions
     libc.include.errno
     libc.include.spawn
-    libc.src.__support.CPP.new
 )
 
 add_entrypoint_object(
@@ -56,7 +54,6 @@ add_entrypoint_object(
     .file_actions
     libc.include.errno
     libc.include.spawn
-    libc.src.__support.CPP.new
 )
 
 add_entrypoint_object(
@@ -69,7 +66,6 @@ add_entrypoint_object(
     .file_actions
     libc.include.errno
     libc.include.spawn
-    libc.src.__support.CPP.new
 )
 
 add_entrypoint_object(

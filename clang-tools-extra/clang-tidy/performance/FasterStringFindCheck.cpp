@@ -10,36 +10,32 @@
 #include "../utils/OptionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 namespace {
 
-std::optional<std::string> makeCharacterLiteral(const StringLiteral *Literal) {
+llvm::Optional<std::string> makeCharacterLiteral(const StringLiteral *Literal) {
   std::string Result;
   {
     llvm::raw_string_ostream OS(Result);
     Literal->outputString(OS);
   }
   // Now replace the " with '.
-  auto OpenPos = Result.find_first_of('"');
-  if (OpenPos == std::string::npos)
-    return std::nullopt;
-  Result[OpenPos] = '\'';
-
-  auto ClosePos = Result.find_last_of('"');
-  if (ClosePos == std::string::npos)
-    return std::nullopt;
-  Result[ClosePos] = '\'';
-
-  // "'" is OK, but ''' is not, so add a backslash
-  if ((ClosePos - OpenPos) == 2 && Result[OpenPos + 1] == '\'')
-    Result.replace(OpenPos + 1, 1, "\\'");
-
+  auto Pos = Result.find_first_of('"');
+  if (Pos == Result.npos)
+    return llvm::None;
+  Result[Pos] = '\'';
+  Pos = Result.find_last_of('"');
+  if (Pos == Result.npos)
+    return llvm::None;
+  Result[Pos] = '\'';
   return Result;
 }
 
@@ -99,4 +95,6 @@ void FasterStringFindCheck::check(const MatchFinder::MatchResult &Result) {
              *Replacement);
 }
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang

@@ -13,7 +13,7 @@
 #ifndef TOY_OPS
 #define TOY_OPS
 
-include "mlir/Interfaces/FunctionInterfaces.td"
+include "mlir/IR/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/Interfaces/CastInterfaces.td"
@@ -33,7 +33,6 @@ def Toy_Dialect : Dialect {
   // We set this bit to generate the declarations for the dialect's type parsing
   // and printing hooks.
   let useDefaultTypePrinterParser = 1;
-
 }
 
 // Base class for toy dialect operations. This operation inherits from the base
@@ -48,7 +47,7 @@ class Toy_Op<string mnemonic, list<Trait> traits = []> :
 // using StructType in a similar way to Tensor or MemRef. We use `DialectType`
 // to demarcate the StructType as belonging to the Toy dialect.
 def Toy_StructType :
-    DialectType<Toy_Dialect, CPred<"::llvm::isa<StructType>($_self)">,
+    DialectType<Toy_Dialect, CPred<"$_self.isa<StructType>()">,
                 "Toy struct type">;
 
 // Provide a definition of the types that are used within the Toy dialect.
@@ -165,7 +164,8 @@ def CastOp : Toy_Op<"cast", [
 //===----------------------------------------------------------------------===//
 
 def FuncOp : Toy_Op<"func", [
-    FunctionOpInterface, IsolatedFromAbove
+    DeclareOpInterfaceMethods<CallableOpInterface>, FunctionOpInterface,
+    IsolatedFromAbove, Symbol
   ]> {
   let summary = "user defined function operation";
   let description = [{
@@ -186,9 +186,7 @@ def FuncOp : Toy_Op<"func", [
 
   let arguments = (ins
     SymbolNameAttr:$sym_name,
-    TypeAttrOf<FunctionType>:$function_type,
-    OptionalAttr<DictArrayAttr>:$arg_attrs,
-    OptionalAttr<DictArrayAttr>:$res_attrs
+    TypeAttrOf<FunctionType>:$function_type
   );
   let regions = (region AnyRegion:$body);
 
@@ -206,8 +204,6 @@ def FuncOp : Toy_Op<"func", [
 
     /// Returns the result types of this function.
     ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
-
-    Region *getCallableRegion() { return &getBody(); }
   }];
   let hasCustomAssemblyFormat = 1;
   let skipDefaultBuilders = 1;
@@ -354,7 +350,7 @@ def ReturnOp : Toy_Op<"return", [Pure, HasParent<"FuncOp">,
 
   // Allow building a ReturnOp with no return operand.
   let builders = [
-    OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
+    OpBuilder<(ins), [{ build($_builder, $_state, llvm::None); }]>
   ];
 
   // Provide extra utility definitions on the c++ operation class definition.

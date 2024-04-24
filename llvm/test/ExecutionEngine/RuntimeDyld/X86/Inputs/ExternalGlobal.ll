@@ -1,2 +1,2 @@
 @F = global i8 0
-@G = global ptr @F
+@G = global i8* @F

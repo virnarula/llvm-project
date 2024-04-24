@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Finds function definitions where parameters of convertible types follow
 /// each other directly, making call sites prone to calling the function with
@@ -57,6 +59,8 @@ public:
   const std::size_t NamePrefixSuffixSilenceDissimilarityTreshold;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_EASILYSWAPPABLEPARAMETERSCHECK_H

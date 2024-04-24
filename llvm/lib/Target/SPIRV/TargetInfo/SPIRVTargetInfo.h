@@ -15,7 +15,6 @@ class Target;
 
 Target &getTheSPIRV32Target();
 Target &getTheSPIRV64Target();
-Target &getTheSPIRVLogicalTarget();
 
 } // namespace llvm
 

@@ -175,7 +175,7 @@ public:
   /// first field and it is not supposed to be `nullptr`.
   /// Reference edges, for example, are used for connecting broker function
   /// caller to the callback function for callback call sites.
-  using CallRecord = std::pair<std::optional<WeakTrackingVH>, CallGraphNode *>;
+  using CallRecord = std::pair<Optional<WeakTrackingVH>, CallGraphNode *>;
 
 public:
   using CalledFunctionsVector = std::vector<CallRecord>;
@@ -240,9 +240,11 @@ public:
 
   /// Adds a function to the list of functions called by this one.
   void addCalledFunction(CallBase *Call, CallGraphNode *M) {
-    CalledFunctions.emplace_back(Call ? std::optional<WeakTrackingVH>(Call)
-                                      : std::optional<WeakTrackingVH>(),
-                                 M);
+    assert(!Call || !Call->getCalledFunction() ||
+           !Call->getCalledFunction()->isIntrinsic() ||
+           !Intrinsic::isLeaf(Call->getCalledFunction()->getIntrinsicID()));
+    CalledFunctions.emplace_back(
+        Call ? Optional<WeakTrackingVH>(Call) : Optional<WeakTrackingVH>(), M);
     M->AddRef();
   }
 
@@ -322,8 +324,6 @@ public:
   explicit CallGraphPrinterPass(raw_ostream &OS) : OS(OS) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  static bool isRequired() { return true; }
 };
 
 /// Printer pass for the summarized \c CallGraphAnalysis results.
@@ -335,8 +335,6 @@ public:
   explicit CallGraphSCCsPrinterPass(raw_ostream &OS) : OS(OS) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  static bool isRequired() { return true; }
 };
 
 /// The \c ModulePass which wraps up a \c CallGraph and the logic to

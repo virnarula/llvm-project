@@ -64,26 +64,6 @@ struct SymbolizedStack {
   SymbolizedStack();
 };
 
-class SymbolizedStackHolder {
-  SymbolizedStack *Stack;
-
-  void clear() {
-    if (Stack)
-      Stack->ClearAll();
-  }
-
- public:
-  explicit SymbolizedStackHolder(SymbolizedStack *Stack = nullptr)
-      : Stack(Stack) {}
-  ~SymbolizedStackHolder() { clear(); }
-  void reset(SymbolizedStack *S = nullptr) {
-    if (Stack != S)
-      clear();
-    Stack = S;
-  }
-  const SymbolizedStack *get() const { return Stack; }
-};
-
 // For now, DataInfo is used to describe global variable.
 struct DataInfo {
   // Owns all the string members. Storage for them is
@@ -156,7 +136,7 @@ class Symbolizer final {
 
   // Release internal caches (if any).
   void Flush();
-  // Attempts to demangle the provided C++ mangled name. Never returns nullptr.
+  // Attempts to demangle the provided C++ mangled name.
   const char *Demangle(const char *name);
 
   // Allow user to install hooks that would be called before/after Symbolizer
@@ -173,8 +153,6 @@ class Symbolizer final {
   const LoadedModule *FindModuleForAddress(uptr address);
 
   void InvalidateModuleList();
-
-  const ListOfModules &GetRefreshedListOfModules();
 
  private:
   // GetModuleNameAndOffsetForPC has to return a string to the caller.
@@ -209,7 +187,7 @@ class Symbolizer final {
   // If stale, need to reload the modules before looking up addresses.
   bool modules_fresh_;
 
-  // Platform-specific default demangler, returns nullptr on failure.
+  // Platform-specific default demangler, must not return nullptr.
   const char *PlatformDemangle(const char *name);
 
   static Symbolizer *symbolizer_;
@@ -234,7 +212,6 @@ class Symbolizer final {
     ~SymbolizerScope();
    private:
     const Symbolizer *sym_;
-    int errno_;  // Backup errno in case symbolizer change the value.
   };
 };
 

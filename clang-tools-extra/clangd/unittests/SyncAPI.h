@@ -18,7 +18,6 @@
 #include "ClangdServer.h"
 #include "Protocol.h"
 #include "index/Index.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -49,11 +48,11 @@ llvm::Expected<RenameResult> runRename(ClangdServer &Server, PathRef File,
 
 llvm::Expected<RenameResult>
 runPrepareRename(ClangdServer &Server, PathRef File, Position Pos,
-                 std::optional<std::string> NewName,
+                 llvm::Optional<std::string> NewName,
                  const clangd::RenameOptions &RenameOpts);
 
 llvm::Expected<tooling::Replacements>
-runFormatFile(ClangdServer &Server, PathRef File, std::optional<Range>);
+runFormatFile(ClangdServer &Server, PathRef File, llvm::Optional<Range>);
 
 SymbolSlab runFuzzyFind(const SymbolIndex &Index, StringRef Query);
 SymbolSlab runFuzzyFind(const SymbolIndex &Index, const FuzzyFindRequest &Req);
@@ -63,7 +62,7 @@ llvm::Expected<std::vector<SelectionRange>>
 runSemanticRanges(ClangdServer &Server, PathRef File,
                   const std::vector<Position> &Pos);
 
-llvm::Expected<std::optional<clangd::Path>>
+llvm::Expected<llvm::Optional<clangd::Path>>
 runSwitchHeaderSource(ClangdServer &Server, PathRef File);
 
 llvm::Error runCustomAction(ClangdServer &Server, PathRef File,

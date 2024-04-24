@@ -4,9 +4,9 @@
 // __ubsan_on_report is not defined as weak. Redefining it here isn't supported
 // on Windows.
 //
-// UNSUPPORTED: target={{.*windows.*}}
+// UNSUPPORTED: windows-msvc
 // Linkage issue
-// XFAIL: target={{.*openbsd.*}}
+// XFAIL: openbsd
 
 #include <cstdio>
 

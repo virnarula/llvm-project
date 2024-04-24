@@ -15,10 +15,10 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/RegionPass.h"
-#include "llvm/Analysis/UniformityAnalysis.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -42,7 +42,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <algorithm>
@@ -240,12 +239,12 @@ class StructurizeCFG {
   Type *Boolean;
   ConstantInt *BoolTrue;
   ConstantInt *BoolFalse;
-  Value *BoolPoison;
+  UndefValue *BoolUndef;
 
   Function *Func;
   Region *ParentRegion;
 
-  UniformityInfo *UA = nullptr;
+  LegacyDivergenceAnalysis *DA = nullptr;
   DominatorTree *DT;
 
   SmallVector<RegionNode *, 8> Order;
@@ -320,7 +319,7 @@ class StructurizeCFG {
 public:
   void init(Region *R);
   bool run(Region *R, DominatorTree *DT);
-  bool makeUniformRegion(Region *R, UniformityInfo &UA);
+  bool makeUniformRegion(Region *R, LegacyDivergenceAnalysis *DA);
 };
 
 class StructurizeCFGLegacyPass : public RegionPass {
@@ -340,9 +339,8 @@ public:
     StructurizeCFG SCFG;
     SCFG.init(R);
     if (SkipUniformRegions) {
-      UniformityInfo &UA =
-          getAnalysis<UniformityInfoWrapperPass>().getUniformityInfo();
-      if (SCFG.makeUniformRegion(R, UA))
+      LegacyDivergenceAnalysis *DA = &getAnalysis<LegacyDivergenceAnalysis>();
+      if (SCFG.makeUniformRegion(R, DA))
         return false;
     }
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -353,7 +351,8 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     if (SkipUniformRegions)
-      AU.addRequired<UniformityInfoWrapperPass>();
+      AU.addRequired<LegacyDivergenceAnalysis>();
+    AU.addRequiredID(LowerSwitchID);
     AU.addRequired<DominatorTreeWrapperPass>();
 
     AU.addPreserved<DominatorTreeWrapperPass>();
@@ -367,7 +366,8 @@ char StructurizeCFGLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(StructurizeCFGLegacyPass, "structurizecfg",
                       "Structurize the CFG", false, false)
-INITIALIZE_PASS_DEPENDENCY(UniformityInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LegacyDivergenceAnalysis)
+INITIALIZE_PASS_DEPENDENCY(LowerSwitchLegacyPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionInfoPass)
 INITIALIZE_PASS_END(StructurizeCFGLegacyPass, "structurizecfg",
@@ -798,6 +798,8 @@ void StructurizeCFG::killTerminator(BasicBlock *BB) {
   for (BasicBlock *Succ : successors(BB))
     delPhiValues(BB, Succ);
 
+  if (DA)
+    DA->removeValue(Term);
   Term->eraseFromParent();
 }
 
@@ -854,12 +856,7 @@ BasicBlock *StructurizeCFG::getNextFlow(BasicBlock *Dominator) {
   BasicBlock *Flow = BasicBlock::Create(Context, FlowBlockName,
                                         Func, Insert);
   FlowSet.insert(Flow);
-
-  // use a temporary variable to avoid a use-after-free if the map's storage is
-  // reallocated
-  DebugLoc DL = TermDL[Dominator];
-  TermDL[Flow] = std::move(DL);
-
+  TermDL[Flow] = TermDL[Dominator];
   DT->addNewBlock(Flow, Dominator);
   ParentRegion->getRegionInfo()->setRegionFor(Flow, ParentRegion);
   return Flow;
@@ -955,7 +952,7 @@ void StructurizeCFG::wireFlow(bool ExitUseAllowed,
     BasicBlock *Next = needPostfix(Flow, ExitUseAllowed);
 
     // let it point to entry and next block
-    BranchInst *Br = BranchInst::Create(Entry, Next, BoolPoison, Flow);
+    BranchInst *Br = BranchInst::Create(Entry, Next, BoolUndef, Flow);
     Br->setDebugLoc(TermDL[Flow]);
     Conditions.push_back(Br);
     addPhiValues(Flow, Entry);
@@ -996,7 +993,7 @@ void StructurizeCFG::handleLoops(bool ExitUseAllowed,
   // Create an extra loop end node
   LoopEnd = needPrefix(false);
   BasicBlock *Next = needPostfix(LoopEnd, ExitUseAllowed);
-  BranchInst *Br = BranchInst::Create(Next, LoopStart, BoolPoison, LoopEnd);
+  BranchInst *Br = BranchInst::Create(Next, LoopStart, BoolUndef, LoopEnd);
   Br->setDebugLoc(TermDL[LoopEnd]);
   LoopConds.push_back(Br);
   addPhiValues(LoopEnd, LoopStart);
@@ -1062,7 +1059,7 @@ void StructurizeCFG::rebuildSSA() {
 }
 
 static bool hasOnlyUniformBranches(Region *R, unsigned UniformMDKindID,
-                                   const UniformityInfo &UA) {
+                                   const LegacyDivergenceAnalysis &DA) {
   // Bool for if all sub-regions are uniform.
   bool SubRegionsAreUniform = true;
   // Count of how many direct children are conditional.
@@ -1074,7 +1071,7 @@ static bool hasOnlyUniformBranches(Region *R, unsigned UniformMDKindID,
       if (!Br || !Br->isConditional())
         continue;
 
-      if (!UA.isUniform(Br))
+      if (!DA.isUniform(Br))
         return false;
 
       // One of our direct children is conditional.
@@ -1084,7 +1081,7 @@ static bool hasOnlyUniformBranches(Region *R, unsigned UniformMDKindID,
                         << " has uniform terminator\n");
     } else {
       // Explicitly refuse to treat regions as uniform if they have non-uniform
-      // subregions. We cannot rely on UniformityAnalysis for branches in
+      // subregions. We cannot rely on DivergenceAnalysis for branches in
       // subregions because those branches may have been removed and re-created,
       // so we look for our metadata instead.
       //
@@ -1124,17 +1121,17 @@ void StructurizeCFG::init(Region *R) {
   Boolean = Type::getInt1Ty(Context);
   BoolTrue = ConstantInt::getTrue(Context);
   BoolFalse = ConstantInt::getFalse(Context);
-  BoolPoison = PoisonValue::get(Boolean);
+  BoolUndef = UndefValue::get(Boolean);
 
-  this->UA = nullptr;
+  this->DA = nullptr;
 }
 
-bool StructurizeCFG::makeUniformRegion(Region *R, UniformityInfo &UA) {
+bool StructurizeCFG::makeUniformRegion(Region *R,
+                                       LegacyDivergenceAnalysis *DA) {
   if (R->isTopLevelRegion())
     return false;
 
-  this->UA = &UA;
-
+  this->DA = DA;
   // TODO: We could probably be smarter here with how we handle sub-regions.
   // We currently rely on the fact that metadata is set by earlier invocations
   // of the pass on sub-regions, and that this metadata doesn't get lost --
@@ -1142,7 +1139,7 @@ bool StructurizeCFG::makeUniformRegion(Region *R, UniformityInfo &UA) {
   unsigned UniformMDKindID =
       R->getEntry()->getContext().getMDKindID("structurizecfg.uniform");
 
-  if (hasOnlyUniformBranches(R, UniformMDKindID, UA)) {
+  if (hasOnlyUniformBranches(R, UniformMDKindID, *DA)) {
     LLVM_DEBUG(dbgs() << "Skipping region with uniform control flow: " << *R
                       << '\n');
 
@@ -1172,8 +1169,6 @@ bool StructurizeCFG::run(Region *R, DominatorTree *DT) {
   this->DT = DT;
 
   Func = R->getEntry()->getParent();
-  assert(hasOnlySimpleTerminator(*Func) && "Unsupported block terminator.");
-
   ParentRegion = R;
 
   orderNodes();

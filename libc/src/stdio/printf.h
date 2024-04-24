@@ -11,10 +11,10 @@
 
 #include <stdio.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int printf(const char *__restrict format, ...);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDIO_PRINTF_H

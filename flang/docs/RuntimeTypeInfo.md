@@ -8,10 +8,9 @@
 
 # The derived type runtime information table
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 ## Overview

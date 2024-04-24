@@ -454,9 +454,7 @@ public:
       llvm::SMTExprRef OperandExp =
           getSymExpr(Solver, Ctx, USE->getOperand(), &OperandTy, hasComparison);
       llvm::SMTExprRef UnaryExp =
-          OperandTy->isRealFloatingType()
-              ? fromFloatUnOp(Solver, USE->getOpcode(), OperandExp)
-              : fromUnOp(Solver, USE->getOpcode(), OperandExp);
+          fromUnOp(Solver, USE->getOpcode(), OperandExp);
 
       // Currently, without the `support-symbolic-integer-casts=true` option,
       // we do not emit `SymbolCast`s for implicit casts.

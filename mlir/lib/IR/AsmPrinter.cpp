@@ -16,9 +16,7 @@
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinDialect.h"
-#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -27,9 +25,9 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/SubElementInterfaces.h"
 #include "mlir/IR/Verifier.h"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
@@ -46,10 +44,7 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Threading.h"
-#include "llvm/Support/raw_ostream.h"
-#include <type_traits>
 
-#include <optional>
 #include <tuple>
 
 using namespace mlir;
@@ -70,15 +65,6 @@ DialectAsmParser::~DialectAsmParser() = default;
 OpAsmParser::~OpAsmParser() = default;
 
 MLIRContext *AsmParser::getContext() const { return getBuilder().getContext(); }
-
-/// Parse a type list.
-/// This is out-of-line to work-around https://github.com/llvm/llvm-project/issues/62918
-ParseResult AsmParser::parseTypeList(SmallVectorImpl<Type> &result) {
-    return parseCommaSeparatedList(
-        [&]() { return parseType(result.emplace_back()); });
-  }
-
-
 
 //===----------------------------------------------------------------------===//
 // DialectAsmPrinter
@@ -105,7 +91,7 @@ void OpAsmPrinter::printFunctionalType(Operation *op) {
   // it is a function (avoiding a grammar ambiguity).
   bool wrapped = op->getNumResults() != 1;
   if (!wrapped && op->getResult(0).getType() &&
-      llvm::isa<FunctionType>(op->getResult(0).getType()))
+      op->getResult(0).getType().isa<FunctionType>())
     wrapped = true;
 
   if (wrapped)
@@ -154,11 +140,6 @@ struct AsmPrinterOptions {
       llvm::cl::desc("Elide ElementsAttrs with \"...\" that have "
                      "more elements than the given upper limit")};
 
-  llvm::cl::opt<unsigned> elideResourceStringsIfLarger{
-      "mlir-elide-resource-strings-if-larger",
-      llvm::cl::desc(
-          "Elide printing value of resources if string is too long in chars.")};
-
   llvm::cl::opt<bool> printDebugInfoOpt{
       "mlir-print-debuginfo", llvm::cl::init(false),
       llvm::cl::desc("Print debug info in MLIR output")};
@@ -183,10 +164,6 @@ struct AsmPrinterOptions {
       llvm::cl::desc("Print with local scope and inline information (eliding "
                      "aliases for attributes, types, and locations")};
 
-  llvm::cl::opt<bool> skipRegionsOpt{
-      "mlir-print-skip-regions", llvm::cl::init(false),
-      llvm::cl::desc("Skip regions when printing ops.")};
-
   llvm::cl::opt<bool> printValueUsers{
       "mlir-print-value-users", llvm::cl::init(false),
       llvm::cl::desc(
@@ -206,22 +183,18 @@ void mlir::registerAsmPrinterCLOptions() {
 /// Initialize the printing flags with default supplied by the cl::opts above.
 OpPrintingFlags::OpPrintingFlags()
     : printDebugInfoFlag(false), printDebugInfoPrettyFormFlag(false),
-      printGenericOpFormFlag(false), skipRegionsFlag(false),
-      assumeVerifiedFlag(false), printLocalScope(false),
-      printValueUsersFlag(false) {
+      printGenericOpFormFlag(false), assumeVerifiedFlag(false),
+      printLocalScope(false), printValueUsersFlag(false) {
   // Initialize based upon command line options, if they are available.
   if (!clOptions.isConstructed())
     return;
   if (clOptions->elideElementsAttrIfLarger.getNumOccurrences())
     elementsAttrElementLimit = clOptions->elideElementsAttrIfLarger;
-  if (clOptions->elideResourceStringsIfLarger.getNumOccurrences())
-    resourceStringCharLimit = clOptions->elideResourceStringsIfLarger;
   printDebugInfoFlag = clOptions->printDebugInfoOpt;
   printDebugInfoPrettyFormFlag = clOptions->printPrettyDebugInfoOpt;
   printGenericOpFormFlag = clOptions->printGenericOpFormOpt;
   assumeVerifiedFlag = clOptions->assumeVerifiedOpt;
   printLocalScope = clOptions->printLocalScopeOpt;
-  skipRegionsFlag = clOptions->skipRegionsOpt;
   printValueUsersFlag = clOptions->printValueUsers;
 }
 
@@ -235,30 +208,17 @@ OpPrintingFlags::elideLargeElementsAttrs(int64_t largeElementLimit) {
   return *this;
 }
 
-OpPrintingFlags &
-OpPrintingFlags::elideLargeResourceString(int64_t largeResourceLimit) {
-  resourceStringCharLimit = largeResourceLimit;
-  return *this;
-}
-
 /// Enable printing of debug information. If 'prettyForm' is set to true,
 /// debug information is printed in a more readable 'pretty' form.
-OpPrintingFlags &OpPrintingFlags::enableDebugInfo(bool enable,
-                                                  bool prettyForm) {
-  printDebugInfoFlag = enable;
+OpPrintingFlags &OpPrintingFlags::enableDebugInfo(bool prettyForm) {
+  printDebugInfoFlag = true;
   printDebugInfoPrettyFormFlag = prettyForm;
   return *this;
 }
 
 /// Always print operations in the generic form.
-OpPrintingFlags &OpPrintingFlags::printGenericOpForm(bool enable) {
-  printGenericOpFormFlag = enable;
-  return *this;
-}
-
-/// Always skip Regions.
-OpPrintingFlags &OpPrintingFlags::skipRegions(bool skip) {
-  skipRegionsFlag = skip;
+OpPrintingFlags &OpPrintingFlags::printGenericOpForm() {
+  printGenericOpFormFlag = true;
   return *this;
 }
 
@@ -286,17 +246,12 @@ OpPrintingFlags &OpPrintingFlags::printValueUsers() {
 bool OpPrintingFlags::shouldElideElementsAttr(ElementsAttr attr) const {
   return elementsAttrElementLimit &&
          *elementsAttrElementLimit < int64_t(attr.getNumElements()) &&
-         !llvm::isa<SplatElementsAttr>(attr);
+         !attr.isa<SplatElementsAttr>();
 }
 
 /// Return the size limit for printing large ElementsAttr.
-std::optional<int64_t> OpPrintingFlags::getLargeElementsAttrLimit() const {
+Optional<int64_t> OpPrintingFlags::getLargeElementsAttrLimit() const {
   return elementsAttrElementLimit;
-}
-
-/// Return the size limit for printing large ElementsAttr.
-std::optional<uint64_t> OpPrintingFlags::getLargeResourceStringLimit() const {
-  return resourceStringCharLimit;
 }
 
 /// Return if debug information should be printed.
@@ -313,9 +268,6 @@ bool OpPrintingFlags::shouldPrintDebugInfoPrettyForm() const {
 bool OpPrintingFlags::shouldPrintGenericOpForm() const {
   return printGenericOpFormFlag;
 }
-
-/// Return if Region should be skipped.
-bool OpPrintingFlags::shouldSkipRegions() const { return skipRegionsFlag; }
 
 /// Return if operation verification should be skipped.
 bool OpPrintingFlags::shouldAssumeVerified() const {
@@ -430,20 +382,13 @@ public:
   void printAffineConstraint(AffineExpr expr, bool isEq);
   void printIntegerSet(IntegerSet set);
 
-  LogicalResult pushCyclicPrinting(const void *opaquePointer);
-
-  void popCyclicPrinting();
-
-  void printDimensionList(ArrayRef<int64_t> shape);
-
 protected:
   void printOptionalAttrDict(ArrayRef<NamedAttribute> attrs,
                              ArrayRef<StringRef> elidedAttrs = {},
                              bool withKeyword = false);
   void printNamedAttribute(NamedAttribute attr);
   void printTrailingLocation(Location loc, bool allowAlias = true);
-  void printLocationInternal(LocationAttr loc, bool pretty = false,
-                             bool isTopLevel = false);
+  void printLocationInternal(LocationAttr loc, bool pretty = false);
 
   /// Print a dense elements attribute. If 'allowHex' is true, a hex string is
   /// used instead of individual elements when the elements attr is large.
@@ -503,20 +448,15 @@ namespace {
 /// This class represents a specific instance of a symbol Alias.
 class SymbolAlias {
 public:
-  SymbolAlias(StringRef name, uint32_t suffixIndex, bool isType,
-              bool isDeferrable)
-      : name(name), suffixIndex(suffixIndex), isType(isType),
-        isDeferrable(isDeferrable) {}
+  SymbolAlias(StringRef name, uint32_t suffixIndex, bool isDeferrable)
+      : name(name), suffixIndex(suffixIndex), isDeferrable(isDeferrable) {}
 
   /// Print this alias to the given stream.
   void print(raw_ostream &os) const {
-    os << (isType ? "!" : "#") << name;
+    os << name;
     if (suffixIndex)
       os << suffixIndex;
   }
-
-  /// Returns true if this is a type alias.
-  bool isTypeAlias() const { return isType; }
 
   /// Returns true if this alias supports deferred resolution when parsing.
   bool canBeDeferred() const { return isDeferrable; }
@@ -525,9 +465,7 @@ private:
   /// The main name of the alias.
   StringRef name;
   /// The suffix index of the alias.
-  uint32_t suffixIndex : 30;
-  /// A flag indicating whether this alias is for a type.
-  bool isType : 1;
+  uint32_t suffixIndex : 31;
   /// A flag indicating whether this alias may be deferred or not.
   bool isDeferrable : 1;
 };
@@ -544,82 +482,64 @@ public:
         aliasOS(aliasBuffer) {}
 
   void initialize(Operation *op, const OpPrintingFlags &printerFlags,
-                  llvm::MapVector<const void *, SymbolAlias> &attrTypeToAlias);
+                  llvm::MapVector<Attribute, SymbolAlias> &attrToAlias,
+                  llvm::MapVector<Type, SymbolAlias> &typeToAlias);
 
   /// Visit the given attribute to see if it has an alias. `canBeDeferred` is
   /// set to true if the originator of this attribute can resolve the alias
   /// after parsing has completed (e.g. in the case of operation locations).
-  /// `elideType` indicates if the type of the attribute should be skipped when
-  /// looking for nested aliases. Returns the maximum alias depth of the
-  /// attribute, and the alias index of this attribute.
-  std::pair<size_t, size_t> visit(Attribute attr, bool canBeDeferred = false,
-                                  bool elideType = false) {
-    return visitImpl(attr, aliases, canBeDeferred, elideType);
+  /// Returns the maximum alias depth of the attribute.
+  size_t visit(Attribute attr, bool canBeDeferred = false) {
+    return visitImpl(attr, attrAliases, canBeDeferred);
   }
 
-  /// Visit the given type to see if it has an alias. `canBeDeferred` is
-  /// set to true if the originator of this attribute can resolve the alias
-  /// after parsing has completed. Returns the maximum alias depth of the type,
-  /// and the alias index of this type.
-  std::pair<size_t, size_t> visit(Type type, bool canBeDeferred = false) {
-    return visitImpl(type, aliases, canBeDeferred);
-  }
+  /// Visit the given type to see if it has an alias. Returns the maximum alias
+  /// depth of the type.
+  size_t visit(Type type) { return visitImpl(type, typeAliases); }
 
 private:
   struct InProgressAliasInfo {
-    InProgressAliasInfo()
-        : aliasDepth(0), isType(false), canBeDeferred(false) {}
-    InProgressAliasInfo(StringRef alias, bool isType, bool canBeDeferred)
-        : alias(alias), aliasDepth(1), isType(isType),
-          canBeDeferred(canBeDeferred) {}
+    InProgressAliasInfo() : aliasDepth(0), canBeDeferred(false) {}
+    InProgressAliasInfo(StringRef alias, bool canBeDeferred)
+        : alias(alias), aliasDepth(0), canBeDeferred(canBeDeferred) {}
 
     bool operator<(const InProgressAliasInfo &rhs) const {
-      // Order first by depth, then by attr/type kind, and then by name.
+      // Order first by depth, and then by name.
       if (aliasDepth != rhs.aliasDepth)
         return aliasDepth < rhs.aliasDepth;
-      if (isType != rhs.isType)
-        return isType;
       return alias < rhs.alias;
     }
 
-    /// The alias for the attribute or type, or std::nullopt if the value has no
-    /// alias.
-    std::optional<StringRef> alias;
+    /// The alias for the attribute or type, or None if the value has no alias.
+    Optional<StringRef> alias;
     /// The alias depth of this attribute or type, i.e. an indication of the
     /// relative ordering of when to print this alias.
-    unsigned aliasDepth : 30;
-    /// If this alias represents a type or an attribute.
-    bool isType : 1;
+    unsigned aliasDepth : 31;
     /// If this alias can be deferred or not.
     bool canBeDeferred : 1;
-    /// Indices for child aliases.
-    SmallVector<size_t> childIndices;
   };
 
   /// Visit the given attribute or type to see if it has an alias.
   /// `canBeDeferred` is set to true if the originator of this value can resolve
   /// the alias after parsing has completed (e.g. in the case of operation
-  /// locations). Returns the maximum alias depth of the value, and its alias
-  /// index.
-  template <typename T, typename... PrintArgs>
-  std::pair<size_t, size_t>
-  visitImpl(T value,
-            llvm::MapVector<const void *, InProgressAliasInfo> &aliases,
-            bool canBeDeferred, PrintArgs &&...printArgs);
-
-  /// Mark the given alias as non-deferrable.
-  void markAliasNonDeferrable(size_t aliasIndex);
+  /// locations). Returns the maximum alias depth of the value.
+  template <typename T>
+  size_t visitImpl(T value, llvm::MapVector<T, InProgressAliasInfo> &aliases,
+                   bool canBeDeferred = false);
 
   /// Try to generate an alias for the provided symbol. If an alias is
   /// generated, the provided alias mapping and reverse mapping are updated.
+  /// Returns success if an alias was generated, failure otherwise.
   template <typename T>
-  void generateAlias(T symbol, InProgressAliasInfo &alias, bool canBeDeferred);
+  LogicalResult generateAlias(T symbol, InProgressAliasInfo &alias,
+                              bool canBeDeferred);
 
   /// Given a collection of aliases and symbols, initialize a mapping from a
   /// symbol to a given alias.
-  static void initializeAliases(
-      llvm::MapVector<const void *, InProgressAliasInfo> &visitedSymbols,
-      llvm::MapVector<const void *, SymbolAlias> &symbolToAlias);
+  template <typename T>
+  static void
+  initializeAliases(llvm::MapVector<T, InProgressAliasInfo> &visitedSymbols,
+                    llvm::MapVector<T, SymbolAlias> &symbolToAlias);
 
   /// The set of asm interfaces within the context.
   DialectInterfaceCollection<OpAsmDialectInterface> &interfaces;
@@ -628,7 +548,8 @@ private:
   llvm::BumpPtrAllocator &aliasAllocator;
 
   /// The set of built aliases.
-  llvm::MapVector<const void *, InProgressAliasInfo> aliases;
+  llvm::MapVector<Attribute, InProgressAliasInfo> attrAliases;
+  llvm::MapVector<Type, InProgressAliasInfo> typeAliases;
 
   /// Storage and stream used when generating an alias.
   SmallString<32> aliasBuffer;
@@ -655,8 +576,12 @@ public:
 
     // If requested, always print the generic form.
     if (!printerFlags.shouldPrintGenericOpForm()) {
-      op->getName().printAssembly(op, *this, /*defaultDialect=*/"");
-      return;
+      // Check to see if this is a known operation.  If so, use the registered
+      // custom printer hook.
+      if (auto opInfo = op->getRegisteredInfo()) {
+        opInfo->printAssembly(op, *this, /*defaultDialect=*/"");
+        return;
+      }
     }
 
     // Otherwise print with the generic assembly form.
@@ -667,7 +592,7 @@ private:
   /// Print the given operation in the generic form.
   void printGenericOp(Operation *op, bool printOpName = true) override {
     // Consider nested operations for aliases.
-    if (!printerFlags.shouldSkipRegions()) {
+    if (op->getNumRegions() != 0) {
       for (Region &region : op->getRegions())
         printRegion(region, /*printEntryBlockArgs=*/true,
                     /*printBlockTerminators=*/true);
@@ -720,10 +645,6 @@ private:
                    bool printEmptyBlock = false) override {
     if (region.empty())
       return;
-    if (printerFlags.shouldSkipRegions()) {
-      os << "{...}";
-      return;
-    }
 
     auto *entryBlock = &region.front();
     print(entryBlock, printEntryBlockArgs, printBlockTerminators);
@@ -791,7 +712,7 @@ private:
 
   /// The following are hooks of `OpAsmPrinter` that are not necessary for
   /// determining potential aliases.
-  void printFloat(const APFloat &) override {}
+  void printFloat(const APFloat &value) override {}
   void printAffineMapOfSSAIds(AffineMapAttr, ValueRange) override {}
   void printAffineExprOfSSAIds(AffineExpr, ValueRange, ValueRange) override {}
   void printNewline() override {}
@@ -805,8 +726,6 @@ private:
     os << "%";
   }
   void printKeywordOrString(StringRef) override {}
-  void printString(StringRef) override {}
-  void printResourceHandle(const AsmDialectResourceHandle &) override {}
   void printSymbolName(StringRef) override {}
   void printSuccessor(Block *) override {}
   void printSuccessorAndUseList(Block *, ValueRange) override {}
@@ -817,160 +736,6 @@ private:
 
   /// The initializer to use when identifying aliases.
   AliasInitializer &initializer;
-
-  /// A dummy output stream.
-  mutable llvm::raw_null_ostream os;
-};
-
-class DummyAliasDialectAsmPrinter : public DialectAsmPrinter {
-public:
-  explicit DummyAliasDialectAsmPrinter(AliasInitializer &initializer,
-                                       bool canBeDeferred,
-                                       SmallVectorImpl<size_t> &childIndices)
-      : initializer(initializer), canBeDeferred(canBeDeferred),
-        childIndices(childIndices) {}
-
-  /// Print the given attribute/type, visiting any nested aliases that would be
-  /// generated as part of printing. Returns the maximum alias depth found while
-  /// printing the given value.
-  template <typename T, typename... PrintArgs>
-  size_t printAndVisitNestedAliases(T value, PrintArgs &&...printArgs) {
-    printAndVisitNestedAliasesImpl(value, printArgs...);
-    return maxAliasDepth;
-  }
-
-private:
-  /// Print the given attribute/type, visiting any nested aliases that would be
-  /// generated as part of printing.
-  void printAndVisitNestedAliasesImpl(Attribute attr, bool elideType) {
-    if (!isa<BuiltinDialect>(attr.getDialect())) {
-      attr.getDialect().printAttribute(attr, *this);
-
-      // Process the builtin attributes.
-    } else if (llvm::isa<AffineMapAttr, DenseArrayAttr, FloatAttr, IntegerAttr,
-                         IntegerSetAttr, UnitAttr>(attr)) {
-      return;
-    } else if (auto distinctAttr = dyn_cast<DistinctAttr>(attr)) {
-      printAttribute(distinctAttr.getReferencedAttr());
-    } else if (auto dictAttr = dyn_cast<DictionaryAttr>(attr)) {
-      for (const NamedAttribute &nestedAttr : dictAttr.getValue()) {
-        printAttribute(nestedAttr.getName());
-        printAttribute(nestedAttr.getValue());
-      }
-    } else if (auto arrayAttr = dyn_cast<ArrayAttr>(attr)) {
-      for (Attribute nestedAttr : arrayAttr.getValue())
-        printAttribute(nestedAttr);
-    } else if (auto typeAttr = dyn_cast<TypeAttr>(attr)) {
-      printType(typeAttr.getValue());
-    } else if (auto locAttr = dyn_cast<OpaqueLoc>(attr)) {
-      printAttribute(locAttr.getFallbackLocation());
-    } else if (auto locAttr = dyn_cast<NameLoc>(attr)) {
-      if (!isa<UnknownLoc>(locAttr.getChildLoc()))
-        printAttribute(locAttr.getChildLoc());
-    } else if (auto locAttr = dyn_cast<CallSiteLoc>(attr)) {
-      printAttribute(locAttr.getCallee());
-      printAttribute(locAttr.getCaller());
-    } else if (auto locAttr = dyn_cast<FusedLoc>(attr)) {
-      if (Attribute metadata = locAttr.getMetadata())
-        printAttribute(metadata);
-      for (Location nestedLoc : locAttr.getLocations())
-        printAttribute(nestedLoc);
-    }
-
-    // Don't print the type if we must elide it, or if it is a None type.
-    if (!elideType) {
-      if (auto typedAttr = llvm::dyn_cast<TypedAttr>(attr)) {
-        Type attrType = typedAttr.getType();
-        if (!llvm::isa<NoneType>(attrType))
-          printType(attrType);
-      }
-    }
-  }
-  void printAndVisitNestedAliasesImpl(Type type) {
-    if (!isa<BuiltinDialect>(type.getDialect()))
-      return type.getDialect().printType(type, *this);
-
-    // Only visit the layout of memref if it isn't the identity.
-    if (auto memrefTy = llvm::dyn_cast<MemRefType>(type)) {
-      printType(memrefTy.getElementType());
-      MemRefLayoutAttrInterface layout = memrefTy.getLayout();
-      if (!llvm::isa<AffineMapAttr>(layout) || !layout.isIdentity())
-        printAttribute(memrefTy.getLayout());
-      if (memrefTy.getMemorySpace())
-        printAttribute(memrefTy.getMemorySpace());
-      return;
-    }
-
-    // For most builtin types, we can simply walk the sub elements.
-    auto visitFn = [&](auto element) {
-      if (element)
-        (void)printAlias(element);
-    };
-    type.walkImmediateSubElements(visitFn, visitFn);
-  }
-
-  /// Consider the given type to be printed for an alias.
-  void printType(Type type) override {
-    recordAliasResult(initializer.visit(type, canBeDeferred));
-  }
-
-  /// Consider the given attribute to be printed for an alias.
-  void printAttribute(Attribute attr) override {
-    recordAliasResult(initializer.visit(attr, canBeDeferred));
-  }
-  void printAttributeWithoutType(Attribute attr) override {
-    recordAliasResult(
-        initializer.visit(attr, canBeDeferred, /*elideType=*/true));
-  }
-  LogicalResult printAlias(Attribute attr) override {
-    printAttribute(attr);
-    return success();
-  }
-  LogicalResult printAlias(Type type) override {
-    printType(type);
-    return success();
-  }
-
-  /// Record the alias result of a child element.
-  void recordAliasResult(std::pair<size_t, size_t> aliasDepthAndIndex) {
-    childIndices.push_back(aliasDepthAndIndex.second);
-    if (aliasDepthAndIndex.first > maxAliasDepth)
-      maxAliasDepth = aliasDepthAndIndex.first;
-  }
-
-  /// Return a null stream as the output stream, this will ignore any data fed
-  /// to it.
-  raw_ostream &getStream() const override { return os; }
-
-  /// The following are hooks of `DialectAsmPrinter` that are not necessary for
-  /// determining potential aliases.
-  void printFloat(const APFloat &) override {}
-  void printKeywordOrString(StringRef) override {}
-  void printString(StringRef) override {}
-  void printSymbolName(StringRef) override {}
-  void printResourceHandle(const AsmDialectResourceHandle &) override {}
-
-  LogicalResult pushCyclicPrinting(const void *opaquePointer) override {
-    return success(cyclicPrintingStack.insert(opaquePointer));
-  }
-
-  void popCyclicPrinting() override { cyclicPrintingStack.pop_back(); }
-
-  /// Stack of potentially cyclic mutable attributes or type currently being
-  /// printed.
-  SetVector<const void *> cyclicPrintingStack;
-
-  /// The initializer to use when identifying aliases.
-  AliasInitializer &initializer;
-
-  /// If the aliases visited by this printer can be deferred.
-  bool canBeDeferred;
-
-  /// The indices of child aliases.
-  SmallVectorImpl<size_t> &childIndices;
-
-  /// The maximum alias depth found by the printer.
-  size_t maxAliasDepth = 0;
 
   /// A dummy output stream.
   mutable llvm::raw_null_ostream os;
@@ -1027,11 +792,12 @@ static StringRef sanitizeIdentifier(StringRef name, SmallString<16> &buffer,
 
 /// Given a collection of aliases and symbols, initialize a mapping from a
 /// symbol to a given alias.
+template <typename T>
 void AliasInitializer::initializeAliases(
-    llvm::MapVector<const void *, InProgressAliasInfo> &visitedSymbols,
-    llvm::MapVector<const void *, SymbolAlias> &symbolToAlias) {
-  SmallVector<std::pair<const void *, InProgressAliasInfo>, 0>
-      unprocessedAliases = visitedSymbols.takeVector();
+    llvm::MapVector<T, InProgressAliasInfo> &visitedSymbols,
+    llvm::MapVector<T, SymbolAlias> &symbolToAlias) {
+  std::vector<std::pair<T, InProgressAliasInfo>> unprocessedAliases =
+      visitedSymbols.takeVector();
   llvm::stable_sort(unprocessedAliases, [](const auto &lhs, const auto &rhs) {
     return lhs.second < rhs.second;
   });
@@ -1043,77 +809,71 @@ void AliasInitializer::initializeAliases(
     StringRef alias = *aliasInfo.alias;
     unsigned nameIndex = nameCounts[alias]++;
     symbolToAlias.insert(
-        {symbol, SymbolAlias(alias, nameIndex, aliasInfo.isType,
-                             aliasInfo.canBeDeferred)});
+        {symbol, SymbolAlias(alias, nameIndex, aliasInfo.canBeDeferred)});
   }
 }
 
 void AliasInitializer::initialize(
     Operation *op, const OpPrintingFlags &printerFlags,
-    llvm::MapVector<const void *, SymbolAlias> &attrTypeToAlias) {
+    llvm::MapVector<Attribute, SymbolAlias> &attrToAlias,
+    llvm::MapVector<Type, SymbolAlias> &typeToAlias) {
   // Use a dummy printer when walking the IR so that we can collect the
   // attributes/types that will actually be used during printing when
   // considering aliases.
   DummyAliasOperationPrinter aliasPrinter(printerFlags, *this);
   aliasPrinter.printCustomOrGenericOp(op);
 
-  // Initialize the aliases.
-  initializeAliases(aliases, attrTypeToAlias);
-}
-
-template <typename T, typename... PrintArgs>
-std::pair<size_t, size_t> AliasInitializer::visitImpl(
-    T value, llvm::MapVector<const void *, InProgressAliasInfo> &aliases,
-    bool canBeDeferred, PrintArgs &&...printArgs) {
-  auto [it, inserted] =
-      aliases.insert({value.getAsOpaquePointer(), InProgressAliasInfo()});
-  size_t aliasIndex = std::distance(aliases.begin(), it);
-  if (!inserted) {
-    // Make sure that the alias isn't deferred if we don't permit it.
-    if (!canBeDeferred)
-      markAliasNonDeferrable(aliasIndex);
-    return {static_cast<size_t>(it->second.aliasDepth), aliasIndex};
-  }
-
-  // Try to generate an alias for this value.
-  generateAlias(value, it->second, canBeDeferred);
-
-  // Print the value, capturing any nested elements that require aliases.
-  SmallVector<size_t> childAliases;
-  DummyAliasDialectAsmPrinter printer(*this, canBeDeferred, childAliases);
-  size_t maxAliasDepth =
-      printer.printAndVisitNestedAliases(value, printArgs...);
-
-  // Make sure to recompute `it` in case the map was reallocated.
-  it = std::next(aliases.begin(), aliasIndex);
-
-  // If we had sub elements, update to account for the depth.
-  it->second.childIndices = std::move(childAliases);
-  if (maxAliasDepth)
-    it->second.aliasDepth = maxAliasDepth + 1;
-
-  // Propagate the alias depth of the value.
-  return {(size_t)it->second.aliasDepth, aliasIndex};
-}
-
-void AliasInitializer::markAliasNonDeferrable(size_t aliasIndex) {
-  auto it = std::next(aliases.begin(), aliasIndex);
-
-  // If already marked non-deferrable stop the recursion.
-  // All children should already be marked non-deferrable as well.
-  if (!it->second.canBeDeferred)
-    return;
-
-  it->second.canBeDeferred = false;
-
-  // Propagate the non-deferrable flag to any child aliases.
-  for (size_t childIndex : it->second.childIndices)
-    markAliasNonDeferrable(childIndex);
+  // Initialize the aliases sorted by name.
+  initializeAliases(attrAliases, attrToAlias);
+  initializeAliases(typeAliases, typeToAlias);
 }
 
 template <typename T>
-void AliasInitializer::generateAlias(T symbol, InProgressAliasInfo &alias,
-                                     bool canBeDeferred) {
+size_t
+AliasInitializer::visitImpl(T value,
+                            llvm::MapVector<T, InProgressAliasInfo> &aliases,
+                            bool canBeDeferred) {
+  auto [it, inserted] = aliases.insert({value, InProgressAliasInfo()});
+  if (!inserted) {
+    // Make sure that the alias isn't deferred if we don't permit it.
+    if (!canBeDeferred)
+      it->second.canBeDeferred = false;
+    return it->second.aliasDepth;
+  }
+
+  // Try to generate an alias for this attribute.
+  bool hasAlias = succeeded(generateAlias(value, it->second, canBeDeferred));
+  size_t aliasIndex = std::distance(aliases.begin(), it);
+
+  // Check for any sub elements.
+  using SubElementInterfaceT =
+      std::conditional_t<std::is_same_v<T, Type>, SubElementTypeInterface,
+                         SubElementAttrInterface>;
+  if (auto subElementInterface = dyn_cast<SubElementInterfaceT>(value)) {
+    size_t maxAliasDepth = 0;
+    auto visitSubElement = [&](auto element) {
+      if (Optional<size_t> depth = visit(element))
+        maxAliasDepth = std::max(maxAliasDepth, *depth + 1);
+    };
+    subElementInterface.walkSubElements(visitSubElement, visitSubElement);
+
+    // Make sure to recompute `it` in case the map was reallocated.
+    it = std::next(aliases.begin(), aliasIndex);
+
+    // If we had sub elements and an alias, update our main alias to account for
+    // the depth.
+    if (maxAliasDepth && hasAlias)
+      it->second.aliasDepth = maxAliasDepth;
+  }
+
+  // Propagate the alias depth of the value.
+  return it->second.aliasDepth;
+}
+
+template <typename T>
+LogicalResult AliasInitializer::generateAlias(T symbol,
+                                              InProgressAliasInfo &alias,
+                                              bool canBeDeferred) {
   SmallString<32> nameBuffer;
   for (const auto &interface : interfaces) {
     OpAsmDialectInterface::AliasResult result =
@@ -1127,15 +887,15 @@ void AliasInitializer::generateAlias(T symbol, InProgressAliasInfo &alias,
   }
 
   if (nameBuffer.empty())
-    return;
+    return failure();
 
   SmallString<16> tempBuffer;
   StringRef name =
       sanitizeIdentifier(nameBuffer, tempBuffer, /*allowedPunctChars=*/"$_-",
                          /*allowTrailingDigit=*/false);
   name = name.copy(aliasAllocator);
-  alias = InProgressAliasInfo(name, /*isType=*/std::is_base_of_v<Type, T>,
-                              canBeDeferred);
+  alias = InProgressAliasInfo(name, canBeDeferred);
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1176,8 +936,10 @@ private:
   void printAliases(AsmPrinter::Impl &p, NewLineCounter &newLine,
                     bool isDeferred);
 
-  /// Mapping between attribute/type and alias.
-  llvm::MapVector<const void *, SymbolAlias> attrTypeToAlias;
+  /// Mapping between attribute and alias.
+  llvm::MapVector<Attribute, SymbolAlias> attrToAlias;
+  /// Mapping between type and alias.
+  llvm::MapVector<Type, SymbolAlias> typeToAlias;
 
   /// An allocator used for alias names.
   llvm::BumpPtrAllocator aliasAllocator;
@@ -1188,23 +950,23 @@ void AliasState::initialize(
     Operation *op, const OpPrintingFlags &printerFlags,
     DialectInterfaceCollection<OpAsmDialectInterface> &interfaces) {
   AliasInitializer initializer(interfaces, aliasAllocator);
-  initializer.initialize(op, printerFlags, attrTypeToAlias);
+  initializer.initialize(op, printerFlags, attrToAlias, typeToAlias);
 }
 
 LogicalResult AliasState::getAlias(Attribute attr, raw_ostream &os) const {
-  auto it = attrTypeToAlias.find(attr.getAsOpaquePointer());
-  if (it == attrTypeToAlias.end())
+  auto it = attrToAlias.find(attr);
+  if (it == attrToAlias.end())
     return failure();
-  it->second.print(os);
+  it->second.print(os << '#');
   return success();
 }
 
 LogicalResult AliasState::getAlias(Type ty, raw_ostream &os) const {
-  auto it = attrTypeToAlias.find(ty.getAsOpaquePointer());
-  if (it == attrTypeToAlias.end())
+  auto it = typeToAlias.find(ty);
+  if (it == typeToAlias.end())
     return failure();
 
-  it->second.print(os);
+  it->second.print(os << '!');
   return success();
 }
 
@@ -1213,26 +975,27 @@ void AliasState::printAliases(AsmPrinter::Impl &p, NewLineCounter &newLine,
   auto filterFn = [=](const auto &aliasIt) {
     return aliasIt.second.canBeDeferred() == isDeferred;
   };
-  for (auto &[opaqueSymbol, alias] :
-       llvm::make_filter_range(attrTypeToAlias, filterFn)) {
-    alias.print(p.getStream());
+  for (auto &[attr, alias] : llvm::make_filter_range(attrToAlias, filterFn)) {
+    alias.print(p.getStream() << '#');
     p.getStream() << " = ";
 
-    if (alias.isTypeAlias()) {
-      // TODO: Support nested aliases in mutable types.
-      Type type = Type::getFromOpaquePointer(opaqueSymbol);
-      if (type.hasTrait<TypeTrait::IsMutable>())
-        p.getStream() << type;
-      else
-        p.printTypeImpl(type);
-    } else {
-      // TODO: Support nested aliases in mutable attributes.
-      Attribute attr = Attribute::getFromOpaquePointer(opaqueSymbol);
-      if (attr.hasTrait<AttributeTrait::IsMutable>())
-        p.getStream() << attr;
-      else
-        p.printAttributeImpl(attr);
-    }
+    // TODO: Support nested aliases in mutable attributes.
+    if (attr.hasTrait<AttributeTrait::IsMutable>())
+      p.getStream() << attr;
+    else
+      p.printAttributeImpl(attr);
+
+    p.getStream() << newLine;
+  }
+  for (auto &[type, alias] : llvm::make_filter_range(typeToAlias, filterFn)) {
+    alias.print(p.getStream() << '!');
+    p.getStream() << " = ";
+
+    // TODO: Support nested aliases in mutable types.
+    if (type.hasTrait<TypeTrait::IsMutable>())
+      p.getStream() << type;
+    else
+      p.printTypeImpl(type);
 
     p.getStream() << newLine;
   }
@@ -1290,7 +1053,7 @@ private:
   /// 'lookupResultNo'. 'lookupResultNo' is only filled in if the result group
   /// has more than 1 result.
   void getResultIDAndNumber(OpResult result, Value &lookupValue,
-                            std::optional<int> &lookupResultNo) const;
+                            Optional<int> &lookupResultNo) const;
 
   /// Set a special value name for the given value.
   void setValueName(Value value, StringRef name);
@@ -1338,9 +1101,9 @@ private:
 
 SSANameState::SSANameState(Operation *op, const OpPrintingFlags &printerFlags)
     : printerFlags(printerFlags) {
-  llvm::SaveAndRestore valueIDSaver(nextValueID);
-  llvm::SaveAndRestore argumentIDSaver(nextArgumentID);
-  llvm::SaveAndRestore conflictIDSaver(nextConflictID);
+  llvm::SaveAndRestore<unsigned> valueIDSaver(nextValueID);
+  llvm::SaveAndRestore<unsigned> argumentIDSaver(nextArgumentID);
+  llvm::SaveAndRestore<unsigned> conflictIDSaver(nextConflictID);
 
   // The naming context includes `nextValueID`, `nextArgumentID`,
   // `nextConflictID` and `usedNames` scoped HashTable. This information is
@@ -1402,7 +1165,7 @@ void SSANameState::printValueID(Value value, bool printResultNo,
     return;
   }
 
-  std::optional<int> resultNo;
+  Optional<int> resultNo;
   auto lookupValue = value;
 
   // If this is an operation result, collect the head lookup value of the result
@@ -1426,13 +1189,13 @@ void SSANameState::printValueID(Value value, bool printResultNo,
   }
 
   if (resultNo && printResultNo)
-    stream << '#' << *resultNo;
+    stream << '#' << resultNo;
 }
 
 void SSANameState::printOperationID(Operation *op, raw_ostream &stream) const {
   auto it = operationIDs.find(op);
   if (it == operationIDs.end()) {
-    stream << "<<UNKNOWN OPERATION>>";
+    stream << "<<UNKOWN OPERATION>>";
   } else {
     stream << '%' << it->second;
   }
@@ -1481,7 +1244,7 @@ void SSANameState::shadowRegionArgs(Region &region, ValueRange namesToUse) {
 void SSANameState::numberValuesInRegion(Region &region) {
   auto setBlockArgNameFn = [&](Value arg, StringRef name) {
     assert(!valueIDs.count(arg) && "arg numbered multiple times");
-    assert(llvm::cast<BlockArgument>(arg).getOwner()->getParent() == &region &&
+    assert(arg.cast<BlockArgument>().getOwner()->getParent() == &region &&
            "arg not defined in current region");
     setValueName(arg, name);
   };
@@ -1542,7 +1305,7 @@ void SSANameState::numberValuesInOp(Operation &op) {
     setValueName(result, name);
 
     // Record the result number for groups not anchored at 0.
-    if (int resultNo = llvm::cast<OpResult>(result).getResultNumber())
+    if (int resultNo = result.cast<OpResult>().getResultNumber())
       resultGroups.push_back(resultNo);
   };
   // Operations can customize the printing of block names in OpAsmOpInterface.
@@ -1590,9 +1353,8 @@ void SSANameState::numberValuesInOp(Operation &op) {
   }
 }
 
-void SSANameState::getResultIDAndNumber(
-    OpResult result, Value &lookupValue,
-    std::optional<int> &lookupResultNo) const {
+void SSANameState::getResultIDAndNumber(OpResult result, Value &lookupValue,
+                                        Optional<int> &lookupResultNo) const {
   Operation *owner = result.getOwner();
   if (owner->getNumResults() == 1)
     return;
@@ -1665,31 +1427,6 @@ StringRef SSANameState::uniqueValueName(StringRef name) {
 
   usedNames.insert(name, char());
   return name;
-}
-
-//===----------------------------------------------------------------------===//
-// DistinctState
-//===----------------------------------------------------------------------===//
-
-namespace {
-/// This class manages the state for distinct attributes.
-class DistinctState {
-public:
-  /// Returns a unique identifier for the given distinct attribute.
-  uint64_t getId(DistinctAttr distinctAttr);
-
-private:
-  uint64_t distinctCounter = 0;
-  DenseMap<DistinctAttr, uint64_t> distinctAttrMap;
-};
-} // namespace
-
-uint64_t DistinctState::getId(DistinctAttr distinctAttr) {
-  auto [it, inserted] =
-      distinctAttrMap.try_emplace(distinctAttr, distinctCounter);
-  if (inserted)
-    distinctCounter++;
-  return it->getSecond();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1803,9 +1540,6 @@ public:
   /// Get the state used for SSA names.
   SSANameState &getSSANameState() { return nameState; }
 
-  /// Get the state used for distinct attribute identifiers.
-  DistinctState &getDistinctState() { return distinctState; }
-
   /// Return the dialects within the context that implement
   /// OpAsmDialectInterface.
   DialectInterfaceCollection<OpAsmDialectInterface> &getDialectInterfaces() {
@@ -1833,12 +1567,6 @@ public:
     return dialectResources;
   }
 
-  LogicalResult pushCyclicPrinting(const void *opaquePointer) {
-    return success(cyclicPrintingStack.insert(opaquePointer));
-  }
-
-  void popCyclicPrinting() { cyclicPrintingStack.pop_back(); }
-
 private:
   /// Collection of OpAsm interfaces implemented in the context.
   DialectInterfaceCollection<OpAsmDialectInterface> interfaces;
@@ -1855,36 +1583,15 @@ private:
   /// The state used for SSA value names.
   SSANameState nameState;
 
-  /// The state used for distinct attribute identifiers.
-  DistinctState distinctState;
-
   /// Flags that control op output.
   OpPrintingFlags printerFlags;
 
   /// An optional location map to be populated.
   AsmState::LocationMap *locationMap;
 
-  /// Stack of potentially cyclic mutable attributes or type currently being
-  /// printed.
-  SetVector<const void *> cyclicPrintingStack;
-
   // Allow direct access to the impl fields.
   friend AsmState;
 };
-
-template <typename Range>
-void printDimensionList(raw_ostream &stream, Range &&shape) {
-  llvm::interleave(
-      shape, stream,
-      [&stream](const auto &dimSize) {
-        if (ShapedType::isDynamic(dimSize))
-          stream << "?";
-        else
-          stream << dimSize;
-      },
-      "x");
-}
-
 } // namespace detail
 } // namespace mlir
 
@@ -1968,12 +1675,7 @@ void AsmPrinter::Impl::printTrailingLocation(Location loc, bool allowAlias) {
   printLocation(loc, /*allowAlias=*/allowAlias);
 }
 
-void AsmPrinter::Impl::printLocationInternal(LocationAttr loc, bool pretty,
-                                             bool isTopLevel) {
-  // If this isn't a top-level location, check for an alias.
-  if (!isTopLevel && succeeded(state.getAliasState().getAlias(loc, os)))
-    return;
-
+void AsmPrinter::Impl::printLocationInternal(LocationAttr loc, bool pretty) {
   TypeSwitch<LocationAttr>(loc)
       .Case<OpaqueLoc>([&](OpaqueLoc loc) {
         printLocationInternal(loc.getFallbackLocation(), pretty);
@@ -1996,7 +1698,7 @@ void AsmPrinter::Impl::printLocationInternal(LocationAttr loc, bool pretty,
 
         // Print the child if it isn't unknown.
         auto childLoc = loc.getChildLoc();
-        if (!llvm::isa<UnknownLoc>(childLoc)) {
+        if (!childLoc.isa<UnknownLoc>()) {
           os << '(';
           printLocationInternal(childLoc, pretty);
           os << ')';
@@ -2009,8 +1711,8 @@ void AsmPrinter::Impl::printLocationInternal(LocationAttr loc, bool pretty,
           os << "callsite(";
         printLocationInternal(callee, pretty);
         if (pretty) {
-          if (llvm::isa<NameLoc>(callee)) {
-            if (llvm::isa<FileLineColLoc>(caller)) {
+          if (callee.isa<NameLoc>()) {
+            if (caller.isa<FileLineColLoc>()) {
               os << " at ";
             } else {
               os << newLine << " at ";
@@ -2094,11 +1796,11 @@ static void printFloatValue(const APFloat &apValue, raw_ostream &os) {
 
 void AsmPrinter::Impl::printLocation(LocationAttr loc, bool allowAlias) {
   if (printerFlags.shouldPrintDebugInfoPrettyForm())
-    return printLocationInternal(loc, /*pretty=*/true, /*isTopLevel=*/true);
+    return printLocationInternal(loc, /*pretty=*/true);
 
   os << "loc(";
   if (!allowAlias || failed(printAlias(loc)))
-    printLocationInternal(loc, /*pretty=*/false, /*isTopLevel=*/true);
+    printLocationInternal(loc);
   os << ')';
 }
 
@@ -2176,10 +1878,7 @@ static void printKeywordOrString(StringRef keyword, raw_ostream &os) {
 /// represented as a string prefixed with '@'. The reference is surrounded with
 /// ""'s and escaped if it has any special or non-printable characters in it.
 static void printSymbolReference(StringRef symbolRef, raw_ostream &os) {
-  if (symbolRef.empty()) {
-    os << "@<<INVALID EMPTY SYMBOL>>";
-    return;
-  }
+  assert(!symbolRef.empty() && "expected valid symbol reference");
   os << '@';
   printKeywordOrString(symbolRef, os);
 }
@@ -2218,26 +1917,19 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
                                           AttrTypeElision typeElision) {
   if (!isa<BuiltinDialect>(attr.getDialect())) {
     printDialectAttribute(attr);
-  } else if (auto opaqueAttr = llvm::dyn_cast<OpaqueAttr>(attr)) {
+  } else if (auto opaqueAttr = attr.dyn_cast<OpaqueAttr>()) {
     printDialectSymbol(os, "#", opaqueAttr.getDialectNamespace(),
                        opaqueAttr.getAttrData());
-  } else if (llvm::isa<UnitAttr>(attr)) {
+  } else if (attr.isa<UnitAttr>()) {
     os << "unit";
     return;
-  } else if (auto distinctAttr = llvm::dyn_cast<DistinctAttr>(attr)) {
-    os << "distinct[" << state.getDistinctState().getId(distinctAttr) << "]<";
-    if (!llvm::isa<UnitAttr>(distinctAttr.getReferencedAttr())) {
-      printAttribute(distinctAttr.getReferencedAttr());
-    }
-    os << '>';
-    return;
-  } else if (auto dictAttr = llvm::dyn_cast<DictionaryAttr>(attr)) {
+  } else if (auto dictAttr = attr.dyn_cast<DictionaryAttr>()) {
     os << '{';
     interleaveComma(dictAttr.getValue(),
                     [&](NamedAttribute attr) { printNamedAttribute(attr); });
     os << '}';
 
-  } else if (auto intAttr = llvm::dyn_cast<IntegerAttr>(attr)) {
+  } else if (auto intAttr = attr.dyn_cast<IntegerAttr>()) {
     Type intType = intAttr.getType();
     if (intType.isSignlessInteger(1)) {
       os << (intAttr.getValue().getBoolValue() ? "true" : "false");
@@ -2257,24 +1949,24 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
     if (typeElision == AttrTypeElision::May && intType.isSignlessInteger(64))
       return;
 
-  } else if (auto floatAttr = llvm::dyn_cast<FloatAttr>(attr)) {
+  } else if (auto floatAttr = attr.dyn_cast<FloatAttr>()) {
     printFloatValue(floatAttr.getValue(), os);
 
     // FloatAttr elides the type if F64.
     if (typeElision == AttrTypeElision::May && floatAttr.getType().isF64())
       return;
 
-  } else if (auto strAttr = llvm::dyn_cast<StringAttr>(attr)) {
+  } else if (auto strAttr = attr.dyn_cast<StringAttr>()) {
     printEscapedString(strAttr.getValue());
 
-  } else if (auto arrayAttr = llvm::dyn_cast<ArrayAttr>(attr)) {
+  } else if (auto arrayAttr = attr.dyn_cast<ArrayAttr>()) {
     os << '[';
     interleaveComma(arrayAttr.getValue(), [&](Attribute attr) {
       printAttribute(attr, AttrTypeElision::May);
     });
     os << ']';
 
-  } else if (auto affineMapAttr = llvm::dyn_cast<AffineMapAttr>(attr)) {
+  } else if (auto affineMapAttr = attr.dyn_cast<AffineMapAttr>()) {
     os << "affine_map<";
     affineMapAttr.getValue().print(os);
     os << '>';
@@ -2282,7 +1974,7 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
     // AffineMap always elides the type.
     return;
 
-  } else if (auto integerSetAttr = llvm::dyn_cast<IntegerSetAttr>(attr)) {
+  } else if (auto integerSetAttr = attr.dyn_cast<IntegerSetAttr>()) {
     os << "affine_set<";
     integerSetAttr.getValue().print(os);
     os << '>';
@@ -2290,18 +1982,17 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
     // IntegerSet always elides the type.
     return;
 
-  } else if (auto typeAttr = llvm::dyn_cast<TypeAttr>(attr)) {
+  } else if (auto typeAttr = attr.dyn_cast<TypeAttr>()) {
     printType(typeAttr.getValue());
 
-  } else if (auto refAttr = llvm::dyn_cast<SymbolRefAttr>(attr)) {
+  } else if (auto refAttr = attr.dyn_cast<SymbolRefAttr>()) {
     printSymbolReference(refAttr.getRootReference().getValue(), os);
     for (FlatSymbolRefAttr nestedRef : refAttr.getNestedReferences()) {
       os << "::";
       printSymbolReference(nestedRef.getValue(), os);
     }
 
-  } else if (auto intOrFpEltAttr =
-                 llvm::dyn_cast<DenseIntOrFPElementsAttr>(attr)) {
+  } else if (auto intOrFpEltAttr = attr.dyn_cast<DenseIntOrFPElementsAttr>()) {
     if (printerFlags.shouldElideElementsAttr(intOrFpEltAttr)) {
       printElidedElementsAttr(os);
     } else {
@@ -2310,7 +2001,7 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
       os << '>';
     }
 
-  } else if (auto strEltAttr = llvm::dyn_cast<DenseStringElementsAttr>(attr)) {
+  } else if (auto strEltAttr = attr.dyn_cast<DenseStringElementsAttr>()) {
     if (printerFlags.shouldElideElementsAttr(strEltAttr)) {
       printElidedElementsAttr(os);
     } else {
@@ -2319,7 +2010,7 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
       os << '>';
     }
 
-  } else if (auto sparseEltAttr = llvm::dyn_cast<SparseElementsAttr>(attr)) {
+  } else if (auto sparseEltAttr = attr.dyn_cast<SparseElementsAttr>()) {
     if (printerFlags.shouldElideElementsAttr(sparseEltAttr.getIndices()) ||
         printerFlags.shouldElideElementsAttr(sparseEltAttr.getValues())) {
       printElidedElementsAttr(os);
@@ -2333,32 +2024,33 @@ void AsmPrinter::Impl::printAttributeImpl(Attribute attr,
       }
       os << '>';
     }
-  } else if (auto stridedLayoutAttr = llvm::dyn_cast<StridedLayoutAttr>(attr)) {
+  } else if (auto stridedLayoutAttr = attr.dyn_cast<StridedLayoutAttr>()) {
     stridedLayoutAttr.print(os);
-  } else if (auto denseArrayAttr = llvm::dyn_cast<DenseArrayAttr>(attr)) {
+  } else if (auto denseArrayAttr = attr.dyn_cast<DenseArrayAttr>()) {
     os << "array<";
-    printType(denseArrayAttr.getElementType());
+    if (typeElision != AttrTypeElision::Must)
+      printType(denseArrayAttr.getType().getElementType());
     if (!denseArrayAttr.empty()) {
-      os << ": ";
+      if (typeElision != AttrTypeElision::Must)
+        os << ": ";
       printDenseArrayAttr(denseArrayAttr);
     }
     os << ">";
     return;
-  } else if (auto resourceAttr =
-                 llvm::dyn_cast<DenseResourceElementsAttr>(attr)) {
+  } else if (auto resourceAttr = attr.dyn_cast<DenseResourceElementsAttr>()) {
     os << "dense_resource<";
     printResourceHandle(resourceAttr.getRawHandle());
     os << ">";
-  } else if (auto locAttr = llvm::dyn_cast<LocationAttr>(attr)) {
+  } else if (auto locAttr = attr.dyn_cast<LocationAttr>()) {
     printLocation(locAttr);
   } else {
     llvm::report_fatal_error("Unknown builtin attribute");
   }
   // Don't print the type if we must elide it, or if it is a None type.
   if (typeElision != AttrTypeElision::Must) {
-    if (auto typedAttr = llvm::dyn_cast<TypedAttr>(attr)) {
+    if (auto typedAttr = attr.dyn_cast<TypedAttr>()) {
       Type attrType = typedAttr.getType();
-      if (!llvm::isa<NoneType>(attrType)) {
+      if (!attrType.isa<NoneType>()) {
         os << " : ";
         printType(attrType);
       }
@@ -2427,10 +2119,10 @@ printDenseElementsAttrImpl(bool isSplat, ShapedType type, raw_ostream &os,
 
 void AsmPrinter::Impl::printDenseElementsAttr(DenseElementsAttr attr,
                                               bool allowHex) {
-  if (auto stringAttr = llvm::dyn_cast<DenseStringElementsAttr>(attr))
+  if (auto stringAttr = attr.dyn_cast<DenseStringElementsAttr>())
     return printDenseStringElementsAttr(stringAttr);
 
-  printDenseIntOrFPElementsAttr(llvm::cast<DenseIntOrFPElementsAttr>(attr),
+  printDenseIntOrFPElementsAttr(attr.cast<DenseIntOrFPElementsAttr>(),
                                 allowHex);
 }
 
@@ -2444,7 +2136,8 @@ void AsmPrinter::Impl::printDenseIntOrFPElementsAttr(
   if (!attr.isSplat() && allowHex &&
       shouldPrintElementsAttrWithHex(numElements)) {
     ArrayRef<char> rawData = attr.getRawData();
-    if (llvm::endianness::native == llvm::endianness::big) {
+    if (llvm::support::endian::system_endianness() ==
+        llvm::support::endianness::big) {
       // Convert endianess in big-endian(BE) machines. `rawData` is BE in BE
       // machines. It is converted here to print in LE format.
       SmallVector<char, 64> outDataVec(rawData.size());
@@ -2459,12 +2152,12 @@ void AsmPrinter::Impl::printDenseIntOrFPElementsAttr(
     return;
   }
 
-  if (ComplexType complexTy = llvm::dyn_cast<ComplexType>(elementType)) {
+  if (ComplexType complexTy = elementType.dyn_cast<ComplexType>()) {
     Type complexElementType = complexTy.getElementType();
     // Note: The if and else below had a common lambda function which invoked
     // printDenseElementsAttrImpl. This lambda was hitting a bug in gcc 9.1,9.2
     // and hence was replaced.
-    if (llvm::isa<IntegerType>(complexElementType)) {
+    if (complexElementType.isa<IntegerType>()) {
       auto valueIt = attr.value_begin<std::complex<APInt>>();
       printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
         auto complexValue = *(valueIt + index);
@@ -2491,7 +2184,7 @@ void AsmPrinter::Impl::printDenseIntOrFPElementsAttr(
       printDenseIntElement(*(valueIt + index), os, elementType);
     });
   } else {
-    assert(llvm::isa<FloatType>(elementType) && "unexpected element type");
+    assert(elementType.isa<FloatType>() && "unexpected element type");
     auto valueIt = attr.value_begin<APFloat>();
     printDenseElementsAttrImpl(attr.isSplat(), type, os, [&](unsigned index) {
       printFloatValue(*(valueIt + index), os);
@@ -2523,7 +2216,7 @@ void AsmPrinter::Impl::printDenseArrayAttr(DenseArrayAttr attr) {
     if (type.isIntOrIndex()) {
       printDenseIntElement(value, getStream(), type);
     } else {
-      APFloat fltVal(llvm::cast<FloatType>(type).getFloatSemantics(), value);
+      APFloat fltVal(type.cast<FloatType>().getFloatSemantics(), value);
       printFloatValue(fltVal, getStream());
     }
   };
@@ -2551,13 +2244,8 @@ void AsmPrinter::Impl::printTypeImpl(Type type) {
       })
       .Case<IndexType>([&](Type) { os << "index"; })
       .Case<Float8E5M2Type>([&](Type) { os << "f8E5M2"; })
-      .Case<Float8E4M3FNType>([&](Type) { os << "f8E4M3FN"; })
-      .Case<Float8E5M2FNUZType>([&](Type) { os << "f8E5M2FNUZ"; })
-      .Case<Float8E4M3FNUZType>([&](Type) { os << "f8E4M3FNUZ"; })
-      .Case<Float8E4M3B11FNUZType>([&](Type) { os << "f8E4M3B11FNUZ"; })
       .Case<BFloat16Type>([&](Type) { os << "bf16"; })
       .Case<Float16Type>([&](Type) { os << "f16"; })
-      .Case<FloatTF32Type>([&](Type) { os << "tf32"; })
       .Case<Float32Type>([&](Type) { os << "f32"; })
       .Case<Float64Type>([&](Type) { os << "f64"; })
       .Case<Float80Type>([&](Type) { os << "f80"; })
@@ -2574,7 +2262,7 @@ void AsmPrinter::Impl::printTypeImpl(Type type) {
         interleaveComma(funcTy.getInputs(), [&](Type ty) { printType(ty); });
         os << ") -> ";
         ArrayRef<Type> results = funcTy.getResults();
-        if (results.size() == 1 && !llvm::isa<FunctionType>(results[0])) {
+        if (results.size() == 1 && !results[0].isa<FunctionType>()) {
           printType(results[0]);
         } else {
           os << '(';
@@ -2583,27 +2271,32 @@ void AsmPrinter::Impl::printTypeImpl(Type type) {
         }
       })
       .Case<VectorType>([&](VectorType vectorTy) {
-        auto scalableDims = vectorTy.getScalableDims();
         os << "vector<";
         auto vShape = vectorTy.getShape();
         unsigned lastDim = vShape.size();
+        unsigned lastFixedDim = lastDim - vectorTy.getNumScalableDims();
         unsigned dimIdx = 0;
-        for (dimIdx = 0; dimIdx < lastDim; dimIdx++) {
-          if (!scalableDims.empty() && scalableDims[dimIdx])
-            os << '[';
-          os << vShape[dimIdx];
-          if (!scalableDims.empty() && scalableDims[dimIdx])
-            os << ']';
-          os << 'x';
+        for (dimIdx = 0; dimIdx < lastFixedDim; dimIdx++)
+          os << vShape[dimIdx] << 'x';
+        if (vectorTy.isScalable()) {
+          os << '[';
+          unsigned secondToLastDim = lastDim - 1;
+          for (; dimIdx < secondToLastDim; dimIdx++)
+            os << vShape[dimIdx] << 'x';
+          os << vShape[dimIdx] << "]x";
         }
         printType(vectorTy.getElementType());
         os << '>';
       })
       .Case<RankedTensorType>([&](RankedTensorType tensorTy) {
         os << "tensor<";
-        printDimensionList(tensorTy.getShape());
-        if (!tensorTy.getShape().empty())
+        for (int64_t dim : tensorTy.getShape()) {
+          if (ShapedType::isDynamic(dim))
+            os << '?';
+          else
+            os << dim;
           os << 'x';
+        }
         printType(tensorTy.getElementType());
         // Only print the encoding attribute value if set.
         if (tensorTy.getEncoding()) {
@@ -2619,12 +2312,16 @@ void AsmPrinter::Impl::printTypeImpl(Type type) {
       })
       .Case<MemRefType>([&](MemRefType memrefTy) {
         os << "memref<";
-        printDimensionList(memrefTy.getShape());
-        if (!memrefTy.getShape().empty())
+        for (int64_t dim : memrefTy.getShape()) {
+          if (ShapedType::isDynamic(dim))
+            os << '?';
+          else
+            os << dim;
           os << 'x';
+        }
         printType(memrefTy.getElementType());
         MemRefLayoutAttrInterface layout = memrefTy.getLayout();
-        if (!llvm::isa<AffineMapAttr>(layout) || !layout.isIdentity()) {
+        if (!layout.isa<AffineMapAttr>() || !layout.isIdentity()) {
           os << ", ";
           printAttribute(memrefTy.getLayout(), AttrTypeElision::May);
         }
@@ -2693,12 +2390,13 @@ void AsmPrinter::Impl::printOptionalAttrDict(ArrayRef<NamedAttribute> attrs,
   if (!filteredAttrs.empty())
     printFilteredAttributesFn(filteredAttrs);
 }
+
 void AsmPrinter::Impl::printNamedAttribute(NamedAttribute attr) {
   // Print the name without quotes if possible.
   ::printKeywordOrString(attr.getName().strref(), os);
 
   // Pretty printing elides the attribute value for unit attributes.
-  if (llvm::isa<UnitAttr>(attr.getValue()))
+  if (attr.getValue().isa<UnitAttr>())
     return;
 
   os << " = ";
@@ -2744,16 +2442,6 @@ void AsmPrinter::Impl::printHexString(StringRef str) {
 }
 void AsmPrinter::Impl::printHexString(ArrayRef<char> data) {
   printHexString(StringRef(data.data(), data.size()));
-}
-
-LogicalResult AsmPrinter::Impl::pushCyclicPrinting(const void *opaquePointer) {
-  return state.pushCyclicPrinting(opaquePointer);
-}
-
-void AsmPrinter::Impl::popCyclicPrinting() { state.popCyclicPrinting(); }
-
-void AsmPrinter::Impl::printDimensionList(ArrayRef<int64_t> shape) {
-  detail::printDimensionList(os, shape);
 }
 
 //===--------------------------------------------------------------------===//
@@ -2804,13 +2492,6 @@ void AsmPrinter::printKeywordOrString(StringRef keyword) {
   ::printKeywordOrString(keyword, impl->getStream());
 }
 
-void AsmPrinter::printString(StringRef keyword) {
-  assert(impl && "expected AsmPrinter::printString to be overriden");
-  *this << '"';
-  printEscapedString(keyword, getStream());
-  *this << '"';
-}
-
 void AsmPrinter::printSymbolName(StringRef symbolRef) {
   assert(impl && "expected AsmPrinter::printSymbolName to be overriden");
   ::printSymbolReference(symbolRef, impl->getStream());
@@ -2820,16 +2501,6 @@ void AsmPrinter::printResourceHandle(const AsmDialectResourceHandle &resource) {
   assert(impl && "expected AsmPrinter::printResourceHandle to be overriden");
   impl->printResourceHandle(resource);
 }
-
-void AsmPrinter::printDimensionList(ArrayRef<int64_t> shape) {
-  detail::printDimensionList(getStream(), shape);
-}
-
-LogicalResult AsmPrinter::pushCyclicPrinting(const void *opaquePointer) {
-  return impl->pushCyclicPrinting(opaquePointer);
-}
-
-void AsmPrinter::popCyclicPrinting() { impl->popCyclicPrinting(); }
 
 //===----------------------------------------------------------------------===//
 // Affine expressions and maps
@@ -2846,7 +2517,7 @@ void AsmPrinter::Impl::printAffineExprInternal(
   const char *binopSpelling = nullptr;
   switch (expr.getKind()) {
   case AffineExprKind::SymbolId: {
-    unsigned pos = cast<AffineSymbolExpr>(expr).getPosition();
+    unsigned pos = expr.cast<AffineSymbolExpr>().getPosition();
     if (printValueName)
       printValueName(pos, /*isSymbol=*/true);
     else
@@ -2854,7 +2525,7 @@ void AsmPrinter::Impl::printAffineExprInternal(
     return;
   }
   case AffineExprKind::DimId: {
-    unsigned pos = cast<AffineDimExpr>(expr).getPosition();
+    unsigned pos = expr.cast<AffineDimExpr>().getPosition();
     if (printValueName)
       printValueName(pos, /*isSymbol=*/false);
     else
@@ -2862,7 +2533,7 @@ void AsmPrinter::Impl::printAffineExprInternal(
     return;
   }
   case AffineExprKind::Constant:
-    os << cast<AffineConstantExpr>(expr).getValue();
+    os << expr.cast<AffineConstantExpr>().getValue();
     return;
   case AffineExprKind::Add:
     binopSpelling = " + ";
@@ -2881,7 +2552,7 @@ void AsmPrinter::Impl::printAffineExprInternal(
     break;
   }
 
-  auto binOp = cast<AffineBinaryOpExpr>(expr);
+  auto binOp = expr.cast<AffineBinaryOpExpr>();
   AffineExpr lhsExpr = binOp.getLHS();
   AffineExpr rhsExpr = binOp.getRHS();
 
@@ -2891,7 +2562,7 @@ void AsmPrinter::Impl::printAffineExprInternal(
       os << '(';
 
     // Pretty print multiplication with -1.
-    auto rhsConst = dyn_cast<AffineConstantExpr>(rhsExpr);
+    auto rhsConst = rhsExpr.dyn_cast<AffineConstantExpr>();
     if (rhsConst && binOp.getKind() == AffineExprKind::Mul &&
         rhsConst.getValue() == -1) {
       os << "-";
@@ -2917,10 +2588,10 @@ void AsmPrinter::Impl::printAffineExprInternal(
 
   // Pretty print addition to a product that has a negative operand as a
   // subtraction.
-  if (auto rhs = dyn_cast<AffineBinaryOpExpr>(rhsExpr)) {
+  if (auto rhs = rhsExpr.dyn_cast<AffineBinaryOpExpr>()) {
     if (rhs.getKind() == AffineExprKind::Mul) {
       AffineExpr rrhsExpr = rhs.getRHS();
-      if (auto rrhs = dyn_cast<AffineConstantExpr>(rrhsExpr)) {
+      if (auto rrhs = rrhsExpr.dyn_cast<AffineConstantExpr>()) {
         if (rrhs.getValue() == -1) {
           printAffineExprInternal(lhsExpr, BindingStrength::Weak,
                                   printValueName);
@@ -2954,7 +2625,7 @@ void AsmPrinter::Impl::printAffineExprInternal(
   }
 
   // Pretty print addition to a negative number as a subtraction.
-  if (auto rhsConst = dyn_cast<AffineConstantExpr>(rhsExpr)) {
+  if (auto rhsConst = rhsExpr.dyn_cast<AffineConstantExpr>()) {
     if (rhsConst.getValue() < 0) {
       printAffineExprInternal(lhsExpr, BindingStrength::Weak, printValueName);
       os << " - " << -rhsConst.getValue();
@@ -3183,19 +2854,16 @@ private:
     using ValueFn = function_ref<void(raw_ostream &)>;
     using PrintFn = function_ref<void(StringRef, ValueFn)>;
 
-    ResourceBuilder(PrintFn printFn) : printFn(printFn) {}
+    ResourceBuilder(OperationPrinter &p, PrintFn printFn)
+        : p(p), printFn(printFn) {}
     ~ResourceBuilder() override = default;
 
     void buildBool(StringRef key, bool data) final {
-      printFn(key, [&](raw_ostream &os) { os << (data ? "true" : "false"); });
+      printFn(key, [&](raw_ostream &os) { p.os << (data ? "true" : "false"); });
     }
 
     void buildString(StringRef key, StringRef data) final {
-      printFn(key, [&](raw_ostream &os) {
-        os << "\"";
-        llvm::printEscapedString(data, os);
-        os << "\"";
-      });
+      printFn(key, [&](raw_ostream &os) { p.printEscapedString(data); });
     }
 
     void buildBlob(StringRef key, ArrayRef<char> data,
@@ -3211,6 +2879,7 @@ private:
     }
 
   private:
+    OperationPrinter &p;
     PrintFn printFn;
   };
 
@@ -3273,54 +2942,27 @@ void OperationPrinter::printResourceFileMetadata(
     function_ref<void()> checkAddMetadataDict, Operation *op) {
   // Functor used to add data entries to the file metadata dictionary.
   bool hadResource = false;
-  bool needResourceComma = false;
-  bool needEntryComma = false;
   auto processProvider = [&](StringRef dictName, StringRef name, auto &provider,
                              auto &&...providerArgs) {
     bool hadEntry = false;
     auto printFn = [&](StringRef key, ResourceBuilder::ValueFn valueFn) {
       checkAddMetadataDict();
 
-      auto printFormatting = [&]() {
-        // Emit the top-level resource entry if we haven't yet.
-        if (!std::exchange(hadResource, true)) {
-          if (needResourceComma)
-            os << "," << newLine;
-          os << "  " << dictName << "_resources: {" << newLine;
-        }
-        // Emit the parent resource entry if we haven't yet.
-        if (!std::exchange(hadEntry, true)) {
-          if (needEntryComma)
-            os << "," << newLine;
-          os << "    " << name << ": {" << newLine;
-        } else {
-          os << "," << newLine;
-        }
-      };
+      // Emit the top-level resource entry if we haven't yet.
+      if (!std::exchange(hadResource, true))
+        os << "  " << dictName << "_resources: {" << newLine;
+      // Emit the parent resource entry if we haven't yet.
+      if (!std::exchange(hadEntry, true))
+        os << "    " << name << ": {" << newLine;
+      else
+        os << "," << newLine;
 
-      std::optional<uint64_t> charLimit =
-          printerFlags.getLargeResourceStringLimit();
-      if (charLimit.has_value()) {
-        std::string resourceStr;
-        llvm::raw_string_ostream ss(resourceStr);
-        valueFn(ss);
-
-        // Only print entry if it's string is small enough
-        if (resourceStr.size() > charLimit.value())
-          return;
-
-        printFormatting();
-        os << "      " << key << ": " << resourceStr;
-      } else {
-        printFormatting();
-        os << "      " << key << ": ";
-        valueFn(os);
-      }
+      os << "      " << key << ": ";
+      valueFn(os);
     };
-    ResourceBuilder entryBuilder(printFn);
+    ResourceBuilder entryBuilder(*this, printFn);
     provider.buildResources(op, providerArgs..., entryBuilder);
 
-    needEntryComma |= hadEntry;
     if (hadEntry)
       os << newLine << "    }";
   };
@@ -3342,8 +2984,6 @@ void OperationPrinter::printResourceFileMetadata(
 
   // Print the `external_resources` section if we have any external clients with
   // resources.
-  needEntryComma = false;
-  needResourceComma = hadResource;
   hadResource = false;
   for (const auto &printer : state.getResourcePrinters())
     processProvider("external", printer.getName(), printer);
@@ -3466,9 +3106,9 @@ void OperationPrinter::printValueUsers(Value value) {
   // One value might be used as the operand of an operation more than once.
   // Only print the operations results once in that case.
   SmallPtrSet<Operation *, 1> userSet;
-  for (auto [index, user] : enumerate(value.getUsers())) {
-    if (userSet.insert(user).second)
-      printUserIDs(user, index);
+  for (auto &indexedUser : enumerate(value.getUsers())) {
+    if (userSet.insert(indexedUser.value()).second)
+      printUserIDs(indexedUser.value(), indexedUser.index());
   }
 }
 
@@ -3530,13 +3170,6 @@ void OperationPrinter::printGenericOp(Operation *op, bool printOpName) {
     os << ']';
   }
 
-  // Print the properties.
-  if (Attribute prop = op->getPropertiesAsAttribute()) {
-    os << " <";
-    Impl::printAttribute(prop);
-    os << '>';
-  }
-
   // Print regions.
   if (op->getNumRegions() != 0) {
     os << " (";
@@ -3547,9 +3180,8 @@ void OperationPrinter::printGenericOp(Operation *op, bool printOpName) {
     os << ')';
   }
 
-  printOptionalAttrDict(op->getPropertiesStorage()
-                            ? llvm::to_vector(op->getDiscardableAttrs())
-                            : op->getAttrs());
+  auto attrs = op->getAttrs();
+  printOptionalAttrDict(attrs);
 
   // Print the type signature of the operation.
   os << " : ";
@@ -3663,10 +3295,6 @@ void OperationPrinter::printSuccessorAndUseList(Block *successor,
 void OperationPrinter::printRegion(Region &region, bool printEntryBlockArgs,
                                    bool printBlockTerminators,
                                    bool printEmptyBlock) {
-  if (printerFlags.shouldSkipRegions()) {
-    os << "{...}";
-    return;
-  }
   os << "{" << newLine;
   if (!region.empty()) {
     auto restoreDefaultDialect =
@@ -3692,10 +3320,6 @@ void OperationPrinter::printRegion(Region &region, bool printEntryBlockArgs,
 
 void OperationPrinter::printAffineMapOfSSAIds(AffineMapAttr mapAttr,
                                               ValueRange operands) {
-  if (!mapAttr) {
-    os << "<<NULL AFFINE MAP>>";
-    return;
-  }
   AffineMap map = mapAttr.getValue();
   unsigned numDims = map.getNumDims();
   auto printValueName = [&](unsigned pos, bool isSymbol) {
@@ -3751,37 +3375,6 @@ void Attribute::dump() const {
   llvm::errs() << "\n";
 }
 
-void Attribute::printStripped(raw_ostream &os, AsmState &state) const {
-  if (!*this) {
-    os << "<<NULL ATTRIBUTE>>";
-    return;
-  }
-
-  AsmPrinter::Impl subPrinter(os, state.getImpl());
-  if (succeeded(subPrinter.printAlias(*this)))
-    return;
-
-  auto &dialect = this->getDialect();
-  uint64_t posPrior = os.tell();
-  DialectAsmPrinter printer(subPrinter);
-  dialect.printAttribute(*this, printer);
-  if (posPrior != os.tell())
-    return;
-
-  // Fallback to printing with prefix if the above failed to write anything
-  // to the output stream.
-  print(os, state);
-}
-void Attribute::printStripped(raw_ostream &os) const {
-  if (!*this) {
-    os << "<<NULL ATTRIBUTE>>";
-    return;
-  }
-
-  AsmState state(getContext());
-  printStripped(os, state);
-}
-
 void Type::print(raw_ostream &os) const {
   if (!*this) {
     os << "<<NULL TYPE>>";
@@ -3795,10 +3388,7 @@ void Type::print(raw_ostream &os, AsmState &state) const {
   AsmPrinter::Impl(os, state.getImpl()).printType(*this);
 }
 
-void Type::dump() const {
-  print(llvm::errs());
-  llvm::errs() << "\n";
-}
+void Type::dump() const { print(llvm::errs()); }
 
 void AffineMap::dump() const {
   print(llvm::errs());
@@ -3838,8 +3428,8 @@ void IntegerSet::print(raw_ostream &os) const {
   AsmPrinter::Impl(os, state.getImpl()).printIntegerSet(*this);
 }
 
-void Value::print(raw_ostream &os) const { print(os, OpPrintingFlags()); }
-void Value::print(raw_ostream &os, const OpPrintingFlags &flags) const {
+void Value::print(raw_ostream &os) { print(os, OpPrintingFlags()); }
+void Value::print(raw_ostream &os, const OpPrintingFlags &flags) {
   if (!impl) {
     os << "<<NULL VALUE>>";
     return;
@@ -3848,11 +3438,11 @@ void Value::print(raw_ostream &os, const OpPrintingFlags &flags) const {
   if (auto *op = getDefiningOp())
     return op->print(os, flags);
   // TODO: Improve BlockArgument print'ing.
-  BlockArgument arg = llvm::cast<BlockArgument>(*this);
+  BlockArgument arg = this->cast<BlockArgument>();
   os << "<block argument> of type '" << arg.getType()
      << "' at index: " << arg.getArgNumber();
 }
-void Value::print(raw_ostream &os, AsmState &state) const {
+void Value::print(raw_ostream &os, AsmState &state) {
   if (!impl) {
     os << "<<NULL VALUE>>";
     return;
@@ -3862,17 +3452,17 @@ void Value::print(raw_ostream &os, AsmState &state) const {
     return op->print(os, state);
 
   // TODO: Improve BlockArgument print'ing.
-  BlockArgument arg = llvm::cast<BlockArgument>(*this);
+  BlockArgument arg = this->cast<BlockArgument>();
   os << "<block argument> of type '" << arg.getType()
      << "' at index: " << arg.getArgNumber();
 }
 
-void Value::dump() const {
+void Value::dump() {
   print(llvm::errs());
   llvm::errs() << "\n";
 }
 
-void Value::printAsOperand(raw_ostream &os, AsmState &state) const {
+void Value::printAsOperand(raw_ostream &os, AsmState &state) {
   // TODO: This doesn't necessarily capture all potential cases.
   // Currently, region arguments can be shadowed when printing the main
   // operation. If the IR hasn't been printed, this will produce the old SSA
@@ -3881,7 +3471,10 @@ void Value::printAsOperand(raw_ostream &os, AsmState &state) const {
                                                  os);
 }
 
-static Operation *findParent(Operation *op, bool shouldUseLocalScope) {
+void Operation::print(raw_ostream &os, const OpPrintingFlags &printerFlags) {
+  // Find the operation to number from based upon the provided flags.
+  Operation *op = this;
+  bool shouldUseLocalScope = printerFlags.shouldUseLocalScope();
   do {
     // If we are printing local scope, stop at the first operation that is
     // isolated from above.
@@ -3894,29 +3487,7 @@ static Operation *findParent(Operation *op, bool shouldUseLocalScope) {
       break;
     op = parentOp;
   } while (true);
-  return op;
-}
 
-void Value::printAsOperand(raw_ostream &os,
-                           const OpPrintingFlags &flags) const {
-  Operation *op;
-  if (auto result = llvm::dyn_cast<OpResult>(*this)) {
-    op = result.getOwner();
-  } else {
-    op = llvm::cast<BlockArgument>(*this).getOwner()->getParentOp();
-    if (!op) {
-      os << "<<UNKNOWN SSA VALUE>>";
-      return;
-    }
-  }
-  op = findParent(op, flags.shouldUseLocalScope());
-  AsmState state(op, flags);
-  printAsOperand(os, state);
-}
-
-void Operation::print(raw_ostream &os, const OpPrintingFlags &printerFlags) {
-  // Find the operation to number from based upon the provided flags.
-  Operation *op = findParent(this, printerFlags.shouldUseLocalScope());
   AsmState state(op, printerFlags);
   print(os, state);
 }
@@ -3968,47 +3539,3 @@ void Block::printAsOperand(raw_ostream &os, AsmState &state) {
   OperationPrinter printer(os, state.getImpl());
   printer.printBlockName(this);
 }
-
-//===--------------------------------------------------------------------===//
-// Custom printers
-//===--------------------------------------------------------------------===//
-namespace mlir {
-
-void printDimensionList(OpAsmPrinter &printer, Operation *op,
-                        ArrayRef<int64_t> dimensions) {
-  if (dimensions.empty())
-    printer << "[";
-  printer.printDimensionList(dimensions);
-  if (dimensions.empty())
-    printer << "]";
-}
-
-ParseResult parseDimensionList(OpAsmParser &parser,
-                               DenseI64ArrayAttr &dimensions) {
-  // Empty list case denoted by "[]".
-  if (succeeded(parser.parseOptionalLSquare())) {
-    if (failed(parser.parseRSquare())) {
-      return parser.emitError(parser.getCurrentLocation())
-             << "Failed parsing dimension list.";
-    }
-    dimensions =
-        DenseI64ArrayAttr::get(parser.getContext(), ArrayRef<int64_t>());
-    return success();
-  }
-
-  // Non-empty list case.
-  SmallVector<int64_t> shapeArr;
-  if (failed(parser.parseDimensionList(shapeArr, true, false))) {
-    return parser.emitError(parser.getCurrentLocation())
-           << "Failed parsing dimension list.";
-  }
-  if (shapeArr.empty()) {
-    return parser.emitError(parser.getCurrentLocation())
-           << "Failed parsing dimension list. Did you mean an empty list? It "
-              "must be denoted by \"[]\".";
-  }
-  dimensions = DenseI64ArrayAttr::get(parser.getContext(), shapeArr);
-  return success();
-}
-
-} // namespace mlir

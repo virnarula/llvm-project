@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "../portability/RestrictSystemIncludesCheck.h"
 
-namespace clang::tidy::llvm_libc {
+namespace clang {
+namespace tidy {
+namespace llvm_libc {
 
 /// Warns of accidental inclusions of system libc headers that aren't
 /// compiler provided.
@@ -28,6 +30,8 @@ public:
                            Preprocessor *ModuleExpanderPP) override;
 };
 
-} // namespace clang::tidy::llvm_libc
+} // namespace llvm_libc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LLVMLIBC_RESTRICTSYSTEMLIBCHEADERSCHECK_H

@@ -274,7 +274,7 @@ protected:
 class MCJITTestBase : public MCJITTestAPICommon, public TrivialModuleBuilder {
 protected:
   MCJITTestBase()
-      : TrivialModuleBuilder(HostTriple), OptLevel(CodeGenOptLevel::None),
+      : TrivialModuleBuilder(HostTriple), OptLevel(CodeGenOpt::None),
         CodeModel(CodeModel::Small), MArch(""), MM(new SectionMemoryManager) {
     // The architectures below are known to be compatible with MCJIT as they
     // are copied from test/ExecutionEngine/MCJIT/lit.local.cfg and should be
@@ -307,18 +307,18 @@ protected:
     EngineBuilder EB(std::move(M));
     std::string Error;
     TheJIT.reset(EB.setEngineKind(EngineKind::JIT)
-                     .setMCJITMemoryManager(std::move(MM))
-                     .setErrorStr(&Error)
-                     .setOptLevel(CodeGenOptLevel::None)
-                     .setMArch(MArch)
-                     .setMCPU(sys::getHostCPUName())
-                     //.setMAttrs(MAttrs)
-                     .create());
+                 .setMCJITMemoryManager(std::move(MM))
+                 .setErrorStr(&Error)
+                 .setOptLevel(CodeGenOpt::None)
+                 .setMArch(MArch)
+                 .setMCPU(sys::getHostCPUName())
+                 //.setMAttrs(MAttrs)
+                 .create());
     // At this point, we cannot modify the module any more.
     assert(TheJIT.get() != NULL && "error creating MCJIT with EngineBuilder");
   }
 
-  CodeGenOptLevel OptLevel;
+  CodeGenOpt::Level OptLevel;
   CodeModel::Model CodeModel;
   StringRef MArch;
   SmallVector<std::string, 1> MAttrs;

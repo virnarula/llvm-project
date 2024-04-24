@@ -26,38 +26,50 @@
 #include "test_macros.h"
 #include "../../euclidian.h"
 
-using weekday = std::chrono::weekday;
-using days    = std::chrono::days;
-
-constexpr bool test() {
-  for (unsigned i = 0; i <= 6; ++i)
-    for (unsigned j = 0; j <= 6; ++j) {
-      weekday wd = weekday{i} - days{j};
-      assert(wd + days{j} == weekday{i});
-      assert((wd.c_encoding() == euclidian_subtraction<unsigned, 0, 6>(i, j)));
+template <typename WD, typename Ds>
+constexpr bool testConstexpr()
+{
+    {
+    WD wd{5};
+    Ds offset{3};
+    assert(wd - offset == WD{2});
+    assert(wd - WD{2} == offset);
     }
 
-  for (unsigned i = 0; i <= 6; ++i)
-    for (unsigned j = 0; j <= 6; ++j) {
-      days d = weekday{j} - weekday{i};
-      assert(weekday{i} + d == weekday{j});
-    }
+    //  Check the example
+    assert(WD{0} - WD{1} == Ds{6});
 
-  //  Check the example
-  assert(weekday{0} - weekday{1} == days{6});
-
-  return true;
+    return true;
 }
 
-int main(int, char**) {
-  ASSERT_NOEXCEPT(std::declval<weekday>() - std::declval<days>());
-  ASSERT_SAME_TYPE(weekday, decltype(std::declval<weekday>() - std::declval<days>()));
+int main(int, char**)
+{
+    using weekday  = std::chrono::weekday;
+    using days     = std::chrono::days;
 
-  ASSERT_NOEXCEPT(std::declval<weekday>() - std::declval<weekday>());
-  ASSERT_SAME_TYPE(days, decltype(std::declval<weekday>() - std::declval<weekday>()));
+    ASSERT_NOEXCEPT(                   std::declval<weekday>() - std::declval<days>());
+    ASSERT_SAME_TYPE(weekday, decltype(std::declval<weekday>() - std::declval<days>()));
 
-  test();
-  static_assert(test());
+    ASSERT_NOEXCEPT(                   std::declval<weekday>() - std::declval<weekday>());
+    ASSERT_SAME_TYPE(days,    decltype(std::declval<weekday>() - std::declval<weekday>()));
+
+    static_assert(testConstexpr<weekday, days>(), "");
+
+    for (unsigned i = 0; i <= 6; ++i)
+        for (unsigned j = 0; j <= 6; ++j)
+        {
+            weekday wd = weekday{i} - days{j};
+            assert(wd + days{j} == weekday{i});
+            assert((wd.c_encoding() == euclidian_subtraction<unsigned, 0, 6>(i, j)));
+        }
+
+    for (unsigned i = 0; i <= 6; ++i)
+        for (unsigned j = 0; j <= 6; ++j)
+        {
+            days d = weekday{j} - weekday{i};
+            assert(weekday{i} + d == weekday{j});
+        }
+
 
   return 0;
 }

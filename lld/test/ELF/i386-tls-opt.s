@@ -19,9 +19,6 @@
 // DISASM-NEXT:   nop
 // DISASM-NEXT:   leal (%esi,%eiz), %esi
 // DISASM-NEXT:   leal -4(%eax), %edx
-// DISASM-NEXT:   movl %gs:0, %eax
-// DISASM-NEXT:   leal (%esi), %esi
-// DISASM-NEXT:   movl -4(%eax), %edx
 // IE -> LE:
 // 4294967288 == 0xFFFFFFF8
 // 4294967292 == 0xFFFFFFFC
@@ -63,10 +60,6 @@ leal tls0@dtpoff(%eax),%edx
 leal tls1@tlsldm(%ebx),%eax
 call ___tls_get_addr@plt
 leal tls1@dtpoff(%eax),%edx
-// -fno-plt LD -> LE
-leal tls1@tlsldm(%edx),%eax
-call *___tls_get_addr@GOT(%edx)
-movl tls1@dtpoff(%eax), %edx
 //IE -> LE:
 movl %gs:0,%eax
 movl tls0@gotntpoff(%ebx),%eax

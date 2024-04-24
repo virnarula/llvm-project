@@ -6,9 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Reports leaks after https://github.com/llvm/llvm-project/pull/66285
-// UNSUPPORTED: lsan
-
 // UNSUPPORTED: no-exceptions
 
 #include "cxxabi.h"

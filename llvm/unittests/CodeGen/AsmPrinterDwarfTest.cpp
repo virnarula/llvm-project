@@ -20,7 +20,6 @@
 
 using namespace llvm;
 using testing::_;
-using testing::DoAll;
 using testing::InSequence;
 using testing::SaveArg;
 

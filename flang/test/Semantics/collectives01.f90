@@ -85,8 +85,7 @@ program test_co_sum
   call co_sum(bool)
 
   ! argument 'a' is intent(inout)
-  !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'a=' is not definable
-  !BECAUSE: '2_4' is not a variable or pointer
+  !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'a=' must be definable
   call co_sum(a=1+1)
 
   !ERROR: 'a' argument to 'co_sum' may not be a coindexed object
@@ -101,8 +100,7 @@ program test_co_sum
   call co_sum(c, result_image=integer_array)
 
   ! argument 'stat' shall be intent(out)
-  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'stat=' is not definable
-  !BECAUSE: '2_4' is not a variable or pointer
+  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'stat=' must be definable
   call co_sum(a=i, result_image=1, stat=1+1, errmsg=message)
 
   !ERROR: 'stat' argument to 'co_sum' may not be a coindexed object
@@ -120,8 +118,7 @@ program test_co_sum
   call co_sum(i, stat=integer_array)
 
   ! 'errmsg' argument shall be intent(inout)
-  !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'errmsg=' is not definable
-  !BECAUSE: '"c"' is not a variable or pointer
+  !ERROR: Actual argument associated with INTENT(IN OUT) dummy argument 'errmsg=' must be definable
   call co_sum(a=i, result_image=1, stat=status, errmsg='c')
 
   !ERROR: 'errmsg' argument to 'co_sum' may not be a coindexed object
@@ -135,7 +132,7 @@ program test_co_sum
   !ERROR: 'errmsg=' argument has unacceptable rank 1
   call co_sum(d, errmsg=character_array)
 
-  !ERROR: actual argument #5 without a keyword may not follow an actual argument with a keyword
+  !ERROR: too many actual arguments for intrinsic 'co_sum'
   call co_sum(r, result_image=1, stat=status, errmsg=message, 3.4)
 
   ! keyword argument with incorrect name

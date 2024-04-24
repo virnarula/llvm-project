@@ -197,7 +197,7 @@ static bool prefer(const SymbolLocation &L, const SymbolLocation &R) {
   auto HasCodeGenSuffix = [](const SymbolLocation &Loc) {
     constexpr static const char *CodegenSuffixes[] = {".proto"};
     return llvm::any_of(CodegenSuffixes, [&](llvm::StringRef Suffix) {
-      return llvm::StringRef(Loc.FileURI).ends_with(Suffix);
+      return llvm::StringRef(Loc.FileURI).endswith(Suffix);
     });
   };
   return HasCodeGenSuffix(L) && !HasCodeGenSuffix(R);
@@ -248,13 +248,11 @@ Symbol mergeSymbol(const Symbol &L, const Symbol &R) {
       if (SI.IncludeHeader == OI.IncludeHeader) {
         Found = true;
         SI.References += OI.References;
-        SI.SupportedDirectives |= OI.SupportedDirectives;
         break;
       }
     }
     if (!Found && MergeIncludes)
-      S.IncludeHeaders.emplace_back(OI.IncludeHeader, OI.References,
-                                    OI.supportedDirectives());
+      S.IncludeHeaders.emplace_back(OI.IncludeHeader, OI.References);
   }
 
   S.Origin |= O.Origin | SymbolOrigin::Merge;

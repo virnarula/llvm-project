@@ -8,7 +8,6 @@
 
 #include "mlir/CAPI/Support.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ThreadPool.h"
 
 #include <cstring>
 
@@ -22,19 +21,9 @@ bool mlirStringRefEqual(MlirStringRef string, MlirStringRef other) {
 }
 
 //===----------------------------------------------------------------------===//
-// LLVM ThreadPool API.
-//===----------------------------------------------------------------------===//
-MlirLlvmThreadPool mlirLlvmThreadPoolCreate() {
-  return wrap(new llvm::ThreadPool());
-}
-
-void mlirLlvmThreadPoolDestroy(MlirLlvmThreadPool threadPool) {
-  delete unwrap(threadPool);
-}
-
-//===----------------------------------------------------------------------===//
 // TypeID API.
 //===----------------------------------------------------------------------===//
+
 MlirTypeID mlirTypeIDCreate(const void *ptr) {
   assert(reinterpret_cast<uintptr_t>(ptr) % 8 == 0 &&
          "ptr must be 8 byte aligned");

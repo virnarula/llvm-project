@@ -49,6 +49,8 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ImmutableList.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -60,7 +62,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
-#include <optional>
 #include <utility>
 
 #define DEBUG_TYPE "static-analyzer-call-event"
@@ -287,7 +288,6 @@ ProgramStateRef CallEvent::invalidateRegions(unsigned BlockCount,
 
 ProgramPoint CallEvent::getProgramPoint(bool IsPreVisit,
                                         const ProgramPointTag *Tag) const {
-
   if (const Expr *E = getOriginExpr()) {
     if (IsPreVisit)
       return PreStmt(E, getLocationContext(), Tag);
@@ -296,13 +296,11 @@ ProgramPoint CallEvent::getProgramPoint(bool IsPreVisit,
 
   const Decl *D = getDecl();
   assert(D && "Cannot get a program point without a statement or decl");
-  assert(ElemRef.getParent() &&
-         "Cannot get a program point without a CFGElementRef");
 
   SourceLocation Loc = getSourceRange().getBegin();
   if (IsPreVisit)
-    return PreImplicitCall(D, Loc, getLocationContext(), ElemRef, Tag);
-  return PostImplicitCall(D, Loc, getLocationContext(), ElemRef, Tag);
+    return PreImplicitCall(D, Loc, getLocationContext(), Tag);
+  return PostImplicitCall(D, Loc, getLocationContext(), Tag);
 }
 
 SVal CallEvent::getArgSVal(unsigned Index) const {
@@ -517,30 +515,11 @@ const ConstructionContext *CallEvent::getConstructionContext() const {
   return nullptr;
 }
 
-const CallEventRef<> CallEvent::getCaller() const {
-  const auto *CallLocationContext = this->getLocationContext();
-  if (!CallLocationContext || CallLocationContext->inTopFrame())
-    return nullptr;
-
-  const auto *CallStackFrameContext = CallLocationContext->getStackFrame();
-  if (!CallStackFrameContext)
-    return nullptr;
-
-  CallEventManager &CEMgr = State->getStateManager().getCallEventManager();
-  return CEMgr.getCaller(CallStackFrameContext, State);
-}
-
-bool CallEvent::isCalledFromSystemHeader() const {
-  if (const CallEventRef<> Caller = getCaller())
-    return Caller->isInSystemHeader();
-
-  return false;
-}
-
-std::optional<SVal> CallEvent::getReturnValueUnderConstruction() const {
+Optional<SVal>
+CallEvent::getReturnValueUnderConstruction() const {
   const auto *CC = getConstructionContext();
   if (!CC)
-    return std::nullopt;
+    return None;
 
   EvalCallOptions CallOpts;
   ExprEngine &Engine = getState()->getStateManager().getOwningEngine();
@@ -553,7 +532,7 @@ std::optional<SVal> CallEvent::getReturnValueUnderConstruction() const {
 ArrayRef<ParmVarDecl*> AnyFunctionCall::parameters() const {
   const FunctionDecl *D = getDecl();
   if (!D)
-    return std::nullopt;
+    return None;
   return D->parameters();
 }
 
@@ -659,17 +638,17 @@ bool AnyFunctionCall::argumentsMayEscape() const {
 
   // - CoreFoundation functions that end with "NoCopy" can free a passed-in
   //   buffer even if it is const.
-  if (FName.ends_with("NoCopy"))
+  if (FName.endswith("NoCopy"))
     return true;
 
   // - NSXXInsertXX, for example NSMapInsertIfAbsent, since they can
   //   be deallocated by NSMapRemove.
-  if (FName.starts_with("NS") && FName.contains("Insert"))
+  if (FName.startswith("NS") && FName.contains("Insert"))
     return true;
 
   // - Many CF containers allow objects to escape through custom
   //   allocators/deallocators upon container construction. (PR12101)
-  if (FName.starts_with("CF") || FName.starts_with("CG")) {
+  if (FName.startswith("CF") || FName.startswith("CG")) {
     return StrInStrNoCase(FName, "InsertValue")  != StringRef::npos ||
            StrInStrNoCase(FName, "AddValue")     != StringRef::npos ||
            StrInStrNoCase(FName, "SetValue")     != StringRef::npos ||
@@ -735,14 +714,10 @@ void CXXInstanceCall::getExtraInvalidatedValues(
 SVal CXXInstanceCall::getCXXThisVal() const {
   const Expr *Base = getCXXThisExpr();
   // FIXME: This doesn't handle an overloaded ->* operator.
-  SVal ThisVal = Base ? getSVal(Base) : UnknownVal();
+  if (!Base)
+    return UnknownVal();
 
-  if (isa<NonLoc>(ThisVal)) {
-    SValBuilder &SVB = getState()->getStateManager().getSValBuilder();
-    QualType OriginalTy = ThisVal.getType(SVB.getContext());
-    return SVB.evalCast(ThisVal, Base->getType(), OriginalTy);
-  }
-
+  SVal ThisVal = getSVal(Base);
   assert(ThisVal.isUnknownOrUndef() || isa<Loc>(ThisVal));
   return ThisVal;
 }
@@ -789,9 +764,8 @@ RuntimeDefinition CXXInstanceCall::getRuntimeDefinition() const {
     // the static type. However, because we currently don't update
     // DynamicTypeInfo when an object is cast, we can't actually be sure the
     // DynamicTypeInfo is up to date. This assert should be re-enabled once
-    // this is fixed.
-    //
-    // assert(!MD->getParent()->isDerivedFrom(RD) && "Bad DynamicTypeInfo");
+    // this is fixed. <rdar://problem/12287087>
+    //assert(!MD->getParent()->isDerivedFrom(RD) && "Bad DynamicTypeInfo");
 
     return {};
   }
@@ -834,7 +808,7 @@ void CXXInstanceCall::getInitialStackFrameContents(
       QualType Ty = Ctx.getPointerType(Ctx.getRecordType(Class));
 
       // FIXME: CallEvent maybe shouldn't be directly accessing StoreManager.
-      std::optional<SVal> V =
+      Optional<SVal> V =
           StateMgr.getStoreManager().evalBaseToDerived(ThisVal, Ty);
       if (!V) {
         // We might have suffered some sort of placement new earlier, so
@@ -883,7 +857,7 @@ const BlockDataRegion *BlockCall::getBlockRegion() const {
 ArrayRef<ParmVarDecl*> BlockCall::parameters() const {
   const BlockDecl *D = getDecl();
   if (!D)
-    return std::nullopt;
+    return None;
   return D->parameters();
 }
 
@@ -972,7 +946,7 @@ RuntimeDefinition CXXDestructorCall::getRuntimeDefinition() const {
 ArrayRef<ParmVarDecl*> ObjCMethodCall::parameters() const {
   const ObjCMethodDecl *D = getDecl();
   if (!D)
-    return std::nullopt;
+    return None;
   return D->parameters();
 }
 
@@ -1249,10 +1223,10 @@ lookupRuntimeDefinition(const ObjCInterfaceDecl *Interface,
   // stays around until clang quits, which also may be bad if we
   // need to release memory.
   using PrivateMethodCache =
-      llvm::DenseMap<PrivateMethodKey, std::optional<const ObjCMethodDecl *>>;
+      llvm::DenseMap<PrivateMethodKey, Optional<const ObjCMethodDecl *>>;
 
   static PrivateMethodCache PMC;
-  std::optional<const ObjCMethodDecl *> &Val =
+  Optional<const ObjCMethodDecl *> &Val =
       PMC[{Interface, LookupSelector, InstanceMethod}];
 
   // Query lookupPrivateMethod() if the cache does not hit.
@@ -1401,24 +1375,23 @@ void ObjCMethodCall::getInitialStackFrameContents(
 
 CallEventRef<>
 CallEventManager::getSimpleCall(const CallExpr *CE, ProgramStateRef State,
-                                const LocationContext *LCtx,
-                                CFGBlock::ConstCFGElementRef ElemRef) {
+                                const LocationContext *LCtx) {
   if (const auto *MCE = dyn_cast<CXXMemberCallExpr>(CE))
-    return create<CXXMemberCall>(MCE, State, LCtx, ElemRef);
+    return create<CXXMemberCall>(MCE, State, LCtx);
 
   if (const auto *OpCE = dyn_cast<CXXOperatorCallExpr>(CE)) {
     const FunctionDecl *DirectCallee = OpCE->getDirectCallee();
     if (const auto *MD = dyn_cast<CXXMethodDecl>(DirectCallee))
-      if (MD->isImplicitObjectMemberFunction())
-        return create<CXXMemberOperatorCall>(OpCE, State, LCtx, ElemRef);
+      if (MD->isInstance())
+        return create<CXXMemberOperatorCall>(OpCE, State, LCtx);
 
   } else if (CE->getCallee()->getType()->isBlockPointerType()) {
-    return create<BlockCall>(CE, State, LCtx, ElemRef);
+    return create<BlockCall>(CE, State, LCtx);
   }
 
   // Otherwise, it's a normal function call, static member function call, or
   // something we can't reason about.
-  return create<SimpleFunctionCall>(CE, State, LCtx, ElemRef);
+  return create<SimpleFunctionCall>(CE, State, LCtx);
 }
 
 CallEventRef<>
@@ -1426,14 +1399,12 @@ CallEventManager::getCaller(const StackFrameContext *CalleeCtx,
                             ProgramStateRef State) {
   const LocationContext *ParentCtx = CalleeCtx->getParent();
   const LocationContext *CallerCtx = ParentCtx->getStackFrame();
-  CFGBlock::ConstCFGElementRef ElemRef = {CalleeCtx->getCallSiteBlock(),
-                                          CalleeCtx->getIndex()};
   assert(CallerCtx && "This should not be used for top-level stack frames");
 
   const Stmt *CallSite = CalleeCtx->getCallSite();
 
   if (CallSite) {
-    if (CallEventRef<> Out = getCall(CallSite, State, CallerCtx, ElemRef))
+    if (CallEventRef<> Out = getCall(CallSite, State, CallerCtx))
       return Out;
 
     SValBuilder &SVB = State->getStateManager().getSValBuilder();
@@ -1442,11 +1413,10 @@ CallEventManager::getCaller(const StackFrameContext *CalleeCtx,
     SVal ThisVal = State->getSVal(ThisPtr);
 
     if (const auto *CE = dyn_cast<CXXConstructExpr>(CallSite))
-      return getCXXConstructorCall(CE, ThisVal.getAsRegion(), State, CallerCtx,
-                                   ElemRef);
+      return getCXXConstructorCall(CE, ThisVal.getAsRegion(), State, CallerCtx);
     else if (const auto *CIE = dyn_cast<CXXInheritedCtorInitExpr>(CallSite))
       return getCXXInheritedConstructorCall(CIE, ThisVal.getAsRegion(), State,
-                                            CallerCtx, ElemRef);
+                                            CallerCtx);
     else {
       // All other cases are handled by getCall.
       llvm_unreachable("This is not an inlineable statement");
@@ -1466,30 +1436,28 @@ CallEventManager::getCaller(const StackFrameContext *CalleeCtx,
   SVal ThisVal = State->getSVal(ThisPtr);
 
   const Stmt *Trigger;
-  if (std::optional<CFGAutomaticObjDtor> AutoDtor =
-          E.getAs<CFGAutomaticObjDtor>())
+  if (Optional<CFGAutomaticObjDtor> AutoDtor = E.getAs<CFGAutomaticObjDtor>())
     Trigger = AutoDtor->getTriggerStmt();
-  else if (std::optional<CFGDeleteDtor> DeleteDtor = E.getAs<CFGDeleteDtor>())
+  else if (Optional<CFGDeleteDtor> DeleteDtor = E.getAs<CFGDeleteDtor>())
     Trigger = DeleteDtor->getDeleteExpr();
   else
     Trigger = Dtor->getBody();
 
   return getCXXDestructorCall(Dtor, Trigger, ThisVal.getAsRegion(),
                               E.getAs<CFGBaseDtor>().has_value(), State,
-                              CallerCtx, ElemRef);
+                              CallerCtx);
 }
 
 CallEventRef<> CallEventManager::getCall(const Stmt *S, ProgramStateRef State,
-                                         const LocationContext *LC,
-                                         CFGBlock::ConstCFGElementRef ElemRef) {
+                                         const LocationContext *LC) {
   if (const auto *CE = dyn_cast<CallExpr>(S)) {
-    return getSimpleCall(CE, State, LC, ElemRef);
+    return getSimpleCall(CE, State, LC);
   } else if (const auto *NE = dyn_cast<CXXNewExpr>(S)) {
-    return getCXXAllocatorCall(NE, State, LC, ElemRef);
+    return getCXXAllocatorCall(NE, State, LC);
   } else if (const auto *DE = dyn_cast<CXXDeleteExpr>(S)) {
-    return getCXXDeallocatorCall(DE, State, LC, ElemRef);
+    return getCXXDeallocatorCall(DE, State, LC);
   } else if (const auto *ME = dyn_cast<ObjCMessageExpr>(S)) {
-    return getObjCMethodCall(ME, State, LC, ElemRef);
+    return getObjCMethodCall(ME, State, LC);
   } else {
     return nullptr;
   }

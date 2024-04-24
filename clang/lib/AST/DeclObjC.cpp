@@ -24,6 +24,7 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceLocation.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
@@ -624,17 +625,6 @@ void ObjCInterfaceDecl::startDefinition() {
   }
 }
 
-void ObjCInterfaceDecl::startDuplicateDefinitionForComparison() {
-  Data.setPointer(nullptr);
-  allocateDefinitionData();
-  // Don't propagate data to other redeclarations.
-}
-
-void ObjCInterfaceDecl::mergeDuplicateDefinitionWithCommon(
-    const ObjCInterfaceDecl *Definition) {
-  Data = Definition->Data;
-}
-
 ObjCIvarDecl *ObjCInterfaceDecl::lookupInstanceVariable(IdentifierInfo *ID,
                                               ObjCInterfaceDecl *&clsDeclared) {
   // FIXME: Should make sure no callers ever do this.
@@ -789,33 +779,6 @@ ObjCMethodDecl *ObjCInterfaceDecl::lookupPrivateMethod(
   return Method;
 }
 
-unsigned ObjCInterfaceDecl::getODRHash() {
-  assert(hasDefinition() && "ODRHash only for records with definitions");
-
-  // Previously calculated hash is stored in DefinitionData.
-  if (hasODRHash())
-    return data().ODRHash;
-
-  // Only calculate hash on first call of getODRHash per record.
-  ODRHash Hasher;
-  Hasher.AddObjCInterfaceDecl(getDefinition());
-  data().ODRHash = Hasher.CalculateHash();
-  setHasODRHash(true);
-
-  return data().ODRHash;
-}
-
-bool ObjCInterfaceDecl::hasODRHash() const {
-  if (!hasDefinition())
-    return false;
-  return data().HasODRHash;
-}
-
-void ObjCInterfaceDecl::setHasODRHash(bool HasHash) {
-  assert(hasDefinition() && "Cannot set ODRHash without definition");
-  data().HasODRHash = HasHash;
-}
-
 //===----------------------------------------------------------------------===//
 // ObjCMethodDecl
 //===----------------------------------------------------------------------===//
@@ -825,7 +788,7 @@ ObjCMethodDecl::ObjCMethodDecl(
     QualType T, TypeSourceInfo *ReturnTInfo, DeclContext *contextDecl,
     bool isInstance, bool isVariadic, bool isPropertyAccessor,
     bool isSynthesizedAccessorStub, bool isImplicitlyDeclared, bool isDefined,
-    ObjCImplementationControl impControl, bool HasRelatedResultType)
+    ImplementationControl impControl, bool HasRelatedResultType)
     : NamedDecl(ObjCMethod, contextDecl, beginLoc, SelInfo),
       DeclContext(ObjCMethod), MethodDeclType(T), ReturnTInfo(ReturnTInfo),
       DeclEndLoc(endLoc) {
@@ -855,8 +818,8 @@ ObjCMethodDecl *ObjCMethodDecl::Create(
     Selector SelInfo, QualType T, TypeSourceInfo *ReturnTInfo,
     DeclContext *contextDecl, bool isInstance, bool isVariadic,
     bool isPropertyAccessor, bool isSynthesizedAccessorStub,
-    bool isImplicitlyDeclared, bool isDefined,
-    ObjCImplementationControl impControl, bool HasRelatedResultType) {
+    bool isImplicitlyDeclared, bool isDefined, ImplementationControl impControl,
+    bool HasRelatedResultType) {
   return new (C, contextDecl) ObjCMethodDecl(
       beginLoc, endLoc, SelInfo, T, ReturnTInfo, contextDecl, isInstance,
       isVariadic, isPropertyAccessor, isSynthesizedAccessorStub,
@@ -931,8 +894,8 @@ void ObjCMethodDecl::setParamsAndSelLocs(ASTContext &C,
   unsigned Size = sizeof(ParmVarDecl *) * NumParams +
                   sizeof(SourceLocation) * SelLocs.size();
   ParamsAndSelLocs = C.Allocate(Size);
-  std::uninitialized_copy(Params.begin(), Params.end(), getParams());
-  std::uninitialized_copy(SelLocs.begin(), SelLocs.end(), getStoredSelLocs());
+  std::copy(Params.begin(), Params.end(), getParams());
+  std::copy(SelLocs.begin(), SelLocs.end(), getStoredSelLocs());
 }
 
 void ObjCMethodDecl::getSelectorLocs(
@@ -947,12 +910,12 @@ void ObjCMethodDecl::setMethodParams(ASTContext &C,
   assert((!SelLocs.empty() || isImplicit()) &&
          "No selector locs for non-implicit method");
   if (isImplicit())
-    return setParamsAndSelLocs(C, Params, std::nullopt);
+    return setParamsAndSelLocs(C, Params, llvm::None);
 
   setSelLocsKind(hasStandardSelectorLocs(getSelector(), SelLocs, Params,
                                         DeclEndLoc));
   if (getSelLocsKind() != SelLoc_NonStandard)
-    return setParamsAndSelLocs(C, Params, std::nullopt);
+    return setParamsAndSelLocs(C, Params, llvm::None);
 
   setParamsAndSelLocs(C, Params, SelLocs);
 }
@@ -1194,7 +1157,7 @@ void ObjCMethodDecl::createImplicitParams(ASTContext &Context,
     getSelfType(Context, OID, selfIsPseudoStrong, selfIsConsumed);
   auto *Self = ImplicitParamDecl::Create(Context, this, SourceLocation(),
                                          &Context.Idents.get("self"), selfTy,
-                                         ImplicitParamKind::ObjCSelf);
+                                         ImplicitParamDecl::ObjCSelf);
   setSelfDecl(Self);
 
   if (selfIsConsumed)
@@ -1205,7 +1168,7 @@ void ObjCMethodDecl::createImplicitParams(ASTContext &Context,
 
   setCmdDecl(ImplicitParamDecl::Create(
       Context, this, SourceLocation(), &Context.Idents.get("_cmd"),
-      Context.getObjCSelType(), ImplicitParamKind::ObjCCmd));
+      Context.getObjCSelType(), ImplicitParamDecl::ObjCCmd));
 }
 
 ObjCInterfaceDecl *ObjCMethodDecl::getClassInterface() {
@@ -2032,17 +1995,6 @@ void ObjCProtocolDecl::startDefinition() {
   // Update all of the declarations with a pointer to the definition.
   for (auto *RD : redecls())
     RD->Data = this->Data;
-}
-
-void ObjCProtocolDecl::startDuplicateDefinitionForComparison() {
-  Data.setPointer(nullptr);
-  allocateDefinitionData();
-  // Don't propagate data to other redeclarations.
-}
-
-void ObjCProtocolDecl::mergeDuplicateDefinitionWithCommon(
-    const ObjCProtocolDecl *Definition) {
-  Data = Definition->Data;
 }
 
 void ObjCProtocolDecl::collectPropertiesToImplement(PropertyMap &PM) const {

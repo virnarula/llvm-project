@@ -1205,7 +1205,7 @@ Value *IfExprAST::Codegen() {
   ThenBB = Builder.GetInsertBlock();
 
   // Emit else block.
-  TheFunction->insert(TheFunction->end(), ElseBB);
+  TheFunction->getBasicBlockList().push_back(ElseBB);
   Builder.SetInsertPoint(ElseBB);
 
   Value *ElseV = Else->Codegen();
@@ -1216,7 +1216,7 @@ Value *IfExprAST::Codegen() {
   ElseBB = Builder.GetInsertBlock();
 
   // Emit merge block.
-  TheFunction->insert(TheFunction->end(), MergeBB);
+  TheFunction->getBasicBlockList().push_back(MergeBB);
   Builder.SetInsertPoint(MergeBB);
   PHINode *PN = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2, "iftmp");
 

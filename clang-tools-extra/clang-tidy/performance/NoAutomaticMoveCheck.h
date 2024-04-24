@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 /// Finds local variables that cannot be automatically moved due to constness.
 /// For the user-facing documentation see:
@@ -30,6 +32,8 @@ private:
   const std::vector<StringRef> AllowedTypes;
 };
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_PERFORMANCE_NOAUTOMATICMOVECHECK_H

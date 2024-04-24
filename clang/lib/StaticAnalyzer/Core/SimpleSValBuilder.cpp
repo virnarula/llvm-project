@@ -15,7 +15,6 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SValVisitor.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -28,11 +27,7 @@ class SimpleSValBuilder : public SValBuilder {
   // returns NULL.
   // This is an implementation detail. Checkers should use `getKnownValue()`
   // instead.
-  static const llvm::APSInt *getConstValue(ProgramStateRef state, SVal V);
-
-  // Helper function that returns the value stored in a nonloc::ConcreteInt or
-  // loc::ConcreteInt.
-  static const llvm::APSInt *getConcreteValue(SVal V);
+  const llvm::APSInt *getConstValue(ProgramStateRef state, SVal V);
 
   // With one `simplifySValOnce` call, a compound symbols might collapse to
   // simpler symbol tree that is still possible to further simplify. Thus, we
@@ -79,16 +74,6 @@ public:
   /// simplifying the children SVals. If the SVal has only one possible
   /// (integer) value, that value is returned. Otherwise, returns NULL.
   const llvm::APSInt *getKnownValue(ProgramStateRef state, SVal V) override;
-
-  /// Evaluates a given SVal by recursively evaluating and simplifying the
-  /// children SVals, then returns its minimal possible (integer) value. If the
-  /// constraint manager cannot provide a meaningful answer, this returns NULL.
-  const llvm::APSInt *getMinValue(ProgramStateRef state, SVal V) override;
-
-  /// Evaluates a given SVal by recursively evaluating and simplifying the
-  /// children SVals, then returns its maximal possible (integer) value. If the
-  /// constraint manager cannot provide a meaningful answer, this returns NULL.
-  const llvm::APSInt *getMaxValue(ProgramStateRef state, SVal V) override;
 
   SVal simplifySVal(ProgramStateRef State, SVal V) override;
 
@@ -363,9 +348,9 @@ static bool shouldRearrange(ProgramStateRef State, BinaryOperator::Opcode Op,
       isWithinConstantOverflowBounds(Int)));
 }
 
-static std::optional<NonLoc> tryRearrange(ProgramStateRef State,
-                                          BinaryOperator::Opcode Op, NonLoc Lhs,
-                                          NonLoc Rhs, QualType ResultTy) {
+static Optional<NonLoc> tryRearrange(ProgramStateRef State,
+                                     BinaryOperator::Opcode Op, NonLoc Lhs,
+                                     NonLoc Rhs, QualType ResultTy) {
   ProgramStateManager &StateMgr = State->getStateManager();
   SValBuilder &SVB = StateMgr.getSValBuilder();
 
@@ -376,35 +361,35 @@ static std::optional<NonLoc> tryRearrange(ProgramStateRef State,
   //        rearrange additive operations but rearrange comparisons only if
   //        option is set.
   if (!SVB.getAnalyzerOptions().ShouldAggressivelySimplifyBinaryOperation)
-    return std::nullopt;
+    return None;
 
   SymbolRef LSym = Lhs.getAsSymbol();
   if (!LSym)
-    return std::nullopt;
+    return None;
 
   if (BinaryOperator::isComparisonOp(Op)) {
     SingleTy = LSym->getType();
     if (ResultTy != SVB.getConditionType())
-      return std::nullopt;
+      return None;
     // Initialize SingleTy later with a symbol's type.
   } else if (BinaryOperator::isAdditiveOp(Op)) {
     SingleTy = ResultTy;
     if (LSym->getType() != SingleTy)
-      return std::nullopt;
+      return None;
   } else {
     // Don't rearrange other operations.
-    return std::nullopt;
+    return None;
   }
 
   assert(!SingleTy.isNull() && "We should have figured out the type by now!");
 
   // Rearrange signed symbolic expressions only
   if (!SingleTy->isSignedIntegerOrEnumerationType())
-    return std::nullopt;
+    return None;
 
   SymbolRef RSym = Rhs.getAsSymbol();
   if (!RSym || RSym->getType() != SingleTy)
-    return std::nullopt;
+    return None;
 
   BasicValueFactory &BV = State->getBasicVals();
   llvm::APSInt LInt, RInt;
@@ -412,7 +397,7 @@ static std::optional<NonLoc> tryRearrange(ProgramStateRef State,
   std::tie(RSym, RInt) = decomposeSymbol(RSym, BV);
   if (!shouldRearrange(State, Op, LSym, LInt, SingleTy) ||
       !shouldRearrange(State, Op, RSym, RInt, SingleTy))
-    return std::nullopt;
+    return None;
 
   // We know that no overflows can occur anymore.
   return doRearrangeUnchecked(State, Op, LSym, LInt, RSym, RInt);
@@ -459,11 +444,11 @@ SVal SimpleSValBuilder::evalBinOpNN(ProgramStateRef state,
     }
 
   while (true) {
-    switch (lhs.getKind()) {
+    switch (lhs.getSubKind()) {
     default:
       return makeSymExprValNN(op, lhs, rhs, resultTy);
     case nonloc::PointerToMemberKind: {
-      assert(rhs.getKind() == nonloc::PointerToMemberKind &&
+      assert(rhs.getSubKind() == nonloc::PointerToMemberKind &&
              "Both SVals should have pointer-to-member-type");
       auto LPTM = lhs.castAs<nonloc::PointerToMember>(),
            RPTM = rhs.castAs<nonloc::PointerToMember>();
@@ -479,36 +464,36 @@ SVal SimpleSValBuilder::evalBinOpNN(ProgramStateRef state,
     }
     case nonloc::LocAsIntegerKind: {
       Loc lhsL = lhs.castAs<nonloc::LocAsInteger>().getLoc();
-      switch (rhs.getKind()) {
-      case nonloc::LocAsIntegerKind:
-        // FIXME: at the moment the implementation
-        // of modeling "pointers as integers" is not complete.
-        if (!BinaryOperator::isComparisonOp(op))
-          return UnknownVal();
-        return evalBinOpLL(state, op, lhsL,
-                           rhs.castAs<nonloc::LocAsInteger>().getLoc(),
-                           resultTy);
-      case nonloc::ConcreteIntKind: {
-        // FIXME: at the moment the implementation
-        // of modeling "pointers as integers" is not complete.
-        if (!BinaryOperator::isComparisonOp(op))
-          return UnknownVal();
-        // Transform the integer into a location and compare.
-        // FIXME: This only makes sense for comparisons. If we want to, say,
-        // add 1 to a LocAsInteger, we'd better unpack the Loc and add to it,
-        // then pack it back into a LocAsInteger.
-        llvm::APSInt i = rhs.castAs<nonloc::ConcreteInt>().getValue();
-        // If the region has a symbolic base, pay attention to the type; it
-        // might be coming from a non-default address space. For non-symbolic
-        // regions it doesn't matter that much because such comparisons would
-        // most likely evaluate to concrete false anyway. FIXME: We might
-        // still need to handle the non-comparison case.
-        if (SymbolRef lSym = lhs.getAsLocSymbol(true))
-          BasicVals.getAPSIntType(lSym->getType()).apply(i);
-        else
-          BasicVals.getAPSIntType(Context.VoidPtrTy).apply(i);
-        return evalBinOpLL(state, op, lhsL, makeLoc(i), resultTy);
-      }
+      switch (rhs.getSubKind()) {
+        case nonloc::LocAsIntegerKind:
+          // FIXME: at the moment the implementation
+          // of modeling "pointers as integers" is not complete.
+          if (!BinaryOperator::isComparisonOp(op))
+            return UnknownVal();
+          return evalBinOpLL(state, op, lhsL,
+                             rhs.castAs<nonloc::LocAsInteger>().getLoc(),
+                             resultTy);
+        case nonloc::ConcreteIntKind: {
+          // FIXME: at the moment the implementation
+          // of modeling "pointers as integers" is not complete.
+          if (!BinaryOperator::isComparisonOp(op))
+            return UnknownVal();
+          // Transform the integer into a location and compare.
+          // FIXME: This only makes sense for comparisons. If we want to, say,
+          // add 1 to a LocAsInteger, we'd better unpack the Loc and add to it,
+          // then pack it back into a LocAsInteger.
+          llvm::APSInt i = rhs.castAs<nonloc::ConcreteInt>().getValue();
+          // If the region has a symbolic base, pay attention to the type; it
+          // might be coming from a non-default address space. For non-symbolic
+          // regions it doesn't matter that much because such comparisons would
+          // most likely evaluate to concrete false anyway. FIXME: We might
+          // still need to handle the non-comparison case.
+          if (SymbolRef lSym = lhs.getAsLocSymbol(true))
+            BasicVals.getAPSIntType(lSym->getType()).apply(i);
+          else
+            BasicVals.getAPSIntType(Context.VoidPtrTy).apply(i);
+          return evalBinOpLL(state, op, lhsL, makeLoc(i), resultTy);
+        }
         default:
           switch (op) {
             case BO_EQ:
@@ -519,7 +504,7 @@ SVal SimpleSValBuilder::evalBinOpNN(ProgramStateRef state,
               // This case also handles pointer arithmetic.
               return makeSymExprValNN(op, InputLHS, InputRHS, resultTy);
           }
-        }
+      }
     }
     case nonloc::ConcreteIntKind: {
       llvm::APSInt LHSValue = lhs.castAs<nonloc::ConcreteInt>().getValue();
@@ -543,21 +528,8 @@ SVal SimpleSValBuilder::evalBinOpNN(ProgramStateRef state,
 
         const llvm::APSInt *Result =
           BasicVals.evalAPSInt(op, LHSValue, RHSValue);
-        if (!Result) {
-          if (op == BO_Shl || op == BO_Shr) {
-            // FIXME: At this point the constant folding claims that the result
-            // of a bitwise shift is undefined. However, constant folding
-            // relies on the inaccurate type information that is stored in the
-            // bit size of APSInt objects, and if we reached this point, then
-            // the checker core.BitwiseShift already determined that the shift
-            // is valid (in a PreStmt callback, by querying the real type from
-            // the AST node).
-            // To avoid embarrassing false positives, let's just say that we
-            // don't know anything about the result of the shift.
-            return UnknownVal();
-          }
+        if (!Result)
           return UndefinedVal();
-        }
 
         return nonloc::ConcreteInt(*Result);
       }
@@ -708,7 +680,7 @@ SVal SimpleSValBuilder::evalBinOpNN(ProgramStateRef state,
       if (const llvm::APSInt *RHSValue = getConstValue(state, rhs))
         return MakeSymIntVal(Sym, op, *RHSValue, resultTy);
 
-      if (std::optional<NonLoc> V = tryRearrange(state, op, lhs, rhs, resultTy))
+      if (Optional<NonLoc> V = tryRearrange(state, op, lhs, rhs, resultTy))
         return *V;
 
       // Give up -- this is not a symbolic expression we can handle.
@@ -779,7 +751,8 @@ static void assertEqualBitWidths(ProgramStateRef State, Loc RhsLoc,
       RhsLoc.getType(Ctx).isNull() ? 0 : Ctx.getTypeSize(RhsLoc.getType(Ctx));
   uint64_t LhsBitwidth =
       LhsLoc.getType(Ctx).isNull() ? 0 : Ctx.getTypeSize(LhsLoc.getType(Ctx));
-  if (RhsBitwidth && LhsBitwidth && (LhsLoc.getKind() == RhsLoc.getKind())) {
+  if (RhsBitwidth && LhsBitwidth &&
+      (LhsLoc.getSubKind() == RhsLoc.getSubKind())) {
     assert(RhsBitwidth == LhsBitwidth &&
            "RhsLoc and LhsLoc bitwidth must be same!");
   }
@@ -825,7 +798,7 @@ SVal SimpleSValBuilder::evalBinOpLL(ProgramStateRef state,
     }
   }
 
-  switch (lhs.getKind()) {
+  switch (lhs.getSubKind()) {
   default:
     llvm_unreachable("Ordering not implemented for this Loc.");
 
@@ -870,7 +843,7 @@ SVal SimpleSValBuilder::evalBinOpLL(ProgramStateRef state,
     }
 
     // If both operands are constants, just perform the operation.
-    if (std::optional<loc::ConcreteInt> rInt = rhs.getAs<loc::ConcreteInt>()) {
+    if (Optional<loc::ConcreteInt> rInt = rhs.getAs<loc::ConcreteInt>()) {
       assert(BinaryOperator::isComparisonOp(op) || op == BO_Sub);
 
       if (const auto *ResultInt =
@@ -904,7 +877,7 @@ SVal SimpleSValBuilder::evalBinOpLL(ProgramStateRef state,
     return UnknownVal();
   }
   case loc::MemRegionValKind: {
-    if (std::optional<loc::ConcreteInt> rInt = rhs.getAs<loc::ConcreteInt>()) {
+    if (Optional<loc::ConcreteInt> rInt = rhs.getAs<loc::ConcreteInt>()) {
       // If one of the operands is a symbol and the other is a constant,
       // build an expression for use by the constraint manager.
       if (SymbolRef lSym = lhs.getAsLocSymbol(true)) {
@@ -1001,7 +974,7 @@ SVal SimpleSValBuilder::evalBinOpLL(ProgramStateRef state,
         // Get the left index and cast it to the correct type.
         // If the index is unknown or undefined, bail out here.
         SVal LeftIndexVal = LeftER->getIndex();
-        std::optional<NonLoc> LeftIndex = LeftIndexVal.getAs<NonLoc>();
+        Optional<NonLoc> LeftIndex = LeftIndexVal.getAs<NonLoc>();
         if (!LeftIndex)
           return UnknownVal();
         LeftIndexVal = evalCast(*LeftIndex, ArrayIndexTy, QualType{});
@@ -1011,7 +984,7 @@ SVal SimpleSValBuilder::evalBinOpLL(ProgramStateRef state,
 
         // Do the same for the right index.
         SVal RightIndexVal = RightER->getIndex();
-        std::optional<NonLoc> RightIndex = RightIndexVal.getAs<NonLoc>();
+        Optional<NonLoc> RightIndex = RightIndexVal.getAs<NonLoc>();
         if (!RightIndex)
           return UnknownVal();
         RightIndexVal = evalCast(*RightIndex, ArrayIndexTy, QualType{});
@@ -1119,10 +1092,8 @@ SVal SimpleSValBuilder::evalBinOpLN(ProgramStateRef state,
   // We are dealing with pointer arithmetic.
 
   // Handle pointer arithmetic on constant values.
-  if (std::optional<nonloc::ConcreteInt> rhsInt =
-          rhs.getAs<nonloc::ConcreteInt>()) {
-    if (std::optional<loc::ConcreteInt> lhsInt =
-            lhs.getAs<loc::ConcreteInt>()) {
+  if (Optional<nonloc::ConcreteInt> rhsInt = rhs.getAs<nonloc::ConcreteInt>()) {
+    if (Optional<loc::ConcreteInt> lhsInt = lhs.getAs<loc::ConcreteInt>()) {
       const llvm::APSInt &leftI = lhsInt->getValue();
       assert(leftI.isUnsigned());
       llvm::APSInt rightI(rhsInt->getValue(), /* isUnsigned */ true);
@@ -1186,7 +1157,7 @@ SVal SimpleSValBuilder::evalBinOpLN(ProgramStateRef state,
     if (elementType->isVoidType())
       elementType = getContext().CharTy;
 
-    if (std::optional<NonLoc> indexV = index.getAs<NonLoc>()) {
+    if (Optional<NonLoc> indexV = index.getAs<NonLoc>()) {
       return loc::MemRegionVal(MemMgr.getElementRegion(elementType, *indexV,
                                                        superR, getContext()));
     }
@@ -1196,8 +1167,14 @@ SVal SimpleSValBuilder::evalBinOpLN(ProgramStateRef state,
 
 const llvm::APSInt *SimpleSValBuilder::getConstValue(ProgramStateRef state,
                                                      SVal V) {
-  if (const llvm::APSInt *Res = getConcreteValue(V))
-    return Res;
+  if (V.isUnknownOrUndef())
+    return nullptr;
+
+  if (Optional<loc::ConcreteInt> X = V.getAs<loc::ConcreteInt>())
+    return &X->getValue();
+
+  if (Optional<nonloc::ConcreteInt> X = V.getAs<nonloc::ConcreteInt>())
+    return &X->getValue();
 
   if (SymbolRef Sym = V.getAsSymbol())
     return state->getConstraintManager().getSymVal(state, Sym);
@@ -1205,45 +1182,9 @@ const llvm::APSInt *SimpleSValBuilder::getConstValue(ProgramStateRef state,
   return nullptr;
 }
 
-const llvm::APSInt *SimpleSValBuilder::getConcreteValue(SVal V) {
-  if (std::optional<loc::ConcreteInt> X = V.getAs<loc::ConcreteInt>())
-    return &X->getValue();
-
-  if (std::optional<nonloc::ConcreteInt> X = V.getAs<nonloc::ConcreteInt>())
-    return &X->getValue();
-
-  return nullptr;
-}
-
 const llvm::APSInt *SimpleSValBuilder::getKnownValue(ProgramStateRef state,
                                                      SVal V) {
   return getConstValue(state, simplifySVal(state, V));
-}
-
-const llvm::APSInt *SimpleSValBuilder::getMinValue(ProgramStateRef state,
-                                                   SVal V) {
-  V = simplifySVal(state, V);
-
-  if (const llvm::APSInt *Res = getConcreteValue(V))
-    return Res;
-
-  if (SymbolRef Sym = V.getAsSymbol())
-    return state->getConstraintManager().getSymMinVal(state, Sym);
-
-  return nullptr;
-}
-
-const llvm::APSInt *SimpleSValBuilder::getMaxValue(ProgramStateRef state,
-                                                   SVal V) {
-  V = simplifySVal(state, V);
-
-  if (const llvm::APSInt *Res = getConcreteValue(V))
-    return Res;
-
-  if (SymbolRef Sym = V.getAsSymbol())
-    return state->getConstraintManager().getSymMaxVal(state, Sym);
-
-  return nullptr;
 }
 
 SVal SimpleSValBuilder::simplifyUntilFixpoint(ProgramStateRef State, SVal Val) {
@@ -1415,7 +1356,7 @@ SVal SimpleSValBuilder::simplifySValOnce(ProgramStateRef State, SVal V) {
 
     SVal VisitMemRegion(const MemRegion *R) { return loc::MemRegionVal(R); }
 
-    SVal VisitSymbolVal(nonloc::SymbolVal V) {
+    SVal VisitNonLocSymbolVal(nonloc::SymbolVal V) {
       // Simplification is much more costly than computing complexity.
       // For high complexity, it may be not worth it.
       return Visit(V.getSymbol());

@@ -13,7 +13,6 @@
 #include "mlir-c/Pass.h"
 
 namespace py = pybind11;
-using namespace py::literals;
 using namespace mlir;
 using namespace mlir::python;
 
@@ -23,8 +22,7 @@ namespace {
 class PyPassManager {
 public:
   PyPassManager(MlirPassManager passManager) : passManager(passManager) {}
-  PyPassManager(PyPassManager &&other) noexcept
-      : passManager(other.passManager) {
+  PyPassManager(PyPassManager &&other) : passManager(other.passManager) {
     other.passManager.ptr = nullptr;
   }
   ~PyPassManager() {
@@ -58,14 +56,12 @@ void mlir::python::populatePassManagerSubmodule(py::module &m) {
   // Mapping of the top-level PassManager
   //----------------------------------------------------------------------------
   py::class_<PyPassManager>(m, "PassManager", py::module_local())
-      .def(py::init<>([](const std::string &anchorOp,
-                         DefaultingPyMlirContext context) {
-             MlirPassManager passManager = mlirPassManagerCreateOnOperation(
-                 context->get(),
-                 mlirStringRefCreate(anchorOp.data(), anchorOp.size()));
+      .def(py::init<>([](DefaultingPyMlirContext context) {
+             MlirPassManager passManager =
+                 mlirPassManagerCreate(context->get());
              return new PyPassManager(passManager);
            }),
-           "anchor_op"_a = py::str("any"), "context"_a = py::none(),
+           py::arg("context") = py::none(),
            "Create a new PassManager for the current (or provided) Context.")
       .def_property_readonly(MLIR_PYTHON_CAPI_PTR_ATTR,
                              &PyPassManager::getCapsule)
@@ -83,56 +79,36 @@ void mlir::python::populatePassManagerSubmodule(py::module &m) {
           [](PyPassManager &passManager, bool enable) {
             mlirPassManagerEnableVerifier(passManager.get(), enable);
           },
-          "enable"_a, "Enable / disable verify-each.")
+          py::arg("enable"), "Enable / disable verify-each.")
       .def_static(
           "parse",
           [](const std::string &pipeline, DefaultingPyMlirContext context) {
             MlirPassManager passManager = mlirPassManagerCreate(context->get());
             PyPrintAccumulator errorMsg;
-            MlirLogicalResult status = mlirParsePassPipeline(
+            MlirLogicalResult status = mlirOpPassManagerAddPipeline(
                 mlirPassManagerGetAsOpPassManager(passManager),
                 mlirStringRefCreate(pipeline.data(), pipeline.size()),
                 errorMsg.getCallback(), errorMsg.getUserData());
             if (mlirLogicalResultIsFailure(status))
-              throw py::value_error(std::string(errorMsg.join()));
+              throw SetPyError(PyExc_ValueError, std::string(errorMsg.join()));
             return new PyPassManager(passManager);
           },
-          "pipeline"_a, "context"_a = py::none(),
+          py::arg("pipeline"), py::arg("context") = py::none(),
           "Parse a textual pass-pipeline and return a top-level PassManager "
           "that can be applied on a Module. Throw a ValueError if the pipeline "
           "can't be parsed")
       .def(
-          "add",
-          [](PyPassManager &passManager, const std::string &pipeline) {
-            PyPrintAccumulator errorMsg;
-            MlirLogicalResult status = mlirOpPassManagerAddPipeline(
-                mlirPassManagerGetAsOpPassManager(passManager.get()),
-                mlirStringRefCreate(pipeline.data(), pipeline.size()),
-                errorMsg.getCallback(), errorMsg.getUserData());
-            if (mlirLogicalResultIsFailure(status))
-              throw py::value_error(std::string(errorMsg.join()));
-          },
-          "pipeline"_a,
-          "Add textual pipeline elements to the pass manager. Throws a "
-          "ValueError if the pipeline can't be parsed.")
-      .def(
           "run",
-          [](PyPassManager &passManager, PyOperationBase &op,
-             bool invalidateOps) {
-            if (invalidateOps) {
-              op.getOperation().getContext()->clearOperationsInside(op);
-            }
-            // Actually run the pass manager.
-            PyMlirContext::ErrorCapture errors(op.getOperation().getContext());
-            MlirLogicalResult status = mlirPassManagerRunOnOp(
-                passManager.get(), op.getOperation().get());
+          [](PyPassManager &passManager, PyModule &module) {
+            MlirLogicalResult status =
+                mlirPassManagerRun(passManager.get(), module.get());
             if (mlirLogicalResultIsFailure(status))
-              throw MLIRError("Failure while executing pass pipeline",
-                              errors.take());
+              throw SetPyError(PyExc_RuntimeError,
+                               "Failure while executing pass pipeline.");
           },
-          "operation"_a, "invalidate_ops"_a = true,
-          "Run the pass manager on the provided operation, raising an "
-          "MLIRError on failure.")
+          py::arg("module"),
+          "Run the pass manager on the provided module, throw a RuntimeError "
+          "on failure.")
       .def(
           "__str__",
           [](PyPassManager &self) {

@@ -22,9 +22,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @foo = ifunc i32 (i32), ptr @foo_resolver
 ; CHECK-RESOLVER:      (name: "foo_resolver"
 ; CHECK-RESOLVER-SAME: live: 1
-define internal ptr @foo_resolver() {
+define internal i32 (i32)* @foo_resolver() {
 entry:
-  ret ptr null
+  ret i32 (i32)* null
 }
 ; CHECK-BAR:      (name: "bar"
 ; CHECK-BAR-NOT:  summaries: (
@@ -43,7 +43,7 @@ entry:
 
 ; CHECK-QUUX:      (name: "quux"
 ; CHECK-QUUX-SAME: live: 1
-@quux = internal alias ptr (), ptr @foo_resolver
+@quux = internal alias i32 (i32)* (), ptr @foo_resolver
 @quuz = internal ifunc i32 (i32), ptr @quux
 
 ; CHECK-CORGE:      (name: "corge"

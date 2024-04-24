@@ -9,14 +9,12 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_UNITTESTS_LSPCLIENT_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_UNITTESTS_LSPCLIENT_H
 
-#include "llvm/ADT/StringRef.h"
-#include <condition_variable>
+#include <llvm/ADT/Optional.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
-#include <memory>
+#include <condition_variable>
+#include <deque>
 #include <mutex>
-#include <optional>
-#include <vector>
 
 namespace clang {
 namespace clangd {
@@ -34,7 +32,7 @@ public:
   class CallResult {
   public:
     ~CallResult();
-    // Blocks up to 60 seconds for the result to be ready.
+    // Blocks up to 10 seconds for the result to be ready.
     // Records a test failure if there was no reply.
     llvm::Expected<llvm::json::Value> take();
     // Like take(), but records a test failure if the result was an error.
@@ -44,7 +42,7 @@ public:
     // Should be called once to provide the value.
     void set(llvm::Expected<llvm::json::Value> V);
 
-    std::optional<llvm::Expected<llvm::json::Value>> Value;
+    llvm::Optional<llvm::Expected<llvm::json::Value>> Value;
     std::mutex Mu;
     std::condition_variable CV;
 
@@ -74,7 +72,7 @@ public:
   // Blocks until the server is idle (using the 'sync' protocol extension).
   void sync();
   // sync()s to ensure pending diagnostics arrive, and returns the newest set.
-  std::optional<std::vector<llvm::json::Value>>
+  llvm::Optional<std::vector<llvm::json::Value>>
   diagnostics(llvm::StringRef Path);
 
   // Get the transport used to connect this client to a ClangdLSPServer.

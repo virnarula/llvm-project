@@ -36,8 +36,7 @@ struct B
     int id_;
 
     explicit B(int i) : id_(i) {}
-    B(const B&) = default;
-    B& operator=(const B&) = default;
+
     virtual ~B() {}
 };
 

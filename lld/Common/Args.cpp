@@ -19,8 +19,11 @@ using namespace lld;
 
 // TODO(sbc): Remove this once CGOptLevel can be set completely based on bitcode
 // function metadata.
-int lld::args::getCGOptLevel(int optLevelLTO) {
-  return std::clamp(optLevelLTO, 2, 3);
+CodeGenOpt::Level lld::args::getCGOptLevel(int optLevelLTO) {
+  if (optLevelLTO == 3)
+    return CodeGenOpt::Aggressive;
+  assert(optLevelLTO < 3);
+  return CodeGenOpt::Default;
 }
 
 static int64_t getInteger(opt::InputArgList &args, unsigned key,
@@ -31,8 +34,8 @@ static int64_t getInteger(opt::InputArgList &args, unsigned key,
 
   int64_t v;
   StringRef s = a->getValue();
-  if (base == 16)
-    s.consume_front_insensitive("0x");
+  if (base == 16 && (s.startswith("0x") || s.startswith("0X")))
+    s = s.drop_front(2);
   if (to_integer(s, v, base))
     return v;
 
@@ -60,16 +63,17 @@ SmallVector<StringRef, 0> lld::args::getStrings(opt::InputArgList &args,
 }
 
 uint64_t lld::args::getZOptionValue(opt::InputArgList &args, int id,
-                                    StringRef key, uint64_t defaultValue) {
-  for (auto *arg : args.filtered(id)) {
+                                    StringRef key, uint64_t Default) {
+  for (auto *arg : args.filtered_reverse(id)) {
     std::pair<StringRef, StringRef> kv = StringRef(arg->getValue()).split('=');
     if (kv.first == key) {
-      if (!to_integer(kv.second, defaultValue))
+      uint64_t result = Default;
+      if (!to_integer(kv.second, result))
         error("invalid " + key + ": " + kv.second);
-      arg->claim();
+      return result;
     }
   }
-  return defaultValue;
+  return Default;
 }
 
 std::vector<StringRef> lld::args::getLines(MemoryBufferRef mb) {
@@ -86,7 +90,7 @@ std::vector<StringRef> lld::args::getLines(MemoryBufferRef mb) {
 }
 
 StringRef lld::args::getFilenameWithoutExe(StringRef path) {
-  if (path.ends_with_insensitive(".exe"))
+  if (path.endswith_insensitive(".exe"))
     return sys::path::stem(path);
   return sys::path::filename(path);
 }

@@ -3,7 +3,6 @@ set(LLVM_LINK_COMPONENTS
   Core
   Option
   Support
-  TargetParser
   )
 
 add_clang_library(clangDependencyScanning
@@ -22,7 +21,9 @@ add_clang_library(clangDependencyScanning
   clangCodeGen
   clangDriver
   clangFrontend
+  clangFrontendTool
   clangLex
+  clangParse
   clangSerialization
   clangTooling
-  )
+)

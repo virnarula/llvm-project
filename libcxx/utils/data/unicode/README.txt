@@ -8,8 +8,7 @@ wget \
     https://www.unicode.org/Public/UCD/latest/ucd/auxiliary/GraphemeBreakProperty.txt \
     https://www.unicode.org/Public/UCD/latest/ucd/auxiliary/GraphemeBreakTest.txt \
     https://www.unicode.org/Public/UCD/latest/ucd/emoji/emoji-data.txt \
-    https://www.unicode.org/Public/UCD/latest/ucd/extracted/DerivedGeneralCategory.txt \
-    https://www.unicode.org/Public/UCD/latest/ucd/EastAsianWidth.txt
+    https://www.unicode.org/Public/UCD/latest/ucd/extracted/DerivedGeneralCategory.txt
 
 Afterwards build the `libcxx-generate-files` target to update the generated
 Unicode files.
@@ -33,7 +32,3 @@ Usage: libcxx/utils/generate_escaped_output_table.py
 DerivedGeneralCategory.txt
 Source: https://www.unicode.org/Public/UCD/latest/ucd/extracted/DerivedGeneralCategory.txt
 Usage: libcxx/utils/generate_escaped_output_table.py
-
-EastAsianWidth.txt
-https://www.unicode.org/Public/UCD/latest/ucd/EastAsianWidth.txt
-Usage: libcxx/utils/generate_width_estimation_table.py

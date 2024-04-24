@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 void NoEscapeCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(callExpr(callee(functionDecl(hasName("::dispatch_async"))),
@@ -44,4 +46,6 @@ void NoEscapeCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang

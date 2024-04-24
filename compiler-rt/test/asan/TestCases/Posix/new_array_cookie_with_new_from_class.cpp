@@ -2,7 +2,7 @@
 // inside the class.
 // RUN: %clangxx_asan  %s -o %t && %run %t
 //
-// XFAIL: target=arm{{.*}}
+// XFAIL: arm
 
 // UNSUPPORTED: ios
 

@@ -10,9 +10,8 @@
 
 // take_view() requires default_initializable<V> = default;
 
-#include <cassert>
 #include <ranges>
-#include <type_traits>
+#include <cassert>
 
 int buff[8] = {1, 2, 3, 4, 5, 6, 7, 8};
 

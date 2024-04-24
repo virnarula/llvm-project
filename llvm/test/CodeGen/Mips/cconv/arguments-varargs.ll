@@ -118,20 +118,21 @@ entry:
 ; Copy the arg to the global
 ; ALL-DAG:       sh [[ARG2]], 4([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i16
-  %e1 = getelementptr [3 x i16], ptr @hwords, i32 0, i32 1
-  store volatile i16 %arg1, ptr %e1, align 2
+  %arg1 = va_arg i8** %ap, i16
+  %e1 = getelementptr [3 x i16], [3 x i16]* @hwords, i32 0, i32 1
+  store volatile i16 %arg1, i16* %e1, align 2
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i16
-  %e2 = getelementptr [3 x i16], ptr @hwords, i32 0, i32 2
-  store volatile i16 %arg2, ptr %e2, align 2
+  %arg2 = va_arg i8** %ap, i16
+  %e2 = getelementptr [3 x i16], [3 x i16]* @hwords, i32 0, i32 2
+  store volatile i16 %arg2, i16* %e2, align 2
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -232,20 +233,21 @@ entry:
 ; Copy the arg to the global
 ; ALL-DAG:       sw [[ARG2]], 8([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i32
-  %e1 = getelementptr [3 x i32], ptr @words, i32 0, i32 1
-  store volatile i32 %arg1, ptr %e1, align 4
+  %arg1 = va_arg i8** %ap, i32
+  %e1 = getelementptr [3 x i32], [3 x i32]* @words, i32 0, i32 1
+  store volatile i32 %arg1, i32* %e1, align 4
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i32
-  %e2 = getelementptr [3 x i32], ptr @words, i32 0, i32 2
-  store volatile i32 %arg2, ptr %e2, align 4
+  %arg2 = va_arg i8** %ap, i32
+  %e2 = getelementptr [3 x i32], [3 x i32]* @words, i32 0, i32 2
+  store volatile i32 %arg2, i32* %e2, align 4
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -353,20 +355,21 @@ entry:
 ; NEW-DAG:       ld [[ARG2:\$[0-9]+]], 0([[VA2]])
 ; NEW-DAG:       sd [[ARG2]], 16([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i64
-  %e1 = getelementptr [3 x i64], ptr @dwords, i32 0, i32 1
-  store volatile i64 %arg1, ptr %e1, align 8
+  %arg1 = va_arg i8** %ap, i64
+  %e1 = getelementptr [3 x i64], [3 x i64]* @dwords, i32 0, i32 1
+  store volatile i64 %arg1, i64* %e1, align 8
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i64
-  %e2 = getelementptr [3 x i64], ptr @dwords, i32 0, i32 2
-  store volatile i64 %arg2, ptr %e2, align 8
+  %arg2 = va_arg i8** %ap, i64
+  %e2 = getelementptr [3 x i64], [3 x i64]* @dwords, i32 0, i32 2
+  store volatile i64 %arg2, i64* %e2, align 8
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -467,20 +470,21 @@ entry:
 ; Copy the arg to the global
 ; ALL-DAG:       sh [[ARG2]], 4([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i16
-  %e1 = getelementptr [3 x i16], ptr @hwords, i32 0, i32 1
-  store volatile i16 %arg1, ptr %e1, align 2
+  %arg1 = va_arg i8** %ap, i16
+  %e1 = getelementptr [3 x i16], [3 x i16]* @hwords, i32 0, i32 1
+  store volatile i16 %arg1, i16* %e1, align 2
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i16
-  %e2 = getelementptr [3 x i16], ptr @hwords, i32 0, i32 2
-  store volatile i16 %arg2, ptr %e2, align 2
+  %arg2 = va_arg i8** %ap, i16
+  %e2 = getelementptr [3 x i16], [3 x i16]* @hwords, i32 0, i32 2
+  store volatile i16 %arg2, i16* %e2, align 2
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -581,20 +585,21 @@ entry:
 ; Copy the arg to the global
 ; ALL-DAG:       sw [[ARG2]], 8([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i32
-  %e1 = getelementptr [3 x i32], ptr @words, i32 0, i32 1
-  store volatile i32 %arg1, ptr %e1, align 4
+  %arg1 = va_arg i8** %ap, i32
+  %e1 = getelementptr [3 x i32], [3 x i32]* @words, i32 0, i32 1
+  store volatile i32 %arg1, i32* %e1, align 4
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i32
-  %e2 = getelementptr [3 x i32], ptr @words, i32 0, i32 2
-  store volatile i32 %arg2, ptr %e2, align 4
+  %arg2 = va_arg i8** %ap, i32
+  %e2 = getelementptr [3 x i32], [3 x i32]* @words, i32 0, i32 2
+  store volatile i32 %arg2, i32* %e2, align 4
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -702,20 +707,21 @@ entry:
 ; NEW-DAG:       ld [[ARG2:\$[0-9]+]], 0([[VA2]])
 ; NEW-DAG:       sd [[ARG2]], 16([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i64
-  %e1 = getelementptr [3 x i64], ptr @dwords, i32 0, i32 1
-  store volatile i64 %arg1, ptr %e1, align 8
+  %arg1 = va_arg i8** %ap, i64
+  %e1 = getelementptr [3 x i64], [3 x i64]* @dwords, i32 0, i32 1
+  store volatile i64 %arg1, i64* %e1, align 8
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i64
-  %e2 = getelementptr [3 x i64], ptr @dwords, i32 0, i32 2
-  store volatile i64 %arg2, ptr %e2, align 8
+  %arg2 = va_arg i8** %ap, i64
+  %e2 = getelementptr [3 x i64], [3 x i64]* @dwords, i32 0, i32 2
+  store volatile i64 %arg2, i64* %e2, align 8
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -815,20 +821,21 @@ entry:
 ; Copy the arg to the global
 ; ALL-DAG:       sh [[ARG2]], 4([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i16
-  %e1 = getelementptr [3 x i16], ptr @hwords, i32 0, i32 1
-  store volatile i16 %arg1, ptr %e1, align 2
+  %arg1 = va_arg i8** %ap, i16
+  %e1 = getelementptr [3 x i16], [3 x i16]* @hwords, i32 0, i32 1
+  store volatile i16 %arg1, i16* %e1, align 2
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i16
-  %e2 = getelementptr [3 x i16], ptr @hwords, i32 0, i32 2
-  store volatile i16 %arg2, ptr %e2, align 2
+  %arg2 = va_arg i8** %ap, i16
+  %e2 = getelementptr [3 x i16], [3 x i16]* @hwords, i32 0, i32 2
+  store volatile i16 %arg2, i16* %e2, align 2
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -928,20 +935,21 @@ entry:
 ; Copy the arg to the global
 ; ALL-DAG:       sw [[ARG2]], 8([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i32
-  %e1 = getelementptr [3 x i32], ptr @words, i32 0, i32 1
-  store volatile i32 %arg1, ptr %e1, align 4
+  %arg1 = va_arg i8** %ap, i32
+  %e1 = getelementptr [3 x i32], [3 x i32]* @words, i32 0, i32 1
+  store volatile i32 %arg1, i32* %e1, align 4
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i32
-  %e2 = getelementptr [3 x i32], ptr @words, i32 0, i32 2
-  store volatile i32 %arg2, ptr %e2, align 4
+  %arg2 = va_arg i8** %ap, i32
+  %e2 = getelementptr [3 x i32], [3 x i32]* @words, i32 0, i32 2
+  store volatile i32 %arg2, i32* %e2, align 4
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
@@ -1048,23 +1056,24 @@ entry:
 ; NEW-DAG:       ld [[ARG2:\$[0-9]+]], 0([[VA2]])
 ; NEW-DAG:       sd [[ARG2]], 16([[GV]])
 
-  %ap = alloca ptr, align 8
-  call void @llvm.va_start(ptr %ap)
+  %ap = alloca i8*, align 8
+  %ap2 = bitcast i8** %ap to i8*
+  call void @llvm.va_start(i8* %ap2)
 
   call void asm sideeffect "teqi $$zero, 1", ""()
-  %arg1 = va_arg ptr %ap, i64
-  %e1 = getelementptr [3 x i64], ptr @dwords, i32 0, i32 1
-  store volatile i64 %arg1, ptr %e1, align 8
+  %arg1 = va_arg i8** %ap, i64
+  %e1 = getelementptr [3 x i64], [3 x i64]* @dwords, i32 0, i32 1
+  store volatile i64 %arg1, i64* %e1, align 8
 
   call void asm sideeffect "teqi $$zero, 2", ""()
-  %arg2 = va_arg ptr %ap, i64
-  %e2 = getelementptr [3 x i64], ptr @dwords, i32 0, i32 2
-  store volatile i64 %arg2, ptr %e2, align 8
+  %arg2 = va_arg i8** %ap, i64
+  %e2 = getelementptr [3 x i64], [3 x i64]* @dwords, i32 0, i32 2
+  store volatile i64 %arg2, i64* %e2, align 8
 
-  call void @llvm.va_end(ptr %ap)
+  call void @llvm.va_end(i8* %ap2)
 
   ret void
 }
 
-declare void @llvm.va_start(ptr)
-declare void @llvm.va_end(ptr)
+declare void @llvm.va_start(i8*)
+declare void @llvm.va_end(i8*)

@@ -8,6 +8,7 @@
 #ifndef LLVM_MC_MCSYMBOLXCOFF_H
 #define LLVM_MC_MCSYMBOLXCOFF_H
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/XCOFF.h"
 #include "llvm/MC/MCSymbol.h"
@@ -17,9 +18,6 @@ namespace llvm {
 class MCSectionXCOFF;
 
 class MCSymbolXCOFF : public MCSymbol {
-
-  enum XCOFFSymbolFlags : uint16_t { SF_EHInfo = 0x0001 };
-
 public:
   MCSymbolXCOFF(const StringMapEntry<bool> *Name, bool isTemporary)
       : MCSymbol(SymbolKindXCOFF, Name, isTemporary) {}
@@ -42,7 +40,7 @@ public:
 
   XCOFF::StorageClass getStorageClass() const {
     assert(StorageClass && "StorageClass not set on XCOFF MCSymbol.");
-    return *StorageClass;
+    return StorageClass.value();
   }
 
   StringRef getUnqualifiedName() const { return getUnqualifiedName(getName()); }
@@ -55,12 +53,9 @@ public:
 
   XCOFF::VisibilityType getVisibilityType() const { return VisibilityType; }
 
-  bool hasRename() const { return HasRename; }
+  bool hasRename() const { return !SymbolTableName.empty(); }
 
-  void setSymbolTableName(StringRef STN) {
-    SymbolTableName = STN;
-    HasRename = true;
-  }
+  void setSymbolTableName(StringRef STN) { SymbolTableName = STN; }
 
   StringRef getSymbolTableName() const {
     if (hasRename())
@@ -68,16 +63,11 @@ public:
     return getUnqualifiedName();
   }
 
-  bool isEHInfo() const { return getFlags() & SF_EHInfo; }
-
-  void setEHInfo() const { modifyFlags(SF_EHInfo, SF_EHInfo); }
-
 private:
-  std::optional<XCOFF::StorageClass> StorageClass;
+  Optional<XCOFF::StorageClass> StorageClass;
   MCSectionXCOFF *RepresentedCsect = nullptr;
   XCOFF::VisibilityType VisibilityType = XCOFF::SYM_V_UNSPECIFIED;
   StringRef SymbolTableName;
-  bool HasRename = false;
 };
 
 } // end namespace llvm

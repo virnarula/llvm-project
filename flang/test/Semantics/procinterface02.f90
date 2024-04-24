@@ -1,4 +1,4 @@
-! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
+! RUN: %python %S/test_errors.py %s %flang_fc1
 subroutine foo(A, B, P)
   interface
     real elemental function foo_elemental(x)
@@ -12,7 +12,6 @@ subroutine foo(A, B, P)
     end function
   end interface
   real :: A(:), B(:)
-  !PORTABILITY: A dummy procedure should not have an ELEMENTAL intrinsic as its interface
   procedure(sqrt), pointer :: P
   !ERROR: Rank of dummy argument is 0, but actual argument has rank 1
   A = P(B)

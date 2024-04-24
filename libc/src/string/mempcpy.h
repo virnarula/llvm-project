@@ -11,10 +11,10 @@
 
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 void *mempcpy(void *__restrict dest, const void *__restrict src, size_t count);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_MEMPCPY_H

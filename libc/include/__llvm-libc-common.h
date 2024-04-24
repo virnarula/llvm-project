@@ -32,9 +32,6 @@
 #undef _Thread_local
 #define _Thread_local thread_local
 
-#undef __NOEXCEPT
-#define __NOEXCEPT noexcept
-
 #else // not __cplusplus
 
 #undef __BEGIN_C_DECLS
@@ -45,9 +42,6 @@
 
 #undef __restrict
 #define __restrict restrict // C99 and above support the restrict keyword.
-
-#undef __NOEXCEPT
-#define __NOEXCEPT
 
 #endif // __cplusplus
 

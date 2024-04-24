@@ -101,7 +101,7 @@ static void emitPassOptionsStruct(const Pass &pass, raw_ostream &os) {
 
     os.indent(2) << llvm::formatv("{0} {1}", type, opt.getCppVariableName());
 
-    if (std::optional<StringRef> defaultVal = opt.getDefaultValue())
+    if (Optional<StringRef> defaultVal = opt.getDefaultValue())
       os << " = " << defaultVal;
 
     os << ";\n";
@@ -173,8 +173,7 @@ static void emitRegistrations(llvm::ArrayRef<Pass> passes, raw_ostream &os) {
 /// {0}: The def name of the pass record.
 /// {1}: The base class for the pass.
 /// {2): The command line argument for the pass.
-/// {3}: The summary for the pass.
-/// {4}: The dependent dialects registration.
+/// {3}: The dependent dialects registration.
 const char *const baseClassBegin = R"(
 template <typename DerivedT>
 class {0}Base : public {1} {
@@ -222,7 +221,9 @@ public:
 
 /// Registration for a single dependent dialect, to be inserted for each
 /// dependent dialect in the `getDependentDialects` above.
-const char *const dialectRegistrationTemplate = "registry.insert<{0}>();";
+const char *const dialectRegistrationTemplate = R"(
+  registry.insert<{0}>();
+)";
 
 const char *const friendDefaultConstructorDeclTemplate = R"(
 namespace impl {{
@@ -269,9 +270,9 @@ static void emitPassOptionDecls(const Pass &pass, raw_ostream &os) {
     os << llvm::formatv(R"(<{0}> {1}{{*this, "{2}", ::llvm::cl::desc("{3}"))",
                         opt.getType(), opt.getCppVariableName(),
                         opt.getArgument(), opt.getDescription());
-    if (std::optional<StringRef> defaultVal = opt.getDefaultValue())
+    if (Optional<StringRef> defaultVal = opt.getDefaultValue())
       os << ", ::llvm::cl::init(" << defaultVal << ")";
-    if (std::optional<StringRef> additionalFlags = opt.getAdditionalFlags())
+    if (Optional<StringRef> additionalFlags = opt.getAdditionalFlags())
       os << ", " << *additionalFlags;
     os << "};\n";
   }
@@ -306,13 +307,9 @@ static void emitPassDefs(const Pass &pass, raw_ostream &os) {
   std::string dependentDialectRegistrations;
   {
     llvm::raw_string_ostream dialectsOs(dependentDialectRegistrations);
-    llvm::interleave(
-        pass.getDependentDialects(), dialectsOs,
-        [&](StringRef dependentDialect) {
-          dialectsOs << llvm::formatv(dialectRegistrationTemplate,
-                                      dependentDialect);
-        },
-        "\n    ");
+    for (StringRef dependentDialect : pass.getDependentDialects())
+      dialectsOs << llvm::formatv(dialectRegistrationTemplate,
+                                  dependentDialect);
   }
 
   os << "namespace impl {\n";
@@ -405,7 +402,7 @@ public:
     return std::make_unique<DerivedT>(*static_cast<const DerivedT *>(this));
   }
 
-  /// Register the dialects that must be loaded in the context before this pass.
+  /// Return the dialect that must be loaded in the context before this pass.
   void getDependentDialects(::mlir::DialectRegistry &registry) const override {
     {4}
   }
@@ -425,13 +422,9 @@ static void emitOldPassDecl(const Pass &pass, raw_ostream &os) {
   std::string dependentDialectRegistrations;
   {
     llvm::raw_string_ostream dialectsOs(dependentDialectRegistrations);
-    llvm::interleave(
-        pass.getDependentDialects(), dialectsOs,
-        [&](StringRef dependentDialect) {
-          dialectsOs << llvm::formatv(dialectRegistrationTemplate,
-                                      dependentDialect);
-        },
-        "\n    ");
+    for (StringRef dependentDialect : pass.getDependentDialects())
+      dialectsOs << llvm::formatv(dialectRegistrationTemplate,
+                                  dependentDialect);
   }
   os << llvm::formatv(oldPassDeclBegin, defName, pass.getBaseClass(),
                       pass.getArgument(), pass.getSummary(),

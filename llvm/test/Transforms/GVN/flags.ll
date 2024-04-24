@@ -1,4 +1,4 @@
-; RUN: opt -passes=gvn -S < %s | FileCheck %s
+; RUN: opt -gvn -S < %s | FileCheck %s
 
 declare void @use(i1)
 

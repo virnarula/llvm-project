@@ -12,9 +12,8 @@
 #include "lldb/Utility/UUID.h"
 #include "lldb/lldb-types.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/FormatProviders.h"
-#include "llvm/TargetParser/Triple.h"
-#include <optional>
 
 namespace lldb_private {
 namespace breakpad {
@@ -37,7 +36,7 @@ public:
   /// Attempt to guess the kind of the record present in the argument without
   /// doing a full parse. The returned kind will always be correct for valid
   /// records, but the full parse can still fail in case of corrupted input.
-  static std::optional<Kind> classify(llvm::StringRef Line);
+  static llvm::Optional<Kind> classify(llvm::StringRef Line);
 
 protected:
   Record(Kind K) : TheKind(K) {}
@@ -59,7 +58,7 @@ inline llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, Record::Kind K) {
 
 class ModuleRecord : public Record {
 public:
-  static std::optional<ModuleRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<ModuleRecord> parse(llvm::StringRef Line);
   ModuleRecord(llvm::Triple::OSType OS, llvm::Triple::ArchType Arch, UUID ID)
       : Record(Module), OS(OS), Arch(Arch), ID(std::move(ID)) {}
 
@@ -75,7 +74,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const ModuleRecord &R);
 
 class InfoRecord : public Record {
 public:
-  static std::optional<InfoRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<InfoRecord> parse(llvm::StringRef Line);
   InfoRecord(UUID ID) : Record(Info), ID(std::move(ID)) {}
 
   UUID ID;
@@ -88,7 +87,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const InfoRecord &R);
 
 class FileRecord : public Record {
 public:
-  static std::optional<FileRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<FileRecord> parse(llvm::StringRef Line);
   FileRecord(size_t Number, llvm::StringRef Name)
       : Record(File), Number(Number), Name(Name) {}
 
@@ -103,7 +102,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const FileRecord &R);
 
 class InlineOriginRecord : public Record {
 public:
-  static std::optional<InlineOriginRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<InlineOriginRecord> parse(llvm::StringRef Line);
   InlineOriginRecord(size_t Number, llvm::StringRef Name)
       : Record(InlineOrigin), Number(Number), Name(Name) {}
 
@@ -120,7 +119,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
 
 class FuncRecord : public Record {
 public:
-  static std::optional<FuncRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<FuncRecord> parse(llvm::StringRef Line);
   FuncRecord(bool Multiple, lldb::addr_t Address, lldb::addr_t Size,
              lldb::addr_t ParamSize, llvm::StringRef Name)
       : Record(Module), Multiple(Multiple), Address(Address), Size(Size),
@@ -138,7 +137,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const FuncRecord &R);
 
 class InlineRecord : public Record {
 public:
-  static std::optional<InlineRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<InlineRecord> parse(llvm::StringRef Line);
   InlineRecord(size_t InlineNestLevel, uint32_t CallSiteLineNum,
                size_t CallSiteFileNum, size_t OriginNum)
       : Record(Inline), InlineNestLevel(InlineNestLevel),
@@ -158,7 +157,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const InlineRecord &R);
 
 class LineRecord : public Record {
 public:
-  static std::optional<LineRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<LineRecord> parse(llvm::StringRef Line);
   LineRecord(lldb::addr_t Address, lldb::addr_t Size, uint32_t LineNum,
              size_t FileNum)
       : Record(Line), Address(Address), Size(Size), LineNum(LineNum),
@@ -175,7 +174,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const LineRecord &R);
 
 class PublicRecord : public Record {
 public:
-  static std::optional<PublicRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<PublicRecord> parse(llvm::StringRef Line);
   PublicRecord(bool Multiple, lldb::addr_t Address, lldb::addr_t ParamSize,
                llvm::StringRef Name)
       : Record(Module), Multiple(Multiple), Address(Address),
@@ -192,14 +191,14 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const PublicRecord &R);
 
 class StackCFIRecord : public Record {
 public:
-  static std::optional<StackCFIRecord> parse(llvm::StringRef Line);
-  StackCFIRecord(lldb::addr_t Address, std::optional<lldb::addr_t> Size,
+  static llvm::Optional<StackCFIRecord> parse(llvm::StringRef Line);
+  StackCFIRecord(lldb::addr_t Address, llvm::Optional<lldb::addr_t> Size,
                  llvm::StringRef UnwindRules)
       : Record(StackCFI), Address(Address), Size(Size),
         UnwindRules(UnwindRules) {}
 
   lldb::addr_t Address;
-  std::optional<lldb::addr_t> Size;
+  llvm::Optional<lldb::addr_t> Size;
   llvm::StringRef UnwindRules;
 };
 
@@ -208,7 +207,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const StackCFIRecord &R);
 
 class StackWinRecord : public Record {
 public:
-  static std::optional<StackWinRecord> parse(llvm::StringRef Line);
+  static llvm::Optional<StackWinRecord> parse(llvm::StringRef Line);
 
   StackWinRecord(lldb::addr_t RVA, lldb::addr_t CodeSize,
                  lldb::addr_t ParameterSize, lldb::addr_t SavedRegisterSize,

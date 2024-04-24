@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_REMQUOF_H
 #define LLVM_LIBC_SRC_MATH_REMQUOF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 float remquof(float x, float y, int *exp);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_REMQUOF_H

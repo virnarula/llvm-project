@@ -21,7 +21,6 @@ add_clang_library(clangTidyObjCModule
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyObjCModule

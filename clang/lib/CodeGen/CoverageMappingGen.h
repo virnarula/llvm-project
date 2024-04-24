@@ -104,9 +104,10 @@ class CoverageMappingModuleGen {
 
   CodeGenModule &CGM;
   CoverageSourceInfo &SourceInfo;
-  llvm::SmallDenseMap<FileEntryRef, unsigned, 8> FileEntries;
+  llvm::SmallDenseMap<const FileEntry *, unsigned, 8> FileEntries;
   std::vector<llvm::Constant *> FunctionNames;
   std::vector<FunctionInfo> FunctionRecords;
+  std::map<std::string, std::string> CoveragePrefixMap;
 
   std::string getCurrentDirname();
   std::string normalizeFilename(StringRef Filename);
@@ -137,7 +138,7 @@ public:
 
   /// Return the coverage mapping translation unit file id
   /// for the given file.
-  unsigned getFileID(FileEntryRef File);
+  unsigned getFileID(const FileEntry *File);
 
   /// Return an interface into CodeGenModule.
   CodeGenModule &getCodeGenModule() { return CGM; }
@@ -150,22 +151,16 @@ class CoverageMappingGen {
   SourceManager &SM;
   const LangOptions &LangOpts;
   llvm::DenseMap<const Stmt *, unsigned> *CounterMap;
-  llvm::DenseMap<const Stmt *, unsigned> *MCDCBitmapMap;
-  llvm::DenseMap<const Stmt *, unsigned> *CondIDMap;
 
 public:
   CoverageMappingGen(CoverageMappingModuleGen &CVM, SourceManager &SM,
                      const LangOptions &LangOpts)
-      : CVM(CVM), SM(SM), LangOpts(LangOpts), CounterMap(nullptr),
-        MCDCBitmapMap(nullptr), CondIDMap(nullptr) {}
+      : CVM(CVM), SM(SM), LangOpts(LangOpts), CounterMap(nullptr) {}
 
   CoverageMappingGen(CoverageMappingModuleGen &CVM, SourceManager &SM,
                      const LangOptions &LangOpts,
-                     llvm::DenseMap<const Stmt *, unsigned> *CounterMap,
-                     llvm::DenseMap<const Stmt *, unsigned> *MCDCBitmapMap,
-                     llvm::DenseMap<const Stmt *, unsigned> *CondIDMap)
-      : CVM(CVM), SM(SM), LangOpts(LangOpts), CounterMap(CounterMap),
-        MCDCBitmapMap(MCDCBitmapMap), CondIDMap(CondIDMap) {}
+                     llvm::DenseMap<const Stmt *, unsigned> *CounterMap)
+      : CVM(CVM), SM(SM), LangOpts(LangOpts), CounterMap(CounterMap) {}
 
   /// Emit the coverage mapping data which maps the regions of
   /// code to counters that will be used to find the execution

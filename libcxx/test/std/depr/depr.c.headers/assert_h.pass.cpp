@@ -10,12 +10,14 @@
 
 #include <assert.h>
 
+#include "test_macros.h"
+
 #ifndef assert
 #error assert not defined
 #endif
 
-int main(int, char**) {
-  assert(true);
+int main(int, char**)
+{
 
   return 0;
 }

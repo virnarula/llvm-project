@@ -177,7 +177,7 @@ benchmarks. CMake can print a list of them:
 - `TEST_SUITE_FORTRAN`
 
   Activate that Fortran tests. This is a work in progress. More information can be
-  found in the [Flang documentation](https://flang.llvm.org/docs/FortranLLVMTestSuite.html)
+  found in the [Flang documentation](https://flang.llvm.org/docs/html/FortranLLVMTestSuite.html)
 
 - `TEST_SUITE_RUN_UNDER`
 
@@ -336,9 +336,8 @@ using `llvm-profdata` so they can be used by the second compilation run.
 
 Example:
 ```bash
-# Profile generation run using LLVM IR PGO:
+# Profile generation run:
 % cmake -DTEST_SUITE_PROFILE_GENERATE=ON \
-        -DTEST_SUITE_USE_IR_PGO=ON \
         -DTEST_SUITE_RUN_TYPE=train \
         ../test-suite
 % make
@@ -351,8 +350,6 @@ Example:
 % make
 % llvm-lit -o result.json .
 ```
-
-To use Clang frontend's PGO instead of LLVM IR PGO, set `-DTEST_SUITE_USE_IR_PGO=OFF`.
 
 The `TEST_SUITE_RUN_TYPE` setting only affects the SPEC benchmark suites.
 

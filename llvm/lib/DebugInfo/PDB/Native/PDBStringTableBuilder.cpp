@@ -13,7 +13,6 @@
 #include "llvm/DebugInfo/PDB/Native/RawTypes.h"
 #include "llvm/Support/BinaryStreamWriter.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/TimeProfiler.h"
 
 #include <map>
 
@@ -208,7 +207,6 @@ Error PDBStringTableBuilder::writeEpilogue(BinaryStreamWriter &Writer) const {
 }
 
 Error PDBStringTableBuilder::commit(BinaryStreamWriter &Writer) const {
-  llvm::TimeTraceScope timeScope("Commit strings table");
   BinaryStreamWriter SectionWriter;
 
   std::tie(SectionWriter, Writer) = Writer.split(sizeof(PDBStringTableHeader));

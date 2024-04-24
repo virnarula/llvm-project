@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -fsyntax-only -verify %s
+// rdar://20281011
 
 namespace std {
 template<class _Ep> class initializer_list { };
@@ -33,7 +34,7 @@ void getLaplacianClosedForm()
 {
     Matrix<double> winI(0, 3);
     RGBFValue* inputPreL;
-    winI = { inputPreL->at() }; // expected-error {{call to deleted constructor of 'Matrix<double> &&'}}
+    winI = { inputPreL->at() }; // expected-error {{call to deleted constructor of 'cva::Matrix<double, 0, 0> &&'}}
 }
 
 }

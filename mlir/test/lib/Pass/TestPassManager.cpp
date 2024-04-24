@@ -53,8 +53,6 @@ struct TestOptionsPass
     : public PassWrapper<TestOptionsPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestOptionsPass)
 
-  enum Enum { One, Two };
-
   struct Options : public PassPipelineOptions<Options> {
     ListOption<int> listOption{*this, "list",
                                llvm::cl::desc("Example list option")};
@@ -62,10 +60,6 @@ struct TestOptionsPass
         *this, "string-list", llvm::cl::desc("Example string list option")};
     Option<std::string> stringOption{*this, "string",
                                      llvm::cl::desc("Example string option")};
-    Option<Enum> enumOption{
-        *this, "enum", llvm::cl::desc("Example enum option"),
-        llvm::cl::values(clEnumValN(0, "zero", "Example zero value"),
-                         clEnumValN(1, "one", "Example one value"))};
   };
   TestOptionsPass() = default;
   TestOptionsPass(const TestOptionsPass &) : PassWrapper() {}
@@ -73,7 +67,6 @@ struct TestOptionsPass
     listOption = options.listOption;
     stringOption = options.stringOption;
     stringListOption = options.stringListOption;
-    enumOption = options.enumOption;
   }
 
   void runOnOperation() final {}
@@ -88,10 +81,6 @@ struct TestOptionsPass
       *this, "string-list", llvm::cl::desc("Example string list option")};
   Option<std::string> stringOption{*this, "string",
                                    llvm::cl::desc("Example string option")};
-  Option<Enum> enumOption{
-      *this, "enum", llvm::cl::desc("Example enum option"),
-      llvm::cl::values(clEnumValN(0, "zero", "Example zero value"),
-                       clEnumValN(1, "one", "Example one value"))};
 };
 
 /// A test pass that always aborts to enable testing the crash recovery

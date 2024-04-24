@@ -35,7 +35,6 @@
 @ Switch to ARM mode
   .arm
 @ CHECK: .code 32
-@ CHECK: .p2align 2
 
 @ In ARM mode, switch to a CPU which has ARM and Thumb, no warning or .code directive (stay in ARM mode)
   .cpu cortex-a8

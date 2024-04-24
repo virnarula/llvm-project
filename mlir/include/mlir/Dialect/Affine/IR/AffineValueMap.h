@@ -18,7 +18,6 @@
 #include "mlir/IR/Value.h"
 
 namespace mlir {
-namespace affine {
 
 /// An AffineValueMap is an affine map plus its ML value operands and
 /// results for analysis purposes. The structure is still a tree form that is
@@ -90,7 +89,6 @@ private:
   SmallVector<Value, 4> results;
 };
 
-} // namespace affine
 } // namespace mlir
 
 #endif // MLIR_DIALECT_AFFINE_IR_AFFINEVALUEMAP_H

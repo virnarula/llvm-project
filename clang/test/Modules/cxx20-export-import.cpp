@@ -1,14 +1,4 @@
 
 // RUN: rm -rf %t
-// RUN: mkdir -p %t
-// RUN: split-file %s %t
-//
-// RUN: %clang_cc1 -std=c++20 %t/dummy.cppm -emit-module-interface -o %t/dummy.pcm
-// RUN: %clang_cc1 -std=c++20 -fprebuilt-module-path=%t -verify %t/test.cpp
-
-
-//--- dummy.cppm
-export module dummy;
-
-//--- test.cpp
-export import dummy; // expected-error {{export declaration can only be used within a module purview}}
+// RUN: %clang_cc1 -std=c++20 -fmodules -fmodules-cache-path=%t -fimplicit-module-maps -I%S/Inputs -verify %s
+export import dummy; // expected-error {{export declaration can only be used within a module interface unit after the module declaration}}

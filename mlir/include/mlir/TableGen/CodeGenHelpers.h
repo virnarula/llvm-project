@@ -13,7 +13,6 @@
 #ifndef MLIR_TABLEGEN_CODEGENHELPERS_H
 #define MLIR_TABLEGEN_CODEGENHELPERS_H
 
-#include "mlir/TableGen/Constraint.h"
 #include "mlir/TableGen/Dialect.h"
 #include "mlir/TableGen/Format.h"
 #include "llvm/ADT/DenseMap.h"
@@ -136,16 +135,15 @@ public:
   ///
   ///   LogicalResult(Operation *op, Attribute attr, StringRef attrName);
   ///
-  /// If a uniqued constraint was not found, this function returns std::nullopt.
-  /// The uniqued constraints cannot be used in the context of an OpAdaptor.
+  /// If a uniqued constraint was not found, this function returns None. The
+  /// uniqued constraints cannot be used in the context of an OpAdaptor.
   ///
   /// Pattern constraints have the form:
   ///
   ///   LogicalResult(PatternRewriter &rewriter, Operation *op, Attribute attr,
   ///                 StringRef failureStr);
   ///
-  std::optional<StringRef>
-  getAttrConstraintFn(const Constraint &constraint) const;
+  Optional<StringRef> getAttrConstraintFn(const Constraint &constraint) const;
 
   /// Get the name of the static function used for the given successor
   /// constraint. These functions are in the form:
@@ -230,8 +228,8 @@ struct stringifier<Twine> {
   static std::string apply(const Twine &twine) { return twine.str(); }
 };
 template <typename OptionalT>
-struct stringifier<std::optional<OptionalT>> {
-  static std::string apply(std::optional<OptionalT> optional) {
+struct stringifier<Optional<OptionalT>> {
+  static std::string apply(Optional<OptionalT> optional) {
     return optional ? stringifier<OptionalT>::apply(*optional) : std::string();
   }
 };

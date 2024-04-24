@@ -16,6 +16,7 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Symbol/LocateSymbolFile.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/StreamString.h"
@@ -86,7 +87,7 @@ SymbolVendorELF::CreateInstance(const lldb::ModuleSP &module_sp,
   module_spec.GetUUID() = uuid;
   FileSpecList search_paths = Target::GetDefaultDebugFileSearchPaths();
   FileSpec dsym_fspec =
-      PluginManager::LocateExecutableSymbolFile(module_spec, search_paths);
+      Symbols::LocateExecutableSymbolFile(module_spec, search_paths);
   if (!dsym_fspec)
     return nullptr;
 
@@ -109,9 +110,6 @@ SymbolVendorELF::CreateInstance(const lldb::ModuleSP &module_sp,
   // that.
   SectionList *module_section_list = module_sp->GetSectionList();
   SectionList *objfile_section_list = dsym_objfile_sp->GetSectionList();
-
-  if (!module_section_list || !objfile_section_list)
-    return nullptr;
 
   static const SectionType g_sections[] = {
       eSectionTypeDWARFDebugAbbrev,     eSectionTypeDWARFDebugAddr,

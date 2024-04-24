@@ -10,9 +10,10 @@
 #include "URI.h"
 #include "support/Logger.h"
 #include "support/Path.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -51,15 +52,15 @@ MockCompilationDatabase::MockCompilationDatabase(llvm::StringRef Directory,
   // -ffreestanding avoids implicit stdc-predef.h.
 }
 
-std::optional<ProjectInfo>
+llvm::Optional<ProjectInfo>
 MockCompilationDatabase::getProjectInfo(PathRef File) const {
   return ProjectInfo{std::string(Directory)};
 }
 
-std::optional<tooling::CompileCommand>
+llvm::Optional<tooling::CompileCommand>
 MockCompilationDatabase::getCompileCommand(PathRef File) const {
   if (ExtraClangFlags.empty())
-    return std::nullopt;
+    return None;
 
   auto FileName = llvm::sys::path::filename(File);
 

@@ -68,10 +68,6 @@ typedef MyIntInt MyIntIntInt;
         {
           "kind": "identifier",
           "spelling": "MyInt"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -84,8 +80,8 @@ typedef MyIntInt MyIntIntInt;
       },
       "location": {
         "position": {
-          "character": 12,
-          "line": 0
+          "character": 13,
+          "line": 1
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -132,10 +128,6 @@ typedef MyIntInt MyIntIntInt;
         {
           "kind": "identifier",
           "spelling": "MyIntInt"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -148,8 +140,8 @@ typedef MyIntInt MyIntIntInt;
       },
       "location": {
         "position": {
-          "character": 14,
-          "line": 1
+          "character": 15,
+          "line": 2
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -196,10 +188,6 @@ typedef MyIntInt MyIntIntInt;
         {
           "kind": "identifier",
           "spelling": "MyIntIntInt"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -212,8 +200,8 @@ typedef MyIntInt MyIntIntInt;
       },
       "location": {
         "position": {
-          "character": 17,
-          "line": 2
+          "character": 18,
+          "line": 3
         },
         "uri": "file://INPUT_DIR/input.h"
       },

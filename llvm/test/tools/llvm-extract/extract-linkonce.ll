@@ -5,20 +5,20 @@
 ; dropped.
 
 ; CHECK:      @bar = external global i32
-; CHECK:      define weak ptr @foo() {
-; CHECK-NEXT:  ret ptr @bar
+; CHECK:      define weak i32* @foo() {
+; CHECK-NEXT:  ret i32* @bar
 ; CHECK-NEXT: }
 
 ; DELETE: @bar = weak global i32 42
-; DELETE: declare ptr @foo()
+; DELETE: declare i32* @foo()
 
 @bar = linkonce global i32 42
 
-define linkonce ptr @foo() {
-  ret ptr @bar
+define linkonce i32* @foo() {
+  ret i32* @bar
 }
 
 define void @g() {
-  call ptr @foo()
+  call i32* @foo()
   ret void
 }

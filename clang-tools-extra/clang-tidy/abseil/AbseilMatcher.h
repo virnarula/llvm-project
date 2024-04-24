@@ -10,7 +10,8 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include <algorithm>
 
-namespace clang::ast_matchers {
+namespace clang {
+namespace ast_matchers {
 
 /// Matches AST nodes that were found within Abseil files.
 ///
@@ -34,8 +35,8 @@ AST_POLYMORPHIC_MATCHER(
   SourceLocation Loc = SourceManager.getSpellingLoc(Node.getBeginLoc());
   if (Loc.isInvalid())
     return false;
-  OptionalFileEntryRef FileEntry =
-      SourceManager.getFileEntryRefForID(SourceManager.getFileID(Loc));
+  const FileEntry *FileEntry =
+      SourceManager.getFileEntryForID(SourceManager.getFileID(Loc));
   if (!FileEntry)
     return false;
   // Determine whether filepath contains "absl/[absl-library]" substring, where
@@ -52,8 +53,9 @@ AST_POLYMORPHIC_MATCHER(
       "profiling", "random",   "status",    "strings",   "synchronization",
       "time",      "types",    "utility"};
   return llvm::any_of(AbseilLibraries, [&](const char *Library) {
-    return Path.starts_with(Library);
+    return Path.startswith(Library);
   });
 }
 
-} // namespace clang::ast_matchers
+} // namespace ast_matchers
+} // namespace clang

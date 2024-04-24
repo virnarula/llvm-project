@@ -17,7 +17,6 @@
 
 #include "MPITypes.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
-#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace ento {
@@ -25,10 +24,12 @@ namespace mpi {
 
 class MPIBugReporter {
 public:
-  MPIBugReporter(const CheckerBase &CB)
-      : UnmatchedWaitBugType(&CB, "Unmatched wait", MPIError),
-        MissingWaitBugType(&CB, "Missing wait", MPIError),
-        DoubleNonblockingBugType(&CB, "Double nonblocking", MPIError) {}
+  MPIBugReporter(const CheckerBase &CB) {
+    UnmatchedWaitBugType.reset(new BugType(&CB, "Unmatched wait", MPIError));
+    DoubleNonblockingBugType.reset(
+        new BugType(&CB, "Double nonblocking", MPIError));
+    MissingWaitBugType.reset(new BugType(&CB, "Missing wait", MPIError));
+  }
 
   /// Report duplicate request use by nonblocking calls without intermediate
   /// wait.
@@ -67,10 +68,12 @@ public:
                            BugReporter &BReporter) const;
 
 private:
-  const llvm::StringLiteral MPIError = "MPI Error";
-  const BugType UnmatchedWaitBugType;
-  const BugType MissingWaitBugType;
-  const BugType DoubleNonblockingBugType;
+  const std::string MPIError = "MPI Error";
+
+  // path-sensitive bug types
+  std::unique_ptr<BugType> UnmatchedWaitBugType;
+  std::unique_ptr<BugType> MissingWaitBugType;
+  std::unique_ptr<BugType> DoubleNonblockingBugType;
 
   /// Bug visitor class to find the node where the request region was previously
   /// used in order to include it into the BugReport path.

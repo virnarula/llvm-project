@@ -71,10 +71,10 @@ CommandObjectHelp::~CommandObjectHelp() = default;
 
 llvm::ArrayRef<OptionDefinition>
 CommandObjectHelp::CommandOptions::GetDefinitions() {
-  return llvm::ArrayRef(g_help_options);
+  return llvm::makeArrayRef(g_help_options);
 }
 
-void CommandObjectHelp::DoExecute(Args &command, CommandReturnObject &result) {
+bool CommandObjectHelp::DoExecute(Args &command, CommandReturnObject &result) {
   CommandObject::CommandMap::iterator pos;
   CommandObject *cmd_obj;
   const size_t argc = command.GetArgumentCount();
@@ -142,14 +142,14 @@ void CommandObjectHelp::DoExecute(Args &command, CommandReturnObject &result) {
           }
           s.Printf("\n");
           result.AppendError(s.GetString());
-          return;
+          return false;
         } else if (!sub_cmd_obj) {
           StreamString error_msg_stream;
           GenerateAdditionalHelpAvenuesMessage(
               &error_msg_stream, cmd_string.c_str(),
               m_interpreter.GetCommandPrefix(), sub_command.c_str());
           result.AppendError(error_msg_stream.GetString());
-          return;
+          return false;
         } else {
           GenerateAdditionalHelpAvenuesMessage(
               &result.GetOutputStream(), cmd_string.c_str(),
@@ -197,6 +197,8 @@ void CommandObjectHelp::DoExecute(Args &command, CommandReturnObject &result) {
       }
     }
   }
+
+  return result.Succeeded();
 }
 
 void CommandObjectHelp::HandleCompletion(CompletionRequest &request) {

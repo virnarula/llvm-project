@@ -46,15 +46,5 @@ Options
      return value often indicates that the programmer confused the function with
      ``clear()``.
 
-.. option:: CheckedReturnTypes
-
-   Semicolon-separated list of function return types to check.
-   By default the following function return types are checked:
-   `::std::error_code`, `::std::error_condition`, `::std::errc`, `::std::expected`, `::boost::system::error_code`
-
-.. option:: AllowCastToVoid
-
-   Controls whether casting return values to ``void`` is permitted. Default: `false`.
-
-:doc:`cert-err33-c <../cert/err33-c>` is an alias of this check that checks a
+`cert-err33-c <../cert/err33-c.html>`_ is an alias of this check that checks a
 fixed and large set of standard library functions.

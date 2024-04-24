@@ -18,29 +18,35 @@
 
 template <class S>
 TEST_CONSTEXPR_CXX20 void
-test(const S& s, const typename S::value_type* str, typename S::size_type pos, typename S::size_type x) {
-  LIBCPP_ASSERT_NOEXCEPT(s.rfind(str, pos));
-  assert(s.rfind(str, pos) == x);
-  if (x != S::npos) {
-    typename S::size_type n = S::traits_type::length(str);
-    assert(x <= pos && x + n <= s.size());
-  }
+test(const S& s, const typename S::value_type* str, typename S::size_type pos,
+     typename S::size_type x)
+{
+    LIBCPP_ASSERT_NOEXCEPT(s.rfind(str, pos));
+    assert(s.rfind(str, pos) == x);
+    if (x != S::npos)
+    {
+        typename S::size_type n = S::traits_type::length(str);
+        assert(x <= pos && x + n <= s.size());
+    }
 }
 
 template <class S>
-TEST_CONSTEXPR_CXX20 void test(const S& s, const typename S::value_type* str, typename S::size_type x) {
-  LIBCPP_ASSERT_NOEXCEPT(s.rfind(str));
-  assert(s.rfind(str) == x);
-  if (x != S::npos) {
-    typename S::size_type pos = s.size();
-    typename S::size_type n   = S::traits_type::length(str);
-    assert(x <= pos && x + n <= s.size());
-  }
+TEST_CONSTEXPR_CXX20 void
+test(const S& s, const typename S::value_type* str, typename S::size_type x)
+{
+    LIBCPP_ASSERT_NOEXCEPT(s.rfind(str));
+    assert(s.rfind(str) == x);
+    if (x != S::npos)
+    {
+        typename S::size_type pos = s.size();
+        typename S::size_type n = S::traits_type::length(str);
+        assert(x <= pos && x + n <= s.size());
+    }
 }
 
 template <class S>
-TEST_CONSTEXPR_CXX20 void test_string() {
-  {
+TEST_CONSTEXPR_CXX20 void test0()
+{
     test(S(""), "", 0, 0);
     test(S(""), "abcde", 0, S::npos);
     test(S(""), "abcdeabcde", 0, S::npos);
@@ -121,8 +127,11 @@ TEST_CONSTEXPR_CXX20 void test_string() {
     test(S("abcdeabcdeabcdeabcde"), "abcde", 21, 15);
     test(S("abcdeabcdeabcdeabcde"), "abcdeabcde", 21, 10);
     test(S("abcdeabcdeabcdeabcde"), "abcdeabcdeabcdeabcde", 21, 0);
-  }
-  {
+}
+
+template <class S>
+TEST_CONSTEXPR_CXX20 void test1()
+{
     test(S(""), "", 0);
     test(S(""), "abcde", S::npos);
     test(S(""), "abcdeabcde", S::npos);
@@ -139,22 +148,30 @@ TEST_CONSTEXPR_CXX20 void test_string() {
     test(S("abcdeabcdeabcdeabcde"), "abcde", 15);
     test(S("abcdeabcdeabcdeabcde"), "abcdeabcde", 10);
     test(S("abcdeabcdeabcdeabcde"), "abcdeabcdeabcdeabcde", 0);
-  }
 }
 
-TEST_CONSTEXPR_CXX20 bool tests() {
-  test_string<std::string>();
+TEST_CONSTEXPR_CXX20 bool test() {
+  {
+    typedef std::string S;
+    test0<S>();
+    test1<S>();
+  }
 #if TEST_STD_VER >= 11
-  test_string<std::basic_string<char, std::char_traits<char>, min_allocator<char> > >();
+  {
+    typedef std::basic_string<char, std::char_traits<char>, min_allocator<char>> S;
+    test0<S>();
+    test1<S>();
+  }
 #endif
 
   return true;
 }
 
-int main(int, char**) {
-  tests();
+int main(int, char**)
+{
+  test();
 #if TEST_STD_VER > 17
-  static_assert(tests());
+  static_assert(test());
 #endif
 
   return 0;

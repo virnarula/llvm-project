@@ -22,8 +22,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TimeProfiler.h"
 #if LLVM_ENABLE_ZLIB
-// Avoid introducing max as a macro from Windows headers.
-#define NOMINMAX
 #include <zlib.h>
 #endif
 #if LLVM_ENABLE_ZSTD
@@ -62,7 +60,7 @@ uint32_t OutputSection::getPhdrFlags() const {
 template <class ELFT>
 void OutputSection::writeHeaderTo(typename ELFT::Shdr *shdr) {
   shdr->sh_entsize = entsize;
-  shdr->sh_addralign = addralign;
+  shdr->sh_addralign = alignment;
   shdr->sh_type = type;
   shdr->sh_offset = offset;
   shdr->sh_flags = flags;
@@ -118,18 +116,16 @@ void OutputSection::commitSection(InputSection *isec) {
     if (hasInputSections || typeIsSet) {
       if (typeIsSet || !canMergeToProgbits(type) ||
           !canMergeToProgbits(isec->type)) {
-        // The (NOLOAD) changes the section type to SHT_NOBITS, the intention is
-        // that the contents at that address is provided by some other means.
-        // Some projects (e.g.
-        // https://github.com/ClangBuiltLinux/linux/issues/1597) rely on the
-        // behavior. Other types get an error.
-        if (type != SHT_NOBITS) {
-          errorOrWarn("section type mismatch for " + isec->name + "\n>>> " +
-                      toString(isec) + ": " +
-                      getELFSectionTypeName(config->emachine, isec->type) +
-                      "\n>>> output section " + name + ": " +
-                      getELFSectionTypeName(config->emachine, type));
-        }
+        // Changing the type of a (NOLOAD) section is fishy, but some projects
+        // (e.g. https://github.com/ClangBuiltLinux/linux/issues/1597)
+        // traditionally rely on the behavior. Issue a warning to not break
+        // them. Other types get an error.
+        auto diagnose = type == SHT_NOBITS ? warn : errorOrWarn;
+        diagnose("section type mismatch for " + isec->name + "\n>>> " +
+                 toString(isec) + ": " +
+                 getELFSectionTypeName(config->emachine, isec->type) +
+                 "\n>>> output section " + name + ": " +
+                 getELFSectionTypeName(config->emachine, type));
       }
       if (!typeIsSet)
         type = SHT_PROGBITS;
@@ -161,7 +157,7 @@ void OutputSection::commitSection(InputSection *isec) {
   if (nonAlloc)
     flags &= ~(uint64_t)SHF_ALLOC;
 
-  addralign = std::max(addralign, isec->addralign);
+  alignment = std::max(alignment, isec->alignment);
 
   // If this section contains a table of fixed-size entries, sh_entsize
   // holds the element size. If it contains elements of different size we
@@ -173,10 +169,10 @@ void OutputSection::commitSection(InputSection *isec) {
 static MergeSyntheticSection *createMergeSynthetic(StringRef name,
                                                    uint32_t type,
                                                    uint64_t flags,
-                                                   uint32_t addralign) {
+                                                   uint32_t alignment) {
   if ((flags & SHF_STRINGS) && config->optimize >= 2)
-    return make<MergeTailSection>(name, type, flags, addralign);
-  return make<MergeNoTailSection>(name, type, flags, addralign);
+    return make<MergeTailSection>(name, type, flags, alignment);
+  return make<MergeNoTailSection>(name, type, flags, alignment);
 }
 
 // This function scans over the InputSectionBase list sectionBases to create
@@ -217,11 +213,11 @@ void OutputSection::finalizeInputSections() {
         //
         // SHF_STRINGS section with different alignments should not be merged.
         return sec->flags == ms->flags && sec->entsize == ms->entsize &&
-               (sec->addralign == ms->addralign || !(sec->flags & SHF_STRINGS));
+               (sec->alignment == ms->alignment || !(sec->flags & SHF_STRINGS));
       });
       if (i == mergeSections.end()) {
         MergeSyntheticSection *syn =
-            createMergeSynthetic(s->name, ms->type, ms->flags, ms->addralign);
+            createMergeSynthetic(name, ms->type, ms->flags, ms->alignment);
         mergeSections.push_back(syn);
         i = std::prev(mergeSections.end());
         syn->entsize = ms->entsize;
@@ -246,7 +242,7 @@ static void sortByOrder(MutableArrayRef<InputSection *> in,
                         llvm::function_ref<int(InputSectionBase *s)> order) {
   std::vector<std::pair<int, InputSection *>> v;
   for (InputSection *s : in)
-    v.emplace_back(order(s), s);
+    v.push_back({order(s), s});
   llvm::stable_sort(v, less_first());
 
   for (size_t i = 0; i < v.size(); ++i)
@@ -333,7 +329,7 @@ template <class ELFT> void OutputSection::maybeCompress() {
 
   // Compress only DWARF debug sections.
   if (config->compressDebugSections == DebugCompressionType::None ||
-      (flags & SHF_ALLOC) || !name.starts_with(".debug_") || size == 0)
+      (flags & SHF_ALLOC) || !name.startswith(".debug_") || size == 0)
     return;
 
   llvm::TimeTraceScope timeScope("Compress debug sections");
@@ -401,7 +397,7 @@ template <class ELFT> void OutputSection::maybeCompress() {
 
   // Split input into 1-MiB shards.
   constexpr size_t shardSize = 1 << 20;
-  auto shardsIn = split(ArrayRef<uint8_t>(buf.get(), size), shardSize);
+  auto shardsIn = split(makeArrayRef<uint8_t>(buf.get(), size), shardSize);
   const size_t numShards = shardsIn.size();
 
   // Compress shards and compute Alder-32 checksums. Use Z_SYNC_FLUSH for all
@@ -456,7 +452,7 @@ void OutputSection::writeTo(uint8_t *buf, parallel::TaskGroup &tg) {
   if (compressed.shards) {
     auto *chdr = reinterpret_cast<typename ELFT::Chdr *>(buf);
     chdr->ch_size = compressed.uncompressedSize;
-    chdr->ch_addralign = addralign;
+    chdr->ch_addralign = alignment;
     buf += sizeof(*chdr);
     if (config->compressDebugSections == DebugCompressionType::Zstd) {
       chdr->ch_type = ELFCOMPRESS_ZSTD;
@@ -498,12 +494,6 @@ void OutputSection::writeTo(uint8_t *buf, parallel::TaskGroup &tg) {
       else
         isec->writeTo<ELFT>(buf + isec->outSecOff);
 
-      // When in Arm BE8 mode, the linker has to convert the big-endian
-      // instructions to little-endian, leaving the data big-endian.
-      if (config->emachine == EM_ARM && !config->isLE && config->armBe8 &&
-          (flags & SHF_EXECINSTR))
-        convertArmInstructionstoBE8(isec, buf + isec->outSecOff);
-
       // Fill gaps between sections.
       if (nonZeroFiller) {
         uint8_t *start = buf + isec->outSecOff + isec->getSize();
@@ -544,7 +534,7 @@ void OutputSection::writeTo(uint8_t *buf, parallel::TaskGroup &tg) {
     taskSize += sections[i]->getSize();
     bool done = ++i == numSections;
     if (done || taskSize >= taskSizeLimit) {
-      tg.spawn([=] { fn(begin, i); });
+      tg.execute([=] { fn(begin, i); });
       if (done)
         break;
       begin = i;
@@ -677,7 +667,7 @@ int elf::getPriority(StringRef s) {
     return 65536;
   int v = 65536;
   if (to_integer(s.substr(pos + 1), v, 10) &&
-      (pos == 6 && (s.starts_with(".ctors") || s.starts_with(".dtors"))))
+      (pos == 6 && (s.startswith(".ctors") || s.startswith(".dtors"))))
     v = 65535 - v;
   return v;
 }
@@ -707,7 +697,7 @@ elf::getInputSections(const OutputSection &os,
       storage.insert(storage.end(), isd->sections.begin(), isd->sections.end());
     }
   }
-  return storage.empty() ? ret : ArrayRef(storage);
+  return storage.empty() ? ret : makeArrayRef(storage);
 }
 
 // Sorts input sections by section name suffixes, so that .foo.N comes
@@ -746,12 +736,6 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
       int64_t addend = rel.addend;
       const OutputSection *relOsec = rel.inputSec->getOutputSection();
       assert(relOsec != nullptr && "missing output section for relocation");
-      // Some targets have NOBITS synthetic sections with dynamic relocations
-      // with non-zero addends. Skip such sections.
-      if (is_contained({EM_PPC, EM_PPC64}, config->emachine) &&
-          (rel.inputSec == in.ppc64LongBranchTarget.get() ||
-           rel.inputSec == in.igotPlt.get()))
-        continue;
       const uint8_t *relocTarget =
           bufStart + relOsec->offset + rel.inputSec->getOffset(rel.offsetInSec);
       // For SHT_NOBITS the written addend is always zero.

@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include "llvm/ADT/DenseSet.h"
 
-namespace clang::tidy::cppcoreguidelines {
+namespace clang {
+namespace tidy {
+namespace cppcoreguidelines {
 
 /// Implements C++ Core Guidelines Type.6.
 ///
@@ -77,6 +79,8 @@ private:
   llvm::DenseSet<const FieldDecl *> HasRecordClassMemberSet;
 };
 
-} // namespace clang::tidy::cppcoreguidelines
+} // namespace cppcoreguidelines
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CPPCOREGUIDELINES_PRO_TYPE_MEMBER_INIT_H

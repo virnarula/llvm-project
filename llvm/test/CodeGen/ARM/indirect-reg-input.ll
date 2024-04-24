@@ -6,8 +6,9 @@
 %struct.my_stack = type { %struct.myjmp_buf }
 %struct.myjmp_buf = type { [6 x i32] }
 
-define void @switch_to_stack(ptr %stack) nounwind {
+define void @switch_to_stack(%struct.my_stack* %stack) nounwind {
 entry:
-  tail call void asm "\0A", "=*r,*0"(ptr elementtype(%struct.myjmp_buf) %stack, ptr elementtype(%struct.myjmp_buf) %stack)
+  %regs = getelementptr inbounds %struct.my_stack, %struct.my_stack* %stack, i32 0, i32 0
+  tail call void asm "\0A", "=*r,*0"(%struct.myjmp_buf* elementtype(%struct.myjmp_buf) %regs, %struct.myjmp_buf* elementtype(%struct.myjmp_buf) %regs)
   ret void
 }

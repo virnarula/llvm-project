@@ -33,10 +33,11 @@ template <unsigned NumBuckets, unsigned NumBytes> struct HMapFileMock {
   }
 
   void swapBytes() {
-    Header.Magic = llvm::byteswap(Header.Magic);
-    Header.Version = llvm::byteswap(Header.Version);
-    Header.NumBuckets = llvm::byteswap(Header.NumBuckets);
-    Header.StringsOffset = llvm::byteswap(Header.StringsOffset);
+    using llvm::sys::getSwappedBytes;
+    Header.Magic = getSwappedBytes(Header.Magic);
+    Header.Version = getSwappedBytes(Header.Version);
+    Header.NumBuckets = getSwappedBytes(Header.NumBuckets);
+    Header.StringsOffset = getSwappedBytes(Header.StringsOffset);
   }
 
   std::unique_ptr<llvm::MemoryBuffer> getBuffer() {

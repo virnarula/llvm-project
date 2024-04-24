@@ -12,6 +12,7 @@ int mixed() {
     x=d;
   }
 
+// expected-error@+2 {{#pragma omp nothing' cannot be an immediate substatement}}
   if(!x)
 #pragma omp nothing
     x=d;

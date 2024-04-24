@@ -29,7 +29,6 @@
 #include "Plugins/Process/Utility/RegisterInfoPOSIX_arm64.h"
 #include "Plugins/Process/Utility/RegisterInfoPOSIX_ppc64le.h"
 #include "ProcessElfCore.h"
-#include "RegisterContextLinuxCore_x86_64.h"
 #include "RegisterContextPOSIXCore_arm.h"
 #include "RegisterContextPOSIXCore_arm64.h"
 #include "RegisterContextPOSIXCore_mips64.h"
@@ -47,8 +46,7 @@ using namespace lldb_private;
 // Construct a Thread object with given data
 ThreadElfCore::ThreadElfCore(Process &process, const ThreadData &td)
     : Thread(process, td.tid), m_thread_name(td.name), m_thread_reg_ctx_sp(),
-      m_signo(td.signo), m_code(td.code), m_gpregset_data(td.gpregset),
-      m_notes(td.notes) {}
+      m_signo(td.signo), m_gpregset_data(td.gpregset), m_notes(td.notes) {}
 
 ThreadElfCore::~ThreadElfCore() { DestroyThread(); }
 
@@ -72,7 +70,6 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
   if (frame)
     concrete_frame_idx = frame->GetConcreteFrameIndex();
 
-  bool is_linux = false;
   if (concrete_frame_idx == 0) {
     if (m_thread_reg_ctx_sp)
       return m_thread_reg_ctx_sp;
@@ -125,7 +122,6 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
     }
 
     case llvm::Triple::Linux: {
-      is_linux = true;
       switch (arch.GetMachine()) {
       case llvm::Triple::aarch64:
         break;
@@ -209,13 +205,8 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
       break;
     case llvm::Triple::x86:
     case llvm::Triple::x86_64:
-      if (is_linux) {
-        m_thread_reg_ctx_sp = std::make_shared<RegisterContextLinuxCore_x86_64>(
-              *this, reg_interface, m_gpregset_data, m_notes);
-      } else {
-        m_thread_reg_ctx_sp = std::make_shared<RegisterContextCorePOSIX_x86_64>(
-              *this, reg_interface, m_gpregset_data, m_notes);
-      }
+      m_thread_reg_ctx_sp = std::make_shared<RegisterContextCorePOSIX_x86_64>(
+          *this, reg_interface, m_gpregset_data, m_notes);
       break;
     default:
       break;
@@ -230,12 +221,11 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
 
 bool ThreadElfCore::CalculateStopInfo() {
   ProcessSP process_sp(GetProcess());
-  if (!process_sp)
-    return false;
-
-  SetStopInfo(StopInfo::CreateStopReasonWithSignal(
-      *this, m_signo, /*description=*/nullptr, m_code));
-  return true;
+  if (process_sp) {
+    SetStopInfo(StopInfo::CreateStopReasonWithSignal(*this, m_signo));
+    return true;
+  }
+  return false;
 }
 
 // Parse PRSTATUS from NOTE entry
@@ -419,8 +409,8 @@ Status ELFLinuxSigInfo::Parse(const DataExtractor &data, const ArchSpec &arch) {
   // properly, because the struct is for the 64 bit version
   offset_t offset = 0;
   si_signo = data.GetU32(&offset);
-  si_errno = data.GetU32(&offset);
   si_code = data.GetU32(&offset);
+  si_errno = data.GetU32(&offset);
 
   return error;
 }

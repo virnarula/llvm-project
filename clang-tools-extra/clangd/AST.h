@@ -10,11 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_AST_H
-#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_AST_H
+#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_AST_H_
+#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_AST_H_
 
-#include "Headers.h"
-#include "index/Symbol.h"
 #include "index/SymbolID.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
@@ -23,7 +21,6 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Lex/MacroInfo.h"
 #include "llvm/ADT/StringRef.h"
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -120,18 +117,6 @@ SymbolID getSymbolID(const llvm::StringRef MacroName, const MacroInfo *MI,
 /// return nullptr as protocols don't have an implementation.
 const ObjCImplDecl *getCorrespondingObjCImpl(const ObjCContainerDecl *D);
 
-/// Infer the include directive to use for the given \p FileName. It aims for
-/// #import for ObjC files and #include for the rest.
-///
-/// - For source files we use LangOpts directly to infer ObjC-ness.
-/// - For header files we also check for symbols declared by the file and
-///   existing include directives, as the language can be set to ObjC++ as a
-///   fallback in the absence of compile flags.
-Symbol::IncludeDirective
-preferredIncludeDirective(llvm::StringRef FileName, const LangOptions &LangOpts,
-                          ArrayRef<Inclusion> MainFileIncludes,
-                          ArrayRef<const Decl *> TopLevelDecls);
-
 /// Returns a QualType as string. The result doesn't contain unwritten scopes
 /// like anonymous/inline namespace.
 std::string printType(const QualType QT, const DeclContext &CurContext,
@@ -166,7 +151,7 @@ QualType declaredType(const TypeDecl *D);
 /// Retrieves the deduced type at a given location (auto, decltype).
 /// It will return the underlying type.
 /// If the type is an undeduced auto, returns the type itself.
-std::optional<QualType> getDeducedType(ASTContext &, SourceLocation Loc);
+llvm::Optional<QualType> getDeducedType(ASTContext &, SourceLocation Loc);
 
 // Find the abbreviated-function-template `auto` within a type, or returns null.
 // Similar to getContainedAutoTypeLoc, but these `auto`s are
@@ -253,4 +238,4 @@ bool isExpandedFromParameterPack(const ParmVarDecl *D);
 } // namespace clangd
 } // namespace clang
 
-#endif // LLVM_CLANG_TOOLS_EXTRA_CLANGD_AST_H
+#endif // LLVM_CLANG_TOOLS_EXTRA_CLANGD_AST_H_

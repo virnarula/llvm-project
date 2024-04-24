@@ -11,10 +11,10 @@
 
 #include <termios.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int tcsetattr(int fd, int actions, const struct termios *t);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_TERMIOS_TCSETATTR_H

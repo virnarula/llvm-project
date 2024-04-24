@@ -10,7 +10,6 @@
 #include "index/dex/Iterator.h"
 #include "index/dex/Token.h"
 #include "llvm/Support/MathExtras.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -132,7 +131,7 @@ bool encodeVByte(DocID Delta, llvm::MutableArrayRef<uint8_t> &Payload) {
   assert(Delta != 0 && "0 is not a valid PostingList delta.");
   // Calculate number of bytes Delta encoding would take by examining the
   // meaningful bits.
-  unsigned Width = 1 + llvm::Log2_64(Delta) / BitsPerEncodingByte;
+  unsigned Width = 1 + llvm::findLastSet(Delta) / BitsPerEncodingByte;
   if (Width > Payload.size())
     return false;
 
@@ -182,10 +181,10 @@ std::vector<Chunk> encodeStream(llvm::ArrayRef<DocID> Documents) {
 }
 
 /// Reads variable length DocID from the buffer and updates the buffer size. If
-/// the stream is terminated, return std::nullopt.
-std::optional<DocID> readVByte(llvm::ArrayRef<uint8_t> &Bytes) {
+/// the stream is terminated, return None.
+llvm::Optional<DocID> readVByte(llvm::ArrayRef<uint8_t> &Bytes) {
   if (Bytes.front() == 0 || Bytes.empty())
-    return std::nullopt;
+    return llvm::None;
   DocID Result = 0;
   bool HasNextByte = true;
   for (size_t Length = 0; HasNextByte && !Bytes.empty(); ++Length) {

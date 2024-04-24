@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 class UseNullptrCheck : public ClangTidyCheck {
 public:
@@ -28,9 +30,10 @@ public:
 private:
   const StringRef NullMacrosStr;
   SmallVector<StringRef, 1> NullMacros;
-  std::vector<StringRef> IgnoredTypes;
 };
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_USE_NULLPTR_H

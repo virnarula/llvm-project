@@ -5,9 +5,6 @@ set(LLVM_LINK_COMPONENTS
 add_clang_tool(pp-trace
   PPTrace.cpp
   PPCallbacksTracker.cpp
-
-  DEPENDS
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(pp-trace

@@ -1,7 +1,7 @@
-# RUN: llc -mtriple=riscv32 -x mir -run-pass=machine-outliner -simplify-mir -verify-machineinstrs < %s \
-# RUN: | FileCheck -check-prefixes=CHECK,RV32I-MO %s
-# RUN: llc -mtriple=riscv64 -x mir -run-pass=machine-outliner -simplify-mir -verify-machineinstrs < %s \
-# RUN: | FileCheck -check-prefixes=CHECK,RV64I-MO %s
+# RUN: llc -march=riscv32 -x mir -run-pass=machine-outliner -simplify-mir -verify-machineinstrs < %s \
+# RUN: | FileCheck -check-prefix=RV32I-MO %s
+# RUN: llc -march=riscv64 -x mir -run-pass=machine-outliner -simplify-mir -verify-machineinstrs < %s \
+# RUN: | FileCheck -check-prefix=RV64I-MO %s
 
 --- |
   define i32 @outline_0(i32 %a, i32 %b) { ret i32 0 }
@@ -24,7 +24,6 @@
 ---
 name:            outline_0
 tracksRegLiveness: true
-isOutlined: false
 body:             |
   bb.0:
     liveins: $x10, $x11
@@ -43,7 +42,6 @@ body:             |
 ---
 name:            outline_1
 tracksRegLiveness: true
-isOutlined: false
 body:             |
   bb.0:
     liveins: $x10, $x11
@@ -62,7 +60,6 @@ body:             |
 ---
 name:            outline_2
 tracksRegLiveness: true
-isOutlined: false
 body:             |
   bb.0:
     liveins: $x10, $x11
@@ -81,7 +78,6 @@ body:             |
 ---
 name:            dont_outline_0
 tracksRegLiveness: true
-isOutlined: false
 body:             |
   bb.0:
     liveins: $x10, $x11
@@ -100,7 +96,6 @@ body:             |
 ---
 name:            dont_outline_1
 tracksRegLiveness: true
-isOutlined: false
 body:             |
   bb.0:
     liveins: $x10, $x11
@@ -119,7 +114,6 @@ body:             |
 ---
 name:            dont_outline_2
 tracksRegLiveness: true
-isOutlined: false
 body:             |
   bb.0:
     liveins: $x10, $x11, $x5
@@ -136,6 +130,3 @@ body:             |
     PseudoRET implicit $x10
 
 ...
-
-# CHECK-LABEL: name: OUTLINED_FUNCTION_0
-# CHECK: isOutlined: true

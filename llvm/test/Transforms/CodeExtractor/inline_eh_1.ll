@@ -1,9 +1,10 @@
+; RUN: opt < %s -skip-partial-inlining-cost-analysis -partial-inliner -S  | FileCheck %s
 ; RUN: opt < %s -skip-partial-inlining-cost-analysis -passes=partial-inliner -S  | FileCheck %s
 
 declare dso_local void @bar()
 declare dso_local i32 @__CxxFrameHandler3(...)
 
-define internal void @callee(i1 %cond) personality ptr @__CxxFrameHandler3 {
+define internal void @callee(i1 %cond) personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
 entry:
   br i1 %cond, label %if.then, label %if.end
 
@@ -22,7 +23,7 @@ catch.dispatch:
   %1 = catchswitch within none [label %catch] unwind to caller
 
 catch:
-  %2 = catchpad within %1 [ptr null, i32 64, ptr null]
+  %2 = catchpad within %1 [i8* null, i32 64, i8* null]
   catchret from %2 to label %catchret.dest
 
 catchret.dest:
@@ -46,7 +47,7 @@ entry:
   ret void
 }
 
-; CHECK-LABEL: define {{.*}} @callee.1.{{.*}}() personality ptr @__CxxFrameHandler3
+; CHECK-LABEL: define {{.*}} @callee.1.{{.*}}() personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*)
 ; CHECK: invoke void @bar()
 ; CHECK: cleanuppad
 ; CHECK-NEXT: cleanupret

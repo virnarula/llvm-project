@@ -56,7 +56,7 @@ protected:
     }
   };
 
-  std::optional<TestAnalyses> Analyses;
+  llvm::Optional<TestAnalyses> Analyses;
 
   TestAnalyses &setupAnalyses() {
     assert(F);
@@ -66,7 +66,9 @@ protected:
 
 public:
   BasicAATest()
-      : M("BasicAATest", C), B(C), DL(DLString), TLI(TLII), F(nullptr) {}
+      : M("BasicAATest", C), B(C), DL(DLString), TLI(TLII), F(nullptr) {
+    C.setOpaquePointers(true);
+  }
 };
 
 // Check that a function arg can't trivially alias a global when we're accessing
@@ -94,14 +96,12 @@ TEST_F(BasicAATest, AliasInstWithObjectOfImpreciseSize) {
   AAQueryInfo &AAQI = AllAnalyses.AAQI;
   ASSERT_EQ(
       BasicAA.alias(MemoryLocation(IncomingI32Ptr, LocationSize::precise(4)),
-                    MemoryLocation(GlobalPtr, LocationSize::precise(1)), AAQI,
-                    nullptr),
+                    MemoryLocation(GlobalPtr, LocationSize::precise(1)), AAQI),
       AliasResult::NoAlias);
 
   ASSERT_EQ(
       BasicAA.alias(MemoryLocation(IncomingI32Ptr, LocationSize::upperBound(4)),
-                    MemoryLocation(GlobalPtr, LocationSize::precise(1)), AAQI,
-                    nullptr),
+                    MemoryLocation(GlobalPtr, LocationSize::precise(1)), AAQI),
       AliasResult::MayAlias);
 }
 
@@ -118,7 +118,7 @@ TEST_F(BasicAATest, AliasInstWithFullObjectOfImpreciseSize) {
   Value *ArbitraryI32 = F->arg_begin();
   AllocaInst *I8 = B.CreateAlloca(B.getInt8Ty(), B.getInt32(2));
   auto *I8AtUncertainOffset =
-      cast<GetElementPtrInst>(B.CreatePtrAdd(I8, ArbitraryI32));
+      cast<GetElementPtrInst>(B.CreateGEP(B.getInt8Ty(), I8, ArbitraryI32));
 
   auto &AllAnalyses = setupAnalyses();
   BasicAAResult &BasicAA = AllAnalyses.BAA;
@@ -126,13 +126,13 @@ TEST_F(BasicAATest, AliasInstWithFullObjectOfImpreciseSize) {
   ASSERT_EQ(BasicAA.alias(
                 MemoryLocation(I8, LocationSize::precise(2)),
                 MemoryLocation(I8AtUncertainOffset, LocationSize::precise(1)),
-                AAQI, nullptr),
+                AAQI),
             AliasResult::PartialAlias);
 
   ASSERT_EQ(BasicAA.alias(
                 MemoryLocation(I8, LocationSize::upperBound(2)),
                 MemoryLocation(I8AtUncertainOffset, LocationSize::precise(1)),
-                AAQI, nullptr),
+                AAQI),
             AliasResult::MayAlias);
 }
 
@@ -153,11 +153,13 @@ TEST_F(BasicAATest, PartialAliasOffsetPhi) {
   B.CreateCondBr(I, B1, B2);
 
   B.SetInsertPoint(B1);
-  auto *Ptr1 = cast<GetElementPtrInst>(B.CreatePtrAdd(Ptr, B.getInt32(1)));
+  auto *Ptr1 =
+      cast<GetElementPtrInst>(B.CreateGEP(B.getInt8Ty(), Ptr, B.getInt32(1)));
   B.CreateBr(End);
 
   B.SetInsertPoint(B2);
-  auto *Ptr2 = cast<GetElementPtrInst>(B.CreatePtrAdd(Ptr, B.getInt32(1)));
+  auto *Ptr2 =
+      cast<GetElementPtrInst>(B.CreateGEP(B.getInt8Ty(), Ptr, B.getInt32(1)));
   B.CreateBr(End);
 
   B.SetInsertPoint(End);
@@ -169,9 +171,9 @@ TEST_F(BasicAATest, PartialAliasOffsetPhi) {
   auto &AllAnalyses = setupAnalyses();
   BasicAAResult &BasicAA = AllAnalyses.BAA;
   AAQueryInfo &AAQI = AllAnalyses.AAQI;
-  AliasResult AR = BasicAA.alias(MemoryLocation(Ptr, LocationSize::precise(2)),
-                                 MemoryLocation(Phi, LocationSize::precise(1)),
-                                 AAQI, nullptr);
+  AliasResult AR =
+      BasicAA.alias(MemoryLocation(Ptr, LocationSize::precise(2)),
+                    MemoryLocation(Phi, LocationSize::precise(1)), AAQI);
   ASSERT_EQ(AR.getOffset(), 1);
 }
 
@@ -186,16 +188,18 @@ TEST_F(BasicAATest, PartialAliasOffsetSelect) {
   BasicBlock *Entry(BasicBlock::Create(C, "", F));
   B.SetInsertPoint(Entry);
 
-  auto *Ptr1 = cast<GetElementPtrInst>(B.CreatePtrAdd(Ptr, B.getInt32(1)));
-  auto *Ptr2 = cast<GetElementPtrInst>(B.CreatePtrAdd(Ptr, B.getInt32(1)));
+  auto *Ptr1 =
+      cast<GetElementPtrInst>(B.CreateGEP(B.getInt8Ty(), Ptr, B.getInt32(1)));
+  auto *Ptr2 =
+      cast<GetElementPtrInst>(B.CreateGEP(B.getInt8Ty(), Ptr, B.getInt32(1)));
   auto *Select = B.CreateSelect(I, Ptr1, Ptr2);
   B.CreateRetVoid();
 
   auto &AllAnalyses = setupAnalyses();
   BasicAAResult &BasicAA = AllAnalyses.BAA;
   AAQueryInfo &AAQI = AllAnalyses.AAQI;
-  AliasResult AR = BasicAA.alias(
-      MemoryLocation(Ptr, LocationSize::precise(2)),
-      MemoryLocation(Select, LocationSize::precise(1)), AAQI, nullptr);
+  AliasResult AR =
+      BasicAA.alias(MemoryLocation(Ptr, LocationSize::precise(2)),
+                    MemoryLocation(Select, LocationSize::precise(1)), AAQI);
   ASSERT_EQ(AR.getOffset(), 1);
 }

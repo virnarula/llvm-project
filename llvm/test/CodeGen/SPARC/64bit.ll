@@ -1,6 +1,5 @@
 ; RUN: llc < %s -march=sparcv9 -mattr=+popc -disable-sparc-delay-filler -disable-sparc-leaf-proc | FileCheck %s
 ; RUN: llc < %s -march=sparcv9 -mattr=+popc | FileCheck %s -check-prefix=OPT
-; RUN: llc %s -march=sparcv9 -mattr=+popc -filetype=null
 
 ; CHECK-LABEL: ret2:
 ; CHECK: mov %i1, %i0
@@ -40,11 +39,11 @@ define i64 @sra_reg(i64 %a, i64 %b) {
 ;     restore %g0, %g0, %o0
 ;
 ; CHECK: ret_imm0
-; CHECK: mov %g0, %i0
+; CHECK: mov 0, %i0
 
 ; OPT: ret_imm0
 ; OPT: retl
-; OPT: mov %g0, %o0
+; OPT: mov 0, %o0
 define i64 @ret_imm0() {
   ret i64 0
 }
@@ -239,7 +238,8 @@ entry:
 declare void @g(i8*)
 
 ; CHECK: expand_setcc
-; CHECK: movrgz %i0, 1,
+; CHECK: cmp %i0, 0
+; CHECK: movg %xcc, 1,
 define i32 @expand_setcc(i64 %a) {
   %cond = icmp sle i64 %a, 0
   %cast2 = zext i1 %cond to i32

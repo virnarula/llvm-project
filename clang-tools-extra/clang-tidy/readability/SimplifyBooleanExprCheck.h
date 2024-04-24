@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// Looks for boolean expressions involving boolean constants and simplifies
 /// them to use the appropriate boolean expression directly.
@@ -22,10 +24,10 @@ class SimplifyBooleanExprCheck : public ClangTidyCheck {
 public:
   SimplifyBooleanExprCheck(StringRef Name, ClangTidyContext *Context);
 
-  void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
+  void storeOptions(ClangTidyOptions::OptionMap &Options) override;
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
-  std::optional<TraversalKind> getCheckTraversalKind() const override {
+  llvm::Optional<TraversalKind> getCheckTraversalKind() const override {
     return TK_IgnoreUnlessSpelledInSource;
   }
 
@@ -60,17 +62,18 @@ private:
                       const BinaryOperator *Inner, bool TryOfferFix,
                       const Stmt *Parent, const ParenExpr *Parens);
 
-  void issueDiag(const ASTContext &Context, SourceLocation Loc,
+  void issueDiag(const ASTContext &Result, SourceLocation Loc,
                  StringRef Description, SourceRange ReplacementRange,
                  StringRef Replacement);
 
-  const bool IgnoreMacros;
   const bool ChainedConditionalReturn;
   const bool ChainedConditionalAssignment;
   const bool SimplifyDeMorgan;
   const bool SimplifyDeMorganRelaxed;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_SIMPLIFY_BOOLEAN_EXPR_H

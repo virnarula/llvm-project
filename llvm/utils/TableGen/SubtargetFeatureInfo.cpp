@@ -11,6 +11,7 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
+#include <map>
 
 using namespace llvm;
 
@@ -47,29 +48,15 @@ SubtargetFeatureInfo::getAll(const RecordKeeper &Records) {
 }
 
 void SubtargetFeatureInfo::emitSubtargetFeatureBitEnumeration(
-    const SubtargetFeatureInfoMap &SubtargetFeatures, raw_ostream &OS,
-    const std::map<std::string, unsigned> *HwModes) {
+    SubtargetFeatureInfoMap &SubtargetFeatures, raw_ostream &OS) {
   OS << "// Bits for subtarget features that participate in "
      << "instruction matching.\n";
-  unsigned Size = SubtargetFeatures.size();
-  if (HwModes)
-    Size += HwModes->size();
-
-  OS << "enum SubtargetFeatureBits : " << getMinimalTypeForRange(Size)
-     << " {\n";
+  OS << "enum SubtargetFeatureBits : "
+     << getMinimalTypeForRange(SubtargetFeatures.size()) << " {\n";
   for (const auto &SF : SubtargetFeatures) {
     const SubtargetFeatureInfo &SFI = SF.second;
     OS << "  " << SFI.getEnumBitName() << " = " << SFI.Index << ",\n";
   }
-
-  if (HwModes) {
-    unsigned Offset = SubtargetFeatures.size();
-    for (const auto &M : *HwModes) {
-      OS << "  Feature_HwMode" << M.second << "Bit = " << (M.second + Offset)
-         << ",\n";
-    }
-  }
-
   OS << "};\n\n";
 }
 
@@ -101,9 +88,9 @@ void SubtargetFeatureInfo::emitNameTable(
 
 void SubtargetFeatureInfo::emitComputeAvailableFeatures(
     StringRef TargetName, StringRef ClassName, StringRef FuncName,
-    const SubtargetFeatureInfoMap &SubtargetFeatures, raw_ostream &OS,
-    StringRef ExtraParams, const std::map<std::string, unsigned> *HwModes) {
-  OS << "PredicateBitset " << ClassName << "::\n"
+    SubtargetFeatureInfoMap &SubtargetFeatures, raw_ostream &OS,
+    StringRef ExtraParams) {
+  OS << "PredicateBitset " << TargetName << ClassName << "::\n"
      << FuncName << "(const " << TargetName << "Subtarget *Subtarget";
   if (!ExtraParams.empty())
     OS << ", " << ExtraParams;
@@ -117,14 +104,6 @@ void SubtargetFeatureInfo::emitComputeAvailableFeatures(
     OS << "  if (" << CondStr << ")\n";
     OS << "    Features.set(" << SFI.getEnumBitName() << ");\n";
   }
-
-  if (HwModes) {
-    for (const auto &M : *HwModes) {
-      OS << "  if (" << M.first << ")\n";
-      OS << "    Features.set(Feature_HwMode" << M.second << "Bit);\n";
-    }
-  }
-
   OS << "  return Features;\n";
   OS << "}\n\n";
 }
@@ -139,19 +118,16 @@ static bool emitFeaturesAux(StringRef TargetName, const Init &Val,
     return false;
   }
   if (auto *D = dyn_cast<DagInit>(&Val)) {
-    auto *Op = dyn_cast<DefInit>(D->getOperator());
-    if (!Op)
-      return true;
-    StringRef OpName = Op->getDef()->getName();
-    if (OpName == "not" && D->getNumArgs() == 1) {
+    std::string Op = D->getOperator()->getAsString();
+    if (Op == "not" && D->getNumArgs() == 1) {
       OS << '!';
       return emitFeaturesAux(TargetName, *D->getArg(0), true, OS);
     }
-    if ((OpName == "any_of" || OpName == "all_of") && D->getNumArgs() > 0) {
+    if ((Op == "any_of" || Op == "all_of") && D->getNumArgs() > 0) {
       bool Paren = D->getNumArgs() > 1 && std::exchange(ParenIfBinOp, true);
       if (Paren)
         OS << '(';
-      ListSeparator LS(OpName == "any_of" ? " || " : " && ");
+      ListSeparator LS(Op == "any_of" ? " || " : " && ");
       for (auto *Arg : D->getArgs()) {
         OS << LS;
         if (emitFeaturesAux(TargetName, *Arg, ParenIfBinOp, OS))

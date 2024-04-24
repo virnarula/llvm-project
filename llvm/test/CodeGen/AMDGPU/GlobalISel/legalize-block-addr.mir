@@ -2,11 +2,11 @@
 # RUN: llc -mtriple=amdgcn-mesa-mesa3d -mcpu=fiji -O0 -run-pass=legalizer %s -o - | FileCheck %s
 --- |
 
-  @addr = global ptr null
+  @addr = global i8* null
 
   define void @test_blockaddress() {
-    store ptr blockaddress(@test_blockaddress, %block), ptr @addr
-    indirectbr ptr blockaddress(@test_blockaddress, %block), [label %block]
+    store i8* blockaddress(@test_blockaddress, %block), i8** @addr
+    indirectbr i8* blockaddress(@test_blockaddress, %block), [label %block]
 
   block:
     ret void

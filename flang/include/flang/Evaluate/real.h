@@ -69,60 +69,19 @@ public:
     return !IsNotANumber() && IsSignBitSet();
   }
   constexpr bool IsNotANumber() const {
-    auto expo{Exponent()};
-    auto sig{GetSignificand()};
-    if constexpr (bits == 80) { // x87
-      // 7FFF8000000000000000 is Infinity, not NaN, on 80387 & later.
-      if (expo == maxExponent) {
-        return sig != Significand{}.IBSET(63);
-      } else {
-        return expo != 0 && !sig.BTEST(63);
-      }
-    } else {
-      return expo == maxExponent && !sig.IsZero();
-    }
+    return Exponent() == maxExponent && !GetSignificand().IsZero();
   }
   constexpr bool IsQuietNaN() const {
-    auto expo{Exponent()};
-    auto sig{GetSignificand()};
-    if constexpr (bits == 80) { // x87
-      if (expo == maxExponent) {
-        return sig.IBITS(62, 2) == 3;
-      } else {
-        return expo != 0 && !sig.BTEST(63);
-      }
-    } else {
-      return expo == maxExponent && sig.BTEST(significandBits - 1);
-    }
+    return Exponent() == maxExponent &&
+        GetSignificand().BTEST(significandBits - 1);
   }
   constexpr bool IsSignalingNaN() const {
-    auto expo{Exponent()};
-    auto sig{GetSignificand()};
-    if constexpr (bits == 80) { // x87
-      return expo == maxExponent && sig != Significand{}.IBSET(63) &&
-          sig.IBITS(62, 2) != 3;
-    } else {
-      return expo == maxExponent && !sig.IsZero() &&
-          !sig.BTEST(significandBits - 1);
-    }
+    return IsNotANumber() && !GetSignificand().BTEST(significandBits - 1);
   }
   constexpr bool IsInfinite() const {
-    if constexpr (bits == 80) { // x87
-      // 7FFF8000000000000000 is Infinity, not NaN, on 80387 & later.
-      return Exponent() == maxExponent &&
-          GetSignificand() == Significand{}.IBSET(63);
-    } else {
-      return Exponent() == maxExponent && GetSignificand().IsZero();
-    }
+    return Exponent() == maxExponent && GetSignificand().IsZero();
   }
-  constexpr bool IsFinite() const {
-    auto expo{Exponent()};
-    if constexpr (bits == 80) { // x87
-      return expo != maxExponent && (expo == 0 || GetSignificand().BTEST(63));
-    } else {
-      return expo != maxExponent;
-    }
-  }
+  constexpr bool IsFinite() const { return Exponent() != maxExponent; }
   constexpr bool IsZero() const {
     return Exponent() == 0 && GetSignificand().IsZero();
   }
@@ -170,8 +129,8 @@ public:
   // DIM(X,Y) = MAX(X-Y, 0)
   ValueWithRealFlags<Real> DIM(const Real &,
       Rounding rounding = TargetCharacteristics::defaultRounding) const;
-  // MOD(x,y) = x - AINT(x/y)*y (in the standard)
-  // MODULO(x,y) = x - FLOOR(x/y)*y (in the standard)
+  // MOD(x,y) = x - AINT(x/y)*y
+  // MODULO(x,y) = x - FLOOR(x/y)*y
   ValueWithRealFlags<Real> MOD(const Real &,
       Rounding rounding = TargetCharacteristics::defaultRounding) const;
   ValueWithRealFlags<Real> MODULO(const Real &,
@@ -266,10 +225,6 @@ public:
     infinity = infinity.SHIFTL(significandBits);
     if (negative) {
       infinity = infinity.IBSET(infinity.bits - 1);
-    }
-    if constexpr (bits == 80) { // x87
-      // 7FFF8000000000000000 is Infinity, not NaN, on 80387 & later.
-      infinity.IBSET(63);
     }
     return {infinity};
   }

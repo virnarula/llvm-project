@@ -20,6 +20,7 @@
 #include "memprof_internal.h"
 #include "memprof_thread.h"
 #include "sanitizer_common/sanitizer_flags.h"
+#include "sanitizer_common/sanitizer_freebsd.h"
 #include "sanitizer_common/sanitizer_libc.h"
 #include "sanitizer_common/sanitizer_procmaps.h"
 

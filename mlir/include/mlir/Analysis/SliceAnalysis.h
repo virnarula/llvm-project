@@ -21,35 +21,11 @@ class BlockArgument;
 class Operation;
 class Value;
 
-struct SliceOptions {
-  /// Type of the condition to limit the propagation of transitive use-defs.
-  /// This can be used in particular to limit the propagation to a given Scope
-  /// or to avoid passing through certain types of operation in a configurable
-  /// manner.
-  using TransitiveFilter = std::function<bool(Operation *)>;
-  TransitiveFilter filter = nullptr;
-
-  /// Include the top level op in the slice.
-  bool inclusive = false;
-
-  // TODO: Remove this alias once downstream users are updated.
-  SliceOptions() {}
-  SliceOptions(TransitiveFilter filter) : filter(std::move(filter)) {}
-};
-
-// TODO: Remove this alias once downstream users are updated.
-using TransitiveFilter = SliceOptions::TransitiveFilter;
-
-struct BackwardSliceOptions : public SliceOptions {
-  using SliceOptions::SliceOptions;
-  /// When omitBlockArguments is true, the backward slice computation omits
-  /// traversing any block arguments. When omitBlockArguments is false, the
-  /// backward slice computation traverses block arguments and asserts that the
-  /// parent op has a single region with a single block.
-  bool omitBlockArguments = false;
-};
-
-using ForwardSliceOptions = SliceOptions;
+/// Type of the condition to limit the propagation of transitive use-defs.
+/// This can be used in particular to limit the propagation to a given Scope or
+/// to avoid passing through certain types of operation in a configurable
+/// manner.
+using TransitiveFilter = llvm::function_ref<bool(Operation *)>;
 
 /// Fills `forwardSlice` with the computed forward slice (i.e. all
 /// the transitive uses of op), **without** including that operation.
@@ -66,7 +42,7 @@ using ForwardSliceOptions = SliceOptions;
 ///
 /// Upon return to the root call, `forwardSlice` is filled with a
 /// postorder list of uses (i.e. a reverse topological order). To get a proper
-/// topological order, we just reverse the order in `forwardSlice` before
+/// topological order, we just just reverse the order in `forwardSlice` before
 /// returning.
 ///
 /// Example starting from node 0
@@ -93,12 +69,12 @@ using ForwardSliceOptions = SliceOptions;
 ///      {4, 3, 6, 2, 1, 5, 8, 7, 9}
 ///
 void getForwardSlice(Operation *op, SetVector<Operation *> *forwardSlice,
-                     const ForwardSliceOptions &options = {});
+                     TransitiveFilter filter = nullptr /* pass-through*/);
 
 /// Value-rooted version of `getForwardSlice`. Return the union of all forward
 /// slices for the uses of the value `root`.
 void getForwardSlice(Value root, SetVector<Operation *> *forwardSlice,
-                     const ForwardSliceOptions &options = {});
+                     TransitiveFilter filter = nullptr /* pass-through*/);
 
 /// Fills `backwardSlice` with the computed backward slice (i.e.
 /// all the transitive defs of op), **without** including that operation.
@@ -135,12 +111,12 @@ void getForwardSlice(Value root, SetVector<Operation *> *forwardSlice,
 ///    {1, 2, 5, 3, 4, 6}
 ///
 void getBackwardSlice(Operation *op, SetVector<Operation *> *backwardSlice,
-                      const BackwardSliceOptions &options = {});
+                      TransitiveFilter filter = nullptr /* pass-through*/);
 
 /// Value-rooted version of `getBackwardSlice`. Return the union of all backward
 /// slices for the op defining or owning the value `root`.
 void getBackwardSlice(Value root, SetVector<Operation *> *backwardSlice,
-                      const BackwardSliceOptions &options = {});
+                      TransitiveFilter filter = nullptr /* pass-through*/);
 
 /// Iteratively computes backward slices and forward slices until
 /// a fixed point is reached. Returns an `SetVector<Operation *>` which
@@ -220,8 +196,9 @@ void getBackwardSlice(Value root, SetVector<Operation *> *backwardSlice,
 /// trouble for now: punt to a simple worklist-based solution.
 ///
 SetVector<Operation *>
-getSlice(Operation *op, const BackwardSliceOptions &backwardSliceOptions = {},
-         const ForwardSliceOptions &forwardSliceOptions = {});
+getSlice(Operation *op,
+         TransitiveFilter backwardFilter = nullptr /* pass-through*/,
+         TransitiveFilter forwardFilter = nullptr /* pass-through*/);
 
 /// Multi-root DAG topological sort.
 /// Performs a topological sort of the Operation in the `toSort` SetVector.

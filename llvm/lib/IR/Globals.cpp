@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LLVMContextImpl.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -21,7 +22,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/TargetParser/Triple.h"
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -44,7 +44,9 @@ bool GlobalValue::isMaterializable() const {
     return F->isMaterializable();
   return false;
 }
-Error GlobalValue::materialize() { return getParent()->materialize(this); }
+Error GlobalValue::materialize() {
+  return getParent()->materialize(this);
+}
 
 /// Override destroyConstantImpl to make sure it doesn't get called on
 /// GlobalValue's because they shouldn't be treated like other constants.
@@ -116,22 +118,18 @@ bool GlobalValue::canBenefitFromLocalAlias() const {
          !isa<GlobalIFunc>(this) && !isDeduplicateComdat(getComdat());
 }
 
+unsigned GlobalValue::getAddressSpace() const {
+  PointerType *PtrTy = getType();
+  return PtrTy->getAddressSpace();
+}
+
 void GlobalObject::setAlignment(MaybeAlign Align) {
   assert((!Align || *Align <= MaximumAlignment) &&
          "Alignment is greater than MaximumAlignment!");
   unsigned AlignmentData = encode(Align);
   unsigned OldData = getGlobalValueSubClassData();
   setGlobalValueSubClassData((OldData & ~AlignmentMask) | AlignmentData);
-  assert(getAlign() == Align && "Alignment representation error!");
-}
-
-void GlobalObject::setAlignment(Align Align) {
-  assert(Align <= MaximumAlignment &&
-         "Alignment is greater than MaximumAlignment!");
-  unsigned AlignmentData = encode(Align);
-  unsigned OldData = getGlobalValueSubClassData();
-  setGlobalValueSubClassData((OldData & ~AlignmentMask) | AlignmentData);
-  assert(getAlign() && *getAlign() == Align &&
+  assert(MaybeAlign(getAlignment()) == Align &&
          "Alignment representation error!");
 }
 
@@ -144,26 +142,25 @@ void GlobalObject::copyAttributesFrom(const GlobalObject *Src) {
 std::string GlobalValue::getGlobalIdentifier(StringRef Name,
                                              GlobalValue::LinkageTypes Linkage,
                                              StringRef FileName) {
+
   // Value names may be prefixed with a binary '1' to indicate
   // that the backend should not modify the symbols due to any platform
   // naming convention. Do not include that '1' in the PGO profile name.
-  Name.consume_front("\1");
+  if (Name[0] == '\1')
+    Name = Name.substr(1);
 
-  std::string GlobalName;
+  std::string NewName = std::string(Name);
   if (llvm::GlobalValue::isLocalLinkage(Linkage)) {
     // For local symbols, prepend the main file name to distinguish them.
     // Do not include the full path in the file name since there's no guarantee
     // that it will stay the same, e.g., if the files are checked out from
     // version control in different locations.
     if (FileName.empty())
-      GlobalName += "<unknown>";
+      NewName = NewName.insert(0, "<unknown>:");
     else
-      GlobalName += FileName;
-
-    GlobalName += kGlobalIdentifierDelimiter;
+      NewName = NewName.insert(0, FileName.str() + ":");
   }
-  GlobalName += Name;
-  return GlobalName;
+  return NewName;
 }
 
 std::string GlobalValue::getGlobalIdentifier() const {
@@ -378,14 +375,14 @@ bool GlobalValue::isAbsoluteSymbolRef() const {
   return GO->getMetadata(LLVMContext::MD_absolute_symbol);
 }
 
-std::optional<ConstantRange> GlobalValue::getAbsoluteSymbolRange() const {
+Optional<ConstantRange> GlobalValue::getAbsoluteSymbolRange() const {
   auto *GO = dyn_cast<GlobalObject>(this);
   if (!GO)
-    return std::nullopt;
+    return None;
 
   MDNode *MD = GO->getMetadata(LLVMContext::MD_absolute_symbol);
   if (!MD)
-    return std::nullopt;
+    return None;
 
   return getConstantRangeFromMetadata(*MD);
 }
@@ -435,25 +432,37 @@ GlobalVariable::GlobalVariable(Module &M, Type *Ty, bool constant,
                                LinkageTypes Link, Constant *InitVal,
                                const Twine &Name, GlobalVariable *Before,
                                ThreadLocalMode TLMode,
-                               std::optional<unsigned> AddressSpace,
+                               Optional<unsigned> AddressSpace,
                                bool isExternallyInitialized)
-    : GlobalVariable(Ty, constant, Link, InitVal, Name, TLMode,
-                     AddressSpace
-                         ? *AddressSpace
-                         : M.getDataLayout().getDefaultGlobalsAddressSpace(),
-                     isExternallyInitialized) {
+    : GlobalObject(Ty, Value::GlobalVariableVal,
+                   OperandTraits<GlobalVariable>::op_begin(this),
+                   InitVal != nullptr, Link, Name,
+                   AddressSpace
+                       ? *AddressSpace
+                       : M.getDataLayout().getDefaultGlobalsAddressSpace()),
+      isConstantGlobal(constant),
+      isExternallyInitializedConstant(isExternallyInitialized) {
+  assert(!Ty->isFunctionTy() && PointerType::isValidElementType(Ty) &&
+         "invalid type for global variable");
+  setThreadLocalMode(TLMode);
+  if (InitVal) {
+    assert(InitVal->getType() == Ty &&
+           "Initializer should be the same type as the GlobalVariable!");
+    Op<0>() = InitVal;
+  }
+
   if (Before)
-    Before->getParent()->insertGlobalVariable(Before->getIterator(), this);
+    Before->getParent()->getGlobalList().insert(Before->getIterator(), this);
   else
-    M.insertGlobalVariable(this);
+    M.getGlobalList().push_back(this);
 }
 
 void GlobalVariable::removeFromParent() {
-  getParent()->removeGlobalVariable(this);
+  getParent()->getGlobalList().remove(getIterator());
 }
 
 void GlobalVariable::eraseFromParent() {
-  getParent()->eraseGlobalVariable(this);
+  getParent()->getGlobalList().erase(getIterator());
 }
 
 void GlobalVariable::setInitializer(Constant *InitVal) {
@@ -483,22 +492,11 @@ void GlobalVariable::copyAttributesFrom(const GlobalVariable *Src) {
   GlobalObject::copyAttributesFrom(Src);
   setExternallyInitialized(Src->isExternallyInitialized());
   setAttributes(Src->getAttributes());
-  if (auto CM = Src->getCodeModel())
-    setCodeModel(*CM);
 }
 
 void GlobalVariable::dropAllReferences() {
   User::dropAllReferences();
   clearMetadata();
-}
-
-void GlobalVariable::setCodeModel(CodeModel::Model CM) {
-  unsigned CodeModelData = static_cast<unsigned>(CM) + 1;
-  unsigned OldData = getGlobalValueSubClassData();
-  unsigned NewData = (OldData & ~(CodeModelMask << CodeModelShift)) |
-                     (CodeModelData << CodeModelShift);
-  setGlobalValueSubClassData(NewData);
-  assert(getCodeModel() == CM && "Code model representation error!");
 }
 
 //===----------------------------------------------------------------------===//
@@ -512,7 +510,7 @@ GlobalAlias::GlobalAlias(Type *Ty, unsigned AddressSpace, LinkageTypes Link,
                   AddressSpace) {
   setAliasee(Aliasee);
   if (ParentModule)
-    ParentModule->insertAlias(this);
+    ParentModule->getAliasList().push_back(this);
 }
 
 GlobalAlias *GlobalAlias::create(Type *Ty, unsigned AddressSpace,
@@ -543,9 +541,13 @@ GlobalAlias *GlobalAlias::create(const Twine &Name, GlobalValue *Aliasee) {
   return create(Aliasee->getLinkage(), Name, Aliasee);
 }
 
-void GlobalAlias::removeFromParent() { getParent()->removeAlias(this); }
+void GlobalAlias::removeFromParent() {
+  getParent()->getAliasList().remove(getIterator());
+}
 
-void GlobalAlias::eraseFromParent() { getParent()->eraseAlias(this); }
+void GlobalAlias::eraseFromParent() {
+  getParent()->getAliasList().erase(getIterator());
+}
 
 void GlobalAlias::setAliasee(Constant *Aliasee) {
   assert((!Aliasee || Aliasee->getType() == getType()) &&
@@ -569,7 +571,7 @@ GlobalIFunc::GlobalIFunc(Type *Ty, unsigned AddressSpace, LinkageTypes Link,
                    AddressSpace) {
   setResolver(Resolver);
   if (ParentModule)
-    ParentModule->insertIFunc(this);
+    ParentModule->getIFuncList().push_back(this);
 }
 
 GlobalIFunc *GlobalIFunc::create(Type *Ty, unsigned AddressSpace,
@@ -578,12 +580,18 @@ GlobalIFunc *GlobalIFunc::create(Type *Ty, unsigned AddressSpace,
   return new GlobalIFunc(Ty, AddressSpace, Link, Name, Resolver, ParentModule);
 }
 
-void GlobalIFunc::removeFromParent() { getParent()->removeIFunc(this); }
+void GlobalIFunc::removeFromParent() {
+  getParent()->getIFuncList().remove(getIterator());
+}
 
-void GlobalIFunc::eraseFromParent() { getParent()->eraseIFunc(this); }
+void GlobalIFunc::eraseFromParent() {
+  getParent()->getIFuncList().erase(getIterator());
+}
 
 const Function *GlobalIFunc::getResolverFunction() const {
-  return dyn_cast<Function>(getResolver()->stripPointerCastsAndAliases());
+  DenseSet<const GlobalAlias *> Aliases;
+  return dyn_cast<Function>(
+      findBaseObject(getResolver(), Aliases, [](const GlobalValue &) {}));
 }
 
 void GlobalIFunc::applyAlongResolverPath(

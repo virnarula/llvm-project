@@ -1,9 +1,10 @@
+; RUN: opt < %s -loweratomic -S | FileCheck %s
 ; RUN: opt < %s -passes=loweratomic -S | FileCheck %s
 
 define i8 @add() {
 ; CHECK-LABEL: @add(
   %i = alloca i8
-  %j = atomicrmw add ptr %i, i8 42 monotonic
+  %j = atomicrmw add i8* %i, i8 42 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: add
 ; CHECK-NEXT: store
@@ -14,7 +15,7 @@ define i8 @add() {
 define i8 @nand() {
 ; CHECK-LABEL: @nand(
   %i = alloca i8
-  %j = atomicrmw nand ptr %i, i8 42 monotonic
+  %j = atomicrmw nand i8* %i, i8 42 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: and
 ; CHECK-NEXT: xor
@@ -26,7 +27,7 @@ define i8 @nand() {
 define i8 @min() {
 ; CHECK-LABEL: @min(
   %i = alloca i8
-  %j = atomicrmw min ptr %i, i8 42 monotonic
+  %j = atomicrmw min i8* %i, i8 42 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: icmp
 ; CHECK-NEXT: select
@@ -38,7 +39,7 @@ define i8 @min() {
 define float @fadd() {
 ; CHECK-LABEL: @fadd(
   %i = alloca float
-  %j = atomicrmw fadd ptr %i, float 42.0 monotonic
+  %j = atomicrmw fadd float* %i, float 42.0 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: fadd
 ; CHECK-NEXT: store
@@ -49,7 +50,7 @@ define float @fadd() {
 define float @fsub() {
 ; CHECK-LABEL: @fsub(
   %i = alloca float
-  %j = atomicrmw fsub ptr %i, float 42.0 monotonic
+  %j = atomicrmw fsub float* %i, float 42.0 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: fsub
 ; CHECK-NEXT: store
@@ -60,7 +61,7 @@ define float @fsub() {
 define float @fmax() {
 ; CHECK-LABEL: @fmax(
   %i = alloca float
-  %j = atomicrmw fmax ptr %i, float 42.0 monotonic
+  %j = atomicrmw fmax float* %i, float 42.0 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: call float @llvm.maxnum.f32
 ; CHECK-NEXT: store
@@ -71,7 +72,7 @@ define float @fmax() {
 define float @fmin() {
 ; CHECK-LABEL: @fmin(
   %i = alloca float
-  %j = atomicrmw fmin ptr %i, float 42.0 monotonic
+  %j = atomicrmw fmin float* %i, float 42.0 monotonic
 ; CHECK: [[INST:%[a-z0-9]+]] = load
 ; CHECK-NEXT: call float @llvm.minnum.f32
 ; CHECK-NEXT: store

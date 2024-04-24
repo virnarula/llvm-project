@@ -18,13 +18,13 @@ using namespace test;
 //===----------------------------------------------------------------------===//
 
 OpFoldResult TestInvolutionTraitFailingOperationFolderOp::fold(
-    FoldAdaptor adaptor) {
+    ArrayRef<Attribute> operands) {
   // This failure should cause the trait fold to run instead.
   return {};
 }
 
 OpFoldResult TestInvolutionTraitSuccesfulOperationFolderOp::fold(
-    FoldAdaptor adaptor) {
+    ArrayRef<Attribute> operands) {
   auto argumentOp = getOperand();
   // The success case should cause the trait fold to be supressed.
   return argumentOp.getDefiningOp() ? argumentOp : OpFoldResult{};

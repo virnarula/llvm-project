@@ -25,46 +25,56 @@ static int testRoundtripEncoding(MlirContext ctx) {
   // clang-format off
   const char *originalAsm =
     "#sparse_tensor.encoding<{ "
-    "map = [s0](d0, d1) -> (s0 : dense, d0 : compressed, d1 : compressed), "
-    "posWidth = 32, crdWidth = 64 }>";
+    "dimLevelType = [ \"dense\", \"compressed\", \"compressed\"], "
+    "dimOrdering = affine_map<(d0, d1, d2) -> (d0, d1, d2)>, "
+    "higherOrdering = affine_map<(d0, d1)[s0] -> (s0, d0, d1)>, "
+    "pointerBitWidth = 32, indexBitWidth = 64 }>";
   // clang-format on
   MlirAttribute originalAttr =
       mlirAttributeParseGet(ctx, mlirStringRefCreateFromCString(originalAsm));
   // CHECK: isa: 1
   fprintf(stderr, "isa: %d\n",
           mlirAttributeIsASparseTensorEncodingAttr(originalAttr));
-  MlirAffineMap dimToLvl =
-      mlirSparseTensorEncodingAttrGetDimToLvl(originalAttr);
+  MlirAffineMap dimOrdering =
+      mlirSparseTensorEncodingAttrGetDimOrdering(originalAttr);
+  // CHECK: (d0, d1, d2) -> (d0, d1, d2)
+  mlirAffineMapDump(dimOrdering);
+  MlirAffineMap higherOrdering =
+      mlirSparseTensorEncodingAttrGetHigherOrdering(originalAttr);
   // CHECK: (d0, d1)[s0] -> (s0, d0, d1)
-  mlirAffineMapDump(dimToLvl);
+  mlirAffineMapDump(higherOrdering);
   // CHECK: level_type: 4
   // CHECK: level_type: 8
   // CHECK: level_type: 8
-  MlirAffineMap lvlToDim =
-      mlirSparseTensorEncodingAttrGetLvlToDim(originalAttr);
-  int lvlRank = mlirSparseTensorEncodingGetLvlRank(originalAttr);
-  enum MlirSparseTensorLevelType *lvlTypes =
-      malloc(sizeof(enum MlirSparseTensorLevelType) * lvlRank);
-  for (int l = 0; l < lvlRank; ++l) {
-    lvlTypes[l] = mlirSparseTensorEncodingAttrGetLvlType(originalAttr, l);
-    fprintf(stderr, "level_type: %d\n", lvlTypes[l]);
+  int numLevelTypes = mlirSparseTensorEncodingGetNumDimLevelTypes(originalAttr);
+  enum MlirSparseTensorDimLevelType *levelTypes =
+      malloc(sizeof(enum MlirSparseTensorDimLevelType) * numLevelTypes);
+  for (int i = 0; i < numLevelTypes; ++i) {
+    levelTypes[i] =
+        mlirSparseTensorEncodingAttrGetDimLevelType(originalAttr, i);
+    fprintf(stderr, "level_type: %d\n", levelTypes[i]);
   }
-  // CHECK: posWidth: 32
-  int posWidth = mlirSparseTensorEncodingAttrGetPosWidth(originalAttr);
-  fprintf(stderr, "posWidth: %d\n", posWidth);
-  // CHECK: crdWidth: 64
-  int crdWidth = mlirSparseTensorEncodingAttrGetCrdWidth(originalAttr);
-  fprintf(stderr, "crdWidth: %d\n", crdWidth);
+  // CHECK: pointer: 32
+  int pointerBitWidth =
+      mlirSparseTensorEncodingAttrGetPointerBitWidth(originalAttr);
+  fprintf(stderr, "pointer: %d\n", pointerBitWidth);
+  // CHECK: index: 64
+  int indexBitWidth =
+      mlirSparseTensorEncodingAttrGetIndexBitWidth(originalAttr);
+  fprintf(stderr, "index: %d\n", indexBitWidth);
+
   MlirAttribute newAttr = mlirSparseTensorEncodingAttrGet(
-      ctx, lvlRank, lvlTypes, dimToLvl, lvlToDim, posWidth, crdWidth);
+      ctx, numLevelTypes, levelTypes, dimOrdering, higherOrdering,
+      pointerBitWidth, indexBitWidth);
   mlirAttributeDump(newAttr); // For debugging filecheck output.
   // CHECK: equal: 1
   fprintf(stderr, "equal: %d\n", mlirAttributeEqual(originalAttr, newAttr));
-  free(lvlTypes);
+
+  free(levelTypes);
   return 0;
 }
 
-int main(void) {
+int main() {
   MlirContext ctx = mlirContextCreate();
   mlirDialectHandleRegisterDialect(mlirGetDialectHandle__sparse_tensor__(),
                                    ctx);

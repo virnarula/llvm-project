@@ -2,7 +2,7 @@
 ; RUN: llc -O0 < %s
 
 ; NVPTX can't select sinf(float)/sin(double)
-; XFAIL: target=nvptx{{.*}}
+; XFAIL: nvptx
 
 ;; SQRT
 declare float @llvm.sqrt.f32(float)
@@ -42,18 +42,18 @@ define double @test_cos(float %F) {
         ret double %I
 }
 
-declare ptr @llvm.launder.invariant.group(ptr)
+declare i8* @llvm.launder.invariant.group(i8*)
 
-define ptr @launder(ptr %p) {
-        %q = call ptr @llvm.launder.invariant.group(ptr %p)
-        ret ptr %q
+define i8* @launder(i8* %p) {
+        %q = call i8* @llvm.launder.invariant.group(i8* %p)
+        ret i8* %q
 }
 
-declare ptr @llvm.strip.invariant.group(ptr)
+declare i8* @llvm.strip.invariant.group(i8*)
 
-define ptr @strip(ptr %p) {
-        %q = call ptr @llvm.strip.invariant.group(ptr %p)
-        ret ptr %q
+define i8* @strip(i8* %p) {
+        %q = call i8* @llvm.strip.invariant.group(i8* %p)
+        ret i8* %q
 }
 
 

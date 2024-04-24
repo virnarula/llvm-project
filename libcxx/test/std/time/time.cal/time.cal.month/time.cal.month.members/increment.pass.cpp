@@ -13,52 +13,41 @@
 //  constexpr month& operator++() noexcept;
 //  constexpr month operator++(int) noexcept;
 
+
 #include <chrono>
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
 
-constexpr bool test() {
-  using month = std::chrono::month;
-  for (unsigned i = 0; i <= 15; ++i) {
-    month m1(i);
-    month m2 = m1++;
-    assert(m1.ok());
-    assert(m1 != m2);
-
-    unsigned exp = i + 1;
-    while (exp > 12)
-      exp -= 12;
-    assert(static_cast<unsigned>(m1) == exp);
-  }
-  for (unsigned i = 0; i <= 15; ++i) {
-    month m1(i);
-    month m2 = ++m1;
-    assert(m1.ok());
-    assert(m2.ok());
-    assert(m1 == m2);
-
-    unsigned exp = i + 1;
-    while (exp > 12)
-      exp -= 12;
-    assert(static_cast<unsigned>(m1) == exp);
-  }
-
-  return true;
+template <typename M>
+constexpr bool testConstexpr()
+{
+    M m1{1};
+    if (static_cast<unsigned>(++m1) != 2) return false;
+    if (static_cast<unsigned>(m1++) != 2) return false;
+    if (static_cast<unsigned>(m1)   != 3) return false;
+    return true;
 }
 
-int main(int, char**) {
-  using month = std::chrono::month;
+int main(int, char**)
+{
+    using month = std::chrono::month;
+    ASSERT_NOEXCEPT(++(std::declval<month&>())  );
+    ASSERT_NOEXCEPT(  (std::declval<month&>())++);
 
-  ASSERT_NOEXCEPT(++(std::declval<month&>()));
-  ASSERT_NOEXCEPT((std::declval<month&>())++);
+    ASSERT_SAME_TYPE(month , decltype(  std::declval<month&>()++));
+    ASSERT_SAME_TYPE(month&, decltype(++std::declval<month&>()  ));
 
-  ASSERT_SAME_TYPE(month, decltype(std::declval<month&>()++));
-  ASSERT_SAME_TYPE(month&, decltype(++std::declval<month&>()));
+    static_assert(testConstexpr<month>(), "");
 
-  test();
-  static_assert(test());
+    for (unsigned i = 0; i <= 10; ++i)
+    {
+        month m(i);
+        assert(static_cast<unsigned>(++m) == i + 1);
+        assert(static_cast<unsigned>(m++) == i + 1);
+        assert(static_cast<unsigned>(m)   == i + 2);
+    }
 
   return 0;
 }

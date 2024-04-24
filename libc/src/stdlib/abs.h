@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_STDLIB_ABS_H
 #define LLVM_LIBC_SRC_STDLIB_ABS_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int abs(int n);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDLIB_ABS_H

@@ -34,11 +34,6 @@ private:
   T OldValue;
 };
 
-// User-defined CTAD guides.
-template <typename T> SaveAndRestore(T &) -> SaveAndRestore<T>;
-template <typename T> SaveAndRestore(T &, const T &) -> SaveAndRestore<T>;
-template <typename T> SaveAndRestore(T &, T &&) -> SaveAndRestore<T>;
-
 } // namespace llvm
 
 #endif

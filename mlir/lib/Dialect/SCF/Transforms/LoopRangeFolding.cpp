@@ -16,7 +16,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
-#include "mlir/IR/IRMapping.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_SCFFORLOOPRANGEFOLDING
@@ -57,11 +57,11 @@ void ForLoopRangeFolding::runOnOperation() {
         break;
 
       OpBuilder b(op);
-      IRMapping lbMap;
+      BlockAndValueMapping lbMap;
       lbMap.map(indVar, op.getLowerBound());
-      IRMapping ubMap;
+      BlockAndValueMapping ubMap;
       ubMap.map(indVar, op.getUpperBound());
-      IRMapping stepMap;
+      BlockAndValueMapping stepMap;
       stepMap.map(indVar, op.getStep());
 
       if (isa<arith::AddIOp>(user)) {

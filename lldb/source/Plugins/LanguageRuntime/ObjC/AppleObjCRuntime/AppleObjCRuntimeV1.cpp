@@ -161,7 +161,7 @@ AppleObjCRuntimeV1::CreateObjectChecker(std::string name,
                "           \n",
                name.c_str());
   assert(strformatsize < (int)sizeof(buf->contents));
-  UNUSED_IF_ASSERT_DISABLED(strformatsize);
+  (void)strformatsize;
 
   return GetTargetRef().CreateUtilityFunction(buf->contents, std::move(name),
                                               eLanguageTypeC, exe_ctx);

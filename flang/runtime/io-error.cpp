@@ -18,29 +18,16 @@
 namespace Fortran::runtime::io {
 
 void IoErrorHandler::SignalError(int iostatOrErrno, const char *msg, ...) {
-  // Note that IOMSG= alone without IOSTAT=/END=/EOR=/ERR= does not suffice
-  // for error recovery (see F'2018 subclause 12.11).
-  switch (iostatOrErrno) {
-  case IostatOk:
-    return;
-  case IostatEnd:
-    if (flags_ & (hasIoStat | hasEnd)) {
-      if (ioStat_ == IostatOk || ioStat_ < IostatEnd) {
-        ioStat_ = IostatEnd;
-      }
-      return;
+  if (iostatOrErrno == IostatEnd && (flags_ & hasEnd)) {
+    if (ioStat_ == IostatOk || ioStat_ < IostatEnd) {
+      ioStat_ = IostatEnd;
     }
-    break;
-  case IostatEor:
-    if (flags_ & (hasIoStat | hasEor)) {
-      if (ioStat_ == IostatOk || ioStat_ < IostatEor) {
-        ioStat_ = IostatEor; // least priority
-      }
-      return;
+  } else if (iostatOrErrno == IostatEor && (flags_ & hasEor)) {
+    if (ioStat_ == IostatOk || ioStat_ < IostatEor) {
+      ioStat_ = IostatEor; // least priority
     }
-    break;
-  default:
-    if (flags_ & (hasIoStat | hasErr)) {
+  } else if (iostatOrErrno != IostatOk) {
+    if (flags_ & (hasIoStat | hasIoMsg | hasErr)) {
       if (ioStat_ <= 0) {
         ioStat_ = iostatOrErrno; // priority over END=/EOR=
         if (msg && (flags_ & hasIoMsg)) {
@@ -52,21 +39,17 @@ void IoErrorHandler::SignalError(int iostatOrErrno, const char *msg, ...) {
           va_end(ap);
         }
       }
-      return;
+    } else if (msg) {
+      va_list ap;
+      va_start(ap, msg);
+      CrashArgs(msg, ap);
+      va_end(ap);
+    } else if (const char *errstr{IostatErrorString(iostatOrErrno)}) {
+      Crash(errstr);
+    } else {
+      Crash("I/O error (errno=%d): %s", iostatOrErrno,
+          std::strerror(iostatOrErrno));
     }
-    break;
-  }
-  // I/O error not caught!
-  if (msg) {
-    va_list ap;
-    va_start(ap, msg);
-    CrashArgs(msg, ap);
-    va_end(ap);
-  } else if (const char *errstr{IostatErrorString(iostatOrErrno)}) {
-    Crash(errstr);
-  } else {
-    Crash("I/O error (errno=%d): %s", iostatOrErrno,
-        std::strerror(iostatOrErrno));
   }
 }
 
@@ -76,12 +59,13 @@ void IoErrorHandler::SignalError(int iostatOrErrno) {
 
 void IoErrorHandler::Forward(
     int ioStatOrErrno, const char *msg, std::size_t length) {
-  if (ioStatOrErrno != IostatOk) {
-    if (msg) {
-      SignalError(ioStatOrErrno, "%.*s", static_cast<int>(length), msg);
-    } else {
-      SignalError(ioStatOrErrno);
-    }
+  if (ioStat_ != IostatOk && msg && (flags_ & hasIoMsg)) {
+    ioMsg_ = SaveDefaultCharacter(msg, length, *this);
+  }
+  if (ioStatOrErrno != IostatOk && msg) {
+    SignalError(ioStatOrErrno, "%.*s", static_cast<int>(length), msg);
+  } else {
+    SignalError(ioStatOrErrno);
   }
 }
 
@@ -122,11 +106,14 @@ bool IoErrorHandler::GetIoMsg(char *buffer, std::size_t bufferLength) {
 #endif
 #elif HAVE_DECL_STRERROR_S // "Windows Secure API"
   ok = ::strerror_s(buffer, bufferLength, ioStat_) == 0;
-#else
+#elif HAVE_STRERROR
   // Copy the thread un-safe result of strerror into
   // the buffer as fast as possible to minimize impact
   // of collision of strerror in multiple threads.
   msg = strerror(ioStat_);
+#else
+  // Strange that this system doesn't even have strerror
+  return false;
 #endif
   if (msg) {
     ToFortranDefaultCharacter(buffer, bufferLength, msg);

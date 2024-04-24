@@ -19,10 +19,9 @@
 #include "llvm/Support/CodeGen.h"
 
 namespace llvm {
+class NVPTXTargetMachine;
 class FunctionPass;
 class MachineFunctionPass;
-class NVPTXTargetMachine;
-class PassRegistry;
 
 namespace NVPTXCC {
 enum CondCodes {
@@ -36,22 +35,18 @@ enum CondCodes {
 }
 
 FunctionPass *createNVPTXISelDag(NVPTXTargetMachine &TM,
-                                 llvm::CodeGenOptLevel OptLevel);
+                                 llvm::CodeGenOpt::Level OptLevel);
 ModulePass *createNVPTXAssignValidGlobalNamesPass();
-ModulePass *createGenericToNVVMLegacyPass();
-ModulePass *createNVPTXCtorDtorLoweringLegacyPass();
+ModulePass *createGenericToNVVMPass();
 FunctionPass *createNVVMIntrRangePass(unsigned int SmVersion);
 FunctionPass *createNVVMReflectPass(unsigned int SmVersion);
 MachineFunctionPass *createNVPTXPrologEpilogPass();
 MachineFunctionPass *createNVPTXReplaceImageHandlesPass();
 FunctionPass *createNVPTXImageOptimizerPass();
-FunctionPass *createNVPTXLowerArgsPass();
+FunctionPass *createNVPTXLowerArgsPass(const NVPTXTargetMachine *TM);
 FunctionPass *createNVPTXLowerAllocaPass();
-FunctionPass *createNVPTXLowerUnreachablePass(bool TrapUnreachable,
-                                              bool NoTrapAfterNoreturn);
 MachineFunctionPass *createNVPTXPeephole();
 MachineFunctionPass *createNVPTXProxyRegErasurePass();
-FunctionPass *createNVPTXMemOptsPass();
 
 struct NVVMIntrRangePass : PassInfoMixin<NVVMIntrRangePass> {
   NVVMIntrRangePass();
@@ -69,10 +64,6 @@ struct NVVMReflectPass : PassInfoMixin<NVVMReflectPass> {
 
 private:
   unsigned SmVersion;
-};
-
-struct GenericToNVVMPass : PassInfoMixin<GenericToNVVMPass> {
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
 namespace NVPTX {
@@ -182,21 +173,8 @@ enum CmpMode {
   FTZ_FLAG = 0x100
 };
 }
-
-namespace PTXPrmtMode {
-enum PrmtMode {
-  NONE,
-  F4E,
-  B4E,
-  RC8,
-  ECL,
-  ECR,
-  RC16,
-};
 }
-}
-void initializeNVPTXDAGToDAGISelPass(PassRegistry &);
-} // namespace llvm
+} // end namespace llvm;
 
 // Defines symbolic names for NVPTX registers.  This defines a mapping from
 // register name to register number.

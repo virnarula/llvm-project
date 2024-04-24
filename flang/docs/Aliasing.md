@@ -8,10 +8,9 @@
 
 # Aliasing in Fortran
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 ## Introduction

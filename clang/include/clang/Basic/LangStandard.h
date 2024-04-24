@@ -43,26 +43,24 @@ enum class Language : uint8_t {
   HLSL,
   ///@}
 };
-StringRef languageToString(Language L);
 
 enum LangFeatures {
   LineComment = (1 << 0),
   C99 = (1 << 1),
   C11 = (1 << 2),
   C17 = (1 << 3),
-  C23 = (1 << 4),
+  C2x = (1 << 4),
   CPlusPlus = (1 << 5),
   CPlusPlus11 = (1 << 6),
   CPlusPlus14 = (1 << 7),
   CPlusPlus17 = (1 << 8),
   CPlusPlus20 = (1 << 9),
-  CPlusPlus23 = (1 << 10),
-  CPlusPlus26 = (1 << 11),
-  Digraphs = (1 << 12),
-  GNUMode = (1 << 13),
-  HexFloat = (1 << 14),
-  OpenCL = (1 << 15),
-  HLSL = (1 << 16)
+  CPlusPlus2b = (1 << 10),
+  Digraphs = (1 << 11),
+  GNUMode = (1 << 12),
+  HexFloat = (1 << 13),
+  OpenCL = (1 << 14),
+  HLSL = (1 << 15)
 };
 
 /// LangStandard - Information about the properties of a particular language
@@ -102,8 +100,8 @@ public:
   /// isC17 - Language is a superset of C17.
   bool isC17() const { return Flags & C17; }
 
-  /// isC23 - Language is a superset of C23.
-  bool isC23() const { return Flags & C23; }
+  /// isC2x - Language is a superset of C2x.
+  bool isC2x() const { return Flags & C2x; }
 
   /// isCPlusPlus - Language is a C++ variant.
   bool isCPlusPlus() const { return Flags & CPlusPlus; }
@@ -120,11 +118,8 @@ public:
   /// isCPlusPlus20 - Language is a C++20 variant (or later).
   bool isCPlusPlus20() const { return Flags & CPlusPlus20; }
 
-  /// isCPlusPlus23 - Language is a post-C++23 variant (or later).
-  bool isCPlusPlus23() const { return Flags & CPlusPlus23; }
-
-  /// isCPlusPlus26 - Language is a post-C++26 variant (or later).
-  bool isCPlusPlus26() const { return Flags & CPlusPlus26; }
+  /// isCPlusPlus2b - Language is a post-C++20 variant (or later).
+  bool isCPlusPlus2b() const { return Flags & CPlusPlus2b; }
 
   /// hasDigraphs - Language supports digraphs.
   bool hasDigraphs() const { return Flags & Digraphs; }

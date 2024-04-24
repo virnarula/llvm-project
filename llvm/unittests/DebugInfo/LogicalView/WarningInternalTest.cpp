@@ -22,10 +22,7 @@ using namespace llvm::logicalview;
 
 namespace {
 
-class MyLocation : public LVLocation {
-public:
-  bool validateRanges();
-};
+class MyLocation;
 
 // This code emulates the work done by the Readers when processing the
 // binary files and the creation of the AddressToLine mapping is done
@@ -62,14 +59,6 @@ LVLine *MyAddressToLine::lineUpperBound(LVAddress Address) {
 MyAddressToLine AddressToLine;
 
 class ReaderTestWarningInternal : public LVReader {
-#define CREATE(VARIABLE, CREATE_FUNCTION)                                      \
-  VARIABLE = CREATE_FUNCTION();                                                \
-  EXPECT_NE(VARIABLE, nullptr);
-
-#define CREATE_CUSTOM(VARIABLE, CREATE_FUNCTION)                               \
-  VARIABLE = CREATE_FUNCTION();                                                \
-  EXPECT_NE(VARIABLE, nullptr);
-
   // Types.
   LVType *IntegerType = nullptr;
 
@@ -98,19 +87,18 @@ class ReaderTestWarningInternal : public LVReader {
   MyLocation *LocationFive = nullptr;
   MyLocation *LocationSix = nullptr;
 
-  llvm::SpecificBumpPtrAllocator<MyLocation> AllocatedLocations;
-
 protected:
-  MyLocation *createCustomLocation() {
-    return new (AllocatedLocations.Allocate()) MyLocation();
-  }
-
-  void add(LVSymbol *Symbol, LVLine *LowerLine, LVLine *UpperLine);
   void add(LVScope *Parent, LVElement *Element);
+  template <typename T> T *create() {
+    T *Element = new (std::nothrow) T();
+    EXPECT_NE(Element, nullptr);
+    return Element;
+  }
   void set(LVElement *Element, StringRef Name, LVOffset Offset,
            uint32_t LineNumber = 0, LVElement *Type = nullptr);
   void set(MyLocation *Location, LVLine *LowerLine, LVLine *UpperLine,
            LVAddress LowerAddress, LVAddress UpperAddress);
+  void add(LVSymbol *Symbol, LVLine *LowerLine, LVLine *UpperLine);
 
 public:
   ReaderTestWarningInternal(ScopedPrinter &W) : LVReader("", "", W) {
@@ -125,6 +113,11 @@ public:
   void initElements();
   void resolveElements();
   void checkWarnings();
+};
+
+class MyLocation : public LVLocation {
+public:
+  bool validateRanges();
 };
 
 bool MyLocation::validateRanges() {
@@ -220,33 +213,33 @@ void ReaderTestWarningInternal::createElements() {
   EXPECT_NE(Root, nullptr);
 
   // Create the logical types.
-  CREATE(IntegerType, createType);
+  IntegerType = create<LVType>();
 
   // Create the logical scopes.
-  CREATE(NestedScope, createScope);
-  CREATE(CompileUnit, createScopeCompileUnit);
-  CREATE(Function, createScopeFunction);
+  NestedScope = create<LVScope>();
+  CompileUnit = create<LVScopeCompileUnit>();
+  Function = create<LVScopeFunction>();
 
   // Create the logical symbols.
-  CREATE(LocalVariable, createSymbol);
-  CREATE(NestedVariable, createSymbol);
-  CREATE(Parameter, createSymbol);
+  LocalVariable = create<LVSymbol>();
+  NestedVariable = create<LVSymbol>();
+  Parameter = create<LVSymbol>();
 
   // Create the logical lines.
-  CREATE(LineOne, createLine);
-  CREATE(LineTwo, createLine);
-  CREATE(LineThree, createLine);
-  CREATE(LineFour, createLine);
-  CREATE(LineFive, createLine);
-  CREATE(LineSix, createLine);
+  LineOne = create<LVLine>();
+  LineTwo = create<LVLine>();
+  LineThree = create<LVLine>();
+  LineFour = create<LVLine>();
+  LineFive = create<LVLine>();
+  LineSix = create<LVLine>();
 
   // Create the logical locations.
-  CREATE_CUSTOM(LocationOne, createCustomLocation);
-  CREATE_CUSTOM(LocationTwo, createCustomLocation);
-  CREATE_CUSTOM(LocationThree, createCustomLocation);
-  CREATE_CUSTOM(LocationFour, createCustomLocation);
-  CREATE_CUSTOM(LocationFive, createCustomLocation);
-  CREATE_CUSTOM(LocationSix, createCustomLocation);
+  LocationOne = create<MyLocation>();
+  LocationTwo = create<MyLocation>();
+  LocationThree = create<MyLocation>();
+  LocationFour = create<MyLocation>();
+  LocationFive = create<MyLocation>();
+  LocationSix = create<MyLocation>();
 }
 
 // Create the logical view adding the created logical elements.
@@ -457,7 +450,7 @@ void ReaderTestWarningInternal::checkWarnings() {
 
   LVOffsetLinesMap::iterator IterZero = LinesZero.begin();
   EXPECT_EQ(IterZero->first, Function->getOffset());
-  LVLines *Lines = &IterZero->second;
+  LVLines *Lines = IterZero->second;
   EXPECT_NE(Lines, nullptr);
   ASSERT_EQ(Lines->size(), 1u);
   LVLine *Line = *(Lines->begin());
@@ -466,7 +459,7 @@ void ReaderTestWarningInternal::checkWarnings() {
 
   ++IterZero;
   EXPECT_EQ(IterZero->first, NestedScope->getOffset());
-  Lines = &IterZero->second;
+  Lines = IterZero->second;
   EXPECT_NE(Lines, nullptr);
   ASSERT_EQ(Lines->size(), 1u);
   Line = *(Lines->begin());
@@ -494,7 +487,7 @@ void ReaderTestWarningInternal::checkWarnings() {
 
   LVOffsetLocationsMap::iterator IterRange = InvalidRanges.begin();
   EXPECT_EQ(IterRange->first, Function->getOffset());
-  LVLocations *Locations = &IterRange->second;
+  LVLocations *Locations = IterRange->second;
   EXPECT_NE(Locations, nullptr);
   ASSERT_EQ(Locations->size(), 1u);
   LVLocation *Location = *(Locations->begin());
@@ -508,7 +501,7 @@ void ReaderTestWarningInternal::checkWarnings() {
 
   LVOffsetLocationsMap::iterator IterLocations = InvalidLocations.begin();
   EXPECT_EQ(IterLocations->first, NestedVariable->getOffset());
-  Locations = &IterLocations->second;
+  Locations = IterLocations->second;
   EXPECT_NE(Locations, nullptr);
   ASSERT_EQ(Locations->size(), 1u);
   Location = *(Locations->begin());

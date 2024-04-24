@@ -13,7 +13,6 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/SourceManager.h"
-#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -21,9 +20,9 @@ namespace {
 
 // Choose the decl to insert before, according to an anchor.
 // Nullptr means insert at end of DC.
-// std::nullopt means no valid place to insert.
-std::optional<const Decl *> insertionDecl(const DeclContext &DC,
-                                          const Anchor &A) {
+// None means no valid place to insert.
+llvm::Optional<const Decl *> insertionDecl(const DeclContext &DC,
+                                           const Anchor &A) {
   bool LastMatched = false;
   bool ReturnNext = false;
   for (const auto *D : DC.decls()) {
@@ -60,7 +59,7 @@ std::optional<const Decl *> insertionDecl(const DeclContext &DC,
   }
   if (ReturnNext || (LastMatched && A.Direction == Anchor::Below))
     return nullptr;
-  return std::nullopt;
+  return llvm::None;
 }
 
 SourceLocation beginLoc(const Decl &D) {
@@ -85,8 +84,7 @@ SourceLocation endLoc(const DeclContext &DC) {
 }
 
 AccessSpecifier getAccessAtEnd(const CXXRecordDecl &C) {
-  AccessSpecifier Spec =
-      (C.getTagKind() == TagTypeKind::Class ? AS_private : AS_public);
+  AccessSpecifier Spec = (C.getTagKind() == TTK_Class ? AS_private : AS_public);
   for (const auto *D : C.decls())
     if (const auto *ASD = llvm::dyn_cast<AccessSpecDecl>(D))
       Spec = ASD->getAccess();

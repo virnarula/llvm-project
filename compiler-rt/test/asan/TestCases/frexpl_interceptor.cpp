@@ -2,10 +2,6 @@
 
 // Test the frexpl() interceptor.
 
-// FIXME: MinGW-w64 implements `frexpl()` as a static import, so the dynamic
-// interceptor seems to not work.
-// XFAIL: target={{.*-windows-gnu}}
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

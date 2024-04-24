@@ -78,9 +78,9 @@ const char *SBTypeSynthetic::GetData() {
   if (!IsValid())
     return nullptr;
   if (IsClassCode())
-    return ConstString(m_opaque_sp->GetPythonCode()).GetCString();
-
-  return ConstString(m_opaque_sp->GetPythonClassName()).GetCString();
+    return m_opaque_sp->GetPythonCode();
+  else
+    return m_opaque_sp->GetPythonClassName();
 }
 
 void SBTypeSynthetic::SetClassName(const char *data) {
@@ -184,7 +184,7 @@ SBTypeSynthetic::SBTypeSynthetic(
 bool SBTypeSynthetic::CopyOnWrite_Impl() {
   if (!IsValid())
     return false;
-  if (m_opaque_sp.use_count() == 1)
+  if (m_opaque_sp.unique())
     return true;
 
   ScriptedSyntheticChildrenSP new_sp(new ScriptedSyntheticChildren(

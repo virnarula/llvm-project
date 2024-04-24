@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -17,15 +17,17 @@
 // void assign(path const&);
 // void replace_filename(path const&);
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
 
-static void test_copy_assign_operator() {
+TEST_SUITE(directory_entry_ctor_suite)
+
+TEST_CASE(test_copy_assign_operator) {
   using namespace fs;
   // Copy
   {
@@ -46,7 +48,7 @@ static void test_copy_assign_operator() {
   }
 }
 
-static void copy_assign_copies_cache() {
+TEST_CASE(copy_assign_copies_cache) {
   using namespace fs;
   scoped_test_env env;
   const path dir = env.create_dir("dir");
@@ -60,8 +62,8 @@ static void copy_assign_copies_cache() {
 
     directory_entry ent_cp;
     ent_cp = ent;
-    assert(ent_cp.path() == sym);
-    assert(ent_cp.is_symlink());
+    TEST_CHECK(ent_cp.path() == sym);
+    TEST_CHECK(ent_cp.is_symlink());
   }
 
   {
@@ -71,14 +73,9 @@ static void copy_assign_copies_cache() {
 
     directory_entry ent_cp;
     ent_cp = ent;
-    assert(ent_cp.path() == file);
-    assert(ent_cp.is_regular_file());
+    TEST_CHECK(ent_cp.path() == file);
+    TEST_CHECK(ent_cp.is_regular_file());
   }
 }
 
-int main(int, char**) {
-  test_copy_assign_operator();
-  copy_assign_copies_cache();
-
-  return 0;
-}
+TEST_SUITE_END()

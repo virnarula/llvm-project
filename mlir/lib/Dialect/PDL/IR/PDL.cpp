@@ -13,7 +13,6 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/TypeSwitch.h"
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::pdl;
@@ -49,7 +48,7 @@ static bool hasBindingUse(Operation *op) {
 /// is used by a "binding" operation. On failure, emits an error.
 static LogicalResult verifyHasBindingUse(Operation *op) {
   // If the parent is not a pattern, there is nothing to do.
-  if (!llvm::isa_and_nonnull<PatternOp>(op->getParentOp()))
+  if (!isa<PatternOp>(op->getParentOp()))
     return success();
   if (hasBindingUse(op))
     return success();
@@ -113,7 +112,7 @@ LogicalResult ApplyNativeRewriteOp::verify() {
 
 LogicalResult AttributeOp::verify() {
   Value attrType = getValueType();
-  std::optional<Attribute> attrValue = getValue();
+  Optional<Attribute> attrValue = getValue();
 
   if (!attrValue) {
     if (isa<RewriteOp>((*this)->getParentOp()))
@@ -204,10 +203,10 @@ static LogicalResult verifyResultTypesAreInferrable(OperationOp op,
   if (resultTypes.empty()) {
     // If we don't know the concrete operation, don't attempt any verification.
     // We can't make assumptions if we don't know the concrete operation.
-    std::optional<StringRef> rawOpName = op.getOpName();
+    Optional<StringRef> rawOpName = op.getOpName();
     if (!rawOpName)
       return success();
-    std::optional<RegisteredOperationName> opName =
+    Optional<RegisteredOperationName> opName =
         RegisteredOperationName::lookup(*rawOpName, op.getContext());
     if (!opName)
       return success();
@@ -266,7 +265,7 @@ static LogicalResult verifyResultTypesAreInferrable(OperationOp op,
 }
 
 LogicalResult OperationOp::verify() {
-  bool isWithinRewrite = isa_and_nonnull<RewriteOp>((*this)->getParentOp());
+  bool isWithinRewrite = isa<RewriteOp>((*this)->getParentOp());
   if (isWithinRewrite && !getOpName())
     return emitOpError("must have an operation name when nested within "
                        "a `pdl.rewrite`");
@@ -291,7 +290,7 @@ LogicalResult OperationOp::verify() {
 }
 
 bool OperationOp::hasTypeInference() {
-  if (std::optional<StringRef> rawOpName = getOpName()) {
+  if (Optional<StringRef> rawOpName = getOpName()) {
     OperationName opName(*rawOpName, getContext());
     return opName.hasInterface<InferTypeOpInterface>();
   }
@@ -299,7 +298,7 @@ bool OperationOp::hasTypeInference() {
 }
 
 bool OperationOp::mightHaveTypeInference() {
-  if (std::optional<StringRef> rawOpName = getOpName()) {
+  if (Optional<StringRef> rawOpName = getOpName()) {
     OperationName opName(*rawOpName, getContext());
     return opName.mightHaveInterface<InferTypeOpInterface>();
   }
@@ -382,8 +381,7 @@ LogicalResult PatternOp::verifyRegions() {
 }
 
 void PatternOp::build(OpBuilder &builder, OperationState &state,
-                      std::optional<uint16_t> benefit,
-                      std::optional<StringRef> name) {
+                      Optional<uint16_t> benefit, Optional<StringRef> name) {
   build(builder, state, builder.getI16IntegerAttr(benefit ? *benefit : 0),
         name ? builder.getStringAttr(*name) : StringAttr());
   state.regions[0]->emplaceBlock();
@@ -397,39 +395,6 @@ RewriteOp PatternOp::getRewriter() {
 /// The default dialect is `pdl`.
 StringRef PatternOp::getDefaultDialect() {
   return PDLDialect::getDialectNamespace();
-}
-
-//===----------------------------------------------------------------------===//
-// pdl::RangeOp
-//===----------------------------------------------------------------------===//
-
-static ParseResult parseRangeType(OpAsmParser &p, TypeRange argumentTypes,
-                                  Type &resultType) {
-  // If arguments were provided, infer the result type from the argument list.
-  if (!argumentTypes.empty()) {
-    resultType = RangeType::get(getRangeElementTypeOrSelf(argumentTypes[0]));
-    return success();
-  }
-  // Otherwise, parse the type as a trailing type.
-  return p.parseColonType(resultType);
-}
-
-static void printRangeType(OpAsmPrinter &p, RangeOp op, TypeRange argumentTypes,
-                           Type resultType) {
-  if (argumentTypes.empty())
-    p << ": " << resultType;
-}
-
-LogicalResult RangeOp::verify() {
-  Type elementType = getType().getElementType();
-  for (Type operandType : getOperandTypes()) {
-    Type operandElementType = getRangeElementTypeOrSelf(operandType);
-    if (operandElementType != elementType) {
-      return emitOpError("expected operand to have element type ")
-             << elementType << ", but got " << operandElementType;
-    }
-  }
-  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -465,7 +430,7 @@ static void printResultsValueType(OpAsmPrinter &p, ResultsOp op,
 }
 
 LogicalResult ResultsOp::verify() {
-  if (!getIndex() && llvm::isa<pdl::ValueType>(getType())) {
+  if (!getIndex() && getType().isa<pdl::ValueType>()) {
     return emitOpError() << "expected `pdl.range<value>` result type when "
                             "no index is specified, but got: "
                          << getType();

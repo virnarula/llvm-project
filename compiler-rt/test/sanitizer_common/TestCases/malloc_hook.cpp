@@ -1,9 +1,7 @@
 // RUN: %clangxx -O2 %s -o %t && %run %t 2>&1 | FileCheck %s
 
 // Malloc/free hooks are not supported on Windows.
-// XFAIL: target={{.*windows-msvc.*}}
-
-// Must not be implemented, no other reason to install interceptors.
+// XFAIL: windows-msvc
 // XFAIL: ubsan
 
 #include <stdlib.h>
@@ -18,7 +16,7 @@ const volatile void *global_ptr;
 // Note: avoid calling functions that allocate memory in malloc/free
 // to avoid infinite recursion.
 void __sanitizer_malloc_hook(const volatile void *ptr, size_t sz) {
-  if (__sanitizer_get_ownership(ptr) && sz == sizeof(int)) {
+  if (__sanitizer_get_ownership(ptr) && sz == 4) {
     WRITE("MallocHook\n");
     global_ptr = ptr;
   }
@@ -39,7 +37,7 @@ void FreeHook2(const volatile void *ptr) { WRITE("FH2\n"); }
 // TLS shadow for function parameters before calling operator
 // new and, eventually, user-provided hook.
 __attribute__((noinline)) void allocate(int *unused1, int *unused2) {
-  x = reinterpret_cast<int *>(malloc(sizeof(int)));
+  x = new int;
 }
 
 int main() {
@@ -54,17 +52,9 @@ int main() {
   if (global_ptr != (void*)x) {
     _exit(1);
   }
-
-  // Check that realloc invokes hooks
-  // We realloc to 128 here to avoid potential oversizing by allocators
-  // making this a no-op.
-  x = reinterpret_cast<int *>(realloc((int *)x, sizeof(int) * 128));
-  // CHECK-DAG: FreeHook{{[[:space:]].*}}FH1{{[[:space:]].*}}FH2
-  // CHECK-DAG: MH1{{[[:space:]].*}}MH2
-
-  x[0] = 0;
-  x[127] = -1;
-  free((void *)x);
+  *x = 0;
+  delete x;
+  // CHECK: FreeHook
   // CHECK: FH1
   // CHECK: FH2
   return 0;

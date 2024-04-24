@@ -109,7 +109,7 @@ clang-tblgen Options
 
 .. option:: -gen-clang-attr-classes
 
-  Generate Clang attribute classes.
+  Generate Clang attribute clases.
 
 .. option:: -gen-clang-attr-parser-string-switches
 
@@ -348,14 +348,6 @@ clang-tblgen Options
 
   Generate ``riscv_vector_builtin_cg.inc`` for Clang.
 
-.. option:: -gen-riscv-sifive-vector-builtins
-
-  Generate ``riscv_sifive_vector_builtins.inc`` for Clang.
-
-.. option:: -gen-riscv-sifive-vector-builtin-codegen
-
-  Generate ``riscv_sifive_vector_builtin_cg.inc`` for Clang.
-
 .. option:: -gen-attr-docs
 
   Generate attribute documentation.
@@ -513,13 +505,19 @@ llvm-tblgen Options
 
   Make -gen-global-isel-combiner emit the specified combiners.
 
-.. option:: -gicombiner-debug-cxxpreds
+.. option:: -gicombiner-show-expansions
 
-  Add debug comments to all C++ predicates emitted by -gen-global-isel-combiner
+  Make -gen-global-isel-combiner use C++ comments to indicate occurrences
+  of code expansion.
+
+.. option:: -gicombiner-stop-after-build
+
+  Make -gen-global-isel-combiner stop processing after building the match tree.
 
 .. option:: -gicombiner-stop-after-parse
 
-  Make -gen-global-isel-combiner stop processing after parsing rules and dump state.
+  Make -gen-global-isel-combiner stop processing after parsing rules
+  and dump state.
 
 .. option:: -gen-instr-info
 

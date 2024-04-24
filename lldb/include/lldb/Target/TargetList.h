@@ -25,7 +25,7 @@ private:
   /// Constructor
   ///
   /// The constructor for the target list is private. Clients can
-  /// get ahold of the one and only target list through the
+  /// get ahold of of the one and only target list through the
   /// lldb_private::Debugger::GetSharedInstance().GetTargetList().
   ///
   /// \see static TargetList& lldb_private::Debugger::GetTargetList().
@@ -115,7 +115,7 @@ public:
   ///     in \a target_sp which can then be properly released.
   bool DeleteTarget(lldb::TargetSP &target_sp);
 
-  size_t GetNumTargets() const;
+  int GetNumTargets() const;
 
   lldb::TargetSP GetTargetAtIndex(uint32_t index) const;
 
@@ -184,12 +184,6 @@ public:
   void SetSelectedTarget(const lldb::TargetSP &target);
 
   lldb::TargetSP GetSelectedTarget();
-  
-  ///  Returns whether any module, including ones in the process of being
-  ///  added, contains this module.  I don't want to give direct access to
-  ///  these not yet added target, but for interruption purposes, we might
-  ///  need to ask whether this target contains this module. 
-  bool AnyTargetContainsModule(Module &module);
 
   TargetIterable Targets() {
     return TargetIterable(m_target_list, m_target_list_mutex);
@@ -197,7 +191,6 @@ public:
 
 private:
   collection m_target_list;
-  std::unordered_set<lldb::TargetSP> m_in_process_target_list;
   mutable std::recursive_mutex m_target_list_mutex;
   uint32_t m_selected_target_idx;
 
@@ -213,12 +206,6 @@ private:
                                      lldb::PlatformSP &platform_sp,
                                      lldb::TargetSP &target_sp);
 
-  void RegisterInProcessTarget(lldb::TargetSP target_sp);
-  
-  void UnregisterInProcessTarget(lldb::TargetSP target_sp);
-  
-  bool IsTargetInProcess(lldb::TargetSP target_sp);
-  
   void AddTargetInternal(lldb::TargetSP target_sp, bool do_select);
 
   void SetSelectedTargetInternal(uint32_t index);

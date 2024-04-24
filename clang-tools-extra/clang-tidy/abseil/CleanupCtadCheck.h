@@ -11,7 +11,9 @@
 
 #include "../utils/TransformerClangTidyCheck.h"
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 /// Suggests switching the initialization pattern of `absl::Cleanup`
 /// instances from the factory function to class template argument
@@ -28,6 +30,8 @@ public:
   }
 };
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ABSEIL_CLEANUPCTADCHECK_H

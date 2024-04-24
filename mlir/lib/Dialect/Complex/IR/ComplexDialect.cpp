@@ -6,30 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Conversion/ConvertToLLVM/ToLLVMInterface.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
 #include "mlir/Dialect/Complex/IR/ComplexOpsDialect.cpp.inc"
-
-namespace {
-/// This class defines the interface for handling inlining for complex
-/// dialect operations.
-struct ComplexInlinerInterface : public DialectInlinerInterface {
-  using DialectInlinerInterface::DialectInlinerInterface;
-  /// All complex dialect ops can be inlined.
-  bool isLegalToInline(Operation *, Region *, bool, IRMapping &) const final {
-    return true;
-  }
-};
-} // namespace
 
 void complex::ComplexDialect::initialize() {
   addOperations<
@@ -40,8 +26,6 @@ void complex::ComplexDialect::initialize() {
 #define GET_ATTRDEF_LIST
 #include "mlir/Dialect/Complex/IR/ComplexAttributes.cpp.inc"
       >();
-  declarePromisedInterface<ComplexDialect, ConvertToLLVMPatternInterface>();
-  addInterfaces<ComplexInlinerInterface>();
 }
 
 Operation *complex::ComplexDialect::materializeConstant(OpBuilder &builder,
@@ -50,9 +34,11 @@ Operation *complex::ComplexDialect::materializeConstant(OpBuilder &builder,
                                                         Location loc) {
   if (complex::ConstantOp::isBuildableWith(value, type)) {
     return builder.create<complex::ConstantOp>(loc, type,
-                                               llvm::cast<ArrayAttr>(value));
+                                               value.cast<ArrayAttr>());
   }
-  return arith::ConstantOp::materialize(builder, value, type, loc);
+  if (arith::ConstantOp::isBuildableWith(value, type))
+    return builder.create<arith::ConstantOp>(loc, type, value);
+  return nullptr;
 }
 
 #define GET_ATTRDEF_CLASSES
@@ -62,16 +48,16 @@ LogicalResult complex::NumberAttr::verify(
     ::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError,
     ::llvm::APFloat real, ::llvm::APFloat imag, ::mlir::Type type) {
 
-  if (!llvm::isa<ComplexType>(type))
+  if (!type.isa<ComplexType>())
     return emitError() << "complex attribute must be a complex type.";
 
-  Type elementType = llvm::cast<ComplexType>(type).getElementType();
-  if (!llvm::isa<FloatType>(elementType))
+  Type elementType = type.cast<ComplexType>().getElementType();
+  if (!elementType.isa<FloatType>())
     return emitError()
            << "element type of the complex attribute must be float like type.";
 
   const auto &typeFloatSemantics =
-      llvm::cast<FloatType>(elementType).getFloatSemantics();
+      elementType.cast<FloatType>().getFloatSemantics();
   if (&real.getSemantics() != &typeFloatSemantics)
     return emitError()
            << "type doesn't match the type implied by its `real` value";
@@ -83,7 +69,7 @@ LogicalResult complex::NumberAttr::verify(
 }
 
 void complex::NumberAttr::print(AsmPrinter &printer) const {
-  printer << "<:" << llvm::cast<ComplexType>(getType()).getElementType() << " "
+  printer << "<:" << getType().cast<ComplexType>().getElementType() << " "
           << getReal() << ", " << getImag() << ">";
 }
 

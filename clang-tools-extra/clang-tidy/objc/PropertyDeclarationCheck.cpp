@@ -18,7 +18,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 namespace {
 
@@ -52,7 +54,7 @@ FixItHint generateFixItHint(const ObjCPropertyDecl *Decl, NamingStyle Style) {
           llvm::StringRef(NewName));
     }
   }
-  return {};
+  return FixItHint();
 }
 
 std::string validPropertyNameRegex(bool UsedInMatcher) {
@@ -131,4 +133,6 @@ void PropertyDeclarationCheck::check(const MatchFinder::MatchResult &Result) {
       << generateFixItHint(MatchedDecl, StandardProperty);
 }
 
-} // namespace clang::tidy::objc
+}  // namespace objc
+}  // namespace tidy
+}  // namespace clang

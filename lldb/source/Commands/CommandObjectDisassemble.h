@@ -73,7 +73,7 @@ public:
   Options *GetOptions() override { return &m_options; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override;
+  bool DoExecute(Args &command, CommandReturnObject &result) override;
 
   llvm::Expected<std::vector<AddressRange>>
   GetRangesForSelectedMode(CommandReturnObject &result);

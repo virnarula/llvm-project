@@ -26,9 +26,9 @@ enum NodeType {
   /// Start the numbering where the builtin ops leave off.
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   /// Return from subroutine.
-  RET_GLUE,
+  RET_FLAG,
   /// Return from ISR.
-  RETI_GLUE,
+  RETI_FLAG,
   /// Represents an abstract call instruction,
   /// which includes a bunch of information.
   CALL,
@@ -39,17 +39,14 @@ enum NodeType {
   LSLBN,   ///< Byte logical shift left N bits.
   LSLWN,   ///< Word logical shift left N bits.
   LSLHI,   ///< Higher 8-bit of word logical shift left.
-  LSLW,    ///< Wide logical shift left.
   LSR,     ///< Logical shift right.
   LSRBN,   ///< Byte logical shift right N bits.
   LSRWN,   ///< Word logical shift right N bits.
   LSRLO,   ///< Lower 8-bit of word logical shift right.
-  LSRW,    ///< Wide logical shift right.
   ASR,     ///< Arithmetic shift right.
   ASRBN,   ///< Byte arithmetic shift right N bits.
   ASRWN,   ///< Word arithmetic shift right N bits.
   ASRLO,   ///< Lower 8-bit of word arithmetic shift right.
-  ASRW,    ///< Wide arithmetic shift right.
   ROR,     ///< Bit rotate right.
   ROL,     ///< Bit rotate left.
   LSLLOOP, ///< A loop of single logical shift left instructions.
@@ -133,10 +130,9 @@ public:
   getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                StringRef Constraint, MVT VT) const override;
 
-  InlineAsm::ConstraintCode
-  getInlineAsmMemConstraint(StringRef ConstraintCode) const override;
+  unsigned getInlineAsmMemConstraint(StringRef ConstraintCode) const override;
 
-  void LowerAsmOperandForConstraint(SDValue Op, StringRef Constraint,
+  void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
                                     std::vector<SDValue> &Ops,
                                     SelectionDAG &DAG) const override;
 
@@ -146,12 +142,6 @@ public:
   bool shouldSplitFunctionArgumentsAsLittleEndian(
       const DataLayout &DL) const override {
     return false;
-  }
-
-  ShiftLegalizationStrategy
-  preferredShiftLegalizationStrategy(SelectionDAG &DAG, SDNode *N,
-                                     unsigned ExpansionFactor) const override {
-    return ShiftLegalizationStrategy::LowerToLibcall;
   }
 
 private:
@@ -185,7 +175,7 @@ private:
                                SmallVectorImpl<SDValue> &InVals) const override;
   SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
-  SDValue LowerCallResult(SDValue Chain, SDValue InGlue,
+  SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
                           CallingConv::ID CallConv, bool isVarArg,
                           const SmallVectorImpl<ISD::InputArg> &Ins,
                           const SDLoc &dl, SelectionDAG &DAG,
@@ -195,13 +185,10 @@ protected:
   const AVRSubtarget &Subtarget;
 
 private:
-  MachineBasicBlock *insertShift(MachineInstr &MI, MachineBasicBlock *BB,
-                                 bool Tiny) const;
-  MachineBasicBlock *insertWideShift(MachineInstr &MI,
-                                     MachineBasicBlock *BB) const;
+  MachineBasicBlock *insertShift(MachineInstr &MI, MachineBasicBlock *BB) const;
   MachineBasicBlock *insertMul(MachineInstr &MI, MachineBasicBlock *BB) const;
-  MachineBasicBlock *insertCopyZero(MachineInstr &MI,
-                                    MachineBasicBlock *BB) const;
+  MachineBasicBlock *insertCopyR1(MachineInstr &MI,
+                                  MachineBasicBlock *BB) const;
   MachineBasicBlock *insertAtomicArithmeticOp(MachineInstr &MI,
                                               MachineBasicBlock *BB,
                                               unsigned Opcode, int Width) const;

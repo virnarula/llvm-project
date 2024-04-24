@@ -13,7 +13,9 @@
 #include "../ClangTidyCheck.h"
 #include "llvm/Support/Regex.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// Warns about identifiers names whose length is too short.
 ///
@@ -45,6 +47,8 @@ private:
   llvm::Regex IgnoredParameterNames;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_IDENTIFIERLENGTHCHECK_H

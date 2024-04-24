@@ -14,11 +14,10 @@
 #include "src/spawn/file_actions.h"
 
 #include <fcntl.h>
-#include <signal.h> // For SIGCHLD
 #include <spawn.h>
 #include <sys/syscall.h> // For syscall numbers.
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 namespace {
 
@@ -27,20 +26,19 @@ pid_t fork() {
   // to avoid duplicating the complete stack from the parent. A new stack will
   // be created on exec anyway so duplicating the full stack is unnecessary.
 #ifdef SYS_fork
-  return LIBC_NAMESPACE::syscall_impl<pid_t>(SYS_fork);
+  return __llvm_libc::syscall_impl(SYS_fork);
 #elif defined(SYS_clone)
-  return LIBC_NAMESPACE::syscall_impl<pid_t>(SYS_clone, SIGCHLD, 0);
+  return __llvm_libc::syscall_impl(SYS_clone, SIGCHLD, 0);
 #else
-#error "fork or clone syscalls not available."
+#error "SYS_fork or SYS_clone not available."
 #endif
 }
 
 cpp::optional<int> open(const char *path, int oflags, mode_t mode) {
 #ifdef SYS_open
-  int fd = LIBC_NAMESPACE::syscall_impl<int>(SYS_open, path, oflags, mode);
+  int fd = __llvm_libc::syscall_impl(SYS_open, path, oflags, mode);
 #else
-  int fd = LIBC_NAMESPACE::syscall_impl<int>(SYS_openat, AT_FDCWD, path, oflags,
-                                             mode);
+  int fd = __llvm_libc::syscall_impl(SYS_openat, AT_FDCWD, path, oflags, mode);
 #endif
   if (fd > 0)
     return fd;
@@ -50,17 +48,10 @@ cpp::optional<int> open(const char *path, int oflags, mode_t mode) {
   return cpp::nullopt;
 }
 
-void close(int fd) { LIBC_NAMESPACE::syscall_impl<long>(SYS_close, fd); }
+void close(int fd) { __llvm_libc::syscall_impl(SYS_close, fd); }
 
-// We use dup3 if dup2 is not available, similar to our implementation of dup2
 bool dup2(int fd, int newfd) {
-#ifdef SYS_dup2
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(SYS_dup2, fd, newfd);
-#elif defined(SYS_dup3)
-  int ret = LIBC_NAMESPACE::syscall_impl<int>(SYS_dup3, fd, newfd, 0);
-#else
-#error "dup2 and dup3 syscalls not available."
-#endif
+  long ret = __llvm_libc::syscall_impl(SYS_dup2, fd, newfd);
   return ret < 0 ? false : true;
 }
 
@@ -68,8 +59,8 @@ bool dup2(int fd, int newfd) {
 // exit implementation which exits with code 127.
 void exit() {
   for (;;) {
-    LIBC_NAMESPACE::syscall_impl<long>(SYS_exit_group, 127);
-    LIBC_NAMESPACE::syscall_impl<long>(SYS_exit, 127);
+    __llvm_libc::syscall_impl(SYS_exit_group, 127);
+    __llvm_libc::syscall_impl(SYS_exit, 127);
   }
 }
 
@@ -117,7 +108,7 @@ void child_process(const char *__restrict path,
     }
   }
 
-  if (LIBC_NAMESPACE::syscall_impl<long>(SYS_execve, path, argv, envp) < 0)
+  if (__llvm_libc::syscall_impl(SYS_execve, path, argv, envp) < 0)
     exit();
 }
 
@@ -145,4 +136,4 @@ LLVM_LIBC_FUNCTION(int, posix_spawn,
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

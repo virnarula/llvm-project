@@ -28,8 +28,7 @@ namespace {
 class DebugContainerModeling
   : public Checker<eval::Call> {
 
-  const BugType DebugMsgBugType{this, "Checking analyzer assumptions", "debug",
-                                /*SuppressOnSink=*/true};
+  std::unique_ptr<BugType> DebugMsgBugType;
 
   template <typename Getter>
   void analyzerContainerDataField(const CallExpr *CE, CheckerContext &C,
@@ -42,17 +41,25 @@ class DebugContainerModeling
                                                  CheckerContext &) const;
 
   CallDescriptionMap<FnCheck> Callbacks = {
-      {{{"clang_analyzer_container_begin"}, 1},
+      {{"clang_analyzer_container_begin", 1},
        &DebugContainerModeling::analyzerContainerBegin},
-      {{{"clang_analyzer_container_end"}, 1},
+      {{"clang_analyzer_container_end", 1},
        &DebugContainerModeling::analyzerContainerEnd},
   };
 
 public:
+  DebugContainerModeling();
+
   bool evalCall(const CallEvent &Call, CheckerContext &C) const;
 };
 
 } //namespace
+
+DebugContainerModeling::DebugContainerModeling() {
+  DebugMsgBugType.reset(
+      new BugType(this, "Checking analyzer assumptions", "debug",
+                  /*SuppressOnSink=*/true));
+}
 
 bool DebugContainerModeling::evalCall(const CallEvent &Call,
                                       CheckerContext &C) const {
@@ -130,8 +137,8 @@ ExplodedNode *DebugContainerModeling::reportDebugMsg(llvm::StringRef Msg,
     return nullptr;
 
   auto &BR = C.getBugReporter();
-  BR.emitReport(
-      std::make_unique<PathSensitiveBugReport>(DebugMsgBugType, Msg, N));
+  BR.emitReport(std::make_unique<PathSensitiveBugReport>(*DebugMsgBugType,
+                                                         Msg, N));
   return N;
 }
 

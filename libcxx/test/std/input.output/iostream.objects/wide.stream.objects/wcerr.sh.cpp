@@ -8,14 +8,14 @@
 
 // <iostream>
 
-// wostream wcerr;
+// istream wcerr;
 
-// UNSUPPORTED: no-wide-characters
+// XFAIL: no-wide-characters
 
+// UNSUPPORTED: executor-has-no-bash
+// FILE_DEPENDENCIES: ../check-stderr.sh
 // RUN: %{build}
-// RUN: %{exec} %t.exe 2> %t.actual
-// RUN: echo -n 1234 > %t.expected
-// RUN: diff %t.expected %t.actual
+// RUN: %{exec} bash check-stderr.sh "%t.exe" "1234"
 
 #include <iostream>
 #include <cassert>

@@ -1,6 +1,3 @@
-#ifndef __TSAN_JAVA_H__
-#define __TSAN_JAVA_H__
-
 #include "test.h"
 
 extern "C" {
@@ -30,5 +27,3 @@ void __tsan_func_exit();
 }
 
 const jptr kExternalPCBit = 1ULL << 60;
-
-#endif // __TSAN_JAVA_H__

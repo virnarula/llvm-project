@@ -16,9 +16,9 @@
 namespace llvm {
 namespace orc {
 
-Expected<std::unique_ptr<EPCDebugObjectRegistrar>> createJITLoaderGDBRegistrar(
-    ExecutionSession &ES,
-    std::optional<ExecutorAddr> RegistrationFunctionDylib) {
+Expected<std::unique_ptr<EPCDebugObjectRegistrar>>
+createJITLoaderGDBRegistrar(ExecutionSession &ES,
+                            Optional<ExecutorAddr> RegistrationFunctionDylib) {
   auto &EPC = ES.getExecutorProcessControl();
 
   if (!RegistrationFunctionDylib) {
@@ -45,14 +45,14 @@ Expected<std::unique_ptr<EPCDebugObjectRegistrar>> createJITLoaderGDBRegistrar(
   assert((*Result)[0].size() == 1 &&
          "Unexpected number of addresses in result");
 
-  ExecutorAddr RegisterAddr = (*Result)[0][0].getAddress();
-  return std::make_unique<EPCDebugObjectRegistrar>(ES, RegisterAddr);
+  return std::make_unique<EPCDebugObjectRegistrar>(
+      ES, ExecutorAddr((*Result)[0][0]));
 }
 
-Error EPCDebugObjectRegistrar::registerDebugObject(ExecutorAddrRange TargetMem,
-                                                   bool AutoRegisterCode) {
-  return ES.callSPSWrapper<void(shared::SPSExecutorAddrRange, bool)>(
-      RegisterFn, TargetMem, AutoRegisterCode);
+Error EPCDebugObjectRegistrar::registerDebugObject(
+    ExecutorAddrRange TargetMem) {
+  return ES.callSPSWrapper<void(shared::SPSExecutorAddrRange)>(RegisterFn,
+                                                               TargetMem);
 }
 
 } // namespace orc

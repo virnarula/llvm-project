@@ -60,7 +60,6 @@ enum UnwindOpcodes {
   UOP_SaveNext,
   UOP_TrapFrame,
   UOP_Context,
-  UOP_ECContext,
   UOP_ClearUnwoundToCall,
   UOP_PACSignLR,
   UOP_SaveAnyRegI,

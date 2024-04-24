@@ -30,14 +30,15 @@ public:
   /// Lifetime management
   virtual void reset() {}
 
-  /// Append the prefixes of given instruction to the code buffer.
+  /// Emit the prefixes of given instruction on the output stream.
   ///
   /// \param Inst a single low-level machine instruction.
-  /// \param CB code buffer
-  virtual void emitPrefix(const MCInst &Inst, SmallVectorImpl<char> &CB,
+  /// \param OS output stream.
+  virtual void emitPrefix(const MCInst &Inst, raw_ostream &OS,
                           const MCSubtargetInfo &STI) const {}
-  /// Encode the given \p Inst to bytes and append to \p CB.
-  virtual void encodeInstruction(const MCInst &Inst, SmallVectorImpl<char> &CB,
+  /// EncodeInstruction - Encode the given \p Inst to bytes on the output
+  /// stream \p OS.
+  virtual void encodeInstruction(const MCInst &Inst, raw_ostream &OS,
                                  SmallVectorImpl<MCFixup> &Fixups,
                                  const MCSubtargetInfo &STI) const = 0;
 };

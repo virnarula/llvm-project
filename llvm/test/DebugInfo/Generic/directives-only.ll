@@ -1,4 +1,4 @@
-; XFAIL: target={{.*}}-aix{{.*}}
+; XFAIL: -aix
 ; RUN: llc -filetype=asm -asm-verbose=0 -O0 < %s | FileCheck %s
 
 ; Generated with clang from multiline.c:
@@ -10,6 +10,7 @@
 
 
 ; CHECK: .file 1 "/tmp/dbginfo{{.*}}multiline.c"
+; CHECK: .loc 1 2 0
 ; CHECK: .loc 1 3 3
 ; CHECK: .loc 1 3 9
 ; CHECK: .loc 1 3 15

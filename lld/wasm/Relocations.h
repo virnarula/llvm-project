@@ -9,12 +9,14 @@
 #ifndef LLD_WASM_RELOCATIONS_H
 #define LLD_WASM_RELOCATIONS_H
 
-namespace lld::wasm {
+namespace lld {
+namespace wasm {
 
 class InputChunk;
 
 void scanRelocations(InputChunk *chunk);
 
-} // namespace lld::wasm
+} // namespace wasm
+} // namespace lld
 
 #endif

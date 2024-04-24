@@ -14,9 +14,6 @@
 
 name: Issue Release Workflow
 
-permissions:
-  contents: read
-
 on:
   issue_comment:
     types:
@@ -32,14 +29,14 @@ env:
 jobs:
   backport-commits:
     name: Backport Commits
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: >-
       (github.repository == 'llvm/llvm-project') &&
       !startswith(github.event.comment.body, '<!--IGNORE-->') &&
       contains(github.event.action == 'opened' && github.event.issue.body || github.event.comment.body, '/cherry-pick')
     steps:
       - name: Fetch LLVM sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
         with:
           repository: llvm/llvm-project
           # GitHub stores the token used for checkout and uses it for pushes
@@ -55,9 +52,9 @@ jobs:
 
       - name: Backport Commits
         run: |
-          printf "%s" "$COMMENT_BODY" |
+          printf "$COMMENT_BODY" |
           ./llvm/utils/git/github-automation.py \
-          --repo "$GITHUB_REPOSITORY" \
+          --repo $GITHUB_REPOSITORY \
           --token ${{ secrets.RELEASE_WORKFLOW_PUSH_SECRET }} \
           release-workflow \
           --issue-number ${{ github.event.issue.number }} \
@@ -66,15 +63,15 @@ jobs:
 
   create-pull-request:
     name: Create Pull Request
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: >-
       (github.repository == 'llvm/llvm-project') &&
       !startswith(github.event.comment.body, '<!--IGNORE-->') &&
-      contains(github.event.comment.body, '/branch ')
+      contains(github.event.comment.body, '/branch')
 
     steps:
       - name: Fetch LLVM sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
         with:
           persist-credentials: false
 
@@ -84,9 +81,9 @@ jobs:
 
       - name: Create Pull Request
         run: |
-          printf "%s" "$COMMENT_BODY" |
+          printf "$COMMENT_BODY" |
           ./llvm/utils/git/github-automation.py \
-          --repo "$GITHUB_REPOSITORY" \
+          --repo $GITHUB_REPOSITORY \
           --token ${{ secrets.RELEASE_WORKFLOW_PUSH_SECRET }} \
           release-workflow \
           --issue-number ${{ github.event.issue.number }} \

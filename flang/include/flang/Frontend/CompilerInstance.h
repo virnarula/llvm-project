@@ -21,7 +21,6 @@
 #include "flang/Semantics/runtime-type-info.h"
 #include "flang/Semantics/semantics.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
 
 namespace Fortran::frontend {
 
@@ -55,10 +54,6 @@ class CompilerInstance {
   std::unique_ptr<Fortran::semantics::Semantics> semantics;
 
   std::unique_ptr<Fortran::semantics::RuntimeDerivedTypeTables> rtTyTables;
-
-  std::unique_ptr<Fortran::semantics::SemanticsContext> semaContext;
-
-  std::unique_ptr<llvm::TargetMachine> targetMachine;
 
   /// The stream for diagnostics from Semantics
   llvm::raw_ostream *semaOutputStream = &llvm::errs();
@@ -125,13 +120,6 @@ public:
   /// }
   /// @name Semantic analysis
   /// {
-
-  Fortran::semantics::SemanticsContext &getSemanticsContext() {
-    return *semaContext;
-  }
-  const Fortran::semantics::SemanticsContext &getSemanticsContext() const {
-    return *semaContext;
-  }
 
   /// Replace the current stream for verbose output.
   void setSemaOutputStream(llvm::raw_ostream &value);
@@ -233,26 +221,6 @@ public:
   std::unique_ptr<llvm::raw_pwrite_stream>
   createDefaultOutputFile(bool binary = true, llvm::StringRef baseInput = "",
                           llvm::StringRef extension = "");
-
-  /// {
-  /// @name Target Machine
-  /// {
-
-  /// Get the target machine.
-  const llvm::TargetMachine &getTargetMachine() const {
-    assert(targetMachine && "target machine was not set");
-    return *targetMachine;
-  }
-  llvm::TargetMachine &getTargetMachine() {
-    assert(targetMachine && "target machine was not set");
-    return *targetMachine;
-  }
-
-  /// Sets up LLVM's TargetMachine.
-  bool setUpTargetMachine();
-
-  /// Produces the string which represents target feature
-  std::string getTargetFeatures();
 
 private:
   /// Create a new output file

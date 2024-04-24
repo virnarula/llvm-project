@@ -12,26 +12,26 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Serialization/ASTReader.h"
-#include <optional>
 
 #define DEBUG_TYPE "clang-tidy"
 
-namespace clang::tooling {
+namespace clang {
+namespace tooling {
 
 class ExpandModularHeadersPPCallbacks::FileRecorder {
 public:
   /// Records that a given file entry is needed for replaying callbacks.
-  void addNecessaryFile(FileEntryRef File) {
+  void addNecessaryFile(const FileEntry *File) {
     // Don't record modulemap files because it breaks same file detection.
-    if (!(File.getName().ends_with("module.modulemap") ||
-          File.getName().ends_with("module.private.modulemap") ||
-          File.getName().ends_with("module.map") ||
-          File.getName().ends_with("module_private.map")))
+    if (!(File->getName().endswith("module.modulemap") ||
+          File->getName().endswith("module.private.modulemap") ||
+          File->getName().endswith("module.map") ||
+          File->getName().endswith("module_private.map")))
       FilesToRecord.insert(File);
   }
 
   /// Records content for a file and adds it to the FileSystem.
-  void recordFileContent(FileEntryRef File,
+  void recordFileContent(const FileEntry *File,
                          const SrcMgr::ContentCache &ContentCache,
                          llvm::vfs::InMemoryFileSystem &InMemoryFs) {
     // Return if we are not interested in the contents of this file.
@@ -39,11 +39,11 @@ public:
       return;
 
     // FIXME: Why is this happening? We might be losing contents here.
-    std::optional<StringRef> Data = ContentCache.getBufferDataIfLoaded();
+    llvm::Optional<StringRef> Data = ContentCache.getBufferDataIfLoaded();
     if (!Data)
       return;
 
-    InMemoryFs.addFile(File.getName(), /*ModificationTime=*/0,
+    InMemoryFs.addFile(File->getName(), /*ModificationTime=*/0,
                        llvm::MemoryBuffer::getMemBufferCopy(*Data));
     // Remove the file from the set of necessary files.
     FilesToRecord.erase(File);
@@ -55,13 +55,13 @@ public:
     LLVM_DEBUG({
       for (auto FileEntry : FilesToRecord)
         llvm::dbgs() << "Did not record contents for input file: "
-                     << FileEntry.getName() << "\n";
+                     << FileEntry->getName() << "\n";
     });
   }
 
 private:
   /// A set of files whose contents are to be recorded.
-  llvm::DenseSet<FileEntryRef> FilesToRecord;
+  llvm::DenseSet<const FileEntry *> FilesToRecord;
 };
 
 ExpandModularHeadersPPCallbacks::ExpandModularHeadersPPCallbacks(
@@ -79,9 +79,6 @@ ExpandModularHeadersPPCallbacks::ExpandModularHeadersPPCallbacks(
   OverlayFS->pushOverlay(InMemoryFs);
 
   Diags.setSourceManager(&Sources);
-  // FIXME: Investigate whatever is there better way to initialize DiagEngine
-  // or whatever DiagEngine can be shared by multiple preprocessors
-  ProcessWarningOptions(Diags, Compiler.getDiagnosticOpts());
 
   LangOpts.Modules = false;
 
@@ -100,7 +97,7 @@ ExpandModularHeadersPPCallbacks::ExpandModularHeadersPPCallbacks(
                                               /*OwnsHeaderSearch=*/false);
   PP->Initialize(Compiler.getTarget(), Compiler.getAuxTarget());
   InitializePreprocessor(*PP, *PO, Compiler.getPCHContainerReader(),
-                         Compiler.getFrontendOpts(), Compiler.getCodeGenOpts());
+                         Compiler.getFrontendOpts());
   ApplyHeaderSearchOptions(*HeaderInfo, *HSO, LangOpts,
                            Compiler.getTarget().getTriple());
 }
@@ -125,7 +122,7 @@ void ExpandModularHeadersPPCallbacks::handleModuleFile(
   Compiler.getASTReader()->visitInputFiles(
       *MF, true, false,
       [this](const serialization::InputFile &IF, bool /*IsSystem*/) {
-        Recorder->addNecessaryFile(*IF.getFile());
+        Recorder->addNecessaryFile(IF.getFile());
       });
   // Recursively handle all transitively imported modules.
   for (auto *Import : MF->Imports)
@@ -165,13 +162,13 @@ void ExpandModularHeadersPPCallbacks::FileChanged(
 void ExpandModularHeadersPPCallbacks::InclusionDirective(
     SourceLocation DirectiveLoc, const Token &IncludeToken,
     StringRef IncludedFilename, bool IsAngled, CharSourceRange FilenameRange,
-    OptionalFileEntryRef IncludedFile, StringRef SearchPath,
+    Optional<FileEntryRef> IncludedFile, StringRef SearchPath,
     StringRef RelativePath, const Module *Imported,
     SrcMgr::CharacteristicKind FileType) {
   if (Imported) {
     serialization::ModuleFile *MF =
         Compiler.getASTReader()->getModuleManager().lookup(
-            *Imported->getASTFile());
+            Imported->getASTFile());
     handleModuleFile(MF);
   }
   parseToLocation(DirectiveLoc);
@@ -227,7 +224,7 @@ void ExpandModularHeadersPPCallbacks::PragmaDiagnostic(SourceLocation Loc,
   parseToLocation(Loc);
 }
 void ExpandModularHeadersPPCallbacks::HasInclude(SourceLocation Loc, StringRef,
-                                                 bool, OptionalFileEntryRef,
+                                                 bool, Optional<FileEntryRef>,
                                                  SrcMgr::CharacteristicKind) {
   parseToLocation(Loc);
 }
@@ -308,4 +305,5 @@ void ExpandModularHeadersPPCallbacks::Endif(SourceLocation Loc,
   parseToLocation(Loc);
 }
 
-} // namespace clang::tooling
+} // namespace tooling
+} // namespace clang

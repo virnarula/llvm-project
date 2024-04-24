@@ -6,18 +6,18 @@
 @1 = private global i32 0
 ; CHECK-DAG: @1 = private global i32 0
 
-define ptr @2() {
-	ret ptr @0
+define i32* @2() {
+	ret i32* @0
 }
-; CHECK-DAG: define internal fastcc ptr @2()
+; CHECK-DAG: define internal fastcc i32* @2()
 
-define ptr @f() {
+define i32* @f() {
 entry:
-	call ptr @2()
-	ret ptr %0
+	call i32* @2()
+	ret i32* %0
 }
 
-define ptr @g() {
+define i32* @g() {
 entry:
-	ret ptr @1
+	ret i32* @1
 }

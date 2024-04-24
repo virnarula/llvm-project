@@ -23,7 +23,7 @@ define void @ifThen_ptrtoint() {
   br i1 true, label %a, label %b
 
 a:
-  %x = ptrtoint ptr undef to i64
+  %x = ptrtoint i32* undef to i64
   br label %b
 
 b:
@@ -37,7 +37,7 @@ define void @ifThen_inttoptr() {
   br i1 true, label %a, label %b
 
 a:
-  %x = inttoptr i64 undef to ptr
+  %x = inttoptr i64 undef to i32*
   br label %b
 
 b:
@@ -50,7 +50,7 @@ b:
 define void @ifThen_addrspacecast() {
   br i1 true, label %a, label %b
 a:
-  %x = addrspacecast ptr undef to ptr addrspace(1)
+  %x = addrspacecast i32* undef to i32 addrspace(1)*
   br label %b
 
 b:

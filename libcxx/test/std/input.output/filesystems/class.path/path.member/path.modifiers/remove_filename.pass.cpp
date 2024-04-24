@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -15,13 +14,14 @@
 
 // path& remove_filename()
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
+#include "test_macros.h"
 #include "test_iterators.h"
 #include "count_new.h"
-namespace fs = std::filesystem;
+#include "filesystem_test_helper.h"
 
 struct RemoveFilenameTestcase {
   const char* value;

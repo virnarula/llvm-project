@@ -76,7 +76,7 @@ int test6(void) {
 
 int test7(void) {
   // CHECK-LABEL: test7
-  // CHECK: ret i32 1
+  // CHECK: call i1 @llvm.is.constant.i32
   return __builtin_constant_p(c_arr[2]);
 }
 

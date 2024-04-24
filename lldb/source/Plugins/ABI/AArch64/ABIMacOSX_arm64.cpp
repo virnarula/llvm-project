@@ -8,11 +8,10 @@
 
 #include "ABIMacOSX_arm64.h"
 
-#include <optional>
 #include <vector>
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/TargetParser/Triple.h"
+#include "llvm/ADT/Triple.h"
 
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
@@ -142,7 +141,7 @@ bool ABIMacOSX_arm64::GetArgumentValues(Thread &thread,
       return false;
 
     CompilerType value_type = value->GetCompilerType();
-    std::optional<uint64_t> bit_size = value_type.GetBitSize(&thread);
+    llvm::Optional<uint64_t> bit_size = value_type.GetBitSize(&thread);
     if (!bit_size)
       return false;
 
@@ -303,17 +302,26 @@ ABIMacOSX_arm64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
 
           if (v0_info) {
             if (byte_size <= 16) {
-              RegisterValue reg_value;
-              error = reg_value.SetValueFromData(*v0_info, data, 0, true);
-              if (error.Success())
-                if (!reg_ctx->WriteRegister(v0_info, reg_value))
-                  error.SetErrorString("failed to write register v0");
+              if (byte_size <= RegisterValue::GetMaxByteSize()) {
+                RegisterValue reg_value;
+                error = reg_value.SetValueFromData(*v0_info, data, 0, true);
+                if (error.Success()) {
+                  if (!reg_ctx->WriteRegister(v0_info, reg_value))
+                    error.SetErrorString("failed to write register v0");
+                }
+              } else {
+                error.SetErrorStringWithFormat(
+                    "returning float values with a byte size of %" PRIu64
+                    " are not supported",
+                    byte_size);
+              }
             } else {
               error.SetErrorString("returning float values longer than 128 "
                                    "bits are not supported");
             }
-          } else
+          } else {
             error.SetErrorString("v0 register is not available on this target");
+          }
         }
       }
     } else if (type_flags & eTypeIsVector) {
@@ -486,7 +494,7 @@ static bool LoadValueFromConsecutiveGPRRegisters(
     uint32_t &NGRN,       // NGRN (see ABI documentation)
     uint32_t &NSRN,       // NSRN (see ABI documentation)
     DataExtractor &data) {
-  std::optional<uint64_t> byte_size =
+  llvm::Optional<uint64_t> byte_size =
       value_type.GetByteSize(exe_ctx.GetBestExecutionContextScope());
   if (!byte_size || *byte_size == 0)
     return false;
@@ -504,7 +512,7 @@ static bool LoadValueFromConsecutiveGPRRegisters(
     if (NSRN < 8 && (8 - NSRN) >= homogeneous_count) {
       if (!base_type)
         return false;
-      std::optional<uint64_t> base_byte_size =
+      llvm::Optional<uint64_t> base_byte_size =
           base_type.GetByteSize(exe_ctx.GetBestExecutionContextScope());
       if (!base_byte_size)
         return false;
@@ -639,7 +647,8 @@ ValueObjectSP ABIMacOSX_arm64::GetReturnValueObjectImpl(
   if (!reg_ctx)
     return return_valobj_sp;
 
-  std::optional<uint64_t> byte_size = return_compiler_type.GetByteSize(&thread);
+  llvm::Optional<uint64_t> byte_size =
+      return_compiler_type.GetByteSize(&thread);
   if (!byte_size)
     return return_valobj_sp;
 
@@ -805,41 +814,18 @@ ValueObjectSP ABIMacOSX_arm64::GetReturnValueObjectImpl(
   return return_valobj_sp;
 }
 
-addr_t ABIMacOSX_arm64::FixCodeAddress(addr_t pc) {
-  addr_t pac_sign_extension = 0x0080000000000000ULL;
-  addr_t tbi_mask = 0xff80000000000000ULL;
-  addr_t mask = 0;
-
-  if (ProcessSP process_sp = GetProcessSP()) {
-    mask = process_sp->GetCodeAddressMask();
-    if (pc & pac_sign_extension) {
-      addr_t highmem_mask = process_sp->GetHighmemCodeAddressMask();
-      if (highmem_mask)
-        mask = highmem_mask;
-    }
+lldb::addr_t ABIMacOSX_arm64::FixAddress(addr_t pc, addr_t mask) {
+  lldb::addr_t pac_sign_extension = 0x0080000000000000ULL;
+  // Darwin systems originally couldn't determine the proper value
+  // dynamically, so the most common value was hardcoded.  This has
+  // largely been cleaned up, but there are still a handful of
+  // environments that assume the default value is set to this value
+  // and there's no dynamic value to correct it.
+  // When no mask is specified, set it to 39 bits of addressing (0..38).
+  if (mask == 0) {
+    // ~((1ULL<<39)-1)
+    mask = 0xffffff8000000000;
   }
-  if (mask == 0)
-    mask = tbi_mask;
-
-  return (pc & pac_sign_extension) ? pc | mask : pc & (~mask);
-}
-
-addr_t ABIMacOSX_arm64::FixDataAddress(addr_t pc) {
-  addr_t pac_sign_extension = 0x0080000000000000ULL;
-  addr_t tbi_mask = 0xff80000000000000ULL;
-  addr_t mask = 0;
-
-  if (ProcessSP process_sp = GetProcessSP()) {
-    mask = process_sp->GetDataAddressMask();
-    if (pc & pac_sign_extension) {
-      addr_t highmem_mask = process_sp->GetHighmemDataAddressMask();
-      if (highmem_mask)
-        mask = highmem_mask;
-    }
-  }
-  if (mask == 0)
-    mask = tbi_mask;
-
   return (pc & pac_sign_extension) ? pc | mask : pc & (~mask);
 }
 

@@ -80,7 +80,7 @@ public:
         error.SetErrorString("No data to describe.");
         return error;
       }
-      m_data_sp->GetDescription(stream);
+      m_data_sp->Dump(stream, true);
       return error;
     }
     // Get the data's description.
@@ -129,13 +129,7 @@ public:
   }
 
   uint64_t GetIntegerValue(uint64_t fail_value = 0) const {
-    return (m_data_sp ? m_data_sp->GetUnsignedIntegerValue(fail_value)
-                      : fail_value);
-  }
-
-  int64_t GetIntegerValue(int64_t fail_value = 0) const {
-    return (m_data_sp ? m_data_sp->GetSignedIntegerValue(fail_value)
-                      : fail_value);
+    return (m_data_sp ? m_data_sp->GetIntegerValue(fail_value) : fail_value);
   }
 
   double GetFloatValue(double fail_value = 0.0) const {
@@ -159,17 +153,6 @@ public:
       return (::snprintf(s, 1, "%s", result.data()));
     }
     return (::snprintf(dst, dst_len, "%s", result.data()));
-  }
-
-  void *GetGenericValue() const {
-    if (!m_data_sp)
-      return nullptr;
-
-    StructuredData::Generic *generic_data = m_data_sp->GetAsGeneric();
-    if (!generic_data)
-      return nullptr;
-
-    return generic_data->GetValue();
   }
 
   StructuredData::ObjectSP GetObjectSP() const { return m_data_sp; }

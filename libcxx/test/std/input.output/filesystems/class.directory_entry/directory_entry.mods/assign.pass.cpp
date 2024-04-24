@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -17,15 +17,17 @@
 // void assign(path const&);
 // void replace_filename(path const&);
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
 
-static void test_path_assign_method() {
+TEST_SUITE(directory_entry_mods_suite)
+
+TEST_CASE(test_path_assign_method) {
   using namespace fs;
   const path p("foo/bar/baz");
   const path p2("abc");
@@ -37,15 +39,15 @@ static void test_path_assign_method() {
                   "operation must not be noexcept");
   }
   {
-    assert(e.path() == p);
+    TEST_CHECK(e.path() == p);
     e.assign(p2);
-    assert(e.path() == p2 && e.path() != p);
+    TEST_CHECK(e.path() == p2 && e.path() != p);
     e.assign(p);
-    assert(e.path() == p && e.path() != p2);
+    TEST_CHECK(e.path() == p && e.path() != p2);
   }
 }
 
-static void test_path_assign_ec_method() {
+TEST_CASE(test_path_assign_ec_method) {
   using namespace fs;
   const path p("foo/bar/baz");
   const path p2("abc");
@@ -61,12 +63,12 @@ static void test_path_assign_ec_method() {
     directory_entry ent(p);
     std::error_code ec = GetTestEC();
     ent.assign(p2, ec);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
-    assert(ent.path() == p2);
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(ent.path() == p2);
   }
 }
 
-static void test_assign_calls_refresh() {
+TEST_CASE(test_assign_calls_refresh) {
   using namespace fs;
   scoped_test_env env;
   const path dir = env.create_dir("dir");
@@ -80,7 +82,7 @@ static void test_assign_calls_refresh() {
     // removing the file demonstrates that the values where cached previously.
     LIBCPP_ONLY(remove(file));
 
-    assert(ent.is_regular_file());
+    TEST_CHECK(ent.is_regular_file());
   }
   env.create_file("dir/file", 101);
   {
@@ -90,12 +92,12 @@ static void test_assign_calls_refresh() {
     LIBCPP_ONLY(remove(file));
     LIBCPP_ONLY(remove(sym));
 
-    assert(ent.is_symlink());
-    assert(ent.is_regular_file());
+    TEST_CHECK(ent.is_symlink());
+    TEST_CHECK(ent.is_regular_file());
   }
 }
 
-static void test_assign_propagates_error() {
+TEST_CASE(test_assign_propagates_error) {
   using namespace fs;
   scoped_test_env env;
 #ifdef _WIN32
@@ -104,7 +106,7 @@ static void test_assign_propagates_error() {
   // instead.
   const path dir = GetWindowsInaccessibleDir();
   if (dir.empty())
-    return;
+    TEST_UNSUPPORTED();
   const path file = dir / "inaccessible_file";
   // We can't create files in the inaccessible directory, so this doesn't
   // test exactly the same as the code below.
@@ -113,7 +115,7 @@ static void test_assign_propagates_error() {
     directory_entry ent;
     std::error_code ec = GetTestEC();
     ent.assign(file, ec);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
   }
 #else
   const path dir = env.create_dir("dir");
@@ -128,28 +130,21 @@ static void test_assign_propagates_error() {
     directory_entry ent;
     std::error_code ec = GetTestEC();
     ent.assign(file, ec);
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
   }
   {
     directory_entry ent;
     std::error_code ec = GetTestEC();
     ent.assign(sym_in_dir, ec);
-    assert(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
   }
 #endif
   {
     directory_entry ent;
     std::error_code ec = GetTestEC();
     ent.assign(sym_out_of_dir, ec);
-    assert(!ec);
+    TEST_CHECK(!ec);
   }
 }
 
-int main(int, char**) {
-  test_path_assign_method();
-  test_path_assign_ec_method();
-  test_assign_calls_refresh();
-  test_assign_propagates_error();
-
-  return 0;
-}
+TEST_SUITE_END()

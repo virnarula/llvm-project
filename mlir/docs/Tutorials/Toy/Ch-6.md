@@ -171,7 +171,7 @@ llvm.func @main() {
 }
 ```
 
-See [LLVM IR Target](../../TargetLLVMIR.md) for
+See [Conversion to the LLVM IR Dialect](../../ConversionToLLVMDialect.md) for
 more in-depth details on lowering to the LLVM dialect.
 
 ## CodeGen: Getting Out of MLIR

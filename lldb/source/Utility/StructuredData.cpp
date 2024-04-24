@@ -9,7 +9,6 @@
 #include "lldb/Utility/StructuredData.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/Status.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <cerrno>
 #include <cinttypes>
@@ -22,7 +21,8 @@ static StructuredData::ObjectSP ParseJSONValue(json::Value &value);
 static StructuredData::ObjectSP ParseJSONObject(json::Object *object);
 static StructuredData::ObjectSP ParseJSONArray(json::Array *array);
 
-StructuredData::ObjectSP StructuredData::ParseJSON(llvm::StringRef json_text) {
+StructuredData::ObjectSP
+StructuredData::ParseJSON(const std::string &json_text) {
   llvm::Expected<json::Value> value = json::parse(json_text);
   if (!value) {
     llvm::consumeError(value.takeError());
@@ -50,11 +50,6 @@ StructuredData::ParseJSONFromFile(const FileSpec &input_spec, Status &error) {
   return StructuredData::ObjectSP();
 }
 
-bool StructuredData::IsRecordType(const ObjectSP object_sp) {
-  return object_sp->GetType() == lldb::eStructuredDataTypeArray ||
-         object_sp->GetType() == lldb::eStructuredDataTypeDictionary;
-}
-
 static StructuredData::ObjectSP ParseJSONValue(json::Value &value) {
   if (json::Object *O = value.getAsObject())
     return ParseJSONObject(O);
@@ -68,17 +63,11 @@ static StructuredData::ObjectSP ParseJSONValue(json::Value &value) {
   if (auto b = value.getAsBoolean())
     return std::make_shared<StructuredData::Boolean>(*b);
 
-  if (auto u = value.getAsUINT64())
-    return std::make_shared<StructuredData::UnsignedInteger>(*u);
-
   if (auto i = value.getAsInteger())
-    return std::make_shared<StructuredData::SignedInteger>(*i);
+    return std::make_shared<StructuredData::Integer>(*i);
 
   if (auto d = value.getAsNumber())
     return std::make_shared<StructuredData::Float>(*d);
-
-  if (auto n = value.getAsNull())
-    return std::make_shared<StructuredData::Null>();
 
   return StructuredData::ObjectSP();
 }
@@ -105,34 +94,36 @@ static StructuredData::ObjectSP ParseJSONArray(json::Array *array) {
 
 StructuredData::ObjectSP
 StructuredData::Object::GetObjectForDotSeparatedPath(llvm::StringRef path) {
-  if (GetType() == lldb::eStructuredDataTypeDictionary) {
+  if (this->GetType() == lldb::eStructuredDataTypeDictionary) {
     std::pair<llvm::StringRef, llvm::StringRef> match = path.split('.');
-    llvm::StringRef key = match.first;
-    ObjectSP value = GetAsDictionary()->GetValueForKey(key);
-    if (!value)
-      return {};
-
-    // Do we have additional words to descend?  If not, return the value
-    // we're at right now.
-    if (match.second.empty())
-      return value;
-
-    return value->GetObjectForDotSeparatedPath(match.second);
+    std::string key = match.first.str();
+    ObjectSP value = this->GetAsDictionary()->GetValueForKey(key);
+    if (value.get()) {
+      // Do we have additional words to descend?  If not, return the value
+      // we're at right now.
+      if (match.second.empty()) {
+        return value;
+      } else {
+        return value->GetObjectForDotSeparatedPath(match.second);
+      }
+    }
+    return ObjectSP();
   }
 
-  if (GetType() == lldb::eStructuredDataTypeArray) {
+  if (this->GetType() == lldb::eStructuredDataTypeArray) {
     std::pair<llvm::StringRef, llvm::StringRef> match = path.split('[');
-    if (match.second.empty())
-      return shared_from_this();
-
-    uint64_t val = 0;
-    if (!llvm::to_integer(match.second, val, /* Base = */ 10))
-      return {};
-
-    return GetAsArray()->GetItemAtIndex(val);
+    if (match.second.empty()) {
+      return this->shared_from_this();
+    }
+    errno = 0;
+    uint64_t val = strtoul(match.second.str().c_str(), nullptr, 10);
+    if (errno == 0) {
+      return this->GetAsArray()->GetItemAtIndex(val);
+    }
+    return ObjectSP();
   }
 
-  return shared_from_this();
+  return this->shared_from_this();
 }
 
 void StructuredData::Object::DumpToStdout(bool pretty_print) const {
@@ -146,6 +137,10 @@ void StructuredData::Array::Serialize(json::OStream &s) const {
     item_sp->Serialize(s);
   }
   s.arrayEnd();
+}
+
+void StructuredData::Integer::Serialize(json::OStream &s) const {
+  s.value(static_cast<int64_t>(m_value));
 }
 
 void StructuredData::Float::Serialize(json::OStream &s) const {
@@ -162,18 +157,8 @@ void StructuredData::String::Serialize(json::OStream &s) const {
 
 void StructuredData::Dictionary::Serialize(json::OStream &s) const {
   s.objectBegin();
-
-  // To ensure the output format is always stable, we sort the dictionary by key
-  // first.
-  using Entry = std::pair<llvm::StringRef, ObjectSP>;
-  std::vector<Entry> sorted_entries;
-  for (const auto &pair : m_dict)
-    sorted_entries.push_back({pair.first(), pair.second});
-
-  llvm::sort(sorted_entries);
-
-  for (const auto &pair : sorted_entries) {
-    s.attributeBegin(pair.first);
+  for (const auto &pair : m_dict) {
+    s.attributeBegin(pair.first.GetStringRef());
     pair.second->Serialize(s);
     s.attributeEnd();
   }
@@ -186,106 +171,4 @@ void StructuredData::Null::Serialize(json::OStream &s) const {
 
 void StructuredData::Generic::Serialize(json::OStream &s) const {
   s.value(llvm::formatv("{0:X}", m_object));
-}
-
-void StructuredData::Float::GetDescription(lldb_private::Stream &s) const {
-  s.Printf("%f", m_value);
-}
-
-void StructuredData::Boolean::GetDescription(lldb_private::Stream &s) const {
-  s.Printf(m_value ? "True" : "False");
-}
-
-void StructuredData::String::GetDescription(lldb_private::Stream &s) const {
-  s.Printf("%s", m_value.empty() ? "\"\"" : m_value.c_str());
-}
-
-void StructuredData::Array::GetDescription(lldb_private::Stream &s) const {
-  size_t index = 0;
-  size_t indentation_level = s.GetIndentLevel();
-  for (const auto &item_sp : m_items) {
-    // Sanitize.
-    if (!item_sp)
-      continue;
-
-    // Reset original indentation level.
-    s.SetIndentLevel(indentation_level);
-    s.Indent();
-
-    // Print key
-    s.Printf("[%zu]:", index++);
-
-    // Return to new line and increase indentation if value is record type.
-    // Otherwise add spacing.
-    bool should_indent = IsRecordType(item_sp);
-    if (should_indent) {
-      s.EOL();
-      s.IndentMore();
-    } else {
-      s.PutChar(' ');
-    }
-
-    // Print value and new line if now last pair.
-    item_sp->GetDescription(s);
-    if (item_sp != *(--m_items.end()))
-      s.EOL();
-
-    // Reset indentation level if it was incremented previously.
-    if (should_indent)
-      s.IndentLess();
-  }
-}
-
-void StructuredData::Dictionary::GetDescription(lldb_private::Stream &s) const {
-  size_t indentation_level = s.GetIndentLevel();
-
-  // To ensure the output format is always stable, we sort the dictionary by key
-  // first.
-  using Entry = std::pair<llvm::StringRef, ObjectSP>;
-  std::vector<Entry> sorted_entries;
-  for (const auto &pair : m_dict)
-    sorted_entries.push_back({pair.first(), pair.second});
-
-  llvm::sort(sorted_entries);
-
-  for (auto iter = sorted_entries.begin(); iter != sorted_entries.end();
-       iter++) {
-    // Sanitize.
-    if (iter->first.empty() || !iter->second)
-      continue;
-
-    // Reset original indentation level.
-    s.SetIndentLevel(indentation_level);
-    s.Indent();
-
-    // Print key.
-    s.Format("{0}:", iter->first);
-
-    // Return to new line and increase indentation if value is record type.
-    // Otherwise add spacing.
-    bool should_indent = IsRecordType(iter->second);
-    if (should_indent) {
-      s.EOL();
-      s.IndentMore();
-    } else {
-      s.PutChar(' ');
-    }
-
-    // Print value and new line if now last pair.
-    iter->second->GetDescription(s);
-    if (std::next(iter) != sorted_entries.end())
-      s.EOL();
-
-    // Reset indentation level if it was incremented previously.
-    if (should_indent)
-      s.IndentLess();
-  }
-}
-
-void StructuredData::Null::GetDescription(lldb_private::Stream &s) const {
-  s.Printf("NULL");
-}
-
-void StructuredData::Generic::GetDescription(lldb_private::Stream &s) const {
-  s.Printf("%p", m_object);
 }

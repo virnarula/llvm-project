@@ -21,19 +21,13 @@
 #ifndef CLANG_INCLUDE_CLEANER_ANALYSISINTERNAL_H
 #define CLANG_INCLUDE_CLEANER_ANALYSISINTERNAL_H
 
-#include "TypesInternal.h"
-#include "clang-include-cleaner/Analysis.h"
-#include "clang-include-cleaner/Record.h"
-#include "clang-include-cleaner/Types.h"
+#include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
-#include <vector>
 
 namespace clang {
 class ASTContext;
 class Decl;
-class HeaderSearch;
 class NamedDecl;
-class SourceLocation;
 namespace include_cleaner {
 
 /// Traverses part of the AST from \p Root, finding uses of symbols.
@@ -43,27 +37,14 @@ namespace include_cleaner {
 ///   the primary location of the AST node found under Root.
 /// - the NamedDecl is the symbol referenced. It is canonical, rather than e.g.
 ///   the redecl actually found by lookup.
-/// - the RefType describes the relation between the SourceLocation and the
-///   NamedDecl.
 ///
 /// walkAST is typically called once per top-level declaration in the file
 /// being analyzed, in order to find all references within it.
-void walkAST(Decl &Root,
-             llvm::function_ref<void(SourceLocation, NamedDecl &, RefType)>);
-
-/// Finds the headers that provide the symbol location.
-llvm::SmallVector<Hinted<Header>> findHeaders(const SymbolLocation &Loc,
-                                              const SourceManager &SM,
-                                              const PragmaIncludes *PI);
-
-/// A set of locations that provides the declaration.
-std::vector<Hinted<SymbolLocation>> locateSymbol(const Symbol &S);
+void walkAST(Decl &Root, llvm::function_ref<void(SourceLocation, NamedDecl &)>);
 
 /// Write an HTML summary of the analysis to the given stream.
-void writeHTMLReport(FileID File, const Includes &,
-                     llvm::ArrayRef<Decl *> Roots,
-                     llvm::ArrayRef<SymbolReference> MacroRefs, ASTContext &Ctx,
-                     const HeaderSearch &HS, PragmaIncludes *PI,
+/// FIXME: Once analysis has a public API, this should be public too.
+void writeHTMLReport(FileID File, llvm::ArrayRef<Decl *> Roots, ASTContext &Ctx,
                      llvm::raw_ostream &OS);
 
 } // namespace include_cleaner

@@ -8,8 +8,19 @@
 
 #include "src/inttypes/strtoimax.h"
 
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
-#include "test/src/stdlib/StrtolTest.h"
+#include <errno.h>
+#include <limits.h>
+#include <stddef.h>
 
-STRTOL_TEST(Strtoimax, LIBC_NAMESPACE::strtoimax)
+// strtoimax is equivalent to strtoll on all currently supported configurations.
+// Thus to avoid duplicating code there is just one test to make sure that
+// strtoimax works at all. For real tests see stdlib/strtoll_test.cpp.
+
+TEST(LlvmLibcStrToIMaxTest, SimpleCheck) {
+  const char *ten = "10";
+  errno = 0;
+  ASSERT_EQ(__llvm_libc::strtoimax(ten, nullptr, 10), intmax_t(10));
+  ASSERT_EQ(errno, 0);
+}

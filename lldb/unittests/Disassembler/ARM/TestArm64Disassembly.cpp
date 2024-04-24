@@ -20,7 +20,6 @@
 using namespace lldb;
 using namespace lldb_private;
 
-namespace {
 class TestArm64Disassembly : public testing::Test {
 public:
   static void SetUpTestCase();
@@ -43,7 +42,6 @@ void TestArm64Disassembly::SetUpTestCase() {
 void TestArm64Disassembly::TearDownTestCase() {
   DisassemblerLLVMC::Terminate();
 }
-} // namespace
 
 TEST_F(TestArm64Disassembly, TestArmv81Instruction) {
   ArchSpec arch("arm64-apple-ios");

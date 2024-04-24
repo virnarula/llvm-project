@@ -1,7 +1,7 @@
 // RUN: %check_clang_tidy %s readability-implicit-bool-conversion %t \
 // RUN: -config='{CheckOptions: \
-// RUN:  {readability-implicit-bool-conversion.AllowIntegerConditions: true, \
-// RUN:   readability-implicit-bool-conversion.AllowPointerConditions: true}}'
+// RUN:  [{key: readability-implicit-bool-conversion.AllowIntegerConditions, value: true}, \
+// RUN:   {key: readability-implicit-bool-conversion.AllowPointerConditions, value: true}]}'
 
 template<typename T>
 void functionTaking(T);
@@ -12,14 +12,13 @@ int* functionReturningPointer();
 struct Struct {
   int member;
   unsigned bitfield : 1;
-  bool boolfield : 1;
 };
 
 
 void regularImplicitConversionIntegerToBoolIsNotIgnored() {
   int integer = 0;
   functionTaking<bool>(integer);
-  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: implicit conversion 'int' -> 'bool' [readability-implicit-bool-conversion]
+  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: implicit conversion 'int' -> bool [readability-implicit-bool-conversion]
   // CHECK-FIXES: functionTaking<bool>(integer != 0);
 }
 
@@ -29,8 +28,6 @@ void implicitConversionIntegerToBoolInConditionalsIsAllowed() {
   if (!s.member) {}
   if (s.bitfield) {}
   if (!s.bitfield) {}
-  if (s.boolfield == true) {}
-  if (s.boolfield != true) {}
   if (functionReturningInt()) {}
   if (!functionReturningInt()) {}
   if (functionReturningInt() && functionReturningPointer()) {}
@@ -41,9 +38,6 @@ void implicitConversionIntegerToBoolInConditionalsIsAllowed() {
   while (functionReturningInt()) {}
   while (functionReturningPointer()) {}
   while (functionReturningInt() && !functionReturningPointer() || (!functionReturningInt() && functionReturningPointer())) {}
-  do {} while (functionReturningInt());
-  do {} while (functionReturningPointer());
-  do {} while (functionReturningInt() && !functionReturningPointer() || (!functionReturningInt() && functionReturningPointer()));
   int value1 = functionReturningInt() ? 1 : 2;
   int value2 = !functionReturningInt() ? 1 : 2;
   int value3 = (functionReturningInt() && functionReturningPointer() || !functionReturningInt()) ? 1 : 2;
@@ -54,12 +48,12 @@ void implicitConversionIntegerToBoolInConditionalsIsAllowed() {
 void regularImplicitConversionPointerToBoolIsNotIgnored() {
   int* pointer = nullptr;
   functionTaking<bool>(pointer);
-  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: implicit conversion 'int *' -> 'bool'
+  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: implicit conversion 'int *' -> bool
   // CHECK-FIXES: functionTaking<bool>(pointer != nullptr);
 
   int Struct::* memberPointer = &Struct::member;
   functionTaking<bool>(memberPointer);
-  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: implicit conversion 'int Struct::*' -> 'bool'
+  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: implicit conversion 'int Struct::*' -> bool
   // CHECK-FIXES: functionTaking<bool>(memberPointer != nullptr);
 }
 

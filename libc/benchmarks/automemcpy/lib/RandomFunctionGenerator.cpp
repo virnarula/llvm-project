@@ -8,10 +8,10 @@
 
 #include "automemcpy/RandomFunctionGenerator.h"
 
+#include <llvm/ADT/None.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <optional>
 #include <set>
 
 namespace llvm {
@@ -156,44 +156,43 @@ RandomFunctionGenerator::RandomFunctionGenerator()
 }
 
 // Creates SizeSpan from Begin/End values.
-// Returns std::nullopt if Begin==End.
-static std::optional<SizeSpan> AsSizeSpan(size_t Begin, size_t End) {
+// Returns llvm::None if Begin==End.
+static Optional<SizeSpan> AsSizeSpan(size_t Begin, size_t End) {
   if (Begin == End)
-    return std::nullopt;
+    return None;
   SizeSpan SS;
   SS.Begin = Begin;
   SS.End = End;
   return SS;
 }
 
-// Generic method to create a `Region` struct with a Span or std::nullopt if
-// span is empty.
+// Generic method to create a `Region` struct with a Span or None if span is
+// empty.
 template <typename Region>
-static std::optional<Region> As(size_t Begin, size_t End) {
+static Optional<Region> As(size_t Begin, size_t End) {
   if (auto Span = AsSizeSpan(Begin, End)) {
     Region Output;
     Output.Span = *Span;
     return Output;
   }
-  return std::nullopt;
+  return None;
 }
 
-// Returns a Loop struct or std::nullopt if span is empty.
-static std::optional<Loop> AsLoop(size_t Begin, size_t End, size_t BlockSize) {
+// Returns a Loop struct or None if span is empty.
+static Optional<Loop> AsLoop(size_t Begin, size_t End, size_t BlockSize) {
   if (auto Span = AsSizeSpan(Begin, End)) {
     Loop Output;
     Output.Span = *Span;
     Output.BlockSize = BlockSize;
     return Output;
   }
-  return std::nullopt;
+  return None;
 }
 
-// Returns an AlignedLoop struct or std::nullopt if span is empty.
-static std::optional<AlignedLoop> AsAlignedLoop(size_t Begin, size_t End,
-                                                size_t BlockSize,
-                                                size_t Alignment,
-                                                AlignArg AlignTo) {
+// Returns an AlignedLoop struct or None if span is empty.
+static Optional<AlignedLoop> AsAlignedLoop(size_t Begin, size_t End,
+                                           size_t BlockSize, size_t Alignment,
+                                           AlignArg AlignTo) {
   if (auto Loop = AsLoop(Begin, End, BlockSize)) {
     AlignedLoop Output;
     Output.Loop = *Loop;
@@ -201,10 +200,10 @@ static std::optional<AlignedLoop> AsAlignedLoop(size_t Begin, size_t End,
     Output.AlignTo = AlignTo;
     return Output;
   }
-  return std::nullopt;
+  return None;
 }
 
-std::optional<FunctionDescriptor> RandomFunctionGenerator::next() {
+Optional<FunctionDescriptor> RandomFunctionGenerator::next() {
   if (Solver.check() != z3::sat)
     return {};
 

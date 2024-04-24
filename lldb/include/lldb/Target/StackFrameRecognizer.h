@@ -17,7 +17,6 @@
 #include "lldb/lldb-private-forward.h"
 #include "lldb/lldb-public.h"
 
-#include <optional>
 #include <vector>
 
 namespace lldb_private {
@@ -155,7 +154,7 @@ class ValueObjectRecognizerSynthesizedValue : public ValueObject {
     SetName(parent.GetName());
   }
 
-  std::optional<uint64_t> GetByteSize() override {
+  llvm::Optional<uint64_t> GetByteSize() override {
     return m_parent->GetByteSize();
   }
   lldb::ValueType GetValueType() const override { return m_type; }

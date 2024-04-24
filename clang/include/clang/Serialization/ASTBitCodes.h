@@ -41,7 +41,7 @@ namespace serialization {
 /// Version 4 of AST files also requires that the version control branch and
 /// revision match exactly, since there is no backward compatibility of
 /// AST files at this time.
-const unsigned VERSION_MAJOR = 29;
+const unsigned VERSION_MAJOR = 23;
 
 /// AST file minor version number supported by this version of
 /// Clang.
@@ -51,7 +51,7 @@ const unsigned VERSION_MAJOR = 29;
 /// for the previous version could still support reading the new
 /// version by ignoring new kinds of subblocks), this number
 /// should be increased.
-const unsigned VERSION_MINOR = 1;
+const unsigned VERSION_MINOR = 0;
 
 /// An ID number that refers to an identifier in an AST file.
 ///
@@ -397,9 +397,6 @@ enum UnhashedControlBlockRecordTypes {
   /// Record code for the diagnostic options table.
   DIAGNOSTIC_OPTIONS,
 
-  /// Record code for the headers search paths.
-  HEADER_SEARCH_PATHS,
-
   /// Record code for \#pragma diagnostic mappings.
   DIAG_PRAGMA_MAPPINGS,
 
@@ -524,7 +521,13 @@ enum ASTRecordTypes {
   /// of source-location information.
   SOURCE_LOCATION_OFFSETS = 14,
 
-  // ID 15 used to be for source location entry preloads.
+  /// Record code for the set of source location entries
+  /// that need to be preloaded by the AST reader.
+  ///
+  /// This set contains the source location entry for the
+  /// predefines buffer and for any file entries that need to be
+  /// preloaded.
+  SOURCE_LOCATION_PRELOADS = 15,
 
   /// Record code for the set of ext_vector type names.
   EXT_VECTOR_DECLS = 16,
@@ -690,7 +693,8 @@ enum ASTRecordTypes {
   /// Record code for \#pragma float_control options.
   FLOAT_CONTROL_PRAGMA_OPTIONS = 65,
 
-  /// ID 66 used to be the list of included files.
+  /// Record code for included files.
+  PP_INCLUDED_FILES = 66,
 
   /// Record code for an unterminated \#pragma clang assume_nonnull begin
   /// recorded in a preamble.
@@ -1089,11 +1093,6 @@ enum PredefinedTypeIDs {
 // \brief RISC-V V types with auto numeration
 #define RVV_TYPE(Name, Id, SingletonId) PREDEF_TYPE_##Id##_ID,
 #include "clang/Basic/RISCVVTypes.def"
-// \brief WebAssembly reference types with auto numeration
-#define WASM_TYPE(Name, Id, SingletonId) PREDEF_TYPE_##Id##_ID,
-#include "clang/Basic/WebAssemblyReferenceTypes.def"
-  // Sentinel value. Considered a predefined type but not useable as one.
-  PREDEF_TYPE_LAST_ID
 };
 
 /// The number of predefined type IDs that are reserved for
@@ -1101,13 +1100,7 @@ enum PredefinedTypeIDs {
 ///
 /// Type IDs for non-predefined types will start at
 /// NUM_PREDEF_TYPE_IDs.
-const unsigned NUM_PREDEF_TYPE_IDS = 502;
-
-// Ensure we do not overrun the predefined types we reserved
-// in the enum PredefinedTypeIDs above.
-static_assert(PREDEF_TYPE_LAST_ID < NUM_PREDEF_TYPE_IDS,
-              "Too many enumerators in PredefinedTypeIDs. Review the value of "
-              "NUM_PREDEF_TYPE_IDS");
+const unsigned NUM_PREDEF_TYPE_IDS = 300;
 
 /// Record codes for each kind of type.
 ///
@@ -1322,9 +1315,6 @@ enum DeclCode {
   /// A FileScopeAsmDecl record.
   DECL_FILE_SCOPE_ASM,
 
-  /// A TopLevelStmtDecl record.
-  DECL_TOP_LEVEL_STMT_DECL,
-
   /// A BlockDecl record.
   DECL_BLOCK,
 
@@ -1474,6 +1464,10 @@ enum DeclCode {
   /// A TemplateTemplateParmDecl record that stores an expanded
   /// template template parameter pack.
   DECL_EXPANDED_TEMPLATE_TEMPLATE_PARM_PACK,
+
+  /// A ClassScopeFunctionSpecializationDecl record a class scope
+  /// function specialization. (Microsoft extension).
+  DECL_CLASS_SCOPE_FUNCTION_SPECIALIZATION,
 
   /// An ImportDecl recording a module import.
   DECL_IMPORT,
@@ -1861,9 +1855,6 @@ enum StmtCode {
   /// A CXXBoolLiteralExpr record.
   EXPR_CXX_BOOL_LITERAL,
 
-  /// A CXXParenListInitExpr record.
-  EXPR_CXX_PAREN_LIST_INIT,
-
   EXPR_CXX_NULL_PTR_LITERAL, // CXXNullPtrLiteralExpr
   EXPR_CXX_TYPEID_EXPR,      // CXXTypeidExpr (of expr).
   EXPR_CXX_TYPEID_TYPE,      // CXXTypeidExpr (of type).
@@ -1941,7 +1932,6 @@ enum StmtCode {
   STMT_OMP_PARALLEL_SECTIONS_DIRECTIVE,
   STMT_OMP_TASK_DIRECTIVE,
   STMT_OMP_TASKYIELD_DIRECTIVE,
-  STMT_OMP_ERROR_DIRECTIVE,
   STMT_OMP_BARRIER_DIRECTIVE,
   STMT_OMP_TASKWAIT_DIRECTIVE,
   STMT_OMP_FLUSH_DIRECTIVE,
@@ -1985,7 +1975,6 @@ enum StmtCode {
   STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE,
   STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD_DIRECTIVE,
   STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE,
-  STMT_OMP_SCOPE_DIRECTIVE,
   STMT_OMP_INTEROP_DIRECTIVE,
   STMT_OMP_DISPATCH_DIRECTIVE,
   STMT_OMP_MASKED_DIRECTIVE,

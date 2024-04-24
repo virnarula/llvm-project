@@ -11,7 +11,9 @@
 
 #include "CloexecCheck.h"
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 /// Finds code that uses inotify_init1() without using the IN_CLOEXEC flag.
 ///
@@ -25,6 +27,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_INOTIFY_INIT1_H

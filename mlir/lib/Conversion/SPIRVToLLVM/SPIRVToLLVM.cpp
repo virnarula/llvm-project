@@ -30,12 +30,6 @@
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
-// Constants
-//===----------------------------------------------------------------------===//
-
-constexpr unsigned defaultAddressSpace = 0;
-
-//===----------------------------------------------------------------------===//
 // Utility functions
 //===----------------------------------------------------------------------===//
 
@@ -43,7 +37,7 @@ constexpr unsigned defaultAddressSpace = 0;
 static bool isSignedIntegerOrVector(Type type) {
   if (type.isSignedInteger())
     return true;
-  if (auto vecType = dyn_cast<VectorType>(type))
+  if (auto vecType = type.dyn_cast<VectorType>())
     return vecType.getElementType().isSignedInteger();
   return false;
 }
@@ -52,29 +46,18 @@ static bool isSignedIntegerOrVector(Type type) {
 static bool isUnsignedIntegerOrVector(Type type) {
   if (type.isUnsignedInteger())
     return true;
-  if (auto vecType = dyn_cast<VectorType>(type))
+  if (auto vecType = type.dyn_cast<VectorType>())
     return vecType.getElementType().isUnsignedInteger();
   return false;
 }
 
-/// Returns the width of an integer or of the element type of an integer vector,
-/// if applicable.
-static std::optional<uint64_t> getIntegerOrVectorElementWidth(Type type) {
-  if (auto intType = dyn_cast<IntegerType>(type))
-    return intType.getWidth();
-  if (auto vecType = dyn_cast<VectorType>(type))
-    if (auto intType = dyn_cast<IntegerType>(vecType.getElementType()))
-      return intType.getWidth();
-  return std::nullopt;
-}
-
 /// Returns the bit width of integer, float or vector of float or integer values
 static unsigned getBitWidth(Type type) {
-  assert((type.isIntOrFloat() || isa<VectorType>(type)) &&
+  assert((type.isIntOrFloat() || type.isa<VectorType>()) &&
          "bitwidth is not supported for this type");
   if (type.isIntOrFloat())
     return type.getIntOrFloatBitWidth();
-  auto vecType = dyn_cast<VectorType>(type);
+  auto vecType = type.dyn_cast<VectorType>();
   auto elementType = vecType.getElementType();
   assert(elementType.isIntOrFloat() &&
          "only integers and floats have a bitwidth");
@@ -83,29 +66,29 @@ static unsigned getBitWidth(Type type) {
 
 /// Returns the bit width of LLVMType integer or vector.
 static unsigned getLLVMTypeBitWidth(Type type) {
-  return cast<IntegerType>((LLVM::isCompatibleVectorType(type)
-                                ? LLVM::getVectorElementType(type)
-                                : type))
+  return (LLVM::isCompatibleVectorType(type) ? LLVM::getVectorElementType(type)
+                                             : type)
+      .cast<IntegerType>()
       .getWidth();
 }
 
 /// Creates `IntegerAttribute` with all bits set for given type
 static IntegerAttr minusOneIntegerAttribute(Type type, Builder builder) {
-  if (auto vecType = dyn_cast<VectorType>(type)) {
-    auto integerType = cast<IntegerType>(vecType.getElementType());
+  if (auto vecType = type.dyn_cast<VectorType>()) {
+    auto integerType = vecType.getElementType().cast<IntegerType>();
     return builder.getIntegerAttr(integerType, -1);
   }
-  auto integerType = cast<IntegerType>(type);
+  auto integerType = type.cast<IntegerType>();
   return builder.getIntegerAttr(integerType, -1);
 }
 
 /// Creates `llvm.mlir.constant` with all bits set for the given type.
 static Value createConstantAllBitsSet(Location loc, Type srcType, Type dstType,
                                       PatternRewriter &rewriter) {
-  if (isa<VectorType>(srcType)) {
+  if (srcType.isa<VectorType>()) {
     return rewriter.create<LLVM::ConstantOp>(
         loc, dstType,
-        SplatElementsAttr::get(cast<ShapedType>(srcType),
+        SplatElementsAttr::get(srcType.cast<ShapedType>(),
                                minusOneIntegerAttribute(srcType, rewriter)));
   }
   return rewriter.create<LLVM::ConstantOp>(
@@ -115,14 +98,14 @@ static Value createConstantAllBitsSet(Location loc, Type srcType, Type dstType,
 /// Creates `llvm.mlir.constant` with a floating-point scalar or vector value.
 static Value createFPConstant(Location loc, Type srcType, Type dstType,
                               PatternRewriter &rewriter, double value) {
-  if (auto vecType = dyn_cast<VectorType>(srcType)) {
-    auto floatType = cast<FloatType>(vecType.getElementType());
+  if (auto vecType = srcType.dyn_cast<VectorType>()) {
+    auto floatType = vecType.getElementType().cast<FloatType>();
     return rewriter.create<LLVM::ConstantOp>(
         loc, dstType,
         SplatElementsAttr::get(vecType,
                                rewriter.getFloatAttr(floatType, value)));
   }
-  auto floatType = cast<FloatType>(srcType);
+  auto floatType = srcType.cast<FloatType>();
   return rewriter.create<LLVM::ConstantOp>(
       loc, dstType, rewriter.getFloatAttr(floatType, value));
 }
@@ -174,7 +157,7 @@ static Value broadcast(Location loc, Value toBroadcast, unsigned numElements,
 static Value optionallyBroadcast(Location loc, Value value, Type srcType,
                                  LLVMTypeConverter &typeConverter,
                                  ConversionPatternRewriter &rewriter) {
-  if (auto vectorType = dyn_cast<VectorType>(srcType)) {
+  if (auto vectorType = srcType.dyn_cast<VectorType>()) {
     unsigned numElements = vectorType.getNumElements();
     return broadcast(loc, value, numElements, typeConverter, rewriter);
   }
@@ -201,14 +184,16 @@ static Value processCountOrOffset(Location loc, Value value, Type srcType,
 
 /// Converts SPIR-V struct with a regular (according to `VulkanLayoutUtils`)
 /// offset to LLVM struct. Otherwise, the conversion is not supported.
-static Type convertStructTypeWithOffset(spirv::StructType type,
-                                        LLVMTypeConverter &converter) {
+static Optional<Type>
+convertStructTypeWithOffset(spirv::StructType type,
+                            LLVMTypeConverter &converter) {
   if (type != VulkanLayoutUtils::decorateType(type))
-    return nullptr;
+    return llvm::None;
 
-  SmallVector<Type> elementsVector;
-  if (failed(converter.convertTypes(type.getElementTypes(), elementsVector)))
-    return nullptr;
+  auto elementsVector = llvm::to_vector<8>(
+      llvm::map_range(type.getElementTypes(), [&](Type elementType) {
+        return converter.convertType(elementType);
+      }));
   return LLVM::LLVMStructType::getLiteral(type.getContext(), elementsVector,
                                           /*isPacked=*/false);
 }
@@ -216,9 +201,10 @@ static Type convertStructTypeWithOffset(spirv::StructType type,
 /// Converts SPIR-V struct with no offset to packed LLVM struct.
 static Type convertStructTypePacked(spirv::StructType type,
                                     LLVMTypeConverter &converter) {
-  SmallVector<Type> elementsVector;
-  if (failed(converter.convertTypes(type.getElementTypes(), elementsVector)))
-    return nullptr;
+  auto elementsVector = llvm::to_vector<8>(
+      llvm::map_range(type.getElementTypes(), [&](Type elementType) {
+        return converter.convertType(elementType);
+      }));
   return LLVM::LLVMStructType::getLiteral(type.getContext(), elementsVector,
                                           /*isPacked=*/true);
 }
@@ -261,82 +247,46 @@ static LogicalResult replaceWithLoadOrStore(Operation *op, ValueRange operands,
 /// Converts SPIR-V array type to LLVM array. Natural stride (according to
 /// `VulkanLayoutUtils`) is also mapped to LLVM array. This has to be respected
 /// when converting ops that manipulate array types.
-static std::optional<Type> convertArrayType(spirv::ArrayType type,
-                                            TypeConverter &converter) {
+static Optional<Type> convertArrayType(spirv::ArrayType type,
+                                       TypeConverter &converter) {
   unsigned stride = type.getArrayStride();
   Type elementType = type.getElementType();
-  auto sizeInBytes = cast<spirv::SPIRVType>(elementType).getSizeInBytes();
+  auto sizeInBytes = elementType.cast<spirv::SPIRVType>().getSizeInBytes();
   if (stride != 0 && (!sizeInBytes || *sizeInBytes != stride))
-    return std::nullopt;
+    return llvm::None;
 
   auto llvmElementType = converter.convertType(elementType);
   unsigned numElements = type.getNumElements();
   return LLVM::LLVMArrayType::get(llvmElementType, numElements);
 }
 
-static unsigned mapToOpenCLAddressSpace(spirv::StorageClass storageClass) {
-  // Based on
-  // https://registry.khronos.org/SPIR-V/specs/unified1/OpenCL.ExtendedInstructionSet.100.html#_binary_form
-  // and clang/lib/Basic/Targets/SPIR.h.
-  switch (storageClass) {
-#define STORAGE_SPACE_MAP(storage, space)                                      \
-  case spirv::StorageClass::storage:                                           \
-    return space;
-    STORAGE_SPACE_MAP(Function, 0)
-    STORAGE_SPACE_MAP(CrossWorkgroup, 1)
-    STORAGE_SPACE_MAP(Input, 1)
-    STORAGE_SPACE_MAP(UniformConstant, 2)
-    STORAGE_SPACE_MAP(Workgroup, 3)
-    STORAGE_SPACE_MAP(Generic, 4)
-    STORAGE_SPACE_MAP(DeviceOnlyINTEL, 5)
-    STORAGE_SPACE_MAP(HostOnlyINTEL, 6)
-#undef STORAGE_SPACE_MAP
-  default:
-    return defaultAddressSpace;
-  }
-}
-
-static unsigned mapToAddressSpace(spirv::ClientAPI clientAPI,
-                                  spirv::StorageClass storageClass) {
-  switch (clientAPI) {
-#define CLIENT_MAP(client, storage)                                            \
-  case spirv::ClientAPI::client:                                               \
-    return mapTo##client##AddressSpace(storage);
-    CLIENT_MAP(OpenCL, storageClass)
-#undef CLIENT_MAP
-  default:
-    return defaultAddressSpace;
-  }
-}
-
 /// Converts SPIR-V pointer type to LLVM pointer. Pointer's storage class is not
 /// modelled at the moment.
 static Type convertPointerType(spirv::PointerType type,
-                               LLVMTypeConverter &converter,
-                               spirv::ClientAPI clientAPI) {
-  unsigned addressSpace = mapToAddressSpace(clientAPI, type.getStorageClass());
-  return LLVM::LLVMPointerType::get(type.getContext(), addressSpace);
+                               TypeConverter &converter) {
+  auto pointeeType = converter.convertType(type.getPointeeType());
+  return LLVM::LLVMPointerType::get(pointeeType);
 }
 
 /// Converts SPIR-V runtime array to LLVM array. Since LLVM allows indexing over
 /// the bounds, the runtime array is converted to a 0-sized LLVM array. There is
 /// no modelling of array stride at the moment.
-static std::optional<Type> convertRuntimeArrayType(spirv::RuntimeArrayType type,
-                                                   TypeConverter &converter) {
+static Optional<Type> convertRuntimeArrayType(spirv::RuntimeArrayType type,
+                                              TypeConverter &converter) {
   if (type.getArrayStride() != 0)
-    return std::nullopt;
+    return llvm::None;
   auto elementType = converter.convertType(type.getElementType());
   return LLVM::LLVMArrayType::get(elementType, 0);
 }
 
 /// Converts SPIR-V struct to LLVM struct. There is no support of structs with
 /// member decorations. Also, only natural offset is supported.
-static Type convertStructType(spirv::StructType type,
-                              LLVMTypeConverter &converter) {
+static Optional<Type> convertStructType(spirv::StructType type,
+                                        LLVMTypeConverter &converter) {
   SmallVector<spirv::StructType::MemberDecorationInfo, 4> memberDecorations;
   type.getMemberDecorations(memberDecorations);
   if (!memberDecorations.empty())
-    return nullptr;
+    return llvm::None;
   if (type.hasOffset())
     return convertStructTypeWithOffset(type, converter);
   return convertStructTypePacked(type, converter);
@@ -367,12 +317,8 @@ public:
     Value zero = rewriter.create<LLVM::ConstantOp>(
         op.getLoc(), llvmIndexType, rewriter.getIntegerAttr(indexType, 0));
     indices.insert(indices.begin(), zero);
-    rewriter.replaceOpWithNewOp<LLVM::GEPOp>(
-        op, dstType,
-        typeConverter.convertType(
-            cast<spirv::PointerType>(op.getBasePtr().getType())
-                .getPointeeType()),
-        adaptor.getBasePtr(), indices);
+    rewriter.replaceOpWithNewOp<LLVM::GEPOp>(op, dstType, adaptor.getBasePtr(),
+                                             indices);
     return success();
   }
 };
@@ -387,8 +333,7 @@ public:
     auto dstType = typeConverter.convertType(op.getPointer().getType());
     if (!dstType)
       return failure();
-    rewriter.replaceOpWithNewOp<LLVM::AddressOfOp>(op, dstType,
-                                                   op.getVariable());
+    rewriter.replaceOpWithNewOp<LLVM::AddressOfOp>(op, dstType, op.getVariable());
     return success();
   }
 };
@@ -446,7 +391,7 @@ public:
   matchAndRewrite(spirv::ConstantOp constOp, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto srcType = constOp.getType();
-    if (!isa<VectorType>(srcType) && !srcType.isIntOrFloat())
+    if (!srcType.isa<VectorType>() && !srcType.isIntOrFloat())
       return failure();
 
     auto dstType = typeConverter.convertType(srcType);
@@ -462,15 +407,15 @@ public:
         isUnsignedIntegerOrVector(srcType)) {
       auto signlessType = rewriter.getIntegerType(getBitWidth(srcType));
 
-      if (isa<VectorType>(srcType)) {
-        auto dstElementsAttr = cast<DenseIntElementsAttr>(constOp.getValue());
+      if (srcType.isa<VectorType>()) {
+        auto dstElementsAttr = constOp.getValue().cast<DenseIntElementsAttr>();
         rewriter.replaceOpWithNewOp<LLVM::ConstantOp>(
             constOp, dstType,
             dstElementsAttr.mapValues(
                 signlessType, [&](const APInt &value) { return value; }));
         return success();
       }
-      auto srcAttr = cast<IntegerAttr>(constOp.getValue());
+      auto srcAttr = constOp.getValue().cast<IntegerAttr>();
       auto dstAttr = rewriter.getIntegerAttr(signlessType, srcAttr.getValue());
       rewriter.replaceOpWithNewOp<LLVM::ConstantOp>(constOp, dstType, dstAttr);
       return success();
@@ -503,17 +448,17 @@ public:
 
     // Create a constant that holds the size of the `Base`.
     IntegerType integerType;
-    if (auto vecType = dyn_cast<VectorType>(srcType))
-      integerType = cast<IntegerType>(vecType.getElementType());
+    if (auto vecType = srcType.dyn_cast<VectorType>())
+      integerType = vecType.getElementType().cast<IntegerType>();
     else
-      integerType = cast<IntegerType>(srcType);
+      integerType = srcType.cast<IntegerType>();
 
     auto baseSize = rewriter.getIntegerAttr(integerType, getBitWidth(srcType));
     Value size =
-        isa<VectorType>(srcType)
+        srcType.isa<VectorType>()
             ? rewriter.create<LLVM::ConstantOp>(
                   loc, dstType,
-                  SplatElementsAttr::get(cast<ShapedType>(srcType), baseSize))
+                  SplatElementsAttr::get(srcType.cast<ShapedType>(), baseSize))
             : rewriter.create<LLVM::ConstantOp>(loc, dstType, baseSize);
 
     // Shift `Base` left by [sizeof(Base) - (Count + Offset)], so that the bit
@@ -592,12 +537,10 @@ public:
   matchAndRewrite(spirv::BranchConditionalOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     // If branch weights exist, map them to 32-bit integer vector.
-    DenseI32ArrayAttr branchWeights = nullptr;
+    ElementsAttr branchWeights = nullptr;
     if (auto weights = op.getBranchWeights()) {
-      SmallVector<int32_t> weightValues;
-      for (auto weight : weights->getAsRange<IntegerAttr>())
-        weightValues.push_back(weight.getInt());
-      branchWeights = DenseI32ArrayAttr::get(getContext(), weightValues);
+      VectorType weightType = VectorType::get(2, rewriter.getI32Type());
+      branchWeights = DenseElementsAttr::get(weightType, weights->getValue());
     }
 
     rewriter.replaceOpWithNewOp<LLVM::CondBrOp>(
@@ -624,9 +567,9 @@ public:
       return failure();
 
     Type containerType = op.getComposite().getType();
-    if (isa<VectorType>(containerType)) {
+    if (containerType.isa<VectorType>()) {
       Location loc = op.getLoc();
-      IntegerAttr value = cast<IntegerAttr>(op.getIndices()[0]);
+      IntegerAttr value = op.getIndices()[0].cast<IntegerAttr>();
       Value index = createI32ConstantOf(loc, rewriter, value.getInt());
       rewriter.replaceOpWithNewOp<LLVM::ExtractElementOp>(
           op, dstType, adaptor.getComposite(), index);
@@ -634,8 +577,7 @@ public:
     }
 
     rewriter.replaceOpWithNewOp<LLVM::ExtractValueOp>(
-        op, adaptor.getComposite(),
-        LLVM::convertArrayToIndices(op.getIndices()));
+        op, adaptor.getComposite(), LLVM::convertArrayToIndices(op.getIndices()));
     return success();
   }
 };
@@ -656,9 +598,9 @@ public:
       return failure();
 
     Type containerType = op.getComposite().getType();
-    if (isa<VectorType>(containerType)) {
+    if (containerType.isa<VectorType>()) {
       Location loc = op.getLoc();
-      IntegerAttr value = cast<IntegerAttr>(op.getIndices()[0]);
+      IntegerAttr value = op.getIndices()[0].cast<IntegerAttr>();
       Value index = createI32ConstantOf(loc, rewriter, value.getInt());
       rewriter.replaceOpWithNewOp<LLVM::InsertElementOp>(
           op, dstType, adaptor.getComposite(), adaptor.getObject(), index);
@@ -773,11 +715,7 @@ public:
 class GlobalVariablePattern
     : public SPIRVToLLVMConversion<spirv::GlobalVariableOp> {
 public:
-  template <typename... Args>
-  GlobalVariablePattern(spirv::ClientAPI clientAPI, Args &&...args)
-      : SPIRVToLLVMConversion<spirv::GlobalVariableOp>(
-            std::forward<Args>(args)...),
-        clientAPI(clientAPI) {}
+  using SPIRVToLLVMConversion<spirv::GlobalVariableOp>::SPIRVToLLVMConversion;
 
   LogicalResult
   matchAndRewrite(spirv::GlobalVariableOp op, OpAdaptor adaptor,
@@ -787,7 +725,7 @@ public:
     if (op.getInitializer())
       return failure();
 
-    auto srcType = cast<spirv::PointerType>(op.getType());
+    auto srcType = op.getType().cast<spirv::PointerType>();
     auto dstType = typeConverter.convertType(srcType.getPointeeType());
     if (!dstType)
       return failure();
@@ -822,7 +760,7 @@ public:
                        : LLVM::Linkage::External;
     auto newGlobalOp = rewriter.replaceOpWithNewOp<LLVM::GlobalOp>(
         op, dstType, isConstant, linkage, op.getSymName(), Attribute(),
-        /*alignment=*/0, mapToAddressSpace(clientAPI, storageClass));
+        /*alignment=*/0);
 
     // Attach location attribute if applicable
     if (op.getLocationAttr())
@@ -830,9 +768,6 @@ public:
 
     return success();
   }
-
-private:
-  spirv::ClientAPI clientAPI;
 };
 
 /// Converts SPIR-V cast ops that do not have straightforward LLVM
@@ -877,7 +812,7 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     if (callOp.getNumResults() == 0) {
       rewriter.replaceOpWithNewOp<LLVM::CallOp>(
-          callOp, std::nullopt, adaptor.getOperands(), callOp->getAttrs());
+          callOp, llvm::None, adaptor.getOperands(), callOp->getAttrs());
       return success();
     }
 
@@ -1004,12 +939,12 @@ public:
 
     Location loc = notOp.getLoc();
     IntegerAttr minusOne = minusOneIntegerAttribute(srcType, rewriter);
-    auto mask =
-        isa<VectorType>(srcType)
-            ? rewriter.create<LLVM::ConstantOp>(
-                  loc, dstType,
-                  SplatElementsAttr::get(cast<VectorType>(srcType), minusOne))
-            : rewriter.create<LLVM::ConstantOp>(loc, dstType, minusOne);
+    auto mask = srcType.template isa<VectorType>()
+                    ? rewriter.create<LLVM::ConstantOp>(
+                          loc, dstType,
+                          SplatElementsAttr::get(
+                              srcType.template cast<VectorType>(), minusOne))
+                    : rewriter.create<LLVM::ConstantOp>(loc, dstType, minusOne);
     rewriter.template replaceOpWithNewOp<LLVM::XOrOp>(notOp, dstType,
                                                       notOp.getOperand(), mask);
     return success();
@@ -1206,8 +1141,7 @@ public:
     Block *falseBlock = condBrOp.getFalseBlock();
     rewriter.setInsertionPointToEnd(currentBlock);
     rewriter.create<LLVM::CondBrOp>(loc, condBrOp.getCondition(), trueBlock,
-                                    condBrOp.getTrueTargetOperands(),
-                                    falseBlock,
+                                    condBrOp.getTrueTargetOperands(), falseBlock,
                                     condBrOp.getFalseTargetOperands());
 
     rewriter.inlineRegionBefore(op.getBody(), continueBlock);
@@ -1242,30 +1176,15 @@ public:
       return success();
     }
 
-    std::optional<uint64_t> dstTypeWidth =
-        getIntegerOrVectorElementWidth(dstType);
-    std::optional<uint64_t> op2TypeWidth =
-        getIntegerOrVectorElementWidth(op2Type);
-
-    if (!dstTypeWidth || !op2TypeWidth)
-      return failure();
-
     Location loc = operation.getLoc();
     Value extended;
-    if (op2TypeWidth < dstTypeWidth) {
-      if (isUnsignedIntegerOrVector(op2Type)) {
-        extended = rewriter.template create<LLVM::ZExtOp>(
-            loc, dstType, adaptor.getOperand2());
-      } else {
-        extended = rewriter.template create<LLVM::SExtOp>(
-            loc, dstType, adaptor.getOperand2());
-      }
-    } else if (op2TypeWidth == dstTypeWidth) {
-      extended = adaptor.getOperand2();
+    if (isUnsignedIntegerOrVector(op2Type)) {
+      extended = rewriter.template create<LLVM::ZExtOp>(loc, dstType,
+                                                        adaptor.getOperand2());
     } else {
-      return failure();
+      extended = rewriter.template create<LLVM::SExtOp>(loc, dstType,
+                                                        adaptor.getOperand2());
     }
-
     Value result = rewriter.template create<LLVMOp>(
         loc, dstType, adaptor.getOperand1(), extended);
     rewriter.replaceOp(operation, result);
@@ -1335,9 +1254,9 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     auto srcType = varOp.getType();
     // Initialization is supported for scalars and vectors only.
-    auto pointerTo = cast<spirv::PointerType>(srcType).getPointeeType();
+    auto pointerTo = srcType.cast<spirv::PointerType>().getPointeeType();
     auto init = varOp.getInitializer();
-    if (init && !pointerTo.isIntOrFloat() && !isa<VectorType>(pointerTo))
+    if (init && !pointerTo.isIntOrFloat() && !pointerTo.isa<VectorType>())
       return failure();
 
     auto dstType = typeConverter.convertType(srcType);
@@ -1347,42 +1266,12 @@ public:
     Location loc = varOp.getLoc();
     Value size = createI32ConstantOf(loc, rewriter, 1);
     if (!init) {
-      rewriter.replaceOpWithNewOp<LLVM::AllocaOp>(
-          varOp, dstType, typeConverter.convertType(pointerTo), size);
+      rewriter.replaceOpWithNewOp<LLVM::AllocaOp>(varOp, dstType, size);
       return success();
     }
-    Value allocated = rewriter.create<LLVM::AllocaOp>(
-        loc, dstType, typeConverter.convertType(pointerTo), size);
+    Value allocated = rewriter.create<LLVM::AllocaOp>(loc, dstType, size);
     rewriter.create<LLVM::StoreOp>(loc, adaptor.getInitializer(), allocated);
     rewriter.replaceOp(varOp, allocated);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// BitcastOp conversion
-//===----------------------------------------------------------------------===//
-
-class BitcastConversionPattern
-    : public SPIRVToLLVMConversion<spirv::BitcastOp> {
-public:
-  using SPIRVToLLVMConversion<spirv::BitcastOp>::SPIRVToLLVMConversion;
-
-  LogicalResult
-  matchAndRewrite(spirv::BitcastOp bitcastOp, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    auto dstType = typeConverter.convertType(bitcastOp.getType());
-    if (!dstType)
-      return failure();
-
-    // LLVM's opaque pointers do not require bitcasts.
-    if (isa<LLVM::LLVMPointerType>(dstType)) {
-      rewriter.replaceOp(bitcastOp, adaptor.getOperand());
-      return success();
-    }
-
-    rewriter.replaceOpWithNewOp<LLVM::BitcastOp>(
-        bitcastOp, dstType, adaptor.getOperands(), bitcastOp->getAttrs());
     return success();
   }
 };
@@ -1405,8 +1294,7 @@ public:
     TypeConverter::SignatureConversion signatureConverter(
         funcType.getNumInputs());
     auto llvmType = typeConverter.convertFunctionSignature(
-        funcType, /*isVariadic=*/false, /*useBarePtrCallConv=*/false,
-        signatureConverter);
+        funcType, /*isVariadic=*/false, signatureConverter);
     if (!llvmType)
       return failure();
 
@@ -1489,8 +1377,8 @@ public:
     auto components = adaptor.getComponents();
     auto vector1 = adaptor.getVector1();
     auto vector2 = adaptor.getVector2();
-    int vector1Size = cast<VectorType>(vector1.getType()).getNumElements();
-    int vector2Size = cast<VectorType>(vector2.getType()).getNumElements();
+    int vector1Size = vector1.getType().cast<VectorType>().getNumElements();
+    int vector2Size = vector2.getType().cast<VectorType>().getNumElements();
     if (vector1Size == vector2Size) {
       rewriter.replaceOpWithNewOp<LLVM::ShuffleVectorOp>(
           op, vector1, vector2,
@@ -1499,16 +1387,16 @@ public:
     }
 
     auto dstType = typeConverter.convertType(op.getType());
-    auto scalarType = cast<VectorType>(dstType).getElementType();
+    auto scalarType = dstType.cast<VectorType>().getElementType();
     auto componentsArray = components.getValue();
     auto *context = rewriter.getContext();
     auto llvmI32Type = IntegerType::get(context, 32);
     Value targetOp = rewriter.create<LLVM::UndefOp>(loc, dstType);
     for (unsigned i = 0; i < componentsArray.size(); i++) {
-      if (!isa<IntegerAttr>(componentsArray[i]))
+      if (!componentsArray[i].isa<IntegerAttr>())
         return op.emitError("unable to support non-constant component");
 
-      int indexVal = cast<IntegerAttr>(componentsArray[i]).getInt();
+      int indexVal = componentsArray[i].cast<IntegerAttr>().getInt();
       if (indexVal == -1)
         continue;
 
@@ -1540,13 +1428,12 @@ public:
 // Pattern population
 //===----------------------------------------------------------------------===//
 
-void mlir::populateSPIRVToLLVMTypeConversion(LLVMTypeConverter &typeConverter,
-                                             spirv::ClientAPI clientAPI) {
+void mlir::populateSPIRVToLLVMTypeConversion(LLVMTypeConverter &typeConverter) {
   typeConverter.addConversion([&](spirv::ArrayType type) {
     return convertArrayType(type, typeConverter);
   });
-  typeConverter.addConversion([&, clientAPI](spirv::PointerType type) {
-    return convertPointerType(type, typeConverter, clientAPI);
+  typeConverter.addConversion([&](spirv::PointerType type) {
+    return convertPointerType(type, typeConverter);
   });
   typeConverter.addConversion([&](spirv::RuntimeArrayType type) {
     return convertRuntimeArrayType(type, typeConverter);
@@ -1557,8 +1444,7 @@ void mlir::populateSPIRVToLLVMTypeConversion(LLVMTypeConverter &typeConverter,
 }
 
 void mlir::populateSPIRVToLLVMConversionPatterns(
-    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns,
-    spirv::ClientAPI clientAPI) {
+    LLVMTypeConverter &typeConverter, RewritePatternSet &patterns) {
   patterns.add<
       // Arithmetic ops
       DirectConversionPattern<spirv::IAddOp, LLVM::AddOp>,
@@ -1585,7 +1471,7 @@ void mlir::populateSPIRVToLLVMConversionPatterns(
       NotPattern<spirv::NotOp>,
 
       // Cast ops
-      BitcastConversionPattern,
+      DirectConversionPattern<spirv::BitcastOp, LLVM::BitcastOp>,
       DirectConversionPattern<spirv::ConvertFToSOp, LLVM::FPToSIOp>,
       DirectConversionPattern<spirv::ConvertFToUOp, LLVM::FPToUIOp>,
       DirectConversionPattern<spirv::ConvertSToFOp, LLVM::SIToFPOp>,
@@ -1653,8 +1539,9 @@ void mlir::populateSPIRVToLLVMConversionPatterns(
       NotPattern<spirv::LogicalNotOp>,
 
       // Memory ops
-      AccessChainPattern, AddressOfPattern, LoadStorePattern<spirv::LoadOp>,
-      LoadStorePattern<spirv::StoreOp>, VariablePattern,
+      AccessChainPattern, AddressOfPattern, GlobalVariablePattern,
+      LoadStorePattern<spirv::LoadOp>, LoadStorePattern<spirv::StoreOp>,
+      VariablePattern,
 
       // Miscellaneous ops
       CompositeExtractPattern, CompositeInsertPattern,
@@ -1669,9 +1556,6 @@ void mlir::populateSPIRVToLLVMConversionPatterns(
 
       // Return ops
       ReturnPattern, ReturnValuePattern>(patterns.getContext(), typeConverter);
-
-  patterns.add<GlobalVariablePattern>(clientAPI, patterns.getContext(),
-                                      typeConverter);
 }
 
 void mlir::populateSPIRVToLLVMFunctionConversionPatterns(

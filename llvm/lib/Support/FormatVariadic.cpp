@@ -7,11 +7,10 @@
 
 #include "llvm/Support/FormatVariadic.h"
 #include <cassert>
-#include <optional>
 
 using namespace llvm;
 
-static std::optional<AlignStyle> translateLocChar(char C) {
+static Optional<AlignStyle> translateLocChar(char C) {
   switch (C) {
   case '-':
     return AlignStyle::Left;
@@ -20,7 +19,7 @@ static std::optional<AlignStyle> translateLocChar(char C) {
   case '+':
     return AlignStyle::Right;
   default:
-    return std::nullopt;
+    return None;
   }
   LLVM_BUILTIN_UNREACHABLE;
 }
@@ -55,7 +54,7 @@ bool formatv_object_base::consumeFieldLayout(StringRef &Spec, AlignStyle &Where,
   return !Failed;
 }
 
-std::optional<ReplacementItem>
+Optional<ReplacementItem>
 formatv_object_base::parseReplacementItem(StringRef Spec) {
   StringRef RepString = Spec.trim("{}");
 
@@ -72,7 +71,8 @@ formatv_object_base::parseReplacementItem(StringRef Spec) {
     return ReplacementItem{};
   }
   RepString = RepString.trim();
-  if (RepString.consume_front(",")) {
+  if (!RepString.empty() && RepString.front() == ',') {
+    RepString = RepString.drop_front();
     if (!consumeFieldLayout(RepString, Where, Align, Pad))
       assert(false && "Invalid replacement field layout specification!");
   }

@@ -16,13 +16,18 @@
 
 // UNSUPPORTED: c++03, c++11, c++14
 
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS -Wno-deprecated-pragma
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS
 
 #include <memory>
+#include "test_macros.h"
 
-void f() {
+int main(int, char**)
+{
   int x = 0;
   std::allocator<int> a;
 
-  (void)a.address(x); // expected-warning {{'address' is deprecated}}
+  int* p = a.address(x); // expected-warning {{'address' is deprecated}}
+  (void)p;
+
+  return 0;
 }

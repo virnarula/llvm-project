@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 namespace {
 // Skips any combination of temporary materialization, temporary binding and
@@ -95,4 +97,6 @@ void StrCatAppendCheck::check(const MatchFinder::MatchResult &Result) {
       << FixItHint::CreateInsertion(Call->getArg(0)->getBeginLoc(), "&");
 }
 
-} // namespace clang::tidy::abseil
+}  // namespace abseil
+}  // namespace tidy
+}  // namespace clang

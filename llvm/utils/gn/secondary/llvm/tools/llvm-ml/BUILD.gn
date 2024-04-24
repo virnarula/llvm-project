@@ -1,4 +1,3 @@
-import("//llvm/utils/gn/build/driver_executable.gni")
 import("//llvm/utils/TableGen/tablegen.gni")
 
 tablegen("Opts") {
@@ -6,7 +5,7 @@ tablegen("Opts") {
   args = [ "-gen-opt-parser-defs" ]
 }
 
-driver_executable("llvm-ml") {
+executable("llvm-ml") {
   deps = [
     ":Opts",
     "//llvm/lib/MC",
@@ -14,7 +13,6 @@ driver_executable("llvm-ml") {
     "//llvm/lib/Option",
     "//llvm/lib/Support",
     "//llvm/lib/Target:TargetsToBuild",
-    "//llvm/lib/TargetParser",
   ]
   sources = [
     "Disassembler.cpp",

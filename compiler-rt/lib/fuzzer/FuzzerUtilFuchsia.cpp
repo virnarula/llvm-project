@@ -87,7 +87,6 @@ void AlarmHandler(int Seconds) {
 // Alternatively, Fuchsia may in future actually implement basic signal
 // handling for the machine trap signals.
 #if defined(__x86_64__)
-
 #define FOREACH_REGISTER(OP_REG, OP_NUM) \
   OP_REG(rax)                            \
   OP_REG(rbx)                            \
@@ -108,7 +107,6 @@ void AlarmHandler(int Seconds) {
   OP_REG(rip)
 
 #elif defined(__aarch64__)
-
 #define FOREACH_REGISTER(OP_REG, OP_NUM) \
   OP_NUM(0)                              \
   OP_NUM(1)                              \
@@ -141,41 +139,6 @@ void AlarmHandler(int Seconds) {
   OP_NUM(28)                             \
   OP_NUM(29)                             \
   OP_REG(sp)
-
-#elif defined(__riscv)
-
-#define FOREACH_REGISTER(OP_REG, OP_NUM)                                      \
-  OP_REG(ra)                                                                  \
-  OP_REG(sp)                                                                  \
-  OP_REG(gp)                                                                  \
-  OP_REG(tp)                                                                  \
-  OP_REG(t0)                                                                  \
-  OP_REG(t1)                                                                  \
-  OP_REG(t2)                                                                  \
-  OP_REG(s0)                                                                  \
-  OP_REG(s1)                                                                  \
-  OP_REG(a0)                                                                  \
-  OP_REG(a1)                                                                  \
-  OP_REG(a2)                                                                  \
-  OP_REG(a3)                                                                  \
-  OP_REG(a4)                                                                  \
-  OP_REG(a5)                                                                  \
-  OP_REG(a6)                                                                  \
-  OP_REG(a7)                                                                  \
-  OP_REG(s2)                                                                  \
-  OP_REG(s3)                                                                  \
-  OP_REG(s4)                                                                  \
-  OP_REG(s5)                                                                  \
-  OP_REG(s6)                                                                  \
-  OP_REG(s7)                                                                  \
-  OP_REG(s8)                                                                  \
-  OP_REG(s9)                                                                  \
-  OP_REG(s10)                                                                 \
-  OP_REG(s11)                                                                 \
-  OP_REG(t3)                                                                  \
-  OP_REG(t4)                                                                  \
-  OP_REG(t5)                                                                  \
-  OP_REG(t6)                                                                  \
 
 #else
 #error "Unsupported architecture for fuzzing on Fuchsia"
@@ -237,13 +200,6 @@ void MakeTrampoline() {
       ".cfi_offset 30, %c[lr]\n"
       "bl %c[StaticCrashHandler]\n"
       "brk 1\n"
-#elif defined(__riscv)
-      ".cfi_return_column 64\n"
-      ".cfi_def_cfa sp, 0\n"
-      ".cfi_offset 64, %[pc]\n"
-      FOREACH_REGISTER(CFI_OFFSET_REG, CFI_OFFSET_NUM)
-      "call %c[StaticCrashHandler]\n"
-      "unimp\n"
 #else
 #error "Unsupported architecture for fuzzing on Fuchsia"
 #endif
@@ -253,11 +209,8 @@ void MakeTrampoline() {
      ".cfi_startproc\n"
       : // No outputs
       : FOREACH_REGISTER(ASM_OPERAND_REG, ASM_OPERAND_NUM)
-#if defined(__aarch64__) || defined(__riscv)
-        ASM_OPERAND_REG(pc)
-#endif
 #if defined(__aarch64__)
-        ASM_OPERAND_REG(lr)
+        ASM_OPERAND_REG(pc) ASM_OPERAND_REG(lr)
 #endif
         [StaticCrashHandler] "i"(StaticCrashHandler));
 }
@@ -341,7 +294,6 @@ void CrashHandler() {
     // onto the stack and jump into a trampoline with CFI instructions on how
     // to restore it.
 #if defined(__x86_64__)
-
     uintptr_t StackPtr =
         (GeneralRegisters.rsp - (128 + sizeof(GeneralRegisters))) &
         -(uintptr_t)16;
@@ -350,8 +302,7 @@ void CrashHandler() {
     GeneralRegisters.rsp = StackPtr;
     GeneralRegisters.rip = reinterpret_cast<zx_vaddr_t>(CrashTrampolineAsm);
 
-#elif defined(__aarch64__) || defined(__riscv)
-
+#elif defined(__aarch64__)
     uintptr_t StackPtr =
         (GeneralRegisters.sp - sizeof(GeneralRegisters)) & -(uintptr_t)16;
     __unsanitized_memcpy(reinterpret_cast<void *>(StackPtr), &GeneralRegisters,
@@ -598,15 +549,6 @@ void DiscardOutput(int Fd) {
   int nullfd = fdio_bind_to_fd(fdio_null, -1, 0);
   if (nullfd < 0) return;
   dup2(nullfd, Fd);
-}
-
-size_t PageSize() {
-  static size_t PageSizeCached = _zx_system_get_page_size();
-  return PageSizeCached;
-}
-
-void SetThreadName(std::thread &thread, const std::string &name) {
-  // TODO ?
 }
 
 } // namespace fuzzer

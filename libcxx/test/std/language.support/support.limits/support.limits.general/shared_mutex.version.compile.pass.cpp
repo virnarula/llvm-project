@@ -41,7 +41,7 @@
 #   error "__cpp_lib_shared_mutex should not be defined before c++17"
 # endif
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)
 #   ifndef __cpp_lib_shared_timed_mutex
 #     error "__cpp_lib_shared_timed_mutex should be defined in c++14"
 #   endif
@@ -50,13 +50,13 @@
 #   endif
 # else
 #   ifdef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)' is not met!"
 #   endif
 # endif
 
 #elif TEST_STD_VER == 17
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_mutex)
 #   ifndef __cpp_lib_shared_mutex
 #     error "__cpp_lib_shared_mutex should be defined in c++17"
 #   endif
@@ -65,11 +65,11 @@
 #   endif
 # else
 #   ifdef __cpp_lib_shared_mutex
-#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_mutex)' is not met!"
 #   endif
 # endif
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)
 #   ifndef __cpp_lib_shared_timed_mutex
 #     error "__cpp_lib_shared_timed_mutex should be defined in c++17"
 #   endif
@@ -78,13 +78,13 @@
 #   endif
 # else
 #   ifdef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)' is not met!"
 #   endif
 # endif
 
 #elif TEST_STD_VER == 20
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_mutex)
 #   ifndef __cpp_lib_shared_mutex
 #     error "__cpp_lib_shared_mutex should be defined in c++20"
 #   endif
@@ -93,11 +93,11 @@
 #   endif
 # else
 #   ifdef __cpp_lib_shared_mutex
-#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_mutex)' is not met!"
 #   endif
 # endif
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)
 #   ifndef __cpp_lib_shared_timed_mutex
 #     error "__cpp_lib_shared_timed_mutex should be defined in c++20"
 #   endif
@@ -106,65 +106,37 @@
 #   endif
 # else
 #   ifdef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)' is not met!"
 #   endif
 # endif
 
-#elif TEST_STD_VER == 23
+#elif TEST_STD_VER > 20
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_mutex)
 #   ifndef __cpp_lib_shared_mutex
-#     error "__cpp_lib_shared_mutex should be defined in c++23"
+#     error "__cpp_lib_shared_mutex should be defined in c++2b"
 #   endif
 #   if __cpp_lib_shared_mutex != 201505L
-#     error "__cpp_lib_shared_mutex should have the value 201505L in c++23"
+#     error "__cpp_lib_shared_mutex should have the value 201505L in c++2b"
 #   endif
 # else
 #   ifdef __cpp_lib_shared_mutex
-#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_mutex)' is not met!"
 #   endif
 # endif
 
-# if !defined(_LIBCPP_HAS_NO_THREADS)
+# if !defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)
 #   ifndef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should be defined in c++23"
+#     error "__cpp_lib_shared_timed_mutex should be defined in c++2b"
 #   endif
 #   if __cpp_lib_shared_timed_mutex != 201402L
-#     error "__cpp_lib_shared_timed_mutex should have the value 201402L in c++23"
+#     error "__cpp_lib_shared_timed_mutex should have the value 201402L in c++2b"
 #   endif
 # else
 #   ifdef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
+#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS) && !defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_shared_timed_mutex)' is not met!"
 #   endif
 # endif
 
-#elif TEST_STD_VER > 23
-
-# if !defined(_LIBCPP_HAS_NO_THREADS)
-#   ifndef __cpp_lib_shared_mutex
-#     error "__cpp_lib_shared_mutex should be defined in c++26"
-#   endif
-#   if __cpp_lib_shared_mutex != 201505L
-#     error "__cpp_lib_shared_mutex should have the value 201505L in c++26"
-#   endif
-# else
-#   ifdef __cpp_lib_shared_mutex
-#     error "__cpp_lib_shared_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
-#   endif
-# endif
-
-# if !defined(_LIBCPP_HAS_NO_THREADS)
-#   ifndef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should be defined in c++26"
-#   endif
-#   if __cpp_lib_shared_timed_mutex != 201402L
-#     error "__cpp_lib_shared_timed_mutex should have the value 201402L in c++26"
-#   endif
-# else
-#   ifdef __cpp_lib_shared_timed_mutex
-#     error "__cpp_lib_shared_timed_mutex should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_THREADS)' is not met!"
-#   endif
-# endif
-
-#endif // TEST_STD_VER > 23
+#endif // TEST_STD_VER > 20
 

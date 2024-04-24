@@ -10,7 +10,7 @@
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_NATIVEPDB_PDBFPOPROGRAMTODWARFEXPRESSION_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/TargetParser/Triple.h"
+#include "llvm/ADT/Triple.h"
 
 namespace lldb_private {
 class Stream;

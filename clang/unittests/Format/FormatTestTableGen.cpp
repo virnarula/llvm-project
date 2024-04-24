@@ -48,11 +48,11 @@ TEST_F(FormatTestTableGen, FormatStringBreak) {
                "           HelpText<\n"
                "               \"This is a very, very, very, very, \"\n"
                "               \"very, very, very, very, very, very, \"\n"
-               "               \"very long help string\">;");
+               "               \"very long help string\">;\n");
 }
 
 TEST_F(FormatTestTableGen, NoSpacesInSquareBracketLists) {
-  verifyFormat("def flag : Flag<[\"-\", \"--\"], \"foo\">;");
+  verifyFormat("def flag : Flag<[\"-\", \"--\"], \"foo\">;\n");
 }
 
 } // namespace format

@@ -10,8 +10,7 @@
 
 #include "ClangHost.h"
 #include "lldb/Host/FileSystem.h"
-#include "llvm/TargetParser/Triple.h"
-#include <optional>
+#include "llvm/ADT/Triple.h"
 
 using namespace lldb_private;
 
@@ -47,14 +46,14 @@ getTargetIncludePaths(const llvm::Triple &triple) {
 }
 
 /// Returns the include path matching the given pattern for the given file
-/// path (or std::nullopt if the path doesn't match the pattern).
-static std::optional<llvm::StringRef>
+/// path (or None if the path doesn't match the pattern).
+static llvm::Optional<llvm::StringRef>
 guessIncludePath(llvm::StringRef path_to_file, llvm::StringRef pattern) {
   if (pattern.empty())
-    return std::nullopt;
+    return llvm::NoneType();
   size_t pos = path_to_file.find(pattern);
   if (pos == llvm::StringRef::npos)
-    return std::nullopt;
+    return llvm::NoneType();
 
   return path_to_file.substr(0, pos + pattern.size());
 }
@@ -72,7 +71,7 @@ bool CppModuleConfiguration::analyzeFile(const FileSpec &f,
   // path. Ignore subdirectories such as /c++/v1/experimental as those don't
   // need to be specified in the header search.
   if (libcpp_regex.match(f.GetPath()) &&
-      parent_path(posix_dir, Style::posix).ends_with("c++")) {
+      parent_path(posix_dir, Style::posix).endswith("c++")) {
     if (!m_std_inc.TrySet(posix_dir))
       return false;
     if (triple.str().empty())
@@ -84,7 +83,7 @@ bool CppModuleConfiguration::analyzeFile(const FileSpec &f,
         (posix_dir + triple.str() + "/c++/v1").str());
   }
 
-  std::optional<llvm::StringRef> inc_path;
+  llvm::Optional<llvm::StringRef> inc_path;
   // Target specific paths contains /usr/include, so we check them first
   for (auto &path : getTargetIncludePaths(triple)) {
     if ((inc_path = guessIncludePath(posix_dir, path)))
@@ -134,9 +133,9 @@ bool CppModuleConfiguration::hasValidConfig() {
 CppModuleConfiguration::CppModuleConfiguration(
     const FileSpecList &support_files, const llvm::Triple &triple) {
   // Analyze all files we were given to build the configuration.
-  bool error = !llvm::all_of(support_files, [&](auto &file) {
-    return CppModuleConfiguration::analyzeFile(file, triple);
-  });
+  bool error = !llvm::all_of(support_files,
+                             std::bind(&CppModuleConfiguration::analyzeFile,
+                                       this, std::placeholders::_1, triple));
   // If we have a valid configuration at this point, set the
   // include directories and module list that should be used.
   if (!error && hasValidConfig()) {

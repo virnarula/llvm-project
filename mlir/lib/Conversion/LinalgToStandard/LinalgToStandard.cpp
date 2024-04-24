@@ -27,8 +27,9 @@ using namespace mlir::linalg;
 
 static MemRefType makeStridedLayoutDynamic(MemRefType type) {
   return MemRefType::Builder(type).setLayout(StridedLayoutAttr::get(
-      type.getContext(), ShapedType::kDynamic,
-      SmallVector<int64_t>(type.getRank(), ShapedType::kDynamic)));
+      type.getContext(), ShapedType::kDynamicStrideOrOffset,
+      SmallVector<int64_t>(type.getRank(),
+                           ShapedType::kDynamicStrideOrOffset)));
 }
 
 /// Helper function to extract the operand types that are passed to the
@@ -42,7 +43,7 @@ static SmallVector<Type, 4> extractOperandTypes(Operation *op) {
     // The underlying descriptor type (e.g. LLVM) does not have layout
     // information. Canonicalizing the type at the level of std when going into
     // a library call avoids needing to introduce DialectCastOp.
-    if (auto memrefType = dyn_cast<MemRefType>(type))
+    if (auto memrefType = type.dyn_cast<MemRefType>())
       result.push_back(makeStridedLayoutDynamic(memrefType));
     else
       result.push_back(type);
@@ -52,12 +53,14 @@ static SmallVector<Type, 4> extractOperandTypes(Operation *op) {
 
 // Get a SymbolRefAttr containing the library function name for the LinalgOp.
 // If the library function does not exist, insert a declaration.
-static FailureOr<FlatSymbolRefAttr>
-getLibraryCallSymbolRef(Operation *op, PatternRewriter &rewriter) {
+static FlatSymbolRefAttr getLibraryCallSymbolRef(Operation *op,
+                                                 PatternRewriter &rewriter) {
   auto linalgOp = cast<LinalgOp>(op);
   auto fnName = linalgOp.getLibraryCallName();
-  if (fnName.empty())
-    return rewriter.notifyMatchFailure(op, "No library call defined for: ");
+  if (fnName.empty()) {
+    op->emitWarning("No library call defined for: ") << *op;
+    return {};
+  }
 
   // fnName is a dynamic std::string, unique it via a SymbolRefAttr.
   FlatSymbolRefAttr fnNameAttr =
@@ -67,12 +70,9 @@ getLibraryCallSymbolRef(Operation *op, PatternRewriter &rewriter) {
     return fnNameAttr;
 
   SmallVector<Type, 4> inputTypes(extractOperandTypes(op));
-  if (op->getNumResults() != 0) {
-    return rewriter.notifyMatchFailure(
-        op,
-        "Library call for linalg operation can be generated only for ops that "
-        "have void return types");
-  }
+  assert(op->getNumResults() == 0 &&
+         "Library call for linalg operation can be generated only for ops that "
+         "have void return types");
   auto libFnType = rewriter.getFunctionType(inputTypes, {});
 
   OpBuilder::InsertionGuard guard(rewriter);
@@ -96,7 +96,7 @@ createTypeCanonicalizedMemRefOperands(OpBuilder &b, Location loc,
   SmallVector<Value, 4> res;
   res.reserve(operands.size());
   for (auto op : operands) {
-    auto memrefType = dyn_cast<MemRefType>(op.getType());
+    auto memrefType = op.getType().dyn_cast<MemRefType>();
     if (!memrefType) {
       res.push_back(op);
       continue;
@@ -111,13 +111,13 @@ createTypeCanonicalizedMemRefOperands(OpBuilder &b, Location loc,
 LogicalResult mlir::linalg::LinalgOpToLibraryCallRewrite::matchAndRewrite(
     LinalgOp op, PatternRewriter &rewriter) const {
   auto libraryCallName = getLibraryCallSymbolRef(op, rewriter);
-  if (failed(libraryCallName))
+  if (!libraryCallName)
     return failure();
 
   // TODO: Add support for more complex library call signatures that include
   // indices or captured values.
   rewriter.replaceOpWithNewOp<func::CallOp>(
-      op, libraryCallName->getValue(), TypeRange(),
+      op, libraryCallName.getValue(), TypeRange(),
       createTypeCanonicalizedMemRefOperands(rewriter, op->getLoc(),
                                             op->getOperands()));
   return success();
@@ -141,9 +141,8 @@ struct ConvertLinalgToStandardPass
 void ConvertLinalgToStandardPass::runOnOperation() {
   auto module = getOperation();
   ConversionTarget target(getContext());
-  target.addLegalDialect<affine::AffineDialect, arith::ArithDialect,
-                         func::FuncDialect, memref::MemRefDialect,
-                         scf::SCFDialect>();
+  target.addLegalDialect<AffineDialect, arith::ArithDialect, func::FuncDialect,
+                         memref::MemRefDialect, scf::SCFDialect>();
   target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>();
   RewritePatternSet patterns(&getContext());
   populateLinalgToStandardConversionPatterns(patterns);

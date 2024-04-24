@@ -8,10 +8,10 @@
 
 #include "src/__support/CPP/span.h"
 #include "src/__support/CPP/stringstream.h"
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
-using LIBC_NAMESPACE::cpp::span;
-using LIBC_NAMESPACE::cpp::StringStream;
+using __llvm_libc::cpp::span;
+using __llvm_libc::cpp::StringStream;
 
 TEST(LlvmLibcStringStreamTest, Simple) {
   char buf[256];

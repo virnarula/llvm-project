@@ -528,20 +528,20 @@ void AsyncRuntimePolicyBasedRefCountingPass::initializeDefaultPolicy() {
     Operation *op = operand.getOwner();
     Type type = operand.get().getType();
 
-    bool isToken = isa<TokenType>(type);
-    bool isGroup = isa<GroupType>(type);
-    bool isValue = isa<ValueType>(type);
+    bool isToken = type.isa<TokenType>();
+    bool isGroup = type.isa<GroupType>();
+    bool isValue = type.isa<ValueType>();
 
     // Drop reference after async token or group error check (coro await).
-    if (dyn_cast<RuntimeIsErrorOp>(op))
+    if (auto await = dyn_cast<RuntimeIsErrorOp>(op))
       return (isToken || isGroup) ? -1 : 0;
 
     // Drop reference after async value load.
-    if (dyn_cast<RuntimeLoadOp>(op))
+    if (auto load = dyn_cast<RuntimeLoadOp>(op))
       return isValue ? -1 : 0;
 
     // Drop reference after async token added to the group.
-    if (dyn_cast<RuntimeAddToGroupOp>(op))
+    if (auto add = dyn_cast<RuntimeAddToGroupOp>(op))
       return isToken ? -1 : 0;
 
     return 0;

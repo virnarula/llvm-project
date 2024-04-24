@@ -9,9 +9,6 @@
 #include "AArch64.h"
 #include "AArch64RegisterInfo.h"
 
-#define GET_AVAILABLE_OPCODE_CHECKER
-#include "AArch64GenInstrInfo.inc"
-
 namespace llvm {
 namespace exegesis {
 
@@ -41,8 +38,7 @@ namespace {
 
 class ExegesisAArch64Target : public ExegesisTarget {
 public:
-  ExegesisAArch64Target()
-      : ExegesisTarget(AArch64CpuPfmCounters, AArch64_MC::isOpcodeAvailable) {}
+  ExegesisAArch64Target() : ExegesisTarget(AArch64CpuPfmCounters) {}
 
 private:
   std::vector<MCInst> setRegTo(const MCSubtargetInfo &STI, unsigned Reg,

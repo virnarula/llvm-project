@@ -16,9 +16,12 @@
 //
 // This signature was removed in C++17
 
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <utility>
+
+#include "test_macros.h"
 
 class A
 {
@@ -49,7 +52,9 @@ int A::count = 0;
 
 int g(int) { return 0; }
 
-void f() {
+int main(int, char**)
+{
     std::function<int(int)> f = A();
     std::function<int(int)> f2(std::allocator_arg, std::allocator<A>(), std::move(f)); // expected-error {{no matching constructor for initialization of}}
+    return 0;
 }

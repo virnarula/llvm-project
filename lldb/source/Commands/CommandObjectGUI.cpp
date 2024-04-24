@@ -24,7 +24,7 @@ CommandObjectGUI::CommandObjectGUI(CommandInterpreter &interpreter)
 
 CommandObjectGUI::~CommandObjectGUI() = default;
 
-void CommandObjectGUI::DoExecute(Args &args, CommandReturnObject &result) {
+bool CommandObjectGUI::DoExecute(Args &args, CommandReturnObject &result) {
 #if LLDB_ENABLE_CURSES
   Debugger &debugger = GetDebugger();
 
@@ -39,7 +39,9 @@ void CommandObjectGUI::DoExecute(Args &args, CommandReturnObject &result) {
   } else {
     result.AppendError("the gui command requires an interactive terminal.");
   }
+  return true;
 #else
   result.AppendError("lldb was not built with gui support");
+  return false;
 #endif
 }

@@ -30,7 +30,7 @@ using namespace mlir::gpu;
 /// single-iteration loops. Maps the innermost loops to thread dimensions, in
 /// reverse order to enable access coalescing in the innermost loop.
 static void insertCopyLoops(ImplicitLocOpBuilder &b, Value from, Value to) {
-  auto memRefType = cast<MemRefType>(from.getType());
+  auto memRefType = from.getType().cast<MemRefType>();
   auto rank = memRefType.getRank();
 
   SmallVector<Value, 4> lbs, ubs, steps;
@@ -51,7 +51,8 @@ static void insertCopyLoops(ImplicitLocOpBuilder &b, Value from, Value to) {
   ubs.reserve(lbs.size());
   steps.reserve(lbs.size());
   for (auto idx = 0; idx < rank; ++idx) {
-    ubs.push_back(b.createOrFold<memref::DimOp>(from, idx));
+    ubs.push_back(b.createOrFold<memref::DimOp>(
+        from, b.create<arith::ConstantIndexOp>(idx)));
     steps.push_back(one);
   }
 
@@ -69,19 +70,19 @@ static void insertCopyLoops(ImplicitLocOpBuilder &b, Value from, Value to) {
       b, b.getLoc(), lbs, ubs, steps,
       [&](OpBuilder &b, Location loc, ValueRange loopIvs) {
         ivs.assign(loopIvs.begin(), loopIvs.end());
-        auto activeIvs = llvm::ArrayRef(ivs).take_back(rank);
+        auto activeIvs = llvm::makeArrayRef(ivs).take_back(rank);
         Value loaded = b.create<memref::LoadOp>(loc, from, activeIvs);
         b.create<memref::StoreOp>(loc, loaded, to, activeIvs);
       });
 
   // Map the innermost loops to threads in reverse order.
   for (const auto &en :
-       llvm::enumerate(llvm::reverse(llvm::ArrayRef(ivs).take_back(
+       llvm::enumerate(llvm::reverse(llvm::makeArrayRef(ivs).take_back(
            GPUDialect::getNumWorkgroupDimensions())))) {
     Value v = en.value();
     auto loop = cast<scf::ForOp>(v.getParentRegion()->getParentOp());
-    affine::mapLoopToProcessorIds(loop, {threadIds[en.index()]},
-                                  {blockDims[en.index()]});
+    mapLoopToProcessorIds(loop, {threadIds[en.index()]},
+                          {blockDims[en.index()]});
   }
 }
 
@@ -120,8 +121,8 @@ static void insertCopyLoops(ImplicitLocOpBuilder &b, Value from, Value to) {
 /// pointed to by "from". In case a smaller block would be sufficient, the
 /// caller can create a subview of the memref and promote it instead.
 static void insertCopies(Region &region, Location loc, Value from, Value to) {
-  auto fromType = cast<MemRefType>(from.getType());
-  auto toType = cast<MemRefType>(to.getType());
+  auto fromType = from.getType().cast<MemRefType>();
+  auto toType = to.getType().cast<MemRefType>();
   (void)fromType;
   (void)toType;
   assert(fromType.getShape() == toType.getShape());
@@ -142,15 +143,13 @@ static void insertCopies(Region &region, Location loc, Value from, Value to) {
 /// copies will be inserted in the beginning and in the end of the function.
 void mlir::promoteToWorkgroupMemory(GPUFuncOp op, unsigned arg) {
   Value value = op.getArgument(arg);
-  auto type = dyn_cast<MemRefType>(value.getType());
+  auto type = value.getType().dyn_cast<MemRefType>();
   assert(type && type.hasStaticShape() && "can only promote memrefs");
 
   // Get the type of the buffer in the workgroup memory.
-  auto workgroupMemoryAddressSpace = gpu::AddressSpaceAttr::get(
-      op->getContext(), gpu::AddressSpace::Workgroup);
-  auto bufferType = MemRefType::get(type.getShape(), type.getElementType(),
-                                    MemRefLayoutAttrInterface{},
-                                    Attribute(workgroupMemoryAddressSpace));
+  int workgroupMemoryAddressSpace = gpu::GPUDialect::getWorkgroupAddressSpace();
+  auto bufferType = MemRefType::get(type.getShape(), type.getElementType(), {},
+                                    workgroupMemoryAddressSpace);
   Value attribution = op.addWorkgroupAttribution(bufferType, value.getLoc());
 
   // Replace the uses first since only the original uses are currently present.

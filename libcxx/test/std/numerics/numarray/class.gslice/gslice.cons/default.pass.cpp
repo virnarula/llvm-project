@@ -8,7 +8,7 @@
 
 // <valarray>
 
-// class gslice;
+// class glice;
 
 // gslice();
 

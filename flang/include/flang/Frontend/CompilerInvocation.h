@@ -15,7 +15,6 @@
 
 #include "flang/Frontend/CodeGenOptions.h"
 #include "flang/Frontend/FrontendOptions.h"
-#include "flang/Frontend/LangOptions.h"
 #include "flang/Frontend/PreprocessorOptions.h"
 #include "flang/Frontend/TargetOptions.h"
 #include "flang/Lower/LoweringOptions.h"
@@ -25,10 +24,6 @@
 #include "clang/Basic/DiagnosticOptions.h"
 #include "llvm/Option/ArgList.h"
 #include <memory>
-
-namespace llvm {
-class TargetMachine;
-}
 
 namespace Fortran::frontend {
 
@@ -83,13 +78,8 @@ class CompilerInvocation : public CompilerInvocationBase {
   /// Options controlling IRgen and the backend.
   Fortran::frontend::CodeGenOptions codeGenOpts;
 
-  /// Options controlling language dialect.
-  Fortran::frontend::LangOptions langOpts;
-
-  // The original invocation of the compiler driver.
-  // This string will be set as the return value from the COMPILER_OPTIONS
-  // intrinsic of iso_fortran_env.
-  std::string allCompilerInvocOpts;
+  // Semantics context
+  std::unique_ptr<Fortran::semantics::SemanticsContext> semanticsContext;
 
   /// Semantic options
   // TODO: Merge with or translate to frontendOpts. We shouldn't need two sets
@@ -102,20 +92,15 @@ class CompilerInvocation : public CompilerInvocationBase {
 
   bool warnAsErr = false;
 
-  // Executable name
-  const char *argv0;
-
-  /// This flag controls the unparsing and is used to decide whether to print
-  /// out the semantically analyzed version of an object or expression or the
-  /// plain version that does not include any information from semantic
-  /// analysis.
+  /// This flag controls the unparsing and is used to decide whether to print out
+  /// the semantically analyzed version of an object or expression or the plain
+  /// version that does not include any information from semantic analysis.
   bool useAnalyzedObjectsForUnparse = true;
 
   // Fortran Dialect options
   Fortran::common::IntrinsicTypeDefaultKinds defaultKinds;
 
   bool enableConformanceChecks = false;
-  bool enableUsageChecks = false;
 
   /// Used in e.g. unparsing to dump the analyzed rather than the original
   /// parse-tree objects.
@@ -155,18 +140,17 @@ public:
   CodeGenOptions &getCodeGenOpts() { return codeGenOpts; }
   const CodeGenOptions &getCodeGenOpts() const { return codeGenOpts; }
 
-  LangOptions &getLangOpts() { return langOpts; }
-  const LangOptions &getLangOpts() const { return langOpts; }
-
   Fortran::lower::LoweringOptions &getLoweringOpts() { return loweringOpts; }
   const Fortran::lower::LoweringOptions &getLoweringOpts() const {
     return loweringOpts;
   }
 
-  /// Creates and configures semantics context based on the compilation flags.
-  std::unique_ptr<Fortran::semantics::SemanticsContext>
-  getSemanticsCtx(Fortran::parser::AllCookedSources &allCookedSources,
-                  const llvm::TargetMachine &);
+  Fortran::semantics::SemanticsContext &getSemanticsContext() {
+    return *semanticsContext;
+  }
+  const Fortran::semantics::SemanticsContext &getSemanticsContext() const {
+    return *semanticsContext;
+  }
 
   std::string &getModuleDir() { return moduleDir; }
   const std::string &getModuleDir() const { return moduleDir; }
@@ -192,11 +176,6 @@ public:
     return enableConformanceChecks;
   }
 
-  const char *getArgv0() { return argv0; }
-
-  bool &getEnableUsageChecks() { return enableUsageChecks; }
-  const bool &getEnableUsageChecks() const { return enableUsageChecks; }
-
   Fortran::parser::AnalyzedObjectsAsFortran &getAsFortran() {
     return asFortran;
   }
@@ -217,18 +196,12 @@ public:
   /// \param [out] res - The resulting invocation.
   static bool createFromArgs(CompilerInvocation &res,
                              llvm::ArrayRef<const char *> commandLineArgs,
-                             clang::DiagnosticsEngine &diags,
-                             const char *argv0 = nullptr);
+                             clang::DiagnosticsEngine &diags);
 
   // Enables the std=f2018 conformance check
   void setEnableConformanceChecks() { enableConformanceChecks = true; }
 
-  // Enables the usage checks
-  void setEnableUsageChecks() { enableUsageChecks = true; }
-
   /// Useful setters
-  void setArgv0(const char *dir) { argv0 = dir; }
-
   void setModuleDir(std::string &dir) { moduleDir = dir; }
 
   void setModuleFileSuffix(const char *suffix) {

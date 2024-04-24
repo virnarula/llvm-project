@@ -8,10 +8,9 @@
 
 # Flang C++ Style Guide
 
-```{contents}
----
-local:
----
+```eval_rst
+.. contents::
+   :local:
 ```
 
 This document captures the style guide rules that are followed in the Flang codebase.

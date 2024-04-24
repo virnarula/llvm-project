@@ -87,13 +87,13 @@ constexpr bool testEmptyMember() {
 }
 
 struct SizeMember {
-  std::size_t size_;
-  constexpr std::size_t size() const { return size_; }
+  size_t size_;
+  constexpr size_t size() const { return size_; }
 };
 
 struct SizeFunction {
-  std::size_t size_;
-  friend constexpr std::size_t size(SizeFunction sf) { return sf.size_; }
+  size_t size_;
+  friend constexpr size_t size(SizeFunction sf) { return sf.size_; }
 };
 
 struct BeginEndSizedSentinel {
@@ -131,7 +131,7 @@ static_assert(!std::ranges::sized_range<BeginEndNotSizedSentinel>);
 struct DisabledSizeRangeWithBeginEnd {
   constexpr int *begin() const { return nullptr; }
   constexpr auto end() const { return sentinel_wrapper<int*>(nullptr); }
-  std::size_t size() const;
+  size_t size() const;
 };
 template<>
 inline constexpr bool std::ranges::disable_sized_range<DisabledSizeRangeWithBeginEnd> = true;

@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_UNISTD_LINKAT_H
 #define LLVM_LIBC_SRC_UNISTD_LINKAT_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int linkat(int, const char *, int, const char *, int);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_UNISTD_LINKAT_H

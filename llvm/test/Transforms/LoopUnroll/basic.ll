@@ -1,17 +1,17 @@
-; RUN: opt < %s -passes=loop-unroll -S | FileCheck %s
+; RUN: opt < %s -loop-unroll -S | FileCheck %s
 ; RUN: opt < %s -passes='require<opt-remark-emit>,loop-unroll' -S | FileCheck %s
 
 
 ; This should not unroll since the address of the loop header is taken.
 
 ; CHECK-LABEL: @test1(
-; CHECK: store ptr blockaddress(@test1, %l1), ptr %P
+; CHECK: store i8* blockaddress(@test1, %l1), i8** %P
 ; CHECK: l1:
 ; CHECK-NEXT: phi i32
 ; rdar://8287027
-define i32 @test1(ptr %P) nounwind ssp {
+define i32 @test1(i8** %P) nounwind ssp {
 entry:
-  store ptr blockaddress(@test1, %l1), ptr %P
+  store i8* blockaddress(@test1, %l1), i8** %P
   br label %l1
 
 l1:                                               ; preds = %l1, %entry
@@ -27,7 +27,7 @@ l2:                                               ; preds = %l1
 ; This should not unroll since the call is 'noduplicate'.
 
 ; CHECK-LABEL: @test2(
-define i32 @test2(ptr %P) nounwind ssp {
+define i32 @test2(i8** %P) nounwind ssp {
 entry:
   br label %l1
 

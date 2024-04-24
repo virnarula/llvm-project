@@ -28,9 +28,10 @@ declare i8 @llvm.cttz.i8(i8)
 ; CHECK: mov    {{.*}}[[SCRATCH]], {{.*}}[[RESULT]]
 ; CHECK: swap   {{.*}}[[SCRATCH]]
 ; CHECK: add    {{.*}}[[SCRATCH]], {{.*}}[[RESULT]]
+; CHECK: andi   {{.*}}[[SCRATCH]], 15
 ; CHECK: mov    {{.*}}[[RESULT]], {{.*}}[[SCRATCH]]
-; CHECK: andi   {{.*}}[[RESULT]], 15
 ; CHECK: ret
 ; CHECK: [[END_BB]]:
-; CHECK: ldi    {{.*}}[[RESULT]], 8
+; CHECK: ldi    {{.*}}[[SCRATCH]], 8
+; CHECK: mov    {{.*}}[[RESULT]], {{.*}}[[SCRATCH]]
 ; CHECK: ret

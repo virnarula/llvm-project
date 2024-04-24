@@ -82,11 +82,6 @@ Expr<SomeDerived> FoldOperation(
       } else {
         isConstant &= IsInitialDataTarget(expr);
       }
-    } else if (IsAllocatable(symbol)) {
-      // F2023: 10.1.12 (3)(a)
-      // If comp-spec is not null() for the allocatable component the
-      // structure constructor is not a constant expression.
-      isConstant &= IsNullPointer(expr);
     } else {
       isConstant &= IsActuallyConstant(expr) || IsNullPointer(expr);
       if (auto valueShape{GetConstantExtents(context, expr)}) {
@@ -210,9 +205,24 @@ ComplexPart FoldOperation(FoldingContext &context, ComplexPart &&complexPart) {
       FoldOperation(context, std::move(complex)), complexPart.part()};
 }
 
+std::optional<std::int64_t> GetInt64Arg(
+    const std::optional<ActualArgument> &arg) {
+  if (const auto *intExpr{UnwrapExpr<Expr<SomeInteger>>(arg)}) {
+    return ToInt64(*intExpr);
+  } else {
+    return std::nullopt;
+  }
+}
+
 std::optional<std::int64_t> GetInt64ArgOr(
     const std::optional<ActualArgument> &arg, std::int64_t defaultValue) {
-  return arg ? ToInt64(*arg) : defaultValue;
+  if (!arg) {
+    return defaultValue;
+  } else if (const auto *intExpr{UnwrapExpr<Expr<SomeInteger>>(arg)}) {
+    return ToInt64(*intExpr);
+  } else {
+    return std::nullopt;
+  }
 }
 
 Expr<ImpliedDoIndex::Result> FoldOperation(
@@ -240,14 +250,8 @@ std::optional<Expr<SomeType>> FoldTransfer(
     }
   }
   std::optional<DynamicType> moldType;
-  std::optional<std::int64_t> moldLength;
-  if (arguments[1]) { // MOLD=
+  if (arguments[1]) {
     moldType = arguments[1]->GetType();
-    if (moldType && moldType->category() == TypeCategory::Character) {
-      if (const auto *chExpr{UnwrapExpr<Expr<SomeCharacter>>(arguments[1])}) {
-        moldLength = ToInt64(Fold(context, chExpr->LEN()));
-      }
-    }
   }
   std::optional<ConstantSubscripts> extents;
   if (arguments.size() == 2) { // no SIZE=
@@ -271,27 +275,15 @@ std::optional<Expr<SomeType>> FoldTransfer(
       }
     }
   }
-  if (sourceBytes && IsActuallyConstant(*source) && moldType && extents &&
-      (moldLength || moldType->category() != TypeCategory::Character)) {
-    std::size_t elements{
-        extents->empty() ? 1 : static_cast<std::size_t>((*extents)[0])};
-    std::size_t totalBytes{*sourceBytes * elements};
-    // Don't fold intentional overflow cases from sneaky tests
-    if (totalBytes < std::size_t{1000000} &&
-        (elements == 0 || totalBytes / elements == *sourceBytes)) {
-      InitialImage image{*sourceBytes};
-      auto status{image.Add(0, *sourceBytes, *source, context)};
-      if (status == InitialImage::Ok) {
-        return image.AsConstant(
-            context, *moldType, moldLength, *extents, true /*pad with 0*/);
-      } else {
-        // Can fail due to an allocatable or automatic component;
-        // a warning will also have been produced.
-        CHECK(status == InitialImage::NotAConstant);
-      }
-    }
+  if (sourceBytes && IsActuallyConstant(*source) && moldType && extents) {
+    InitialImage image{*sourceBytes};
+    InitialImage::Result imageResult{
+        image.Add(0, *sourceBytes, *source, context)};
+    CHECK(imageResult == InitialImage::Ok);
+    return image.AsConstant(context, *moldType, *extents, true /*pad with 0*/);
+  } else {
+    return std::nullopt;
   }
-  return std::nullopt;
 }
 
 template class ExpressionBase<SomeDerived>;

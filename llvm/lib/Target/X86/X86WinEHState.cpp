@@ -16,10 +16,10 @@
 #include "X86.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/WinEHFuncInfo.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -172,7 +172,7 @@ bool WinEHStatePass::runOnFunction(Function &F) {
   if (!HasPads)
     return false;
 
-  Type *Int8PtrType = PointerType::getUnqual(TheModule->getContext());
+  Type *Int8PtrType = Type::getInt8PtrTy(TheModule->getContext());
   SetJmp3 = TheModule->getOrInsertFunction(
       "_setjmp3", FunctionType::get(
                       Type::getInt32Ty(TheModule->getContext()),
@@ -212,9 +212,8 @@ Type *WinEHStatePass::getEHLinkRegistrationType() {
   LLVMContext &Context = TheModule->getContext();
   EHLinkRegistrationTy = StructType::create(Context, "EHRegistrationNode");
   Type *FieldTys[] = {
-      PointerType::getUnqual(
-          EHLinkRegistrationTy->getContext()), // EHRegistrationNode *Next
-      PointerType::getUnqual(Context) // EXCEPTION_DISPOSITION (*Handler)(...)
+      EHLinkRegistrationTy->getPointerTo(0), // EHRegistrationNode *Next
+      Type::getInt8PtrTy(Context) // EXCEPTION_DISPOSITION (*Handler)(...)
   };
   EHLinkRegistrationTy->setBody(FieldTys, false);
   return EHLinkRegistrationTy;
@@ -231,9 +230,9 @@ Type *WinEHStatePass::getCXXEHRegistrationType() {
     return CXXEHRegistrationTy;
   LLVMContext &Context = TheModule->getContext();
   Type *FieldTys[] = {
-      PointerType::getUnqual(Context), // void *SavedESP
-      getEHLinkRegistrationType(),     // EHRegistrationNode SubRecord
-      Type::getInt32Ty(Context)        // int32_t TryLevel
+      Type::getInt8PtrTy(Context), // void *SavedESP
+      getEHLinkRegistrationType(), // EHRegistrationNode SubRecord
+      Type::getInt32Ty(Context)    // int32_t TryLevel
   };
   CXXEHRegistrationTy =
       StructType::create(FieldTys, "CXXExceptionRegistration");
@@ -253,11 +252,11 @@ Type *WinEHStatePass::getSEHRegistrationType() {
     return SEHRegistrationTy;
   LLVMContext &Context = TheModule->getContext();
   Type *FieldTys[] = {
-      PointerType::getUnqual(Context), // void *SavedESP
-      PointerType::getUnqual(Context), // void *ExceptionPointers
-      getEHLinkRegistrationType(),     // EHRegistrationNode SubRecord
-      Type::getInt32Ty(Context),       // int32_t EncodedScopeTable
-      Type::getInt32Ty(Context)        // int32_t TryLevel
+      Type::getInt8PtrTy(Context), // void *SavedESP
+      Type::getInt8PtrTy(Context), // void *ExceptionPointers
+      getEHLinkRegistrationType(), // EHRegistrationNode SubRecord
+      Type::getInt32Ty(Context),   // int32_t EncodedScopeTable
+      Type::getInt32Ty(Context)    // int32_t TryLevel
   };
   SEHRegistrationTy = StructType::create(FieldTys, "SEHExceptionRegistration");
   return SEHRegistrationTy;
@@ -275,7 +274,7 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
   Type *RegNodeTy;
 
   IRBuilder<> Builder(&F->getEntryBlock(), F->getEntryBlock().begin());
-  Type *Int8PtrType = Builder.getPtrTy();
+  Type *Int8PtrType = Builder.getInt8PtrTy();
   Type *Int32Ty = Builder.getInt32Ty();
   Type *VoidTy = Builder.getVoidTy();
 
@@ -283,7 +282,8 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
     RegNodeTy = getCXXEHRegistrationType();
     RegNode = Builder.CreateAlloca(RegNodeTy);
     // SavedESP = llvm.stacksave()
-    Value *SP = Builder.CreateStackSave();
+    Value *SP = Builder.CreateCall(
+        Intrinsic::getDeclaration(TheModule, Intrinsic::stacksave), {});
     Builder.CreateStore(SP, Builder.CreateStructGEP(RegNodeTy, RegNode, 0));
     // TryLevel = -1
     StateFieldIndex = 2;
@@ -312,7 +312,8 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
       EHGuardNode = Builder.CreateAlloca(Int32Ty);
 
     // SavedESP = llvm.stacksave()
-    Value *SP = Builder.CreateStackSave();
+    Value *SP = Builder.CreateCall(
+        Intrinsic::getDeclaration(TheModule, Intrinsic::stacksave), {});
     Builder.CreateStore(SP, Builder.CreateStructGEP(RegNodeTy, RegNode, 0));
     // TryLevel = -2 / -1
     StateFieldIndex = 4;
@@ -336,7 +337,7 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
       Value *FrameAddr = Builder.CreateCall(
           Intrinsic::getDeclaration(
               TheModule, Intrinsic::frameaddress,
-              Builder.getPtrTy(
+              Builder.getInt8PtrTy(
                   TheModule->getDataLayout().getAllocaAddrSpace())),
           Builder.getInt32(0), "frameaddr");
       Value *FrameAddrI32 = Builder.CreatePtrToInt(FrameAddr, Int32Ty);
@@ -369,8 +370,9 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
 }
 
 Value *WinEHStatePass::emitEHLSDA(IRBuilder<> &Builder, Function *F) {
+  Value *FI8 = Builder.CreateBitCast(F, Type::getInt8PtrTy(F->getContext()));
   return Builder.CreateCall(
-      Intrinsic::getDeclaration(TheModule, Intrinsic::x86_seh_lsda), F);
+      Intrinsic::getDeclaration(TheModule, Intrinsic::x86_seh_lsda), FI8);
 }
 
 /// Generate a thunk that puts the LSDA of ParentFunc in EAX and then calls
@@ -383,14 +385,14 @@ Value *WinEHStatePass::emitEHLSDA(IRBuilder<> &Builder, Function *F) {
 Function *WinEHStatePass::generateLSDAInEAXThunk(Function *ParentFunc) {
   LLVMContext &Context = ParentFunc->getContext();
   Type *Int32Ty = Type::getInt32Ty(Context);
-  Type *Int8PtrType = PointerType::getUnqual(Context);
+  Type *Int8PtrType = Type::getInt8PtrTy(Context);
   Type *ArgTys[5] = {Int8PtrType, Int8PtrType, Int8PtrType, Int8PtrType,
                      Int8PtrType};
   FunctionType *TrampolineTy =
-      FunctionType::get(Int32Ty, ArrayRef(&ArgTys[0], 4),
+      FunctionType::get(Int32Ty, makeArrayRef(&ArgTys[0], 4),
                         /*isVarArg=*/false);
   FunctionType *TargetFuncTy =
-      FunctionType::get(Int32Ty, ArrayRef(&ArgTys[0], 5),
+      FunctionType::get(Int32Ty, makeArrayRef(&ArgTys[0], 5),
                         /*isVarArg=*/false);
   Function *Trampoline =
       Function::Create(TrampolineTy, GlobalValue::InternalLinkage,
@@ -402,9 +404,11 @@ Function *WinEHStatePass::generateLSDAInEAXThunk(Function *ParentFunc) {
   BasicBlock *EntryBB = BasicBlock::Create(Context, "entry", Trampoline);
   IRBuilder<> Builder(EntryBB);
   Value *LSDA = emitEHLSDA(Builder, ParentFunc);
+  Value *CastPersonality =
+      Builder.CreateBitCast(PersonalityFn, TargetFuncTy->getPointerTo());
   auto AI = Trampoline->arg_begin();
   Value *Args[5] = {LSDA, &*AI++, &*AI++, &*AI++, &*AI++};
-  CallInst *Call = Builder.CreateCall(TargetFuncTy, PersonalityFn, Args);
+  CallInst *Call = Builder.CreateCall(TargetFuncTy, CastPersonality, Args);
   // Can't use musttail due to prototype mismatch, but we can use tail.
   Call->setTailCall(true);
   // Set inreg so we pass it in EAX.
@@ -418,13 +422,14 @@ void WinEHStatePass::linkExceptionRegistration(IRBuilder<> &Builder,
   // Emit the .safeseh directive for this function.
   Handler->addFnAttr("safeseh");
 
-  LLVMContext &C = Builder.getContext();
   Type *LinkTy = getEHLinkRegistrationType();
   // Handler = Handler
-  Builder.CreateStore(Handler, Builder.CreateStructGEP(LinkTy, Link, 1));
+  Value *HandlerI8 = Builder.CreateBitCast(Handler, Builder.getInt8PtrTy());
+  Builder.CreateStore(HandlerI8, Builder.CreateStructGEP(LinkTy, Link, 1));
   // Next = [fs:00]
-  Constant *FSZero = Constant::getNullValue(PointerType::get(C, 257));
-  Value *Next = Builder.CreateLoad(PointerType::getUnqual(C), FSZero);
+  Constant *FSZero =
+      Constant::getNullValue(LinkTy->getPointerTo()->getPointerTo(257));
+  Value *Next = Builder.CreateLoad(LinkTy->getPointerTo(), FSZero);
   Builder.CreateStore(Next, Builder.CreateStructGEP(LinkTy, Link, 0));
   // [fs:00] = Link
   Builder.CreateStore(Link, FSZero);
@@ -437,13 +442,12 @@ void WinEHStatePass::unlinkExceptionRegistration(IRBuilder<> &Builder) {
     Builder.Insert(GEP);
     Link = GEP;
   }
-
-  LLVMContext &C = Builder.getContext();
   Type *LinkTy = getEHLinkRegistrationType();
   // [fs:00] = Link->Next
-  Value *Next = Builder.CreateLoad(PointerType::getUnqual(C),
+  Value *Next = Builder.CreateLoad(LinkTy->getPointerTo(),
                                    Builder.CreateStructGEP(LinkTy, Link, 0));
-  Constant *FSZero = Constant::getNullValue(PointerType::get(C, 257));
+  Constant *FSZero =
+      Constant::getNullValue(LinkTy->getPointerTo()->getPointerTo(257));
   Builder.CreateStore(Next, FSZero);
 }
 
@@ -476,7 +480,7 @@ void WinEHStatePass::rewriteSetJmpCall(IRBuilder<> &Builder, Function &F,
 
   SmallVector<Value *, 5> Args;
   Args.push_back(
-      Builder.CreateBitCast(Call.getArgOperand(0), Builder.getPtrTy()));
+      Builder.CreateBitCast(Call.getArgOperand(0), Builder.getInt8PtrTy()));
   Args.push_back(Builder.getInt32(OptionalArgs.size()));
   Args.append(OptionalArgs.begin(), OptionalArgs.end());
 
@@ -623,7 +627,7 @@ void WinEHStatePass::addStateStores(Function &F, WinEHFuncInfo &FuncInfo) {
   // Mark the registration node. The backend needs to know which alloca it is so
   // that it can recover the original frame pointer.
   IRBuilder<> Builder(RegNode->getNextNode());
-  Value *RegNodeI8 = Builder.CreateBitCast(RegNode, Builder.getPtrTy());
+  Value *RegNodeI8 = Builder.CreateBitCast(RegNode, Builder.getInt8PtrTy());
   Builder.CreateCall(
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_seh_ehregnode),
       {RegNodeI8});
@@ -631,7 +635,7 @@ void WinEHStatePass::addStateStores(Function &F, WinEHFuncInfo &FuncInfo) {
   if (EHGuardNode) {
     IRBuilder<> Builder(EHGuardNode->getNextNode());
     Value *EHGuardNodeI8 =
-        Builder.CreateBitCast(EHGuardNode, Builder.getPtrTy());
+        Builder.CreateBitCast(EHGuardNode, Builder.getInt8PtrTy());
     Builder.CreateCall(
         Intrinsic::getDeclaration(TheModule, Intrinsic::x86_seh_ehguard),
         {EHGuardNodeI8});

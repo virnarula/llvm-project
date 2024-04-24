@@ -28,15 +28,15 @@ findGeneratorByName(llvm::StringRef Format) {
 
 std::string getTagType(TagTypeKind AS) {
   switch (AS) {
-  case TagTypeKind::Class:
+  case TagTypeKind::TTK_Class:
     return "class";
-  case TagTypeKind::Union:
+  case TagTypeKind::TTK_Union:
     return "union";
-  case TagTypeKind::Interface:
+  case TagTypeKind::TTK_Interface:
     return "interface";
-  case TagTypeKind::Struct:
+  case TagTypeKind::TTK_Struct:
     return "struct";
-  case TagTypeKind::Enum:
+  case TagTypeKind::TTK_Enum:
     return "enum";
   }
   llvm_unreachable("Unknown TagTypeKind");
@@ -65,7 +65,7 @@ void Generator::addInfoToIndex(Index &Idx, const doc::Info *Info) {
   for (const auto &R : llvm::reverse(Info->Namespace)) {
     // Look for the current namespace in the children of the index I is
     // pointing.
-    auto It = llvm::find(I->Children, R.USR);
+    auto It = std::find(I->Children.begin(), I->Children.end(), R.USR);
     if (It != I->Children.end()) {
       // If it is found, just change I to point the namespace reference found.
       I = &*It;
@@ -79,7 +79,7 @@ void Generator::addInfoToIndex(Index &Idx, const doc::Info *Info) {
   // Look for Info in the vector where it is supposed to be; it could already
   // exist if it is a parent namespace of an Info already passed to this
   // function.
-  auto It = llvm::find(I->Children, Info->USR);
+  auto It = std::find(I->Children.begin(), I->Children.end(), Info->USR);
   if (It == I->Children.end()) {
     // If it is not in the vector it is inserted
     I->Children.emplace_back(Info->USR, Info->extractName(), Info->IT,

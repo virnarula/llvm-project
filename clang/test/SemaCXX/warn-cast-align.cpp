@@ -44,11 +44,6 @@ void test1(void *P) {
   c = IntPtr(P);
 }
 
-template <class A> void DependentAlign() {
-  alignas(A) int lut[]{};
-  (long *)lut; // expected-warning {{cast from 'int *' to 'long *'}}
-}
-
 struct __attribute__((aligned(16))) AlignedS {
   char m[16];
 };

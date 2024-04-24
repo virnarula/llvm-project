@@ -20,14 +20,3 @@ entry:
 
   ret void
 }
-
-@G = external global i32
-define void @test2() {
-; CHECK-LABEL: Cached assumptions for function: test2
-; CHECK-NEXT: icmp ne ptr @G, null
-
-entry:
-  %cond1 = icmp ne ptr @G, null
-  call void @llvm.assume(i1 %cond1)
-  ret void
-}

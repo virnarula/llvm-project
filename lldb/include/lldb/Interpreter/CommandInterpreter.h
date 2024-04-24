@@ -26,7 +26,6 @@
 #include "lldb/lldb-private.h"
 
 #include <mutex>
-#include <optional>
 #include <stack>
 
 namespace lldb_private {
@@ -324,9 +323,8 @@ public:
                          lldb::CommandObjectSP &command_obj_sp,
                          llvm::StringRef args_string = llvm::StringRef());
 
-  /// Remove a command if it is removable (python or regex command). If \b force
-  /// is provided, the command is removed regardless of its removable status.
-  bool RemoveCommand(llvm::StringRef cmd, bool force = false);
+  // Remove a command if it is removable (python or regex command)
+  bool RemoveCommand(llvm::StringRef cmd);
 
   bool RemoveAlias(llvm::StringRef alias_name);
 
@@ -353,10 +351,9 @@ public:
                      CommandReturnObject &result);
 
   bool HandleCommand(const char *command_line, LazyBool add_to_history,
-                     CommandReturnObject &result,
-                     bool force_repeat_command = false);
+                     CommandReturnObject &result);
 
-  bool InterruptCommand();
+  bool WasInterrupted() const;
 
   /// Execute a list of commands in sequence.
   ///
@@ -409,7 +406,7 @@ public:
 
   /// Returns the auto-suggestion string that should be added to the given
   /// command line.
-  std::optional<std::string> GetAutoSuggestionForCommand(llvm::StringRef line);
+  llvm::Optional<std::string> GetAutoSuggestionForCommand(llvm::StringRef line);
 
   // This handles command line completion.
   void HandleCompletion(CompletionRequest &request);
@@ -562,9 +559,6 @@ public:
   bool GetSaveSessionOnQuit() const;
   void SetSaveSessionOnQuit(bool enable);
 
-  bool GetOpenTranscriptInEditor() const;
-  void SetOpenTranscriptInEditor(bool enable);
-
   FileSpec GetSaveSessionDirectory() const;
   void SetSaveSessionDirectory(llvm::StringRef path);
 
@@ -630,7 +624,7 @@ public:
   /// \return \b true if the session transcript was successfully written to
   /// disk, \b false otherwise.
   bool SaveTranscript(CommandReturnObject &result,
-                      std::optional<std::string> output_file = std::nullopt);
+                      llvm::Optional<std::string> output_file = llvm::None);
 
   FileSpec GetCurrentSourceDir();
 
@@ -638,25 +632,17 @@ public:
 
   bool IOHandlerInterrupt(IOHandler &io_handler) override;
 
-  Status PreprocessCommand(std::string &command);
-  Status PreprocessToken(std::string &token);
-
 protected:
   friend class Debugger;
-
-  // This checks just the RunCommandInterpreter interruption state.  It is only
-  // meant to be used in Debugger::InterruptRequested
-  bool WasInterrupted() const;
 
   // IOHandlerDelegate functions
   void IOHandlerInputComplete(IOHandler &io_handler,
                               std::string &line) override;
 
-  llvm::StringRef IOHandlerGetControlSequence(char ch) override {
-    static constexpr llvm::StringLiteral control_sequence("quit\n");
+  ConstString IOHandlerGetControlSequence(char ch) override {
     if (ch == 'd')
-      return control_sequence;
-    return {};
+      return ConstString("quit\n");
+    return ConstString();
   }
 
   void GetProcessOutput();
@@ -675,6 +661,8 @@ private:
   void OverrideExecutionContext(const ExecutionContext &override_context);
 
   void RestoreExecutionContext();
+
+  Status PreprocessCommand(std::string &command);
 
   void SourceInitFile(FileSpec file, CommandReturnObject &result);
 
@@ -709,6 +697,7 @@ private:
 
   void StartHandlingCommand();
   void FinishHandlingCommand();
+  bool InterruptCommand();
 
   Debugger &m_debugger; // The debugger session that this interpreter is
                         // associated with
@@ -750,7 +739,7 @@ private:
 
   // The exit code the user has requested when calling the 'quit' command.
   // No value means the user hasn't set a custom exit code so far.
-  std::optional<int> m_quit_exit_code;
+  llvm::Optional<int> m_quit_exit_code;
   // If the driver is accepts custom exit codes for the 'quit' command.
   bool m_allow_exit_code = false;
 

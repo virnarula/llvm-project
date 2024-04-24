@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelPTThreadTraceCollection.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -73,16 +72,16 @@ size_t IntelPTThreadTraceCollection::GetTracedThreadsCount() const {
   return m_thread_traces.size();
 }
 
-llvm::Expected<std::optional<std::vector<uint8_t>>>
+llvm::Expected<llvm::Optional<std::vector<uint8_t>>>
 IntelPTThreadTraceCollection::TryGetBinaryData(
     const TraceGetBinaryDataRequest &request) {
   if (!request.tid)
-    return std::nullopt;
+    return None;
   if (request.kind != IntelPTDataKinds::kIptTrace)
-    return std::nullopt;
+    return None;
 
   if (!TracesThread(*request.tid))
-    return std::nullopt;
+    return None;
 
   if (Expected<IntelPTSingleBufferTrace &> trace =
           GetTracedThread(*request.tid))

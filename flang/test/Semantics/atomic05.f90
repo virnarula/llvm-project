@@ -79,8 +79,7 @@ program test_atomic_fetch_add
   !ERROR: 'stat' argument to 'atomic_fetch_add' may not be a coindexed object
   call atomic_fetch_add(scalar_coarray, val, old_val, coindexed_status[1])
 
-  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'stat=' is not definable
-  !BECAUSE: '1_4' is not a variable or pointer
+  !ERROR: Actual argument associated with INTENT(OUT) dummy argument 'stat=' must be definable
   call atomic_fetch_add(scalar_coarray, val, old_val, 1)
 
   !ERROR: missing mandatory 'atom=' argument

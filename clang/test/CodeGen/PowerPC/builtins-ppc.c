@@ -1,8 +1,5 @@
 // REQUIRES: powerpc-registered-target
-// RUN: %clang_cc1 -triple powerpc-unknown-unknown -emit-llvm %s -o - \
-// RUN:   | FileCheck %s
-// RUN: %clang_cc1 -triple powerpc-unknown-unknown -emit-llvm %s -o - \
-// RUN:   -target-cpu pwr9 | FileCheck %s --check-prefixes=P9,CHECK
+// RUN: %clang_cc1 -triple powerpc-unknown-unknown -emit-llvm %s -o - | FileCheck %s
 
 void test_eh_return_data_regno()
 {
@@ -29,9 +26,6 @@ void test_builtin_ppc_setrnd() {
 
   // CHECK: call double @llvm.ppc.setrnd(i32 %2)
   res = __builtin_setrnd(x);
-
-  // CHECK: call double @llvm.ppc.setrnd(i32 %4)
-  res = __builtin_ppc_set_fpscr_rn(x);
 }
 
 void test_builtin_ppc_flm() {
@@ -39,16 +33,8 @@ void test_builtin_ppc_flm() {
   // CHECK: call double @llvm.ppc.readflm()
   res = __builtin_readflm();
 
-  // CHECK: call double @llvm.ppc.readflm()
-  res = __builtin_ppc_mffs();
-
-  // CHECK: call double @llvm.ppc.setflm(double %2)
+  // CHECK: call double @llvm.ppc.setflm(double %1)
   res = __builtin_setflm(res);
-
-#ifdef _ARCH_PWR9
-  // P9: call double @llvm.ppc.mffsl()
-  res = __builtin_ppc_mffsl();
-#endif
 }
 
 double test_builtin_unpack_ldbl(long double x) {

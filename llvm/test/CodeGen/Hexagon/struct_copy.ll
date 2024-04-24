@@ -21,12 +21,13 @@
 define i32 @f0() #0 {
 b0:
   %v0 = alloca %s.0, align 4
-  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %v0, ptr align 4 @g0, i32 24, i1 false)
-  call void @f1(ptr %v0) #0
+  %v1 = bitcast %s.0* %v0 to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %v1, i8* align 4 bitcast (%s.0* @g0 to i8*), i32 24, i1 false)
+  call void @f1(%s.0* %v0) #0
   ret i32 0
 }
 
-declare void @f1(ptr)
+declare void @f1(%s.0*)
 
 ; CHECK-LABEL: f2:
 ; CHECK: [[REG2:(r[0-9]+)]] = {{[#]+}}g1
@@ -35,12 +36,13 @@ declare void @f1(ptr)
 define i32 @f2() #0 {
 b0:
   %v0 = alloca %s.1, align 8
-  call void @llvm.memcpy.p0.p0.i32(ptr align 8 %v0, ptr align 8 @g1, i32 48, i1 false)
-  call void @f3(ptr %v0) #0
+  %v1 = bitcast %s.1* %v0 to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 %v1, i8* align 8 bitcast (%s.1* @g1 to i8*), i32 48, i1 false)
+  call void @f3(%s.1* %v0) #0
   ret i32 0
 }
 
-declare void @f3(ptr)
+declare void @f3(%s.1*)
 
 ; CHECK-LABEL: f4:
 ; CHECK: [[REG1:(r[0-9]+)]] = {{[#]+}}g2
@@ -50,12 +52,13 @@ declare void @f3(ptr)
 define i32 @f4() #0 {
 b0:
   %v0 = alloca %s.2, align 2
-  call void @llvm.memcpy.p0.p0.i32(ptr align 2 %v0, ptr align 2 @g2, i32 12, i1 false)
-  call void @f5(ptr %v0) #0
+  %v1 = bitcast %s.2* %v0 to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 2 %v1, i8* align 2 bitcast (%s.2* @g2 to i8*), i32 12, i1 false)
+  call void @f5(%s.2* %v0) #0
   ret i32 0
 }
 
-declare void @f5(ptr)
+declare void @f5(%s.2*)
 
 ; CHECK-LABEL: f6:
 ; CHECK: [[REG1:(r[0-9]+)]] = {{[#]+}}g3
@@ -65,14 +68,15 @@ declare void @f5(ptr)
 define i32 @f6() #0 {
 b0:
   %v0 = alloca %s.3, align 1
-  call void @llvm.memcpy.p0.p0.i32(ptr align 1 %v0, ptr align 1 @g3, i32 6, i1 false)
-  call void @f7(ptr %v0) #0
+  %v1 = getelementptr inbounds %s.3, %s.3* %v0, i32 0, i32 0
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %v1, i8* align 1 getelementptr inbounds (%s.3, %s.3* @g3, i32 0, i32 0), i32 6, i1 false)
+  call void @f7(%s.3* %v0) #0
   ret i32 0
 }
 
-declare void @f7(ptr)
+declare void @f7(%s.3*)
 
-declare void @llvm.memcpy.p0.p0.i32(ptr nocapture writeonly, ptr nocapture readonly, i32, i1) #1
+declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture writeonly, i8* nocapture readonly, i32, i1) #1
 
 attributes #0 = { nounwind }
 attributes #1 = { argmemonly nounwind }

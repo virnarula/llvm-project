@@ -2,7 +2,6 @@
 
 template <typename T>
 concept constraint = false;
-
 namespace temp_friend_9 {
 // A non-template friend declaration with a requires-clause shall be a
 // definition. ...Such a constrained friend function ... does not declare the
@@ -12,14 +11,6 @@ struct NonTemplateFriend {
   friend void foo()
     requires true
   {}
-
-  friend void baz() // expected-error {{non-template friend declaration with a requires clause must be a definition}}
-    requires true;
-};
-
-struct TempP9NotShownIfFunctionWouldBeInvalidAnyway {
-  friend void foo()
-    requires true; // expected-error {{non-templated function cannot have a requires clause}}
 };
 
 // A friend function template with a constraint that depends on a template
@@ -28,10 +19,6 @@ struct TempP9NotShownIfFunctionWouldBeInvalidAnyway {
 // function template as a declaration in any other scope.
 template <typename T>
 struct TemplateFromEnclosing {
-  template <typename U>
-  friend void bar2() // expected-error {{friend declaration with a constraint that depends on an enclosing template parameter must be a definition}}
-    requires constraint<T>;
-
   template <typename U>
   friend void foo()
     requires constraint<T>
@@ -424,57 +411,3 @@ namespace RefersToParentInConstraint {
     S<long> y;
   }
 } // namespace RefersToParentInConstraint
-
-namespace NTTP {
-  struct Base{};
-  template<int N>
-  struct S : Base {
-    // N is from the parent template.
-    template<typename T>
-      friend int templ_func(Base&) requires(N > 0)
-      { return 10; }
-  };
-
-  template<typename T>
-  struct U : Base {
-    template<T N>
-      friend int templ_func(Base&) requires(N>0)
-      { return 10; }
-  };
-
-  void use() {
-    S<1> s1;
-    templ_func<float>(s1);
-    S<2> s2;
-    templ_func<float>(s2);
-
-    U<int> u1;
-    templ_func<1>(u1);
-    U<short> u2;
-    templ_func<1>(u2);
-  }
-}
-
-
-namespace FriendOfFriend {
-
-template <typename>
-concept Concept = true;
-
-template <Concept> class FriendOfBar;
-
-template <Concept> class Bar {
-  template <Concept> friend class FriendOfBar;
-};
-
-Bar<void> BarInstance;
-
-namespace internal {
-void FriendOfFoo(FriendOfBar<void>);
-}
-
-template <Concept> class Foo {
-  friend void internal::FriendOfFoo(FriendOfBar<void>);
-};
-
-} // namespace FriendOfFriend

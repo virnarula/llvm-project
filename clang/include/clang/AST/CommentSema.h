@@ -80,7 +80,7 @@ public:
   ArrayRef<T> copyArray(ArrayRef<T> Source) {
     if (!Source.empty())
       return Source.copy(Allocator);
-    return std::nullopt;
+    return None;
   }
 
   ParagraphComment *actOnParagraphComment(
@@ -193,7 +193,7 @@ private:
   void checkContainerDecl(const BlockCommandComment *Comment);
 
   /// Resolve parameter names to parameter indexes in function declaration.
-  /// Emit diagnostics about unknown parameters.
+  /// Emit diagnostics about unknown parametrs.
   void resolveParamCommandIndexes(const FullComment *FC);
 
   /// \returns \c true if the declaration that this comment is attached to
@@ -244,7 +244,8 @@ private:
                               StringRef Typo,
                               const TemplateParameterList *TemplateParameters);
 
-  InlineCommandRenderKind getInlineCommandRenderKind(StringRef Name) const;
+  InlineCommandComment::RenderKind
+  getInlineCommandRenderKind(StringRef Name) const;
 };
 
 } // end namespace comments

@@ -14,11 +14,11 @@
 
 # DISASM: Disassembly of section .text:
 # DISASM-EMPTY:
-# DISASM-NEXT: <.text>:
+# DISASM-NEXT: <$x.0>:
 # DISASM-NEXT:   1022c:       ldr     x8, 0x30294
 
 # SYM: Symbol table '.symtab'
-# SYM:  0000000000030294     0 NOTYPE  LOCAL  DEFAULT [[#]] patatino
+# SYM:  0000000000030294     0 NOTYPE  LOCAL  DEFAULT    6 patatino
 
   ldr x8, patatino
   .data

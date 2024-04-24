@@ -18,6 +18,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -43,7 +44,6 @@ namespace llvm {
 class Module;
 class ModuleSlotTracker;
 class raw_ostream;
-class DPValue;
 template <typename T> class StringMapEntry;
 template <typename ValueTy> class StringMapEntryStorage;
 class Type;
@@ -202,98 +202,6 @@ private:
   void untrack();
 };
 
-/// Base class for tracking ValueAsMetadata/DIArgLists with user lookups and
-/// Owner callbacks outside of ValueAsMetadata.
-///
-/// Currently only inherited by DPValue; if other classes need to use it, then
-/// a SubclassID will need to be added (either as a new field or by making
-/// DebugValue into a PointerIntUnion) to discriminate between the subclasses in
-/// lookup and callback handling.
-class DebugValueUser {
-protected:
-  // Capacity to store 3 debug values.
-  // TODO: Not all DebugValueUser instances need all 3 elements, if we
-  // restructure the DPValue class then we can template parameterize this array
-  // size.
-  std::array<Metadata *, 3> DebugValues;
-
-  ArrayRef<Metadata *> getDebugValues() const { return DebugValues; }
-
-public:
-  DPValue *getUser();
-  const DPValue *getUser() const;
-  /// To be called by ReplaceableMetadataImpl::replaceAllUsesWith, where `Old`
-  /// is a pointer to one of the pointers in `DebugValues` (so should be type
-  /// Metadata**), and `NewDebugValue` is the new Metadata* that is replacing
-  /// *Old.
-  /// For manually replacing elements of DebugValues,
-  /// `resetDebugValue(Idx, NewDebugValue)` should be used instead.
-  void handleChangedValue(void *Old, Metadata *NewDebugValue);
-  DebugValueUser() = default;
-  explicit DebugValueUser(std::array<Metadata *, 3> DebugValues)
-      : DebugValues(DebugValues) {
-    trackDebugValues();
-  }
-  DebugValueUser(DebugValueUser &&X) {
-    DebugValues = X.DebugValues;
-    retrackDebugValues(X);
-  }
-  DebugValueUser(const DebugValueUser &X) {
-    DebugValues = X.DebugValues;
-    trackDebugValues();
-  }
-
-  DebugValueUser &operator=(DebugValueUser &&X) {
-    if (&X == this)
-      return *this;
-
-    untrackDebugValues();
-    DebugValues = X.DebugValues;
-    retrackDebugValues(X);
-    return *this;
-  }
-
-  DebugValueUser &operator=(const DebugValueUser &X) {
-    if (&X == this)
-      return *this;
-
-    untrackDebugValues();
-    DebugValues = X.DebugValues;
-    trackDebugValues();
-    return *this;
-  }
-
-  ~DebugValueUser() { untrackDebugValues(); }
-
-  void resetDebugValues() {
-    untrackDebugValues();
-    DebugValues.fill(nullptr);
-  }
-
-  void resetDebugValue(size_t Idx, Metadata *DebugValue) {
-    assert(Idx < 3 && "Invalid debug value index.");
-    untrackDebugValue(Idx);
-    DebugValues[Idx] = DebugValue;
-    trackDebugValue(Idx);
-  }
-
-  bool operator==(const DebugValueUser &X) const {
-    return DebugValues == X.DebugValues;
-  }
-  bool operator!=(const DebugValueUser &X) const {
-    return DebugValues != X.DebugValues;
-  }
-
-private:
-  void trackDebugValue(size_t Idx);
-  void trackDebugValues();
-
-  void untrackDebugValue(size_t Idx);
-  void untrackDebugValues();
-
-  void retrackDebugValues(DebugValueUser &X);
-};
-
 /// API for tracking metadata references through RAUW and deletion.
 ///
 /// Shared API for updating \a Metadata pointers in subclasses that support
@@ -334,15 +242,6 @@ public:
     return track(Ref, MD, &Owner);
   }
 
-  /// Track the reference to metadata for \a DebugValueUser.
-  ///
-  /// As \a track(Metadata*&), but with support for calling back to \c Owner to
-  /// tell it that its operand changed.  This could trigger \c Owner being
-  /// re-uniqued.
-  static bool track(void *Ref, Metadata &MD, DebugValueUser &Owner) {
-    return track(Ref, MD, &Owner);
-  }
-
   /// Stop tracking a reference to metadata.
   ///
   /// Stops \c *MD from tracking \c MD.
@@ -365,7 +264,7 @@ public:
   /// Check whether metadata is replaceable.
   static bool isReplaceable(const Metadata &MD);
 
-  using OwnerTy = PointerUnion<MetadataAsValue *, Metadata *, DebugValueUser *>;
+  using OwnerTy = PointerUnion<MetadataAsValue *, Metadata *>;
 
 private:
   /// Track a reference to metadata for an owner.
@@ -377,8 +276,8 @@ private:
 /// Shared implementation of use-lists for replaceable metadata.
 ///
 /// Most metadata cannot be RAUW'ed.  This is a shared implementation of
-/// use-lists and associated API for the three that support it (
-/// \a ValueAsMetadata, \a TempMDNode, and \a DIArgList).
+/// use-lists and associated API for the two that support it (\a ValueAsMetadata
+/// and \a TempMDNode).
 class ReplaceableMetadataImpl {
   friend class MetadataTracking;
 
@@ -407,8 +306,6 @@ public:
   static void SalvageDebugInfo(const Constant &C); 
   /// Returns the list of all DIArgList users of this.
   SmallVector<Metadata *> getAllArgListUsers();
-  /// Returns the list of all DPValue users of this.
-  SmallVector<DPValue *> getAllDPValueUsers();
 
   /// Resolve all uses of this.
   ///
@@ -416,8 +313,6 @@ public:
   /// ResolveUsers, call \a MDNode::resolve() on any users whose last operand
   /// is resolved.
   void resolveAllUses(bool ResolveUsers = true);
-
-  unsigned getNumUses() const { return UseMap.size(); }
 
 private:
   void addRef(void *Ref, OwnerTy Owner);
@@ -493,9 +388,6 @@ public:
 
   SmallVector<Metadata *> getAllArgListUsers() {
     return ReplaceableMetadataImpl::getAllArgListUsers();
-  }
-  SmallVector<DPValue *> getAllDPValueUsers() {
-    return ReplaceableMetadataImpl::getAllDPValueUsers();
   }
 
   static void handleDeletion(Value *V);
@@ -898,13 +790,6 @@ public:
     Op.MD = nullptr;
     return *this;
   }
-
-  // Check if MDOperand is of type MDString and equals `Str`.
-  bool equalsStr(StringRef Str) const {
-    return isa<MDString>(this->get()) &&
-           cast<MDString>(this->get())->getString() == Str;
-  }
-
   ~MDOperand() { untrack(); }
 
   Metadata *get() const { return MD; }
@@ -977,18 +862,18 @@ public:
 
   /// Whether this contains RAUW support.
   bool hasReplaceableUses() const {
-    return isa<ReplaceableMetadataImpl *>(Ptr);
+    return Ptr.is<ReplaceableMetadataImpl *>();
   }
 
   LLVMContext &getContext() const {
     if (hasReplaceableUses())
       return getReplaceableUses()->getContext();
-    return *cast<LLVMContext *>(Ptr);
+    return *Ptr.get<LLVMContext *>();
   }
 
   ReplaceableMetadataImpl *getReplaceableUses() const {
     if (hasReplaceableUses())
-      return cast<ReplaceableMetadataImpl *>(Ptr);
+      return Ptr.get<ReplaceableMetadataImpl *>();
     return nullptr;
   }
 
@@ -1059,7 +944,7 @@ struct TempMDNodeDeleter {
 class MDNode : public Metadata {
   friend class ReplaceableMetadataImpl;
   friend class LLVMContextImpl;
-  friend class DIAssignID;
+  friend class DIArgList;
 
   /// The header that is coallocated with an MDNode along with its "small"
   /// operands. It is located immediately before the main body of the node.
@@ -1143,15 +1028,15 @@ class MDNode : public Metadata {
     MutableArrayRef<MDOperand> operands() {
       if (IsLarge)
         return getLarge();
-      return MutableArrayRef(
+      return makeMutableArrayRef(
           reinterpret_cast<MDOperand *>(this) - SmallSize, SmallNumOps);
     }
 
     ArrayRef<MDOperand> operands() const {
       if (IsLarge)
         return getLarge();
-      return ArrayRef(reinterpret_cast<const MDOperand *>(this) - SmallSize,
-                      SmallNumOps);
+      return makeArrayRef(reinterpret_cast<const MDOperand *>(this) - SmallSize,
+                          SmallNumOps);
     }
 
     unsigned getNumOperands() const {
@@ -1171,7 +1056,7 @@ class MDNode : public Metadata {
 
 protected:
   MDNode(LLVMContext &Context, unsigned ID, StorageType Storage,
-         ArrayRef<Metadata *> Ops1, ArrayRef<Metadata *> Ops2 = std::nullopt);
+         ArrayRef<Metadata *> Ops1, ArrayRef<Metadata *> Ops2 = None);
   ~MDNode() = default;
 
   void *operator new(size_t Size, size_t NumOps, StorageType Storage);
@@ -1242,19 +1127,11 @@ public:
   bool isDistinct() const { return Storage == Distinct; }
   bool isTemporary() const { return Storage == Temporary; }
 
-  bool isReplaceable() const { return isTemporary() || isAlwaysReplaceable(); }
-  bool isAlwaysReplaceable() const { return getMetadataID() == DIAssignIDKind; }
-
-  unsigned getNumTemporaryUses() const {
-    assert(isTemporary() && "Only for temporaries");
-    return Context.getReplaceableUses()->getNumUses();
-  }
-
   /// RAUW a temporary.
   ///
   /// \pre \a isTemporary() must be \c true.
   void replaceAllUsesWith(Metadata *MD) {
-    assert(isReplaceable() && "Expected temporary/replaceable node");
+    assert(isTemporary() && "Expected temporary node");
     if (Context.hasReplaceableUses())
       Context.getReplaceableUses()->replaceAllUsesWith(MD);
   }
@@ -1398,11 +1275,6 @@ private:
   template <class NodeTy>
   static void dispatchResetHash(NodeTy *, std::false_type) {}
 
-  /// Merge branch weights from two direct callsites.
-  static MDNode *mergeDirectCallProfMetadata(MDNode *A, MDNode *B,
-                                             const Instruction *AInstr,
-                                             const Instruction *BInstr);
-
 public:
   using op_iterator = const MDOperand *;
   using op_range = iterator_range<op_iterator>;
@@ -1448,11 +1320,6 @@ public:
   static MDNode *getMostGenericRange(MDNode *A, MDNode *B);
   static MDNode *getMostGenericAliasScope(MDNode *A, MDNode *B);
   static MDNode *getMostGenericAlignmentOrDereferenceable(MDNode *A, MDNode *B);
-  /// Merge !prof metadata from two instructions.
-  /// Currently only implemented with direct callsites with branch weights.
-  static MDNode *getMergedProfMetadata(MDNode *A, MDNode *B,
-                                       const Instruction *AInstr,
-                                       const Instruction *BInstr);
 };
 
 /// Tuple of metadata.

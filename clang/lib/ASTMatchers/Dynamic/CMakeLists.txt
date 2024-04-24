@@ -17,5 +17,4 @@ add_clang_library(clangDynamicASTMatchers
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )

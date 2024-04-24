@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::linuxkernel {
+namespace clang {
+namespace tidy {
+namespace linuxkernel {
 
 /// Checks Linux kernel code to see if it uses the results from the functions in
 /// linux/err.h. Also checks to see if code uses the results from functions that
@@ -34,6 +36,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::linuxkernel
+} // namespace linuxkernel
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LINUXKERNEL_MUSTCHECKERRSCHECK_H

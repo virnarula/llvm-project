@@ -17,7 +17,6 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/DynamicExtent.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/ScopedPrinter.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -25,7 +24,7 @@ using namespace ento;
 namespace {
 class ExprInspectionChecker
     : public Checker<eval::Call, check::DeadSymbols, check::EndAnalysis> {
-  const BugType BT{this, "Checking analyzer assumptions", "debug"};
+  mutable std::unique_ptr<BugType> BT;
 
   // These stats are per-analysis, not per-branch, hence they shouldn't
   // stay inside the program state.
@@ -59,9 +58,9 @@ class ExprInspectionChecker
 
   // Optional parameter `ExprVal` for expression value to be marked interesting.
   ExplodedNode *reportBug(llvm::StringRef Msg, CheckerContext &C,
-                          std::optional<SVal> ExprVal = std::nullopt) const;
+                          Optional<SVal> ExprVal = None) const;
   ExplodedNode *reportBug(llvm::StringRef Msg, BugReporter &BR, ExplodedNode *N,
-                          std::optional<SVal> ExprVal = std::nullopt) const;
+                          Optional<SVal> ExprVal = None) const;
   template <typename T> void printAndReport(CheckerContext &C, T What) const;
 
   const Expr *getArgExpr(const CallExpr *CE, CheckerContext &C) const;
@@ -162,21 +161,24 @@ static const char *getArgumentValueString(const CallExpr *CE,
   }
 }
 
-ExplodedNode *
-ExprInspectionChecker::reportBug(llvm::StringRef Msg, CheckerContext &C,
-                                 std::optional<SVal> ExprVal) const {
+ExplodedNode *ExprInspectionChecker::reportBug(llvm::StringRef Msg,
+                                               CheckerContext &C,
+                                               Optional<SVal> ExprVal) const {
   ExplodedNode *N = C.generateNonFatalErrorNode();
   reportBug(Msg, C.getBugReporter(), N, ExprVal);
   return N;
 }
 
-ExplodedNode *
-ExprInspectionChecker::reportBug(llvm::StringRef Msg, BugReporter &BR,
-                                 ExplodedNode *N,
-                                 std::optional<SVal> ExprVal) const {
+ExplodedNode *ExprInspectionChecker::reportBug(llvm::StringRef Msg,
+                                               BugReporter &BR, ExplodedNode *N,
+                                               Optional<SVal> ExprVal) const {
   if (!N)
     return nullptr;
-  auto R = std::make_unique<PathSensitiveBugReport>(BT, Msg, N);
+
+  if (!BT)
+    BT.reset(new BugType(this, "Checking analyzer assumptions", "debug"));
+
+  auto R = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
   if (ExprVal) {
     R->markInteresting(*ExprVal);
   }
@@ -321,12 +323,12 @@ void ExprInspectionChecker::analyzerDump(const CallExpr *CE,
 
 void ExprInspectionChecker::analyzerGetExtent(const CallExpr *CE,
                                               CheckerContext &C) const {
-  const Expr *Arg = getArgExpr(CE, C);
-  if (!Arg)
+  const MemRegion *MR = getArgRegion(CE, C);
+  if (!MR)
     return;
 
   ProgramStateRef State = C.getState();
-  SVal Size = getDynamicExtentWithOffset(State, C.getSVal(Arg));
+  DefinedOrUnknownSVal Size = getDynamicExtent(State, MR, C.getSValBuilder());
 
   State = State->BindExpr(CE, C.getLocationContext(), Size);
   C.addTransition(State);
@@ -334,12 +336,12 @@ void ExprInspectionChecker::analyzerGetExtent(const CallExpr *CE,
 
 void ExprInspectionChecker::analyzerDumpExtent(const CallExpr *CE,
                                                CheckerContext &C) const {
-  const Expr *Arg = getArgExpr(CE, C);
-  if (!Arg)
+  const MemRegion *MR = getArgRegion(CE, C);
+  if (!MR)
     return;
 
-  ProgramStateRef State = C.getState();
-  SVal Size = getDynamicExtentWithOffset(State, C.getSVal(Arg));
+  DefinedOrUnknownSVal Size =
+      getDynamicExtent(C.getState(), MR, C.getSValBuilder());
   printAndReport(C, Size);
 }
 
@@ -358,8 +360,8 @@ void ExprInspectionChecker::analyzerDumpElementCount(const CallExpr *CE,
 
   assert(!ElementTy->isPointerType());
 
-  DefinedOrUnknownSVal ElementCount = getDynamicElementCountWithOffset(
-      C.getState(), C.getSVal(getArgExpr(CE, C)), ElementTy);
+  DefinedOrUnknownSVal ElementCount =
+      getDynamicElementCount(C.getState(), MR, C.getSValBuilder(), ElementTy);
   printAndReport(C, ElementCount);
 }
 
@@ -389,7 +391,8 @@ void ExprInspectionChecker::checkDeadSymbols(SymbolReaper &SymReaper,
   ProgramStateRef State = C.getState();
   const MarkedSymbolsTy &Syms = State->get<MarkedSymbols>();
   ExplodedNode *N = C.getPredecessor();
-  for (SymbolRef Sym : Syms) {
+  for (auto I = Syms.begin(), E = Syms.end(); I != E; ++I) {
+    SymbolRef Sym = *I;
     if (!SymReaper.isDead(Sym))
       continue;
 
@@ -463,60 +466,58 @@ void ExprInspectionChecker::analyzerDenote(const CallExpr *CE,
 
 namespace {
 class SymbolExpressor
-    : public SymExprVisitor<SymbolExpressor, std::optional<std::string>> {
+    : public SymExprVisitor<SymbolExpressor, Optional<std::string>> {
   ProgramStateRef State;
 
 public:
   SymbolExpressor(ProgramStateRef State) : State(State) {}
 
-  std::optional<std::string> lookup(const SymExpr *S) {
+  Optional<std::string> lookup(const SymExpr *S) {
     if (const StringLiteral *const *SLPtr = State->get<DenotedSymbols>(S)) {
       const StringLiteral *SL = *SLPtr;
       return std::string(SL->getBytes());
     }
-    return std::nullopt;
+    return None;
   }
 
-  std::optional<std::string> VisitSymExpr(const SymExpr *S) {
-    return lookup(S);
-  }
+  Optional<std::string> VisitSymExpr(const SymExpr *S) { return lookup(S); }
 
-  std::optional<std::string> VisitSymIntExpr(const SymIntExpr *S) {
-    if (std::optional<std::string> Str = lookup(S))
+  Optional<std::string> VisitSymIntExpr(const SymIntExpr *S) {
+    if (Optional<std::string> Str = lookup(S))
       return Str;
-    if (std::optional<std::string> Str = Visit(S->getLHS()))
+    if (Optional<std::string> Str = Visit(S->getLHS()))
       return (*Str + " " + BinaryOperator::getOpcodeStr(S->getOpcode()) + " " +
               std::to_string(S->getRHS().getLimitedValue()) +
               (S->getRHS().isUnsigned() ? "U" : ""))
           .str();
-    return std::nullopt;
+    return None;
   }
 
-  std::optional<std::string> VisitSymSymExpr(const SymSymExpr *S) {
-    if (std::optional<std::string> Str = lookup(S))
+  Optional<std::string> VisitSymSymExpr(const SymSymExpr *S) {
+    if (Optional<std::string> Str = lookup(S))
       return Str;
-    if (std::optional<std::string> Str1 = Visit(S->getLHS()))
-      if (std::optional<std::string> Str2 = Visit(S->getRHS()))
+    if (Optional<std::string> Str1 = Visit(S->getLHS()))
+      if (Optional<std::string> Str2 = Visit(S->getRHS()))
         return (*Str1 + " " + BinaryOperator::getOpcodeStr(S->getOpcode()) +
                 " " + *Str2)
             .str();
-    return std::nullopt;
+    return None;
   }
 
-  std::optional<std::string> VisitUnarySymExpr(const UnarySymExpr *S) {
-    if (std::optional<std::string> Str = lookup(S))
+  Optional<std::string> VisitUnarySymExpr(const UnarySymExpr *S) {
+    if (Optional<std::string> Str = lookup(S))
       return Str;
-    if (std::optional<std::string> Str = Visit(S->getOperand()))
+    if (Optional<std::string> Str = Visit(S->getOperand()))
       return (UnaryOperator::getOpcodeStr(S->getOpcode()) + *Str).str();
-    return std::nullopt;
+    return None;
   }
 
-  std::optional<std::string> VisitSymbolCast(const SymbolCast *S) {
-    if (std::optional<std::string> Str = lookup(S))
+  Optional<std::string> VisitSymbolCast(const SymbolCast *S) {
+    if (Optional<std::string> Str = lookup(S))
       return Str;
-    if (std::optional<std::string> Str = Visit(S->getOperand()))
+    if (Optional<std::string> Str = Visit(S->getOperand()))
       return (Twine("(") + S->getType().getAsString() + ")" + *Str).str();
-    return std::nullopt;
+    return None;
   }
 };
 } // namespace

@@ -32,8 +32,8 @@ static llvm::cl::opt<std::string>
 
 const char *const passDecl = R"(
 /* Create {0} Pass. */
-MLIR_CAPI_EXPORTED MlirPass mlirCreate{0}{1}(void);
-MLIR_CAPI_EXPORTED void mlirRegister{0}{1}(void);
+MLIR_CAPI_EXPORTED MlirPass mlirCreate{0}{1}();
+MLIR_CAPI_EXPORTED void mlirRegister{0}{1}();
 
 )";
 
@@ -59,8 +59,7 @@ const char *const fileFooter = R"(
 static bool emitCAPIHeader(const llvm::RecordKeeper &records, raw_ostream &os) {
   os << fileHeader;
   os << "// Registration for the entire group\n";
-  os << "MLIR_CAPI_EXPORTED void mlirRegister" << groupName
-     << "Passes(void);\n\n";
+  os << "MLIR_CAPI_EXPORTED void mlirRegister" << groupName << "Passes();\n\n";
   for (const auto *def : records.getAllDerivedDefinitions("PassBase")) {
     Pass pass(def);
     StringRef defName = pass.getDef()->getName();
@@ -71,10 +70,10 @@ static bool emitCAPIHeader(const llvm::RecordKeeper &records, raw_ostream &os) {
 }
 
 const char *const passCreateDef = R"(
-MlirPass mlirCreate{0}{1}(void) {
+MlirPass mlirCreate{0}{1}() {
   return wrap({2}.release());
 }
-void mlirRegister{0}{1}(void) {
+void mlirRegister{0}{1}() {
   register{1}();
 }
 
@@ -86,7 +85,7 @@ const char *const passGroupRegistrationCode = R"(
 // {0} Group Registration
 //===----------------------------------------------------------------------===//
 
-void mlirRegister{0}Passes(void) {{
+void mlirRegister{0}Passes() {{
   register{0}Passes();
 }
 )";

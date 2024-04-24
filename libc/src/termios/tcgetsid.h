@@ -11,10 +11,10 @@
 
 #include <termios.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 pid_t tcgetsid(int fd);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_TERMIOS_TCGETSID_H

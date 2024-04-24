@@ -16,11 +16,12 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/Preprocessor.h"
-#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 namespace {
 
@@ -119,7 +120,8 @@ void UnnecessaryValueParamCheck::check(const MatchFinder::MatchResult &Result) {
     }
   }
 
-  const size_t Index = llvm::find(Function->parameters(), Param) -
+  const size_t Index = std::find(Function->parameters().begin(),
+                                 Function->parameters().end(), Param) -
                        Function->parameters().begin();
 
   auto Diag =
@@ -149,7 +151,7 @@ void UnnecessaryValueParamCheck::check(const MatchFinder::MatchResult &Result) {
     // whether it is const or not as constness can differ between definition and
     // declaration.
     if (!CurrentParam.getType().getCanonicalType().isConstQualified()) {
-      if (std::optional<FixItHint> Fix = utils::fixit::addQualifierToVarDecl(
+      if (llvm::Optional<FixItHint> Fix = utils::fixit::addQualifierToVarDecl(
               CurrentParam, *Result.Context, DeclSpec::TQ::TQ_const))
         Diag << *Fix;
     }
@@ -191,4 +193,6 @@ void UnnecessaryValueParamCheck::handleMoveFix(const ParmVarDecl &Var,
               SM.getFileID(CopyArgument.getBeginLoc()), "<utility>");
 }
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang

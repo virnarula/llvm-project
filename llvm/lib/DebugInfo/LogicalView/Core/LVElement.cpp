@@ -17,7 +17,6 @@
 #include "llvm/DebugInfo/LogicalView/Core/LVType.h"
 
 using namespace llvm;
-using namespace llvm::codeview;
 using namespace llvm::logicalview;
 
 #define DEBUG_TYPE "Element"
@@ -104,14 +103,6 @@ void LVElement::setFilename(StringRef Filename) {
   FilenameIndex = getStringIndex(Filename);
 }
 
-void LVElement::setInnerComponent(StringRef Name) {
-  if (Name.size()) {
-    StringRef InnerComponent;
-    std::tie(std::ignore, InnerComponent) = getInnerComponent(Name);
-    setName(InnerComponent);
-  }
-}
-
 // Return the string representation of a DIE offset.
 std::string LVElement::typeOffsetAsString() const {
   if (options().getAttributeOffset()) {
@@ -132,19 +123,6 @@ StringRef LVElement::accessibilityString(uint32_t Access) const {
     return "private";
   default:
     return StringRef();
-  }
-}
-
-std::optional<uint32_t> LVElement::getAccessibilityCode(MemberAccess Access) {
-  switch (Access) {
-  case MemberAccess::Private:
-    return dwarf::DW_ACCESS_private;
-  case MemberAccess::Protected:
-    return dwarf::DW_ACCESS_protected;
-  case MemberAccess::Public:
-    return dwarf::DW_ACCESS_public;
-  default:
-    return std::nullopt;
   }
 }
 
@@ -179,21 +157,6 @@ StringRef LVElement::virtualityString(uint32_t Virtuality) const {
     return "pure virtual";
   default:
     return StringRef();
-  }
-}
-
-std::optional<uint32_t> LVElement::getVirtualityCode(MethodKind Virtuality) {
-  switch (Virtuality) {
-  case MethodKind::Virtual:
-    return dwarf::DW_VIRTUALITY_virtual;
-  case MethodKind::PureVirtual:
-    return dwarf::DW_VIRTUALITY_pure_virtual;
-  case MethodKind::IntroducingVirtual:
-  case MethodKind::PureIntroducingVirtual:
-    // No direct equivalents in DWARF. Assume Virtual.
-    return dwarf::DW_VIRTUALITY_virtual;
-  default:
-    return std::nullopt;
   }
 }
 
@@ -252,7 +215,8 @@ void LVElement::generateName(std::string &Prefix) const {
   Prefix.append(isLined() ? lineNumberAsString(/*ShowZero=*/true) : "?");
 
   // Remove any whitespaces.
-  llvm::erase_if(Prefix, ::isspace);
+  Prefix.erase(std::remove_if(Prefix.begin(), Prefix.end(), ::isspace),
+               Prefix.end());
 }
 
 // Generate a name for unnamed elements.
@@ -368,7 +332,7 @@ void LVElement::resolveFullname(LVElement *BaseType, StringRef Name) {
          "Extra double spaces in name.");
 
   LLVM_DEBUG({ dbgs() << "Fullname = '" << Fullname << "'\n"; });
-  setName(Fullname);
+  setName(Fullname.c_str());
 }
 
 void LVElement::setFile(LVElement *Reference) {

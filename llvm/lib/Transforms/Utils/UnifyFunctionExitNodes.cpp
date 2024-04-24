@@ -16,8 +16,32 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils.h"
 using namespace llvm;
+
+char UnifyFunctionExitNodesLegacyPass::ID = 0;
+
+UnifyFunctionExitNodesLegacyPass::UnifyFunctionExitNodesLegacyPass()
+    : FunctionPass(ID) {
+  initializeUnifyFunctionExitNodesLegacyPassPass(
+      *PassRegistry::getPassRegistry());
+}
+
+INITIALIZE_PASS(UnifyFunctionExitNodesLegacyPass, "mergereturn",
+                "Unify function exit nodes", false, false)
+
+Pass *llvm::createUnifyFunctionExitNodesPass() {
+  return new UnifyFunctionExitNodesLegacyPass();
+}
+
+void UnifyFunctionExitNodesLegacyPass::getAnalysisUsage(
+    AnalysisUsage &AU) const {
+  // We preserve the non-critical-edgeness property
+  AU.addPreservedID(BreakCriticalEdgesID);
+  // This is a cluster of orthogonal Transforms
+  AU.addPreservedID(LowerSwitchID);
+}
 
 namespace {
 
@@ -36,7 +60,7 @@ bool unifyUnreachableBlocks(Function &F) {
   new UnreachableInst(F.getContext(), UnreachableBlock);
 
   for (BasicBlock *BB : UnreachableBlocks) {
-    BB->back().eraseFromParent(); // Remove the unreachable inst.
+    BB->getInstList().pop_back(); // Remove the unreachable inst.
     BranchInst::Create(UnreachableBlock, BB);
   }
 
@@ -66,7 +90,7 @@ bool unifyReturnBlocks(Function &F) {
     // If the function doesn't return void... add a PHI node to the block...
     PN = PHINode::Create(F.getReturnType(), ReturningBlocks.size(),
                          "UnifiedRetVal");
-    PN->insertInto(NewRetBlock, NewRetBlock->end());
+    NewRetBlock->getInstList().push_back(PN);
     ReturnInst::Create(F.getContext(), PN, NewRetBlock);
   }
 
@@ -78,13 +102,23 @@ bool unifyReturnBlocks(Function &F) {
     if (PN)
       PN->addIncoming(BB->getTerminator()->getOperand(0), BB);
 
-    BB->back().eraseFromParent(); // Remove the return insn
+    BB->getInstList().pop_back();  // Remove the return insn
     BranchInst::Create(NewRetBlock, BB);
   }
 
   return true;
 }
 } // namespace
+
+// Unify all exit nodes of the CFG by creating a new BasicBlock, and converting
+// all returns to unconditional branches to this new basic block. Also, unify
+// all unreachable blocks.
+bool UnifyFunctionExitNodesLegacyPass::runOnFunction(Function &F) {
+  bool Changed = false;
+  Changed |= unifyUnreachableBlocks(F);
+  Changed |= unifyReturnBlocks(F);
+  return Changed;
+}
 
 PreservedAnalyses UnifyFunctionExitNodesPass::run(Function &F,
                                                   FunctionAnalysisManager &AM) {

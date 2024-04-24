@@ -264,7 +264,7 @@ MCFragment::MCFragment(FragmentType Kind, bool HasInstructions,
 }
 
 void MCFragment::destroy() {
-  // First check if we are the sentinel.
+  // First check if we are the sentinal.
   if (Kind == FragmentType(~0)) {
     delete this;
     return;

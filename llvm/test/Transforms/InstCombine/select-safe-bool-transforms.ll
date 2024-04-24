@@ -57,7 +57,9 @@ define i1 @land_lor_left1(i1 %A, i1 %B) {
 }
 define i1 @land_lor_left2(i1 %A, i1 %B) {
 ; CHECK-LABEL: @land_lor_left2(
-; CHECK-NEXT:    ret i1 [[A:%.*]]
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[B:%.*]], i1 [[A:%.*]], i1 false
+; CHECK-NEXT:    [[RES:%.*]] = select i1 [[C]], i1 true, i1 [[A]]
+; CHECK-NEXT:    ret i1 [[RES]]
 ;
   %c = select i1 %B, i1 %A, i1 false
   %res = select i1 %c, i1 true, i1 %A
@@ -131,7 +133,9 @@ define i1 @lor_land_left1(i1 %A, i1 %B) {
 }
 define i1 @lor_land_left2(i1 %A, i1 %B) {
 ; CHECK-LABEL: @lor_land_left2(
-; CHECK-NEXT:    ret i1 [[A:%.*]]
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[B:%.*]], i1 true, i1 [[A:%.*]]
+; CHECK-NEXT:    [[RES:%.*]] = select i1 [[C]], i1 [[A]], i1 false
+; CHECK-NEXT:    ret i1 [[RES]]
 ;
   %c = select i1 %B, i1 true, i1 %A
   %res = select i1 %c, i1 %A, i1 false

@@ -8,7 +8,6 @@
 
 #include "MachOObject.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/SystemZ/zOSSupport.h"
 #include <unordered_set>
 
 using namespace llvm;
@@ -116,7 +115,7 @@ Error Object::removeSections(
   }
 
   auto IsDead = [&](const std::unique_ptr<SymbolEntry> &S) -> bool {
-    std::optional<uint32_t> Section = S->section();
+    Optional<uint32_t> Section = S->section();
     return (Section && !OldIndexToSection.count(*Section));
   };
 
@@ -202,7 +201,7 @@ static StringRef extractSegmentName(const char *SegName) {
                    strnlen(SegName, sizeof(MachO::segment_command::segname)));
 }
 
-std::optional<StringRef> LoadCommand::getSegmentName() const {
+Optional<StringRef> LoadCommand::getSegmentName() const {
   const MachO::macho_load_command &MLC = MachOLoadCommand;
   switch (MLC.load_command_data.cmd) {
   case MachO::LC_SEGMENT:
@@ -210,11 +209,11 @@ std::optional<StringRef> LoadCommand::getSegmentName() const {
   case MachO::LC_SEGMENT_64:
     return extractSegmentName(MLC.segment_command_64_data.segname);
   default:
-    return std::nullopt;
+    return None;
   }
 }
 
-std::optional<uint64_t> LoadCommand::getSegmentVMAddr() const {
+Optional<uint64_t> LoadCommand::getSegmentVMAddr() const {
   const MachO::macho_load_command &MLC = MachOLoadCommand;
   switch (MLC.load_command_data.cmd) {
   case MachO::LC_SEGMENT:
@@ -222,6 +221,6 @@ std::optional<uint64_t> LoadCommand::getSegmentVMAddr() const {
   case MachO::LC_SEGMENT_64:
     return MLC.segment_command_64_data.vmaddr;
   default:
-    return std::nullopt;
+    return None;
   }
 }

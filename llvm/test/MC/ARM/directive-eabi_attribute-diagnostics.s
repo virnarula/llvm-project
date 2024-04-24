@@ -25,12 +25,12 @@
 @ CHECK:                            ^
 
 	.eabi_attribute 0
-@ CHECK: :[[#@LINE-1]]:19: error: expected comma
+@ CHECK: error: comma expected
 @ CHECK: 	.eabi_attribute 0
 @ CHECK:                         ^
 
         .eabi_attribute Tag_compatibility, 1
-@ CHECK: :[[#@LINE-1]]:45: error: expected comma
+@ CHECK: error: comma expected
 @ CHECK: .eabi_attribute Tag_compatibility, 1
 @ CHECK:                                     ^
 

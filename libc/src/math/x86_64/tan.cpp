@@ -9,7 +9,7 @@
 #include "src/math/tan.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(double, tan, (double x)) {
   double result;
@@ -20,4 +20,4 @@ LLVM_LIBC_FUNCTION(double, tan, (double x)) {
   return result;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

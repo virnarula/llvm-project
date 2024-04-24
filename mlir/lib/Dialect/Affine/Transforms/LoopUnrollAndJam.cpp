@@ -42,31 +42,26 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/CommandLine.h"
-#include <optional>
 
 namespace mlir {
-namespace affine {
 #define GEN_PASS_DEF_AFFINELOOPUNROLLANDJAM
 #include "mlir/Dialect/Affine/Passes.h.inc"
-} // namespace affine
 } // namespace mlir
 
 #define DEBUG_TYPE "affine-loop-unroll-jam"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 namespace {
 /// Loop unroll jam pass. Currently, this just unroll jams the first
 /// outer loop in a Function.
 struct LoopUnrollAndJam
-    : public affine::impl::AffineLoopUnrollAndJamBase<LoopUnrollAndJam> {
-  explicit LoopUnrollAndJam(
-      std::optional<unsigned> unrollJamFactor = std::nullopt) {
+    : public impl::AffineLoopUnrollAndJamBase<LoopUnrollAndJam> {
+  explicit LoopUnrollAndJam(Optional<unsigned> unrollJamFactor = None) {
     if (unrollJamFactor)
       this->unrollJamFactor = *unrollJamFactor;
   }
@@ -76,10 +71,9 @@ struct LoopUnrollAndJam
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::affine::createLoopUnrollAndJamPass(int unrollJamFactor) {
+mlir::createLoopUnrollAndJamPass(int unrollJamFactor) {
   return std::make_unique<LoopUnrollAndJam>(
-      unrollJamFactor == -1 ? std::nullopt
-                            : std::optional<unsigned>(unrollJamFactor));
+      unrollJamFactor == -1 ? None : Optional<unsigned>(unrollJamFactor));
 }
 
 void LoopUnrollAndJam::runOnOperation() {

@@ -13,11 +13,12 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 static const char KDefaultTypes[] =
-    "::std::basic_string;::std::basic_string_view;::std::vector;::std::array;::"
-    "std::span";
+    "::std::basic_string;::std::basic_string_view;::std::vector;::std::array";
 
 SimplifySubscriptExprCheck::SimplifySubscriptExprCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -65,4 +66,6 @@ void SimplifySubscriptExprCheck::storeOptions(
   Options.store(Opts, "Types", utils::options::serializeStringList(Types));
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

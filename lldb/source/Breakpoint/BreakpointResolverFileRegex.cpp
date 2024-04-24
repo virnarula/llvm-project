@@ -26,8 +26,9 @@ BreakpointResolverFileRegex::BreakpointResolverFileRegex(
       m_regex(std::move(regex)), m_exact_match(exact_match),
       m_function_names(func_names) {}
 
-BreakpointResolverSP BreakpointResolverFileRegex::CreateFromStructuredData(
-    const StructuredData::Dictionary &options_dict, Status &error) {
+BreakpointResolver *BreakpointResolverFileRegex::CreateFromStructuredData(
+    const lldb::BreakpointSP &bkpt, const StructuredData::Dictionary &options_dict,
+    Status &error) {
   bool success;
 
   llvm::StringRef regex_string;
@@ -55,19 +56,19 @@ BreakpointResolverSP BreakpointResolverFileRegex::CreateFromStructuredData(
   if (success && names_array) {
     size_t num_names = names_array->GetSize();
     for (size_t i = 0; i < num_names; i++) {
-      std::optional<llvm::StringRef> maybe_name =
-          names_array->GetItemAtIndexAsString(i);
-      if (!maybe_name) {
+      llvm::StringRef name;
+      success = names_array->GetItemAtIndexAsString(i, name);
+      if (!success) {
         error.SetErrorStringWithFormat(
             "BRFR::CFSD: Malformed element %zu in the names array.", i);
         return nullptr;
       }
-      names_set.insert(std::string(*maybe_name));
+      names_set.insert(std::string(name));
     }
   }
 
-  return std::make_shared<BreakpointResolverFileRegex>(
-      nullptr, std::move(regex), names_set, exact_match);
+  return new BreakpointResolverFileRegex(bkpt, std::move(regex), names_set,
+                                         exact_match);
 }
 
 StructuredData::ObjectSP
@@ -108,7 +109,7 @@ Searcher::CallbackReturn BreakpointResolverFileRegex::SearchCallback(
     SymbolContextList sc_list;
     // TODO: Handle SourceLocationSpec column information
     SourceLocationSpec location_spec(cu_file_spec, line_matches[i],
-                                     /*column=*/std::nullopt,
+                                     /*column=*/llvm::None,
                                      /*check_inlines=*/false, m_exact_match);
     cu->ResolveSymbolContext(location_spec, eSymbolContextEverything, sc_list);
     // Find all the function names:

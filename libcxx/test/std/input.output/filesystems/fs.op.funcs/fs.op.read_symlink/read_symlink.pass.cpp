@@ -6,23 +6,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
 // path read_symlink(const path& p);
 // path read_symlink(const path& p, error_code& ec);
 
-#include <filesystem>
+#include "filesystem_include.h"
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void test_signatures()
+TEST_SUITE(filesystem_read_symlink_test_suite)
+
+TEST_CASE(test_signatures)
 {
     const path p; ((void)p);
     std::error_code ec; ((void)ec);
@@ -34,7 +35,7 @@ static void test_signatures()
     ASSERT_NOT_NOEXCEPT(fs::read_symlink(p, ec));
 }
 
-static void test_error_reporting()
+TEST_CASE(test_error_reporting)
 {
     auto checkThrow = [](path const& f, const std::error_code& ec)
     {
@@ -62,14 +63,14 @@ static void test_error_reporting()
     for (path const& p : cases) {
         std::error_code ec;
         const path ret = fs::read_symlink(p, ec);
-        assert(ec);
-        assert(ret == path{});
-        assert(checkThrow(p, ec));
+        TEST_REQUIRE(ec);
+        TEST_CHECK(ret == path{});
+        TEST_CHECK(checkThrow(p, ec));
     }
 
 }
 
-static void basic_symlink_test()
+TEST_CASE(basic_symlink_test)
 {
     scoped_test_env env;
     const path dne = env.make_env_path("dne");
@@ -90,15 +91,9 @@ static void basic_symlink_test()
     for (auto& TC : testCases) {
         std::error_code ec = std::make_error_code(std::errc::address_in_use);
         const path ret = read_symlink(TC.symlink, ec);
-        assert(!ec);
-        assert(ret == TC.expected);
+        TEST_CHECK(!ec);
+        TEST_CHECK(ret == TC.expected);
     }
 }
 
-int main(int, char**) {
-    test_signatures();
-    test_error_reporting();
-    basic_symlink_test();
-
-    return 0;
-}
+TEST_SUITE_END()

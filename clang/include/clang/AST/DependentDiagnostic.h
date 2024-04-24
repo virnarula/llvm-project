@@ -113,9 +113,7 @@ private:
 
   struct {
     SourceLocation Loc;
-    LLVM_PREFERRED_TYPE(AccessSpecifier)
     unsigned Access : 2;
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsMember : 1;
     NamedDecl *TargetDecl;
     CXXRecordDecl *NamingClass;

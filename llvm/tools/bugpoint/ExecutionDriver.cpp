@@ -299,7 +299,7 @@ Expected<std::string> BugDriver::executeProgram(const Module &Program,
              << "!\n";
       exit(1);
     }
-    BitcodeFile = std::string(UniqueFilename);
+    BitcodeFile = std::string(UniqueFilename.str());
 
     if (writeProgramToFile(BitcodeFile, UniqueFD, Program)) {
       errs() << ToolName << ": Error emitting bitcode to file '" << BitcodeFile
@@ -324,7 +324,7 @@ Expected<std::string> BugDriver::executeProgram(const Module &Program,
            << "\n";
     exit(1);
   }
-  OutputFile = std::string(UniqueFile);
+  OutputFile = std::string(UniqueFile.str());
 
   // Figure out which shared objects to run, if any.
   std::vector<std::string> SharedObjs(AdditionalSOs);

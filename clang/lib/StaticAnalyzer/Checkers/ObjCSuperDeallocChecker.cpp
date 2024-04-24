@@ -26,19 +26,18 @@ namespace {
 class ObjCSuperDeallocChecker
     : public Checker<check::PostObjCMessage, check::PreObjCMessage,
                      check::PreCall, check::Location> {
-  mutable IdentifierInfo *IIdealloc = nullptr;
-  mutable IdentifierInfo *IINSObject = nullptr;
+
+  mutable IdentifierInfo *IIdealloc, *IINSObject;
   mutable Selector SELdealloc;
 
-  const BugType DoubleSuperDeallocBugType{
-      this, "[super dealloc] should not be called more than once",
-      categories::CoreFoundationObjectiveC};
+  std::unique_ptr<BugType> DoubleSuperDeallocBugType;
 
   void initIdentifierInfoAndSelectors(ASTContext &Ctx) const;
 
   bool isSuperDeallocMessage(const ObjCMethodCall &M) const;
 
 public:
+  ObjCSuperDeallocChecker();
   void checkPostObjCMessage(const ObjCMethodCall &M, CheckerContext &C) const;
   void checkPreObjCMessage(const ObjCMethodCall &M, CheckerContext &C) const;
 
@@ -189,7 +188,7 @@ void ObjCSuperDeallocChecker::reportUseAfterDealloc(SymbolRef Sym,
     Desc = "Use of 'self' after it has been deallocated";
 
   // Generate the report.
-  auto BR = std::make_unique<PathSensitiveBugReport>(DoubleSuperDeallocBugType,
+  auto BR = std::make_unique<PathSensitiveBugReport>(*DoubleSuperDeallocBugType,
                                                      Desc, ErrNode);
   BR->addRange(S->getSourceRange());
   BR->addVisitor(std::make_unique<SuperDeallocBRVisitor>(Sym));
@@ -212,6 +211,14 @@ void ObjCSuperDeallocChecker::diagnoseCallArguments(const CallEvent &CE,
       return;
     }
   }
+}
+
+ObjCSuperDeallocChecker::ObjCSuperDeallocChecker()
+    : IIdealloc(nullptr), IINSObject(nullptr) {
+
+  DoubleSuperDeallocBugType.reset(
+      new BugType(this, "[super dealloc] should not be called more than once",
+                  categories::CoreFoundationObjectiveC));
 }
 
 void

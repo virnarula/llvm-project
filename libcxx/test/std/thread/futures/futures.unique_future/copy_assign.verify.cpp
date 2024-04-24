@@ -16,7 +16,10 @@
 
 #include <future>
 
-void f() {
+#include "test_macros.h"
+
+int main(int, char**)
+{
     {
         std::future<int> f0, f;
         f = f0; // expected-error {{overload resolution selected deleted operator '='}}
@@ -29,4 +32,6 @@ void f() {
         std::future<void> f0, f;
         f = f0; // expected-error {{overload resolution selected deleted operator '='}}
     }
+
+    return 0;
 }

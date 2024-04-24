@@ -261,3 +261,4 @@ define i1 @and_cmps_ptr_eq_zero_with_mask_commute4(ptr %p, i64 %y) {
   %r = and i1 %isnotnull, %somebits_are_not_zero
   ret i1 %r
 }
+

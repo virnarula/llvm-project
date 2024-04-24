@@ -13,9 +13,9 @@
 
 #include <pthread.h> // For pthread_* type definitions.
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-static_assert(sizeof(pthread_t) == sizeof(LIBC_NAMESPACE::Thread),
+static_assert(sizeof(pthread_t) == sizeof(__llvm_libc::Thread),
               "Mismatch between pthread_t and internal Thread.");
 
 LLVM_LIBC_FUNCTION(int, pthread_join, (pthread_t th, void **retval)) {
@@ -24,4 +24,4 @@ LLVM_LIBC_FUNCTION(int, pthread_join, (pthread_t th, void **retval)) {
   return result;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

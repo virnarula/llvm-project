@@ -22,10 +22,8 @@
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
-#include <optional>
 using namespace clang;
 using namespace sema;
 
@@ -271,8 +269,7 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
       OutputName = Names[i]->getName();
 
     TargetInfo::ConstraintInfo Info(Literal->getString(), OutputName);
-    if (!Context.getTargetInfo().validateOutputConstraint(Info) &&
-        !(LangOpts.HIPStdPar && LangOpts.CUDAIsDevice)) {
+    if (!Context.getTargetInfo().validateOutputConstraint(Info)) {
       targetDiag(Literal->getBeginLoc(),
                  diag::err_asm_invalid_output_constraint)
           << Info.getConstraintStr();
@@ -380,11 +377,6 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
 
     Expr *InputExpr = Exprs[i];
 
-    if (InputExpr->getType()->isMemberPointerType())
-      return StmtError(Diag(InputExpr->getBeginLoc(),
-                            diag::err_asm_pmf_through_constraint_not_permitted)
-                       << InputExpr->getSourceRange());
-
     // Referring to parameters is not allowed in naked functions.
     if (CheckNakedParmReference(InputExpr, *this))
       return StmtError();
@@ -462,7 +454,7 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
              << Info.getConstraintStr();
   }
 
-  std::optional<SourceLocation> UnwindClobberLoc;
+  Optional<SourceLocation> UnwindClobberLoc;
 
   // Check that the clobbers are valid.
   for (unsigned i = 0; i != NumClobbers; i++) {

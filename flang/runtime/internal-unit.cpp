@@ -43,9 +43,11 @@ InternalDescriptorUnit<DIR>::InternalDescriptorUnit(
 
 template <Direction DIR> void InternalDescriptorUnit<DIR>::EndIoStatement() {
   if constexpr (DIR == Direction::Output) {
-    // Clear the remainder of the current record.
+    // Clear the remainder of the current record if anything was written
+    // to it, or if it is the only record.
     auto end{endfileRecordNumber.value_or(0)};
-    if (currentRecordNumber < end) {
+    if (currentRecordNumber < end &&
+        (end == 2 || furthestPositionInRecord > 0)) {
       BlankFillOutputRecord();
     }
   }
@@ -153,12 +155,6 @@ void InternalDescriptorUnit<DIR>::BackspaceRecord(IoErrorHandler &handler) {
   RUNTIME_CHECK(handler, currentRecordNumber > 1);
   --currentRecordNumber;
   BeginRecord();
-}
-
-template <Direction DIR>
-std::int64_t InternalDescriptorUnit<DIR>::InquirePos() {
-  return (currentRecordNumber - 1) * recordLength.value_or(0) +
-      positionInRecord + 1;
 }
 
 template class InternalDescriptorUnit<Direction::Output>;

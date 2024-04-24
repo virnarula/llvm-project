@@ -16,7 +16,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::performance {
+namespace clang {
+namespace tidy {
+namespace performance {
 
 // Checks if the stmt is a ImplicitCastExpr with a CastKind that is not a NoOp.
 // The subtlety is that in some cases (user defined conversions), we can
@@ -99,4 +101,6 @@ void ImplicitConversionInLoopCheck::reportAndFix(const ASTContext *Context,
   diag(VD->getBeginLoc(), Message) << VD << ConstRefType;
 }
 
-} // namespace clang::tidy::performance
+} // namespace performance
+} // namespace tidy
+} // namespace clang

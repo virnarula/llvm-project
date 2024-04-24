@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fenable-matrix -triple x86_64-apple-darwin %s -emit-llvm -disable-llvm-passes -o - | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -std=c++11 -fenable-matrix -triple x86_64-apple-darwin %s -emit-llvm -disable-llvm-passes -o - | FileCheck %s
 
 template <typename X>
 using matrix_4_4 = X __attribute__((matrix_type(4, 4)));
@@ -8,9 +8,10 @@ using matrix_5_5 = Y __attribute__((matrix_type(5, 5)));
 
 // CHECK-LABEL: define{{.*}} void @_Z25CastCharMatrixToIntCStylev()
 void CastCharMatrixToIntCStyle() {
-  // CHECK: [[C:%.*]] = load <25 x i8>, ptr {{.*}}, align 1
+  // CHECK: [[C:%.*]] = load <25 x i8>, <25 x i8>* {{.*}}, align 1
   // CHECK-NEXT: [[CONV:%.*]] = sext <25 x i8> [[C]] to <25 x i32>
-  // CHECK-NEXT: store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT: [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT: store <25 x i32> [[CONV]], <25 x i32>* [[CONV1]], align 4
 
   matrix_5_5<char> c;
   matrix_5_5<int> i;
@@ -19,9 +20,10 @@ void CastCharMatrixToIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z29CastCharMatrixToIntStaticCastv()
 void CastCharMatrixToIntStaticCast() {
-  // CHECK: [[C:%.*]] = load <25 x i8>, ptr {{.*}}, align 1
+  // CHECK: [[C:%.*]] = load <25 x i8>, <25 x i8>* {{.*}}, align 1
   // CHECK-NEXT: [[CONV:%.*]] = sext <25 x i8> [[C]] to <25 x i32>
-  // CHECK-NEXT: store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT: [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT: store <25 x i32> [[CONV]], <25 x i32>* [[CONV1]], align 4
 
   matrix_5_5<char> c;
   matrix_5_5<int> i;
@@ -30,9 +32,10 @@ void CastCharMatrixToIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z33CastCharMatrixToUnsignedIntCStylev
 void CastCharMatrixToUnsignedIntCStyle() {
-  // CHECK:       [[C:%.*]] = load <25 x i8>, ptr {{.*}}, align 1
+  // CHECK:       [[C:%.*]] = load <25 x i8>, <25 x i8>* {{.*}}, align 1
   // CHECK-NEXT:  [[CONV:%.*]] = sext <25 x i8> [[C]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<char> c;
@@ -42,9 +45,10 @@ void CastCharMatrixToUnsignedIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z37CastCharMatrixToUnsignedIntStaticCastv
 void CastCharMatrixToUnsignedIntStaticCast() {
-  // CHECK:       [[C:%.*]] = load <25 x i8>, ptr {{.*}}, align 1
+  // CHECK:       [[C:%.*]] = load <25 x i8>, <25 x i8>* {{.*}}, align 1
   // CHECK-NEXT:  [[CONV:%.*]] = sext <25 x i8> [[C]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<char> c;
@@ -54,9 +58,10 @@ void CastCharMatrixToUnsignedIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z38CastUnsignedLongIntMatrixToShortCStylev
 void CastUnsignedLongIntMatrixToShortCStyle() {
-  // CHECK:      [[U:%.*]] = load <25 x i64>, ptr {{.*}}, align 8
+  // CHECK:      [[U:%.*]] = load <25 x i64>, <25 x i64>* {{.*}}, align 8
   // CHECK-NEXT: [[CONV:%.*]] = trunc <25 x i64> {{.*}} to <25 x i16>
-  // CHECK-NEXT: store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT: [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT: store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT: ret void
 
   matrix_5_5<unsigned long int> u;
@@ -66,9 +71,10 @@ void CastUnsignedLongIntMatrixToShortCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z42CastUnsignedLongIntMatrixToShortStaticCastv
 void CastUnsignedLongIntMatrixToShortStaticCast() {
-  // CHECK:      [[U:%.*]] = load <25 x i64>, ptr {{.*}}, align 8
+  // CHECK:      [[U:%.*]] = load <25 x i64>, <25 x i64>* {{.*}}, align 8
   // CHECK-NEXT: [[CONV:%.*]] = trunc <25 x i64> {{.*}} to <25 x i16>
-  // CHECK-NEXT: store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT: [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT: store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT: ret void
 
   matrix_5_5<unsigned long int> u;
@@ -78,9 +84,10 @@ void CastUnsignedLongIntMatrixToShortStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z26CastIntMatrixToShortCStylev()
 void CastIntMatrixToShortCStyle() {
-  // CHECK:       [[I:%.*]] = load <25 x i32>, ptr {{.*}}, align 4
+  // CHECK:       [[I:%.*]] = load <25 x i32>, <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  [[CONV:%.*]] = trunc <25 x i32> [[I]] to <25 x i16>
-  // CHECK-NEXT:  store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT:  store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT:  ret void
 
   matrix_5_5<int> i;
@@ -90,9 +97,10 @@ void CastIntMatrixToShortCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z30CastIntMatrixToShortStaticCastv()
 void CastIntMatrixToShortStaticCast() {
-  // CHECK:       [[I:%.*]] = load <25 x i32>, ptr {{.*}}, align 4
+  // CHECK:       [[I:%.*]] = load <25 x i32>, <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  [[CONV:%.*]] = trunc <25 x i32> [[I]] to <25 x i16>
-  // CHECK-NEXT:  store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT:  store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT:  ret void
 
   matrix_5_5<int> i;
@@ -102,9 +110,10 @@ void CastIntMatrixToShortStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z26CastIntMatrixToFloatCStylev()
 void CastIntMatrixToFloatCStyle() {
-  // CHECK:       [[I:%.*]] = load <25 x i32>, ptr {{.*}}, align 4
+  // CHECK:       [[I:%.*]] = load <25 x i32>, <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  [[CONV]] = sitofp <25 x i32> {{.*}} to <25 x float>
-  // CHECK-NEXT:  store <25 x float> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1]] = bitcast [25 x float]* {{.*}} to <25 x float>*
+  // CHECK-NEXT:  store <25 x float> [[CONV]], <25 x float>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<int> i;
@@ -114,9 +123,10 @@ void CastIntMatrixToFloatCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z30CastIntMatrixToFloatStaticCastv()
 void CastIntMatrixToFloatStaticCast() {
-  // CHECK:       [[I:%.*]] = load <25 x i32>, ptr {{.*}}, align 4
+  // CHECK:       [[I:%.*]] = load <25 x i32>, <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  [[CONV]] = sitofp <25 x i32> {{.*}} to <25 x float>
-  // CHECK-NEXT:  store <25 x float> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1]] = bitcast [25 x float]* {{.*}} to <25 x float>*
+  // CHECK-NEXT:  store <25 x float> [[CONV]], <25 x float>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<int> i;
@@ -126,9 +136,10 @@ void CastIntMatrixToFloatStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z34CastUnsignedIntMatrixToFloatCStylev()
 void CastUnsignedIntMatrixToFloatCStyle() {
-  // CHECK:       [[U:%.*]] = load <25 x i16>, ptr {{.*}}, align 2
+  // CHECK:       [[U:%.*]] = load <25 x i16>, <25 x i16>* {{.*}}, align 2
   // CHECK-NEXT:  [[CONV:%.*]] = uitofp <25 x i16> [[U]] to <25 x float>
-  // CHECK-NEXT:  store <25 x float> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x float]* {{.*}} to <25 x float>*
+  // CHECK-NEXT:  store <25 x float> [[CONV]], <25 x float>* {{.*}}, align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned short int> u;
@@ -138,9 +149,10 @@ void CastUnsignedIntMatrixToFloatCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z38CastUnsignedIntMatrixToFloatStaticCastv()
 void CastUnsignedIntMatrixToFloatStaticCast() {
-  // CHECK:       [[U:%.*]] = load <25 x i16>, ptr {{.*}}, align 2
+  // CHECK:       [[U:%.*]] = load <25 x i16>, <25 x i16>* {{.*}}, align 2
   // CHECK-NEXT:  [[CONV:%.*]] = uitofp <25 x i16> [[U]] to <25 x float>
-  // CHECK-NEXT:  store <25 x float> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x float]* {{.*}} to <25 x float>*
+  // CHECK-NEXT:  store <25 x float> [[CONV]], <25 x float>* {{.*}}, align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned short int> u;
@@ -150,9 +162,10 @@ void CastUnsignedIntMatrixToFloatStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z27CastDoubleMatrixToIntCStylev()
 void CastDoubleMatrixToIntCStyle() {
-  // CHECK:       [[D:%.*]] = load <25 x double>, ptr {{.*}}, align 8
+  // CHECK:       [[D:%.*]] = load <25 x double>, <25 x double>* {{.*}}, align 8
   // CHECK-NEXT:  [[CONV:%.*]] = fptosi <25 x double> [[D]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* %i to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<double> d;
@@ -162,9 +175,10 @@ void CastDoubleMatrixToIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z31CastDoubleMatrixToIntStaticCastv()
 void CastDoubleMatrixToIntStaticCast() {
-  // CHECK:       [[D:%.*]] = load <25 x double>, ptr {{.*}}, align 8
+  // CHECK:       [[D:%.*]] = load <25 x double>, <25 x double>* {{.*}}, align 8
   // CHECK-NEXT:  [[CONV:%.*]] = fptosi <25 x double> [[D]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* %i to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<double> d;
@@ -174,9 +188,10 @@ void CastDoubleMatrixToIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z39CastFloatMatrixToUnsignedShortIntCStylev()
 void CastFloatMatrixToUnsignedShortIntCStyle() {
-  // CHECK:       [[F:%.*]] = load <25 x float>, ptr {{.*}}, align 4
+  // CHECK:       [[F:%.*]] = load <25 x float>, <25 x float>* {{.*}}, align 4
   // CHECK-NEXT:  [[CONV:%.*]] = fptoui <25 x float> [[F]] to <25 x i16>
-  // CHECK-NEXT:  store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT:  store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT:  ret void
 
   matrix_5_5<float> f;
@@ -186,9 +201,10 @@ void CastFloatMatrixToUnsignedShortIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z43CastFloatMatrixToUnsignedShortIntStaticCastv()
 void CastFloatMatrixToUnsignedShortIntStaticCast() {
-  // CHECK:       [[F:%.*]] = load <25 x float>, ptr {{.*}}, align 4
+  // CHECK:       [[F:%.*]] = load <25 x float>, <25 x float>* {{.*}}, align 4
   // CHECK-NEXT:  [[CONV:%.*]] = fptoui <25 x float> [[F]] to <25 x i16>
-  // CHECK-NEXT:  store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT:  store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT:  ret void
 
   matrix_5_5<float> f;
@@ -198,9 +214,10 @@ void CastFloatMatrixToUnsignedShortIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z29CastDoubleMatrixToFloatCStylev()
 void CastDoubleMatrixToFloatCStyle() {
-  // CHECK:       [[D:%.*]] = load <25 x double>, ptr {{.*}}, align 8
+  // CHECK:       [[D:%.*]] = load <25 x double>, <25 x double>* {{.*}}, align 8
   // CHECK-NEXT:  [[CONV:%.*]] = fptrunc <25 x double> [[D]] to <25 x float>
-  // CHECK-NEXT:  store <25 x float> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x float]* {{.*}} to <25 x float>*
+  // CHECK-NEXT:  store <25 x float> [[CONV]], <25 x float>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<double> d;
@@ -210,9 +227,10 @@ void CastDoubleMatrixToFloatCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z33CastDoubleMatrixToFloatStaticCastv()
 void CastDoubleMatrixToFloatStaticCast() {
-  // CHECK:       [[D:%.*]] = load <25 x double>, ptr {{.*}}, align 8
+  // CHECK:       [[D:%.*]] = load <25 x double>, <25 x double>* {{.*}}, align 8
   // CHECK-NEXT:  [[CONV:%.*]] = fptrunc <25 x double> [[D]] to <25 x float>
-  // CHECK-NEXT:  store <25 x float> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x float]* {{.*}} to <25 x float>*
+  // CHECK-NEXT:  store <25 x float> [[CONV]], <25 x float>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<double> d;
@@ -222,9 +240,10 @@ void CastDoubleMatrixToFloatStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z39CastUnsignedShortIntToUnsignedIntCStylev()
 void CastUnsignedShortIntToUnsignedIntCStyle() {
-  // CHECK:       [[S:%.*]] = load <25 x i16>, ptr {{.*}}, align 2
+  // CHECK:       [[S:%.*]] = load <25 x i16>, <25 x i16>* {{.*}}, align 2
   // CHECK-NEXT:  [[CONV:%.*]] = zext <25 x i16> [[S]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned short int> s;
@@ -234,9 +253,10 @@ void CastUnsignedShortIntToUnsignedIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z43CastUnsignedShortIntToUnsignedIntStaticCastv()
 void CastUnsignedShortIntToUnsignedIntStaticCast() {
-  // CHECK:       [[S:%.*]] = load <25 x i16>, ptr {{.*}}, align 2
+  // CHECK:       [[S:%.*]] = load <25 x i16>, <25 x i16>* {{.*}}, align 2
   // CHECK-NEXT:  [[CONV:%.*]] = zext <25 x i16> [[S]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* [[CONV1]], align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned short int> s;
@@ -246,9 +266,10 @@ void CastUnsignedShortIntToUnsignedIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z43CastUnsignedLongIntToUnsignedShortIntCStylev()
 void CastUnsignedLongIntToUnsignedShortIntCStyle() {
-  // CHECK:       [[L:%.*]] = load <25 x i64>, ptr %l, align 8
+  // CHECK:       [[L:%.*]] = load <25 x i64>, <25 x i64>* %0, align 8
   // CHECK-NEXT:  [[CONV:%.*]] = trunc <25 x i64> [[L]] to <25 x i16>
-  // CHECK-NEXT:  store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT:  store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned long int> l;
@@ -258,9 +279,10 @@ void CastUnsignedLongIntToUnsignedShortIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z47CastUnsignedLongIntToUnsignedShortIntStaticCastv()
 void CastUnsignedLongIntToUnsignedShortIntStaticCast() {
-  // CHECK:       [[L:%.*]] = load <25 x i64>, ptr %l, align 8
+  // CHECK:       [[L:%.*]] = load <25 x i64>, <25 x i64>* %0, align 8
   // CHECK-NEXT:  [[CONV:%.*]] = trunc <25 x i64> [[L]] to <25 x i16>
-  // CHECK-NEXT:  store <25 x i16> [[CONV]], ptr {{.*}}, align 2
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i16]* {{.*}} to <25 x i16>*
+  // CHECK-NEXT:  store <25 x i16> [[CONV]], <25 x i16>* [[CONV1]], align 2
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned long int> l;
@@ -270,9 +292,10 @@ void CastUnsignedLongIntToUnsignedShortIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z31CastUnsignedShortIntToIntCStylev()
 void CastUnsignedShortIntToIntCStyle() {
-  // CHECK:       [[U:%.*]] = load <25 x i16>, ptr %u, align 2
+  // CHECK:       [[U:%.*]] = load <25 x i16>, <25 x i16>* %0, align 2
   // CHECK-NEXT:  [[CONV:%.*]] = zext <25 x i16> [[U]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned short int> u;
@@ -282,9 +305,10 @@ void CastUnsignedShortIntToIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z35CastUnsignedShortIntToIntStaticCastv()
 void CastUnsignedShortIntToIntStaticCast() {
-  // CHECK:       [[U:%.*]] = load <25 x i16>, ptr %u, align 2
+  // CHECK:       [[U:%.*]] = load <25 x i16>, <25 x i16>* %0, align 2
   // CHECK-NEXT:  [[CONV:%.*]] = zext <25 x i16> [[U]] to <25 x i32>
-  // CHECK-NEXT:  store <25 x i32> [[CONV]], ptr {{.*}}, align 4
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i32]* {{.*}} to <25 x i32>*
+  // CHECK-NEXT:  store <25 x i32> [[CONV]], <25 x i32>* {{.*}}, align 4
   // CHECK-NEXT:  ret void
 
   matrix_5_5<unsigned short int> u;
@@ -294,9 +318,10 @@ void CastUnsignedShortIntToIntStaticCast() {
 
 // CHECK-LABEL: define{{.*}} void @_Z30CastIntToUnsignedLongIntCStylev()
 void CastIntToUnsignedLongIntCStyle() {
-  // CHECK:       [[I:%.*]] = load <25 x i32>, ptr %i, align 4
+  // CHECK:       [[I:%.*]] = load <25 x i32>, <25 x i32>* %0, align 4
   // CHECK-NEXT:  [[CONV:%.*]] = sext <25 x i32> [[I]] to <25 x i64>
-  // CHECK-NEXT:  store <25 x i64> [[CONV]], ptr {{.*}}, align 8
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i64]* {{.*}} to <25 x i64>*
+  // CHECK-NEXT:  store <25 x i64> [[CONV]], <25 x i64>* {{.*}}, align 8
   // CHECK-NEXT:  ret void
 
   matrix_5_5<int> i;
@@ -306,9 +331,10 @@ void CastIntToUnsignedLongIntCStyle() {
 
 // CHECK-LABEL: define{{.*}} void @_Z34CastIntToUnsignedLongIntStaticCastv()
 void CastIntToUnsignedLongIntStaticCast() {
-  // CHECK:       [[I:%.*]] = load <25 x i32>, ptr %i, align 4
+  // CHECK:       [[I:%.*]] = load <25 x i32>, <25 x i32>* %0, align 4
   // CHECK-NEXT:  [[CONV:%.*]] = sext <25 x i32> [[I]] to <25 x i64>
-  // CHECK-NEXT:  store <25 x i64> [[CONV]], ptr {{.*}}, align 8
+  // CHECK-NEXT:  [[CONV1:%.*]] = bitcast [25 x i64]* {{.*}} to <25 x i64>*
+  // CHECK-NEXT:  store <25 x i64> [[CONV]], <25 x i64>* {{.*}}, align 8
   // CHECK-NEXT:  ret void
 
   matrix_5_5<int> i;
@@ -324,9 +350,9 @@ public:
 };
 
 Foo class_constructor_matrix_ty(matrix_5_5<int> m) {
-  // CHECK-LABEL: define void @_Z27class_constructor_matrix_tyu11matrix_typeILm5ELm5EiE(ptr dead_on_unwind noalias writable sret(%class.Foo) align 4 %agg.result, <25 x i32> noundef %m)
-  // CHECK:         [[M:%.*]]  = load <25 x i32>, ptr {{.*}}, align 4
-  // CHECK-NEXT:    call void @_ZN3FooC1Eu11matrix_typeILm5ELm5EiE(ptr noundef nonnull align 4 dereferenceable(40) %agg.result, <25 x i32> noundef [[M]])
+  // CHECK-LABEL: define void @_Z27class_constructor_matrix_tyu11matrix_typeILm5ELm5EiE(%class.Foo* noalias sret(%class.Foo) align 4 %agg.result, <25 x i32> noundef %m)
+  // CHECK:         [[M:%.*]]  = load <25 x i32>, <25 x i32>* {{.*}}, align 4
+  // CHECK-NEXT:    call void @_ZN3FooC1Eu11matrix_typeILm5ELm5EiE(%class.Foo* noundef nonnull align 4 dereferenceable(40) %agg.result, <25 x i32> noundef [[M]])
   // CHECK-NEXT:    ret void
 
   return Foo(m);
@@ -338,9 +364,9 @@ struct Bar {
 };
 
 Bar struct_constructor_matrix_ty(matrix_4_4<float> m) {
-  // CHECK-LABEL: define void @_Z28struct_constructor_matrix_tyu11matrix_typeILm4ELm4EfE(ptr dead_on_unwind noalias writable sret(%struct.Bar) align 4 %agg.result, <16 x float> noundef %m)
-  // CHECK:         [[M:%.*]] = load <16 x float>, ptr {{.*}}, align 4
-  // CHECK-NEXT:    call void @_ZN3BarC1Eu11matrix_typeILm4ELm4EfE(ptr noundef nonnull align 4 dereferenceable(40) %agg.result, <16 x float> noundef [[M]])
+  // CHECK-LABEL: define void @_Z28struct_constructor_matrix_tyu11matrix_typeILm4ELm4EfE(%struct.Bar* noalias sret(%struct.Bar) align 4 %agg.result, <16 x float> noundef %m)
+  // CHECK:         [[M:%.*]] = load <16 x float>, <16 x float>* {{.*}}, align 4
+  // CHECK-NEXT:    call void @_ZN3BarC1Eu11matrix_typeILm4ELm4EfE(%struct.Bar* noundef nonnull align 4 dereferenceable(40) %agg.result, <16 x float> noundef [[M]])
   // CHECK-NEXT:    ret void
 
   return Bar(m);

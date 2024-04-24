@@ -18,7 +18,6 @@
 #include "clang/AST/ParentMap.h"
 #include "clang/Edit/Commit.h"
 #include "clang/Lex/Lexer.h"
-#include <optional>
 
 using namespace clang;
 using namespace edit;
@@ -643,7 +642,7 @@ static bool shouldNotRewriteImmediateMessageArgs(const ObjCMessageExpr *Msg,
 static bool rewriteToCharLiteral(const ObjCMessageExpr *Msg,
                                    const CharacterLiteral *Arg,
                                    const NSAPI &NS, Commit &commit) {
-  if (Arg->getKind() != CharacterLiteralKind::Ascii)
+  if (Arg->getKind() != CharacterLiteral::Ascii)
     return false;
   if (NS.isNSNumberLiteralSelector(NSAPI::NSNumberWithChar,
                                    Msg->getSelector())) {
@@ -692,12 +691,12 @@ static bool getLiteralInfo(SourceRange literalRange,
   if (text.empty())
     return false;
 
-  std::optional<bool> UpperU, UpperL;
+  Optional<bool> UpperU, UpperL;
   bool UpperF = false;
 
   struct Suff {
     static bool has(StringRef suff, StringRef &text) {
-      if (text.ends_with(suff)) {
+      if (text.endswith(suff)) {
         text = text.substr(0, text.size()-suff.size());
         return true;
       }
@@ -739,9 +738,9 @@ static bool getLiteralInfo(SourceRange literalRange,
   Info.F = UpperF ? "F" : "f";
 
   Info.Hex = Info.Octal = false;
-  if (text.starts_with("0x"))
+  if (text.startswith("0x"))
     Info.Hex = true;
-  else if (!isFloat && !isIntZero && text.starts_with("0"))
+  else if (!isFloat && !isIntZero && text.startswith("0"))
     Info.Octal = true;
 
   SourceLocation B = literalRange.getBegin();
@@ -776,8 +775,8 @@ static bool rewriteToNumberLiteral(const ObjCMessageExpr *Msg,
 
   ASTContext &Ctx = NS.getASTContext();
   Selector Sel = Msg->getSelector();
-  std::optional<NSAPI::NSNumberLiteralMethodKind> MKOpt =
-      NS.getNSNumberLiteralMethodKind(Sel);
+  Optional<NSAPI::NSNumberLiteralMethodKind>
+    MKOpt = NS.getNSNumberLiteralMethodKind(Sel);
   if (!MKOpt)
     return false;
   NSAPI::NSNumberLiteralMethodKind MK = *MKOpt;
@@ -984,8 +983,8 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
 
   ASTContext &Ctx = NS.getASTContext();
   Selector Sel = Msg->getSelector();
-  std::optional<NSAPI::NSNumberLiteralMethodKind> MKOpt =
-      NS.getNSNumberLiteralMethodKind(Sel);
+  Optional<NSAPI::NSNumberLiteralMethodKind>
+    MKOpt = NS.getNSNumberLiteralMethodKind(Sel);
   if (!MKOpt)
     return false;
   NSAPI::NSNumberLiteralMethodKind MK = *MKOpt;

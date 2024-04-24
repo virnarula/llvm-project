@@ -25,11 +25,11 @@ namespace {
 struct TensorInlinerInterface : public DialectInlinerInterface {
   using DialectInlinerInterface::DialectInlinerInterface;
   bool isLegalToInline(Region *dest, Region *src, bool wouldBeCloned,
-                       IRMapping &valueMapping) const final {
+                       BlockAndValueMapping &valueMapping) const final {
     return true;
   }
   bool isLegalToInline(Operation *, Region *, bool wouldBeCloned,
-                       IRMapping &) const final {
+                       BlockAndValueMapping &) const final {
     return true;
   }
 };

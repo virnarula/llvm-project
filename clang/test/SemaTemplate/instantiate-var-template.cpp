@@ -31,7 +31,8 @@ namespace InstantiationDependent {
   static_assert(b<char> == 1, ""); // expected-note {{in instantiation of}}
 
   template<typename T> void f() {
-    int check[a<sizeof(sizeof(f(T())))> == 0 ? 1 : -1]; // expected-error {{array with a negative size}}
+    static_assert(a<sizeof(sizeof(f(T())))> == 0, ""); // expected-error {{static assertion failed due to requirement 'a<sizeof (sizeof (f(type-parameter-0-0())))> == 0'}} \
+                                                       // expected-note {{evaluates to '1 == 0'}}
   }
 }
 

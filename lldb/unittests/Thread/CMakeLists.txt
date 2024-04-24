@@ -1,8 +1,3 @@
-if (CMAKE_SYSTEM_NAME MATCHES "Windows")
-  list(APPEND LLDB_WINDOWS_LIBS lldbPluginPlatformWindows)
-  list(APPEND LLDB_WINDOWS_LIBS lldbPluginProcessWindowsCommon)
-endif()
-
 add_lldb_unittest(ThreadTests
   ThreadTest.cpp
 
@@ -16,6 +11,5 @@ add_lldb_unittest(ThreadTests
       lldbInterpreter
       lldbBreakpoint
       lldbPluginPlatformLinux
-      ${LLDB_WINDOWS_LIBS}
   )
 

@@ -95,12 +95,10 @@ contains
       real :: b
     end type
     type(tp) :: y
-    !ERROR: The left-hand side of a pointer assignment is not definable
-    !BECAUSE: 'p' is not a pointer
+    !ERROR: 'p' is not a pointer
     p => x
     y%a => x
-    !ERROR: The left-hand side of a pointer assignment is not definable
-    !BECAUSE: 'b' is not a pointer
+    !ERROR: 'b' is not a pointer
     y%b => x
   end
 

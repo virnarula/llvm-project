@@ -23,7 +23,7 @@ public:
   ~CommandObjectApropos() override;
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override;
+  bool DoExecute(Args &command, CommandReturnObject &result) override;
 };
 
 } // namespace lldb_private

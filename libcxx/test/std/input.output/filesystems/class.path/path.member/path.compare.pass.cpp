@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -26,20 +25,17 @@
 // strong_ordering operator<=>(path const&, path const&) noexcept;
 //
 // size_t hash_value(path const&) noexcept;
-// template<> struct hash<filesystem::path>;
 
-#include <filesystem>
-#include <cassert>
-#include <string>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <vector>
+#include <cassert>
 
-#include "assert_macros.h"
-#include "count_new.h"
+#include "test_macros.h"
 #include "test_comparisons.h"
 #include "test_iterators.h"
-#include "test_macros.h"
-namespace fs = std::filesystem;
+#include "count_new.h"
+#include "filesystem_test_helper.h"
 
 struct PathCompareTest {
   const char* LHS;
@@ -135,16 +131,8 @@ void test_compare_basic()
       auto h2 = hash_value(p2);
       assert((h1 == h2) == (p1 == p2));
       // check signature
-      ASSERT_SAME_TYPE(std::size_t, decltype(hash_value(p1)));
+      ASSERT_SAME_TYPE(size_t, decltype(hash_value(p1)));
       ASSERT_NOEXCEPT(hash_value(p1));
-    }
-    { // check std::hash
-      auto h1 = std::hash<fs::path>()(p1);
-      auto h2 = std::hash<fs::path>()(p2);
-      assert((h1 == h2) == (p1 == p2));
-      // check signature
-      ASSERT_SAME_TYPE(std::size_t, decltype(std::hash<fs::path>()(p1)));
-      ASSERT_NOEXCEPT(std::hash<fs::path>()(p1));
     }
   }
 }

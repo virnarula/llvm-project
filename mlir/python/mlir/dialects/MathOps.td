@@ -9,6 +9,7 @@
 #ifndef PYTHON_BINDINGS_MATH_OPS
 #define PYTHON_BINDINGS_MATH_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/Math/IR/MathOps.td"
 
 #endif

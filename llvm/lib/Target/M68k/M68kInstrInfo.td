@@ -55,6 +55,15 @@ def MxSDT_BiArithCCRInOut : SDTypeProfile<2, 3, [
   /*   CCR */ SDTCisSameAs<1, 4>
 ]>;
 
+// RES1, RES2, CCR <- op LHS, RHS
+def MxSDT_2BiArithCCROut : SDTypeProfile<3, 2, [
+  /* RES 1 */ SDTCisInt<0>,
+  /* RES 2 */ SDTCisSameAs<0, 1>,
+  /*   CCR */ SDTCisVT<1, i8>,
+  /*   LHS */ SDTCisSameAs<0, 2>,
+  /*   RHS */ SDTCisSameAs<0, 3>
+]>;
+
 def MxSDT_CmpTest : SDTypeProfile<1, 2, [
    /* CCR */ SDTCisVT<0, i8>,
    /* Ops */ SDTCisSameAs<1, 2>
@@ -125,7 +134,7 @@ def MxAddX : SDNode<"M68kISD::ADDX", MxSDT_BiArithCCRInOut>;
 def MxSubX : SDNode<"M68kISD::SUBX", MxSDT_BiArithCCRInOut>;
 
 def MxSMul : SDNode<"M68kISD::SMUL", MxSDT_BiArithCCROut, [SDNPCommutative]>;
-def MxUMul : SDNode<"M68kISD::UMUL", MxSDT_BiArithCCROut, [SDNPCommutative]>;
+def MxUMul : SDNode<"M68kISD::UMUL", MxSDT_2BiArithCCROut, [SDNPCommutative]>;
 
 def MxCmp     : SDNode<"M68kISD::CMP", MxSDT_CmpTest>;
 def MxBtst    : SDNode<"M68kISD::BTST", MxSDT_CmpTest>;
@@ -155,9 +164,6 @@ class MxSize<int num, string id, string full> {
 def MxSize8  : MxSize<8,  "b", "byte">;
 def MxSize16 : MxSize<16, "w", "word">;
 def MxSize32 : MxSize<32, "l", "long">;
-def MxSizeF32 : MxSize<32, "s", "f32">;
-def MxSizeF64 : MxSize<64, "d", "f64">;
-def MxSizeF80 : MxSize<80, "x", "f80">;
 
 class MxOpClass<string name,
                 list<AsmOperandClass> superClasses = []> : AsmOperandClass {
@@ -175,9 +181,6 @@ def MxRegClass : MxOpClass<"Reg">;
 let RenderMethod = "addRegOperands", SuperClasses = [MxRegClass]in {
   def MxARegClass : MxOpClass<"AReg">;
   def MxDRegClass : MxOpClass<"DReg">;
-
-  def MxFPDRegClass : MxOpClass<"FPDReg">;
-  def MxFPCRegClass : MxOpClass<"FPCReg">;
 }
 
 class MxOperand<ValueType vt, MxSize size, string letter, RegisterClass rc, dag pat = (null_frag)> {
@@ -225,19 +228,6 @@ let ParserMatchClass = MxARegClass in {
 
   def MxARD16_TC : MxRegOp<i16, AR16_TC, MxSize16, "a">;
   def MxARD32_TC : MxRegOp<i32, AR32_TC, MxSize32, "a">;
-}
-
-// FLOATING POINT DATA REGISTER.
-let ParserMatchClass = MxFPDRegClass in {
-  def MxFPR32 : MxRegOp<f32, FPDR32, MxSizeF32, "fp">;
-  def MxFPR64 : MxRegOp<f64, FPDR64, MxSizeF64, "fp">;
-  def MxFPR80 : MxRegOp<f80, FPDR80, MxSizeF80, "fp">;
-}
-
-// FLOATING POINT SYSTEM CONTROL REGISTER
-let ParserMatchClass = MxFPCRegClass in {
-  def MxFPCSR : MxRegOp<i32, FPCSC, MxSize32, "fpcs">;
-  def MxFPIR  : MxRegOp<i32, FPIC,  MxSize32, "fpi">;
 }
 
 class MxMemOp<dag ops, MxSize size, string letter,
@@ -439,16 +429,12 @@ def NearData     : Predicate<"TM.getCodeModel() == CodeModel::Small ||"
                              "TM.getCodeModel() == CodeModel::Kernel">;
 def IsPIC        : Predicate<"TM.isPositionIndependent()">;
 def IsNotPIC     : Predicate<"!TM.isPositionIndependent()">;
+def IsM68000     : Predicate<"Subtarget.IsM68000()">;
+def IsM68010     : Predicate<"Subtarget.IsM68010()">;
+def IsM68020     : Predicate<"Subtarget.IsM68020()">;
+def IsM68030     : Predicate<"Subtarget.IsM68030()">;
+def IsM68040     : Predicate<"Subtarget.IsM68040()">;
 
-// ISA versions
-foreach i = [0,1,2,4,6] in
-def AtLeastM680 # i # "0" : Predicate<"Subtarget->atLeastM680"#i#"0()">,
-                            AssemblerPredicate<(all_of
-                                                !cast<SubtargetFeature>("FeatureISA"#i#"0"))>;
-def AtLeastM68881 : Predicate<"Subtarget->atLeastM68881()">,
-                    AssemblerPredicate<(all_of FeatureISA881)>;
-def AtLeastM68882 : Predicate<"Subtarget->atLeastM68882()">,
-                    AssemblerPredicate<(all_of FeatureISA882)>;
 
 //===----------------------------------------------------------------------===//
 // Condition Codes
@@ -513,14 +499,9 @@ def MxCP_PCI   : ComplexPattern<iPTR, 2, "SelectPCI",
 // Pattern Fragments
 //===----------------------------------------------------------------------===//
 
-def Mxi8immSExt8  : PatLeaf<(i8  imm)>;
-def MximmSExt8    : PatLeaf<(imm), [{ return isInt<8>(N->getSExtValue()); }]>;
-
-def Mxi16immSExt16 : PatLeaf<(i16 imm)>;
-def MximmSExt16    : PatLeaf<(imm), [{ return isInt<16>(N->getSExtValue()); }]>;
-
-def Mxi32immSExt32 : PatLeaf<(i32 imm)>;
-def MximmSExt32    : PatLeaf<(imm), [{ return isInt<32>(N->getSExtValue()); }]>;
+def MximmSExt8  : PatLeaf<(i8  imm)>;
+def MximmSExt16 : PatLeaf<(i16 imm)>;
+def MximmSExt32 : PatLeaf<(i32 imm)>;
 
 // Used for Shifts and Rotations, since M68k immediates in these instructions
 // are 1 <= i <= 8. Generally, if immediate is bigger than 8 it will be moved
@@ -541,7 +522,7 @@ def Mxloadi16 : PatFrag<(ops node:$ptr), (i16 (unindexedload node:$ptr)), [{
   if (ExtType == ISD::NON_EXTLOAD)
     return true;
   if (ExtType == ISD::EXTLOAD)
-    return LD->getAlign() >= 2 && !LD->isSimple();
+    return LD->getAlignment() >= 2 && !LD->isSimple();
   return false;
 }]>;
 
@@ -551,7 +532,7 @@ def Mxloadi32 : PatFrag<(ops node:$ptr), (i32 (unindexedload node:$ptr)), [{
   if (ExtType == ISD::NON_EXTLOAD)
     return true;
   if (ExtType == ISD::EXTLOAD)
-    return LD->getAlign() >= 4 && !LD->isSimple();
+    return LD->getAlignment() >= 4 && !LD->isSimple();
   return false;
 }]>;
 
@@ -713,7 +694,7 @@ foreach size = [8, 16, 32] in {
   // #imm
   def MxOp#size#AddrMode_i
     : MxImmOpBundle<size, !cast<MxOperand>("Mxi"#size#"imm"),
-                    !cast<PatFrag>("Mxi"#size#"immSExt"#size)>;
+                    !cast<PatFrag>("MximmSExt"#size)>;
 } // foreach size = [8, 16, 32]
 
 foreach size = [16, 32] in {
@@ -726,13 +707,6 @@ foreach size = [16, 32] in {
     : MxOpBundle<size, !cast<MxOperand>("MxXRD"#size), ?>;
 } // foreach size = [16, 32]
 
-foreach size = [32, 64, 80] in
-def MxOp#size#AddrMode_fpr
-  : MxOpBundle<size, !cast<MxOperand>("MxFPR"#size), ?>;
-
-def MxOp32AddrMode_fpcs : MxOpBundle<32, MxFPCSR, ?>;
-def MxOp32AddrMode_fpi  : MxOpBundle<32, MxFPIR, ?>;
-
 class MxType8Class<string rLet, MxOperand reg>
     : MxType<i8, "b", "", rLet, reg,
              MxARI8,   MxCP_ARI,
@@ -743,7 +717,7 @@ class MxType8Class<string rLet, MxOperand reg>
              MxAL8,    MxCP_AL,
              MxPCD8,   MxCP_PCD,
              MxPCI8,   MxCP_PCI,
-             Mxi8imm,  Mxi8immSExt8,
+             Mxi8imm,  MximmSExt8,
              Mxloadi8>;
 
 def MxType8 : MxType8Class<?,?>;
@@ -758,7 +732,7 @@ class MxType16Class<string rLet, MxOperand reg>
              MxAL16,    MxCP_AL,
              MxPCD16,   MxCP_PCD,
              MxPCI16,   MxCP_PCI,
-             Mxi16imm,  Mxi16immSExt16,
+             Mxi16imm,  MximmSExt16,
              Mxloadi16>;
 
 def MxType16 : MxType16Class<?,?>;
@@ -773,7 +747,7 @@ class MxType32Class<string rLet, MxOperand reg>
              MxAL32,    MxCP_AL,
              MxPCD32,   MxCP_PCD,
              MxPCI32,   MxCP_PCI,
-             Mxi32imm,  Mxi32immSExt32,
+             Mxi32imm,  MximmSExt32,
              Mxloadi32>;
 
 def MxType32 : MxType32Class<?,?>;
@@ -807,6 +781,5 @@ include "M68kInstrShiftRotate.td"
 include "M68kInstrBits.td"
 include "M68kInstrArithmetic.td"
 include "M68kInstrControl.td"
-include "M68kInstrAtomics.td"
 
 include "M68kInstrCompiler.td"

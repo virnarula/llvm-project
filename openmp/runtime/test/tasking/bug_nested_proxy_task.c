@@ -6,10 +6,9 @@
 // https://bugs.llvm.org/show_bug.cgi?id=45397
 // UNSUPPORTED: linux
 
-#include <stdint.h>
 #include <stdio.h>
 #include <omp.h>
-#include "omp_testsuite.h"
+#include <pthread.h>
 #include "omp_my_sleep.h"
 
 /*
@@ -21,13 +20,10 @@
 */
 
 // Compiler-generated code (emulation)
-typedef intptr_t kmp_intptr_t;
-typedef int32_t kmp_int32;
-typedef uint8_t kmp_uint8;
+typedef long kmp_intptr_t;
+typedef int kmp_int32;
 
 typedef char bool;
-
-// These structs need to match the implementation within libomp, in kmp.h.
 
 typedef struct ident {
     kmp_int32 reserved_1;   /**<  might be used in Fortran; see above  */
@@ -47,26 +43,10 @@ typedef struct ident {
 typedef struct kmp_depend_info {
      kmp_intptr_t               base_addr;
      size_t                     len;
-     union {
-        kmp_uint8 flag; // flag as an unsigned char
-        struct { // flag as a set of 8 bits
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-          unsigned all : 1;
-          unsigned unused : 3;
-          unsigned set : 1;
-          unsigned mtx : 1;
-          unsigned out : 1;
-          unsigned in : 1;
-#else
-          unsigned in : 1;
-          unsigned out : 1;
-          unsigned mtx : 1;
-          unsigned set : 1;
-          unsigned unused : 3;
-          unsigned all : 1;
-#endif
-        } flags;
-     };
+     struct {
+         bool                   in:1;
+         bool                   out:1;
+     } flags;
 } kmp_depend_info_t;
 
 struct kmp_task;
@@ -125,8 +105,8 @@ int main()
         my_sleep( 0.1 );
     }
 */
-    kmp_depend_info_t dep_info = { 0 };
-    dep_info.base_addr = (kmp_intptr_t) &dep;
+    kmp_depend_info_t dep_info;
+    dep_info.base_addr = (long) &dep;
     dep_info.len = sizeof(int);
     // out = inout per spec and runtime expects this
     dep_info.flags.in = 1;

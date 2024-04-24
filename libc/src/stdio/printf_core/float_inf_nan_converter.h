@@ -17,29 +17,28 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 namespace printf_core {
 
-using StorageType = fputil::FPBits<long double>::StorageType;
+using MantissaInt = fputil::FPBits<long double>::UIntType;
 
-LIBC_INLINE int convert_inf_nan(Writer *writer, const FormatSection &to_conv) {
+int inline convert_inf_nan(Writer *writer, const FormatSection &to_conv) {
   // All of the letters will be defined relative to variable a, which will be
   // the appropriate case based on the case of the conversion.
   const char a = (to_conv.conv_name & 32) | 'A';
 
   bool is_negative;
-  StorageType mantissa;
+  MantissaInt mantissa;
   if (to_conv.length_modifier == LengthModifier::L) {
-    fputil::FPBits<long double>::StorageType float_raw = to_conv.conv_val_raw;
+    fputil::FPBits<long double>::UIntType float_raw = to_conv.conv_val_raw;
     fputil::FPBits<long double> float_bits(float_raw);
-    is_negative = float_bits.is_neg();
-    mantissa = float_bits.get_mantissa();
+    is_negative = float_bits.get_sign();
+    mantissa = float_bits.get_explicit_mantissa();
   } else {
-    fputil::FPBits<double>::StorageType float_raw =
-        static_cast<fputil::FPBits<double>::StorageType>(to_conv.conv_val_raw);
+    fputil::FPBits<double>::UIntType float_raw = to_conv.conv_val_raw;
     fputil::FPBits<double> float_bits(float_raw);
-    is_negative = float_bits.is_neg();
-    mantissa = float_bits.get_mantissa();
+    is_negative = float_bits.get_sign();
+    mantissa = float_bits.get_explicit_mantissa();
   }
 
   char sign_char = 0;
@@ -78,6 +77,6 @@ LIBC_INLINE int convert_inf_nan(Writer *writer, const FormatSection &to_conv) {
 }
 
 } // namespace printf_core
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDIO_PRINTF_CORE_FLOAT_INF_NAN_CONVERTER_H

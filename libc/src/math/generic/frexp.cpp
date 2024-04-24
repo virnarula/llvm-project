@@ -10,10 +10,10 @@
 #include "src/__support/FPUtil/ManipulationFunctions.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(double, frexp, (double x, int *exp)) {
   return fputil::frexp(x, *exp);
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

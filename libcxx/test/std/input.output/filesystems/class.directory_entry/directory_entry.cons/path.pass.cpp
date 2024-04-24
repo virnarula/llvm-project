@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -15,17 +15,18 @@
 // explicit directory_entry(const path);
 // directory_entry(const path&, error_code& ec);
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
-#include "assert_macros.h"
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
 #include "test_convertible.h"
-namespace fs = std::filesystem;
 
-static void path_ctor() {
+TEST_SUITE(directory_entry_path_ctor_suite)
+
+TEST_CASE(path_ctor) {
   using namespace fs;
   {
     static_assert(std::is_constructible<directory_entry, const path&>::value,
@@ -39,11 +40,11 @@ static void path_ctor() {
   {
     const path p("foo/bar/baz");
     const directory_entry e(p);
-    assert(e.path() == p);
+    TEST_CHECK(e.path() == p);
   }
 }
 
-static void path_ec_ctor() {
+TEST_CASE(path_ec_ctor) {
   static_test_env static_env;
   using namespace fs;
   {
@@ -61,19 +62,19 @@ static void path_ec_ctor() {
   {
     std::error_code ec = GetTestEC();
     const directory_entry e(static_env.File, ec);
-    assert(e.path() == static_env.File);
-    assert(!ec);
+    TEST_CHECK(e.path() == static_env.File);
+    TEST_CHECK(!ec);
   }
   {
     const path p("foo/bar/baz");
     std::error_code ec = GetTestEC();
     const directory_entry e(p, ec);
-    assert(e.path() == p);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(e.path() == p);
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
   }
 }
 
-static void path_ctor_calls_refresh() {
+TEST_CASE(path_ctor_calls_refresh) {
   using namespace fs;
   scoped_test_env env;
   const path dir = env.create_dir("dir");
@@ -84,15 +85,15 @@ static void path_ctor_calls_refresh() {
     directory_entry ent(file);
     std::error_code ec = GetTestEC();
     directory_entry ent_ec(file, ec);
-    assert(!ec);
+    TEST_CHECK(!ec);
 
     LIBCPP_ONLY(remove(file));
 
-    assert(ent.exists());
-    assert(ent_ec.exists());
+    TEST_CHECK(ent.exists());
+    TEST_CHECK(ent_ec.exists());
 
-    assert(ent.file_size() == 42);
-    assert(ent_ec.file_size() == 42);
+    TEST_CHECK(ent.file_size() == 42);
+    TEST_CHECK(ent_ec.file_size() == 42);
   }
 
   env.create_file("dir/file", 101);
@@ -101,23 +102,23 @@ static void path_ctor_calls_refresh() {
     directory_entry ent(sym);
     std::error_code ec = GetTestEC();
     directory_entry ent_ec(sym, ec);
-    assert(!ec);
+    TEST_CHECK(!ec);
 
     LIBCPP_ONLY(remove(file));
     LIBCPP_ONLY(remove(sym));
 
-    assert(ent.is_symlink());
-    assert(ent_ec.is_symlink());
+    TEST_CHECK(ent.is_symlink());
+    TEST_CHECK(ent_ec.is_symlink());
 
-    assert(ent.is_regular_file());
-    assert(ent_ec.is_regular_file());
+    TEST_CHECK(ent.is_regular_file());
+    TEST_CHECK(ent_ec.is_regular_file());
 
-    assert(ent.file_size() == 101);
-    assert(ent_ec.file_size() == 101);
+    TEST_CHECK(ent.file_size() == 101);
+    TEST_CHECK(ent_ec.file_size() == 101);
   }
 }
 
-static void path_ctor_dne() {
+TEST_CASE(path_ctor_dne) {
   using namespace fs;
 
   static_test_env static_env;
@@ -125,27 +126,27 @@ static void path_ctor_dne() {
   {
     std::error_code ec = GetTestEC();
     directory_entry ent(static_env.DNE, ec);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
-    assert(ent.path() == static_env.DNE);
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(ent.path() == static_env.DNE);
   }
   // don't report dead symlinks as an error.
   {
     std::error_code ec = GetTestEC();
     directory_entry ent(static_env.BadSymlink, ec);
-    assert(!ec);
-    assert(ent.path() == static_env.BadSymlink);
+    TEST_CHECK(!ec);
+    TEST_CHECK(ent.path() == static_env.BadSymlink);
   }
   // DNE does not cause the constructor to throw
   {
     directory_entry ent(static_env.DNE);
-    assert(ent.path() == static_env.DNE);
+    TEST_CHECK(ent.path() == static_env.DNE);
 
     directory_entry ent_two(static_env.BadSymlink);
-    assert(ent_two.path() == static_env.BadSymlink);
+    TEST_CHECK(ent_two.path() == static_env.BadSymlink);
   }
 }
 
-static void path_ctor_cannot_resolve() {
+TEST_CASE(path_ctor_cannot_resolve) {
   using namespace fs;
 #ifdef _WIN32
   // Windows doesn't support setting perms::none to trigger failures
@@ -153,16 +154,16 @@ static void path_ctor_cannot_resolve() {
   // instead.
   const path dir = GetWindowsInaccessibleDir();
   if (dir.empty())
-    return;
+    TEST_UNSUPPORTED();
   const path file = dir / "file";
   {
     std::error_code ec = GetTestEC();
     directory_entry ent(file, ec);
-    assert(ErrorIs(ec, std::errc::no_such_file_or_directory));
-    assert(ent.path() == file);
+    TEST_CHECK(ErrorIs(ec, std::errc::no_such_file_or_directory));
+    TEST_CHECK(ent.path() == file);
   }
   {
-    TEST_DOES_NOT_THROW(directory_entry(file));
+    TEST_CHECK_NO_THROW(directory_entry(file));
   }
 #else
   scoped_test_env env;
@@ -176,35 +177,27 @@ static void path_ctor_cannot_resolve() {
   {
     std::error_code ec = GetTestEC();
     directory_entry ent(file, ec);
-    assert(ErrorIs(ec, std::errc::permission_denied));
-    assert(ent.path() == file);
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ent.path() == file);
   }
   {
     std::error_code ec = GetTestEC();
     directory_entry ent(sym_in_dir, ec);
-    assert(ErrorIs(ec, std::errc::permission_denied));
-    assert(ent.path() == sym_in_dir);
+    TEST_CHECK(ErrorIs(ec, std::errc::permission_denied));
+    TEST_CHECK(ent.path() == sym_in_dir);
   }
   {
     std::error_code ec = GetTestEC();
     directory_entry ent(sym_out_of_dir, ec);
-    assert(!ec);
-    assert(ent.path() == sym_out_of_dir);
+    TEST_CHECK(!ec);
+    TEST_CHECK(ent.path() == sym_out_of_dir);
   }
   {
-    TEST_DOES_NOT_THROW(directory_entry(file));
-    TEST_DOES_NOT_THROW(directory_entry(sym_in_dir));
-    TEST_DOES_NOT_THROW(directory_entry(sym_out_of_dir));
+    TEST_CHECK_NO_THROW(directory_entry(file));
+    TEST_CHECK_NO_THROW(directory_entry(sym_in_dir));
+    TEST_CHECK_NO_THROW(directory_entry(sym_out_of_dir));
   }
 #endif
 }
 
-int main(int, char**) {
-  path_ctor();
-  path_ec_ctor();
-  path_ctor_calls_refresh();
-  path_ctor_dne();
-  path_ctor_cannot_resolve();
-
-  return 0;
-}
+TEST_SUITE_END()

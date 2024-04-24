@@ -4,21 +4,21 @@
 ; RUN: verify-uselistorder < %s
 
 ; Check ordering of callee operand versus the argument operand.
-define void @call(ptr %p) {
-  call void (...) %p(ptr %p)
+define void @call(void (...)* %p) {
+  call void (...) %p(void (...)* %p)
   ret void
 }
 
 ; Check ordering of callee operand versus the argument operand.
-declare void @personality(ptr)
-define void @invoke(ptr %p) personality ptr @personality {
+declare void @personality(i8*)
+define void @invoke(void (...)* %p) personality void(i8*)* @personality {
 entry:
-  invoke void (...) %p(ptr %p)
+  invoke void (...) %p(void (...)* %p)
   to label %normal unwind label %exception
 normal:
   ret void
 exception:
-  landingpad { ptr, i32 } cleanup
+  landingpad { i8*, i32 } cleanup
   ret void
 }
 

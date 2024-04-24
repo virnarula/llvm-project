@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelPTPerThreadProcessTrace.h"
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -46,7 +45,7 @@ TraceIntelPTGetStateResponse IntelPTPerThreadProcessTrace::GetState() {
   return state;
 }
 
-Expected<std::optional<std::vector<uint8_t>>>
+Expected<llvm::Optional<std::vector<uint8_t>>>
 IntelPTPerThreadProcessTrace::TryGetBinaryData(
     const TraceGetBinaryDataRequest &request) {
   return m_thread_traces.TryGetBinaryData(request);

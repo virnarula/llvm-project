@@ -18,7 +18,6 @@
 #include "llvm/DebugInfo/PDB/IPDBSession.h"
 #include "llvm/DebugInfo/PDB/PDB.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolExe.h"
-#include <optional>
 
 class PDBASTParser;
 
@@ -70,7 +69,7 @@ public:
   bool ParseDebugMacros(lldb_private::CompileUnit &comp_unit) override;
 
   bool ParseSupportFiles(lldb_private::CompileUnit &comp_unit,
-                         lldb_private::SupportFileList &support_files) override;
+                         lldb_private::FileSpecList &support_files) override;
 
   size_t ParseTypes(lldb_private::CompileUnit &comp_unit) override;
 
@@ -84,7 +83,7 @@ public:
   ParseVariablesForContext(const lldb_private::SymbolContext &sc) override;
 
   lldb_private::Type *ResolveTypeUID(lldb::user_id_t type_uid) override;
-  std::optional<ArrayInfo> GetDynamicArrayInfoForUID(
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
       lldb::user_id_t type_uid,
       const lldb_private::ExecutionContext *exe_ctx) override;
 
@@ -134,8 +133,19 @@ public:
       std::vector<lldb_private::ConstString> &mangled_names) override;
 
   void AddSymbols(lldb_private::Symtab &symtab) override;
-  void FindTypes(const lldb_private::TypeQuery &match,
-                 lldb_private::TypeResults &results) override;
+
+  void
+  FindTypes(lldb_private::ConstString name,
+            const lldb_private::CompilerDeclContext &parent_decl_ctx,
+            uint32_t max_matches,
+            llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
+            lldb_private::TypeMap &types) override;
+
+  void FindTypes(llvm::ArrayRef<lldb_private::CompilerContext> pattern,
+                 lldb_private::LanguageSet languages,
+                 llvm::DenseSet<SymbolFile *> &searched_symbol_files,
+                 lldb_private::TypeMap &types) override;
+
   void FindTypesByRegex(const lldb_private::RegularExpression &regex,
                         uint32_t max_matches, lldb_private::TypeMap &types);
 
@@ -143,13 +153,12 @@ public:
                 lldb::TypeClass type_mask,
                 lldb_private::TypeList &type_list) override;
 
-  llvm::Expected<lldb::TypeSystemSP>
+  llvm::Expected<lldb_private::TypeSystem &>
   GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
-  lldb_private::CompilerDeclContext
-  FindNamespace(lldb_private::ConstString name,
-                const lldb_private::CompilerDeclContext &parent_decl_ctx,
-                bool only_root_namespaces) override;
+  lldb_private::CompilerDeclContext FindNamespace(
+      lldb_private::ConstString name,
+      const lldb_private::CompilerDeclContext &parent_decl_ctx) override;
 
   llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
 

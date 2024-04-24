@@ -17,10 +17,8 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/Register.h"
-#include "llvm/IR/TrackingMDRef.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/SMLoc.h"
-#include <map>
 #include <utility>
 
 namespace llvm {

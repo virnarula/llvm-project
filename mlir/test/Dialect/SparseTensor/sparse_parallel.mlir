@@ -1,24 +1,25 @@
-// RUN: mlir-opt %s --sparse-reinterpret-map -sparsification="parallelization-strategy=none" | \
+// RUN: mlir-opt %s -sparsification="parallelization-strategy=none" | \
 // RUN:   FileCheck %s --check-prefix=CHECK-PAR0
-// RUN: mlir-opt %s --sparse-reinterpret-map -sparsification="parallelization-strategy=dense-outer-loop" | \
-// RUN:   FileCheck %s --check-prefix=CHECK-PAR1
-// RUN: mlir-opt %s --sparse-reinterpret-map -sparsification="parallelization-strategy=any-storage-outer-loop" | \
-// RUN:   FileCheck %s --check-prefix=CHECK-PAR2
-// RUN: mlir-opt %s --sparse-reinterpret-map -sparsification="parallelization-strategy=dense-any-loop" | \
-// RUN:   FileCheck %s --check-prefix=CHECK-PAR3
-// RUN: mlir-opt %s --sparse-reinterpret-map -sparsification="parallelization-strategy=any-storage-any-loop" | \
-// RUN:   FileCheck %s --check-prefix=CHECK-PAR4
+// FIXME: we do not support vectorization/parallel loops in loop emitter right now
+// R_U_N: mlir-opt %s -sparsification="parallelization-strategy=dense-outer-loop" | \
+// R_U_N:   FileCheck %s --check-prefix=CHECK-PAR1
+// R_U_N: mlir-opt %s -sparsification="parallelization-strategy=any-storage-outer-loop" | \
+// R_U_N:   FileCheck %s --check-prefix=CHECK-PAR2
+// R_U_N: mlir-opt %s -sparsification="parallelization-strategy=dense-any-loop" | \
+// R_U_N:   FileCheck %s --check-prefix=CHECK-PAR3
+// R_U_N: mlir-opt %s -sparsification="parallelization-strategy=any-storage-any-loop" | \
+// R_U_N:   FileCheck %s --check-prefix=CHECK-PAR4
 
 #DenseMatrix = #sparse_tensor.encoding<{
-  map = (d0, d1) -> (d0 : dense, d1 : dense)
+  dimLevelType = [ "dense", "dense" ]
 }>
 
 #SparseMatrix = #sparse_tensor.encoding<{
-  map = (d0, d1) -> (d0 : compressed, d1 : compressed)
+  dimLevelType = [ "compressed", "compressed" ]
 }>
 
 #CSR = #sparse_tensor.encoding<{
-  map = (d0, d1) -> (d0 : dense, d1 : compressed)
+  dimLevelType = [ "dense", "compressed" ]
 }>
 
 #trait_dd = {
@@ -150,8 +151,7 @@ func.func @scale_ss(%scale: f32,
 //
 // CHECK-PAR4-LABEL: func @matvec
 // CHECK-PAR4:         scf.parallel
-// CHECK-PAR4:           scf.parallel
-// CHECK-PAR4:             scf.reduce
+// CHECK-PAR4:           scf.for
 // CHECK-PAR4:         return
 //
 func.func @matvec(%arga: tensor<16x32xf32, #CSR>,

@@ -17,7 +17,6 @@
 #include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/Scalar.h"
-#include <optional>
 
 namespace lldb_private {
 class Module;
@@ -204,7 +203,7 @@ lldb::ValueType ValueObjectConstResult::GetValueType() const {
   return eValueTypeConstResult;
 }
 
-std::optional<uint64_t> ValueObjectConstResult::GetByteSize() {
+llvm::Optional<uint64_t> ValueObjectConstResult::GetByteSize() {
   ExecutionContext exe_ctx(GetExecutionContextRef());
   if (!m_byte_size) {
     if (auto size =
@@ -287,14 +286,14 @@ ValueObjectConstResult::GetDynamicValue(lldb::DynamicValueType use_dynamic) {
       if (process && process->IsPossibleDynamicValue(*this))
         m_dynamic_value = new ValueObjectDynamicValue(*this, use_dynamic);
     }
-    if (m_dynamic_value && m_dynamic_value->GetError().Success())
+    if (m_dynamic_value)
       return m_dynamic_value->GetSP();
   }
   return ValueObjectSP();
 }
 
 lldb::ValueObjectSP
-ValueObjectConstResult::DoCast(const CompilerType &compiler_type) {
+ValueObjectConstResult::Cast(const CompilerType &compiler_type) {
   return m_impl.Cast(compiler_type);
 }
 

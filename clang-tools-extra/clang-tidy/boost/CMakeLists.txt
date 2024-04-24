@@ -13,7 +13,6 @@ add_clang_library(clangTidyBoostModule
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyBoostModule

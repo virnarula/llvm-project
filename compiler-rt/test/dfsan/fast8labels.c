@@ -1,6 +1,8 @@
 // RUN: %clang_dfsan %s -o %t
 // RUN: %run %t
 //
+// REQUIRES: x86_64-target-arch
+//
 #include <sanitizer/dfsan_interface.h>
 
 #include <assert.h>

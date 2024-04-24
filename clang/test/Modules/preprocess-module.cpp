@@ -71,9 +71,9 @@
 
 // == file.h
 // CHECK: # 1 "<module-includes>"
-// REWRITE: #if defined(__CLANG_REWRITTEN_INCLUDES)
+// REWRITE: #if 0
 // REWRITE: #include "file.h"
-// REWRITE: #else /* file.h expanded by -frewrite-includes
+// REWRITE: #endif
 //
 // FIXME: It would be preferable to consistently put the module begin/end in
 // the same file, but the relative ordering of PP callbacks and module
@@ -96,18 +96,18 @@
 // NO-REWRITE: #pragma clang module end
 
 // == file2.h
-// REWRITE: #if defined(__CLANG_REWRITTEN_INCLUDES)
+// REWRITE: #if 0
 // REWRITE: #include "file2.h"
-// REWRITE: #else /* file2.h expanded
+// REWRITE: #endif
 //
 // REWRITE: #pragma clang module begin file
 // CHECK: # 1 "{{.*}}file2.h" 1
 // NO-REWRITE: #pragma clang module begin file
 //
 // ==== recursively re-enter file.h
-// REWRITE: #if defined(__CLANG_REWRITTEN_INCLUDES)
+// REWRITE: #if 0
 // REWRITE: #include "file.h"
-// REWRITE: #else /* file.h expanded
+// REWRITE: #endif
 //
 // REWRITE: #pragma clang module begin file
 // CHECK: # 1 "{{.*}}file.h" 1

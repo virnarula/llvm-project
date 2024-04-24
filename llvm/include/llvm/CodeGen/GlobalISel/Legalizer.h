@@ -22,7 +22,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/GlobalISel/GISelKnownBits.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
@@ -66,9 +65,8 @@ public:
   }
 
   MachineFunctionProperties getClearedProperties() const override {
-    return MachineFunctionProperties()
-        .set(MachineFunctionProperties::Property::NoPHIs)
-        .set(MachineFunctionProperties::Property::NoVRegs);
+    return MachineFunctionProperties().set(
+        MachineFunctionProperties::Property::NoPHIs);
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -77,7 +75,7 @@ public:
   legalizeMachineFunction(MachineFunction &MF, const LegalizerInfo &LI,
                           ArrayRef<GISelChangeObserver *> AuxObservers,
                           LostDebugLocObserver &LocObserver,
-                          MachineIRBuilder &MIRBuilder, GISelKnownBits *KB);
+                          MachineIRBuilder &MIRBuilder);
 };
 } // End namespace llvm.
 

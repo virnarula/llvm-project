@@ -9,7 +9,6 @@
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUSEREXPRESSION_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGUSEREXPRESSION_H
 
-#include <optional>
 #include <vector>
 
 #include "ASTResultSynthesizer.h"
@@ -51,15 +50,12 @@ public:
 
   enum { kDefaultTimeout = 500000u };
 
-  class ClangUserExpressionHelper
-      : public llvm::RTTIExtends<ClangUserExpressionHelper,
-                                 ClangExpressionHelper> {
+  class ClangUserExpressionHelper : public ClangExpressionHelper {
   public:
-    // LLVM RTTI support
-    static char ID;
-
     ClangUserExpressionHelper(Target &target, bool top_level)
         : m_target(target), m_top_level(top_level) {}
+
+    ~ClangUserExpressionHelper() override = default;
 
     /// Return the object that the parser should use when resolving external
     /// values.  May be NULL if everything should be self-contained.
@@ -204,7 +200,7 @@ private:
                         bool for_completion);
 
   lldb::addr_t GetCppObjectPointer(lldb::StackFrameSP frame,
-                                   llvm::StringRef object_name, Status &err);
+                                   ConstString &object_name, Status &err);
 
   /// Defines how the current expression should be wrapped.
   ClangExpressionSourceCode::WrapKind GetWrapKind() const;
@@ -236,7 +232,7 @@ private:
   /// The absolute character position in the transformed source code where the
   /// user code (as typed by the user) starts. If the variable is empty, then we
   /// were not able to calculate this position.
-  std::optional<size_t> m_user_expression_start_pos;
+  llvm::Optional<size_t> m_user_expression_start_pos;
   ResultDelegate m_result_delegate;
   ClangPersistentVariables *m_clang_state;
   std::unique_ptr<ClangExpressionSourceCode> m_source_code;

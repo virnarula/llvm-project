@@ -6,39 +6,38 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_CPP_BITSET_H
-#define LLVM_LIBC_SRC___SUPPORT_CPP_BITSET_H
+#ifndef LLVM_LIBC_SRC_SUPPORT_CPP_BITSET_H
+#define LLVM_LIBC_SRC_SUPPORT_CPP_BITSET_H
 
-#include "src/__support/macros/attributes.h"
 #include <stddef.h> // For size_t.
 
-namespace LIBC_NAMESPACE::cpp {
+namespace __llvm_libc::cpp {
 
 template <size_t NumberOfBits> struct bitset {
   static_assert(NumberOfBits != 0,
-                "Cannot create a LIBC_NAMESPACE::cpp::bitset of size 0.");
+                "Cannot create a __llvm_libc::cpp::bitset of size 0.");
 
-  LIBC_INLINE constexpr void set(size_t Index) {
+  constexpr void set(size_t Index) {
     Data[Index / BITS_PER_UNIT] |= mask(Index);
   }
 
-  LIBC_INLINE constexpr void reset() {
+  constexpr void reset() {
     for (size_t i = 0; i < NUMBER_OF_UNITS; ++i)
       Data[i] = 0;
   }
 
-  LIBC_INLINE constexpr bool test(size_t Index) const {
+  constexpr bool test(size_t Index) const {
     return Data[Index / BITS_PER_UNIT] & mask(Index);
   }
 
-  LIBC_INLINE constexpr void flip() {
+  constexpr void flip() {
     for (size_t i = 0; i < NUMBER_OF_UNITS; ++i)
       Data[i] = ~Data[i];
   }
 
   // This function sets all bits in the range from Start to End (inclusive) to
   // true. It assumes that Start <= End.
-  LIBC_INLINE constexpr void set_range(size_t Start, size_t End) {
+  constexpr void set_range(size_t Start, size_t End) {
     size_t start_index = Start / BITS_PER_UNIT;
     size_t end_index = End / BITS_PER_UNIT;
 
@@ -65,8 +64,7 @@ template <size_t NumberOfBits> struct bitset {
     }
   }
 
-  LIBC_INLINE constexpr bool
-  operator==(const bitset<NumberOfBits> &other) const {
+  constexpr bool operator==(const bitset<NumberOfBits> &other) {
     for (size_t i = 0; i < NUMBER_OF_UNITS; ++i) {
       if (Data[i] != other.Data[i])
         return false;
@@ -80,12 +78,12 @@ private:
   static constexpr size_t NUMBER_OF_UNITS =
       (NumberOfBits + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
 
-  LIBC_INLINE static constexpr size_t mask(size_t Index) {
+  static inline size_t mask(size_t Index) {
     return size_t{1} << (Index % BITS_PER_UNIT);
   }
   size_t Data[NUMBER_OF_UNITS] = {0};
 };
 
-} // namespace LIBC_NAMESPACE::cpp
+} // namespace __llvm_libc::cpp
 
-#endif // LLVM_LIBC_SRC___SUPPORT_CPP_BITSET_H
+#endif // LLVM_LIBC_SRC_SUPPORT_CPP_BITSET_H

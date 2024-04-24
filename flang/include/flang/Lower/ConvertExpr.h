@@ -20,7 +20,6 @@
 #include "flang/Lower/Support/Utils.h"
 #include "flang/Optimizer/Builder/BoxValue.h"
 #include "flang/Optimizer/Builder/FIRBuilder.h"
-#include <optional>
 
 namespace mlir {
 class Location;
@@ -47,6 +46,13 @@ fir::ExtendedValue createSomeExtendedExpression(mlir::Location loc,
                                                 const SomeExpr &expr,
                                                 SymMap &symMap,
                                                 StatementContext &stmtCtx);
+
+/// Create a global array symbol with the Dense attribute
+fir::GlobalOp createDenseGlobal(mlir::Location loc, mlir::Type symTy,
+                                llvm::StringRef globalName,
+                                mlir::StringAttr linkage, bool isConst,
+                                const SomeExpr &expr,
+                                Fortran::lower::AbstractConverter &converter);
 
 /// Create the IR for the expression \p expr in an initialization context.
 /// Expressions that appear in initializers may not allocate temporaries, do not
@@ -78,14 +84,6 @@ fir::ExtendedValue createInitializerAddress(mlir::Location loc,
 fir::MutableBoxValue createMutableBox(mlir::Location loc,
                                       AbstractConverter &converter,
                                       const SomeExpr &expr, SymMap &symMap);
-
-/// Return true iff the expression is pointing to a parent component.
-bool isParentComponent(const SomeExpr &expr);
-
-/// Update the extended value to represent the parent component.
-fir::ExtendedValue updateBoxForParentComponent(AbstractConverter &converter,
-                                               fir::ExtendedValue exv,
-                                               const SomeExpr &expr);
 
 /// Create a fir::BoxValue describing the value of \p expr.
 /// If \p expr is a variable without vector subscripts, the fir::BoxValue
@@ -184,7 +182,7 @@ void createArrayOfPointerAssignment(
     AbstractConverter &converter, const SomeExpr &lhs, const SomeExpr &rhs,
     ExplicitIterSpace &explicitIterSpace, ImplicitIterSpace &implicitIterSpace,
     const llvm::SmallVector<mlir::Value> &lbounds,
-    std::optional<llvm::SmallVector<mlir::Value>> ubounds, SymMap &symMap,
+    llvm::Optional<llvm::SmallVector<mlir::Value>> ubounds, SymMap &symMap,
     StatementContext &stmtCtx);
 
 /// Lower an array expression with "parallel" semantics. Such a rhs expression
@@ -225,9 +223,15 @@ mlir::Value createSubroutineCall(AbstractConverter &converter,
                                  SymMap &symMap, StatementContext &stmtCtx,
                                  bool isUserDefAssignment);
 
-mlir::Value addCrayPointerInst(mlir::Location loc, fir::FirOpBuilder &builder,
-                               mlir::Value ptrVal, mlir::Type ptrTy,
-                               mlir::Type pteTy);
+// Attribute for an alloca that is a trivial adaptor for converting a value to
+// pass-by-ref semantics for a VALUE parameter. The optimizer may be able to
+// eliminate these.
+inline mlir::NamedAttribute getAdaptToByRefAttr(fir::FirOpBuilder &builder) {
+  return {mlir::StringAttr::get(builder.getContext(),
+                                fir::getAdaptToByRefAttrName()),
+          builder.getUnitAttr()};
+}
+
 } // namespace Fortran::lower
 
 #endif // FORTRAN_LOWER_CONVERTEXPR_H

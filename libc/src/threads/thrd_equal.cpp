@@ -12,9 +12,9 @@
 
 #include <threads.h> // For thrd_* type definitions.
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-static_assert(sizeof(thrd_t) == sizeof(LIBC_NAMESPACE::Thread),
+static_assert(sizeof(thrd_t) == sizeof(__llvm_libc::Thread),
               "Mismatch between thrd_t and internal Thread.");
 
 LLVM_LIBC_FUNCTION(int, thrd_equal, (thrd_t lhs, thrd_t rhs)) {
@@ -23,4 +23,4 @@ LLVM_LIBC_FUNCTION(int, thrd_equal, (thrd_t lhs, thrd_t rhs)) {
   return *lhs_internal == *rhs_internal;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

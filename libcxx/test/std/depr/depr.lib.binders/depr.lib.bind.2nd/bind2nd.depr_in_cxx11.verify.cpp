@@ -16,7 +16,11 @@
 #include <functional>
 
 #include "../test_func.h"
+#include "test_macros.h"
 
-void f() {
+int main(int, char**)
+{
     std::bind2nd(test_func(1), 5); // expected-warning {{'bind2nd<test_func, int>' is deprecated}}
+
+    return 0;
 }

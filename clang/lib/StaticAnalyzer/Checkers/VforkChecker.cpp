@@ -35,7 +35,6 @@
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/AST/ParentMap.h"
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -44,9 +43,9 @@ namespace {
 
 class VforkChecker : public Checker<check::PreCall, check::PostCall,
                                     check::Bind, check::PreStmt<ReturnStmt>> {
-  const BugType BT{this, "Dangerous construct in a vforked process"};
+  mutable std::unique_ptr<BuiltinBug> BT;
   mutable llvm::SmallSet<const IdentifierInfo *, 10> VforkAllowlist;
-  mutable const IdentifierInfo *II_vfork = nullptr;
+  mutable const IdentifierInfo *II_vfork;
 
   static bool isChildProcess(const ProgramStateRef State);
 
@@ -58,7 +57,7 @@ class VforkChecker : public Checker<check::PreCall, check::PostCall,
                  const char *Details = nullptr) const;
 
 public:
-  VforkChecker() = default;
+  VforkChecker() : II_vfork(nullptr) {}
 
   void checkPreCall(const CallEvent &Call, CheckerContext &C) const;
   void checkPostCall(const CallEvent &Call, CheckerContext &C) const;
@@ -123,6 +122,10 @@ bool VforkChecker::isCallExplicitelyAllowed(const IdentifierInfo *II,
 void VforkChecker::reportBug(const char *What, CheckerContext &C,
                              const char *Details) const {
   if (ExplodedNode *N = C.generateErrorNode(C.getState())) {
+    if (!BT)
+      BT.reset(new BuiltinBug(this,
+                              "Dangerous construct in a vforked process"));
+
     SmallString<256> buf;
     llvm::raw_svector_ostream os(buf);
 
@@ -131,7 +134,7 @@ void VforkChecker::reportBug(const char *What, CheckerContext &C,
     if (Details)
       os << "; " << Details;
 
-    auto Report = std::make_unique<PathSensitiveBugReport>(BT, os.str(), N);
+    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, os.str(), N);
     // TODO: mark vfork call in BugReportVisitor
     C.emitReport(std::move(Report));
   }
@@ -151,8 +154,8 @@ void VforkChecker::checkPostCall(const CallEvent &Call,
 
   // Get return value of vfork.
   SVal VforkRetVal = Call.getReturnValue();
-  std::optional<DefinedOrUnknownSVal> DVal =
-      VforkRetVal.getAs<DefinedOrUnknownSVal>();
+  Optional<DefinedOrUnknownSVal> DVal =
+    VforkRetVal.getAs<DefinedOrUnknownSVal>();
   if (!DVal)
     return;
 

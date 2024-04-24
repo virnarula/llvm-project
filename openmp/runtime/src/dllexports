@@ -186,6 +186,9 @@
         __kmp_omp_debug_struct_info             DATA
     %endif
 
+    # Symbols for MS mutual detection:
+    _You_must_link_with_exactly_one_OpenMP_library    DATA
+    _You_must_link_with_Intel_OpenMP_library          DATA
     __kmp_wait_64
     __kmp_release_64
 
@@ -225,7 +228,6 @@
     __kmpc_for_static_init_4                136
     __kmpc_for_static_init_8                137
     __kmpc_fork_call                        138
-    __kmpc_fork_call_if                     294
     __kmpc_global_num_threads               140
     __kmpc_global_thread_num                141
     __kmpc_in_parallel                      142
@@ -343,7 +345,6 @@ kmpc_set_defaults                           224
         __kmpc_fork_teams                   241
         __kmpc_omp_task_with_deps           242
         __kmpc_omp_wait_deps                243
-        __kmpc_omp_taskwait_deps_51         292
         __kmpc_cancel                       244
         __kmpc_cancellationpoint            245
         __kmpc_cancel_barrier               246
@@ -401,9 +402,6 @@ kmpc_set_disp_num_buffers                   267
         __kmpc_sections_init                289
         __kmpc_next_section                 290
         __kmpc_end_sections                 291
-        __kmpc_process_loop_nest_rectang    293
-        __kmpc_calc_original_ivs_rectang    295
-        __kmpc_for_collapsed_init           296
 %endif
 
 # User API entry points that have both lower- and upper- case versions for Fortran.
@@ -518,8 +516,6 @@ kmp_set_warnings_off                        780
         omp_target_memcpy_rect              887
         omp_target_associate_ptr            888
         omp_target_disassociate_ptr         889
-        omp_target_memset                   3000
-        omp_target_memset_async             3001
     %endif
 
 kmp_set_disp_num_buffers                    890
@@ -821,7 +817,10 @@ kmp_set_disp_num_buffers                    890
 
     %endif
 
-        # ATOMIC extensions for OpenMP 3.1 spec
+    # These are specific to x86 and x64
+    %ifdef IS_IA_ARCH
+
+        # ATOMIC extensions for OpenMP 3.1 spec (x86 and x64 only)
 
         __kmpc_atomic_fixed1_rd                2265
         __kmpc_atomic_fixed2_rd                2266
@@ -1048,9 +1047,6 @@ kmp_set_disp_num_buffers                    890
         __kmpc_atomic_float10_div_cpt_fp
         %endif
 
-            # These are specific to x86 and x64
-            %ifdef IS_IA_ARCH
-
             # ATOMIC extensions for OpenMP 4.0 spec (x86 and x64 only)
 
             __kmpc_atomic_fixed1_swp           2412
@@ -1247,6 +1243,7 @@ kmp_set_disp_num_buffers                    890
     %ifdef IS_IA_ARCH
     __kmpc_atomic_float10_max              2139
     __kmpc_atomic_float10_min              2140
+    %endif
     __kmpc_atomic_float10_max_cpt          2141
     __kmpc_atomic_float10_min_cpt          2142
 
@@ -1266,10 +1263,7 @@ kmp_set_disp_num_buffers                    890
     __kmpc_atomic_val_2_cas_cpt            2156
     __kmpc_atomic_val_4_cas_cpt            2157
     __kmpc_atomic_val_8_cas_cpt            2158
-    %endif
 
 %endif
-
-__kmpc_set_thread_limit
 
 # end of file #

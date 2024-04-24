@@ -1,5 +1,5 @@
 %A = type { }
-%B = type { %D, %E, ptr }
+%B = type { %D, %E, %B* }
 
 %D = type { %E }
 %E = type opaque
@@ -8,14 +8,14 @@
 @g3 = external global %B
 
 define void @f1()  {
-  getelementptr %A, ptr null, i32 0
+  getelementptr %A, %A* null, i32 0
   ret void
 }
 
-define ptr @use_g2() {
- ret ptr @g2
+define %A* @use_g2() {
+ ret %A* @g2
 }
 
-define ptr @use_g3() {
-  ret ptr @g3
+define %B* @use_g3() {
+  ret %B* @g3
 }

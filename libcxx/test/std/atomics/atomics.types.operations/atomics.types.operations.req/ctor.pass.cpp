@@ -8,8 +8,6 @@
 
 // UNSUPPORTED: c++03
 
-// XFAIL: !has-64-bit-atomics
-
 // <atomic>
 
 // constexpr atomic<T>::atomic(T value)

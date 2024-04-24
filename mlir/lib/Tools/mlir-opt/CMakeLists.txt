@@ -6,11 +6,7 @@ add_mlir_library(MLIROptLib
 
   LINK_LIBS PUBLIC
   MLIRBytecodeWriter
-  MLIRDebug
-  MLIRObservers
   MLIRPass
   MLIRParser
-  MLIRPluginsLib
   MLIRSupport
-  MLIRIRDL
   )

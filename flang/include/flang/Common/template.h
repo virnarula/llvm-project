@@ -94,10 +94,8 @@ constexpr int SearchMembers{
         TUPLEorVARIANT>::value()};
 
 template <typename A, typename TUPLEorVARIANT>
-constexpr int FindMember{
-    SearchMembers<MatchType<A>::template Match, TUPLEorVARIANT>};
-template <typename A, typename TUPLEorVARIANT>
-constexpr bool HasMember{FindMember<A, TUPLEorVARIANT> >= 0};
+constexpr bool HasMember{
+    SearchMembers<MatchType<A>::template Match, TUPLEorVARIANT> >= 0};
 
 // std::optional<std::optional<A>> -> std::optional<A>
 template <typename A>

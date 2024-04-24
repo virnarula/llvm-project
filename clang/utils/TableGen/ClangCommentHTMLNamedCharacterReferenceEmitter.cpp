@@ -66,12 +66,12 @@ void clang::EmitClangCommentHTMLNamedCharacterReferences(RecordKeeper &Records,
     }
     CLiteral.append(";");
 
-    StringMatcher::StringPair Match(Spelling, std::string(CLiteral));
+    StringMatcher::StringPair Match(Spelling, std::string(CLiteral.str()));
     NameToUTF8.push_back(Match);
   }
 
-  emitSourceFileHeader("HTML named character reference to UTF-8 translation",
-                       OS, Records);
+  emitSourceFileHeader("HTML named character reference to UTF-8 "
+                       "translation", OS);
 
   OS << "StringRef translateHTMLNamedCharacterReferenceToUTF8(\n"
         "                                             StringRef Name) {\n";

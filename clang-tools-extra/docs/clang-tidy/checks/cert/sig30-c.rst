@@ -5,6 +5,6 @@
 cert-sig30-c
 ============
 
-The `cert-sig30-c` check is an alias, please see
-:doc:`bugprone-signal-handler <../bugprone/signal-handler>`
+The cert-sig30-c check is an alias, please see
+`bugprone-signal-handler <../bugprone/signal-handler.html>`_
 for more information.

@@ -154,26 +154,22 @@ class CXXBaseSpecifier {
   SourceLocation EllipsisLoc;
 
   /// Whether this is a virtual base class or not.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned Virtual : 1;
 
   /// Whether this is the base of a class (true) or of a struct (false).
   ///
   /// This determines the mapping from the access specifier as written in the
   /// source code to the access specifier used for semantic analysis.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned BaseOfClass : 1;
 
   /// Access specifier as written in the source code (may be AS_none).
   ///
   /// The actual type of data stored here is an AccessSpecifier, but we use
-  /// "unsigned" here to work around Microsoft ABI.
-  LLVM_PREFERRED_TYPE(AccessSpecifier)
+  /// "unsigned" here to work around a VC++ bug.
   unsigned Access : 2;
 
   /// Whether the class contains a using declaration
   /// to inherit the named class's constructors.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned InheritConstructors : 1;
 
   /// The type of the base class.
@@ -266,7 +262,7 @@ class CXXRecordDecl : public RecordDecl {
   friend class LambdaExpr;
   friend class ODRDiagsEmitter;
 
-  friend void FunctionDecl::setIsPureVirtual(bool);
+  friend void FunctionDecl::setPure(bool);
   friend void TagDecl::startDefinition();
 
   /// Values used in DefinitionData fields to represent special members.
@@ -294,19 +290,15 @@ private:
     #include "CXXRecordDeclDefinitionBits.def"
 
     /// Whether this class describes a C++ lambda.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsLambda : 1;
 
     /// Whether we are currently parsing base specifiers.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsParsingBaseSpecifiers : 1;
 
     /// True when visible conversion functions are already computed
     /// and are available.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned ComputedVisibleConversions : 1;
 
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasODRHash : 1;
 
     /// A hash of parts of the class to help in ODR checking.
@@ -365,11 +357,11 @@ private:
     }
 
     ArrayRef<CXXBaseSpecifier> bases() const {
-      return llvm::ArrayRef(getBases(), NumBases);
+      return llvm::makeArrayRef(getBases(), NumBases);
     }
 
     ArrayRef<CXXBaseSpecifier> vbases() const {
-      return llvm::ArrayRef(getVBases(), NumVBases);
+      return llvm::makeArrayRef(getVBases(), NumVBases);
     }
 
   private:
@@ -391,34 +383,26 @@ private:
     /// lambda will have been created with the enclosing context as its
     /// declaration context, rather than function. This is an unfortunate
     /// artifact of having to parse the default arguments before.
-    LLVM_PREFERRED_TYPE(LambdaDependencyKind)
     unsigned DependencyKind : 2;
 
     /// Whether this lambda is a generic lambda.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned IsGenericLambda : 1;
 
     /// The Default Capture.
-    LLVM_PREFERRED_TYPE(LambdaCaptureDefault)
     unsigned CaptureDefault : 2;
 
     /// The number of captures in this lambda is limited 2^NumCaptures.
     unsigned NumCaptures : 15;
 
     /// The number of explicit captures in this lambda.
-    unsigned NumExplicitCaptures : 12;
+    unsigned NumExplicitCaptures : 13;
 
     /// Has known `internal` linkage.
-    LLVM_PREFERRED_TYPE(bool)
     unsigned HasKnownInternalLinkage : 1;
 
     /// The number used to indicate this lambda expression for name
     /// mangling in the Itanium C++ ABI.
     unsigned ManglingNumber : 31;
-
-    /// The index of this lambda within its context declaration. This is not in
-    /// general the same as the mangling number.
-    unsigned IndexInContext;
 
     /// The declaration that provides context for this lambda, if the
     /// actual DeclContext does not suffice. This is used for lambdas that
@@ -426,11 +410,9 @@ private:
     /// or within a data member initializer.
     LazyDeclPtr ContextDecl;
 
-    /// The lists of captures, both explicit and implicit, for this
-    /// lambda. One list is provided for each merged copy of the lambda.
-    /// The first list corresponds to the canonical definition.
-    /// The destructor is registered by AddCaptureList when necessary.
-    llvm::TinyPtrVector<Capture*> Captures;
+    /// The list of captures, both explicit and implicit, for this
+    /// lambda.
+    Capture *Captures = nullptr;
 
     /// The type of the call method.
     TypeSourceInfo *MethodTyInfo;
@@ -440,7 +422,7 @@ private:
         : DefinitionData(D), DependencyKind(DK), IsGenericLambda(IsGeneric),
           CaptureDefault(CaptureDefault), NumCaptures(0),
           NumExplicitCaptures(0), HasKnownInternalLinkage(0), ManglingNumber(0),
-          IndexInContext(0), MethodTyInfo(Info) {
+          MethodTyInfo(Info) {
       IsLambda = true;
 
       // C++1z [expr.prim.lambda]p4:
@@ -448,9 +430,6 @@ private:
       Aggregate = false;
       PlainOldData = false;
     }
-
-    // Add a list of captures.
-    void AddCaptureList(ASTContext &Ctx, Capture *CaptureList);
   };
 
   struct DefinitionData *dataPtr() const {
@@ -1064,12 +1043,6 @@ public:
     return static_cast<LambdaCaptureDefault>(getLambdaData().CaptureDefault);
   }
 
-  bool isCapturelessLambda() const {
-    if (!isLambda())
-      return false;
-    return getLambdaCaptureDefault() == LCD_None && capture_size() == 0;
-  }
-
   /// Set the captures for this lambda closure type.
   void setCaptures(ASTContext &Context, ArrayRef<LambdaCapture> Captures);
 
@@ -1085,11 +1058,6 @@ public:
   ///
   /// \note No entries will be added for init-captures, as they do not capture
   /// variables.
-  ///
-  /// \note If multiple versions of the lambda are merged together, they may
-  /// have different variable declarations corresponding to the same capture.
-  /// In that case, all of those variable declarations will be added to the
-  /// Captures list, so it may have more than one variable listed per field.
   void
   getCaptureFields(llvm::DenseMap<const ValueDecl *, FieldDecl *> &Captures,
                    FieldDecl *&ThisCapture) const;
@@ -1102,9 +1070,7 @@ public:
   }
 
   capture_const_iterator captures_begin() const {
-    if (!isLambda()) return nullptr;
-    LambdaDefinitionData &LambdaData = getLambdaData();
-    return LambdaData.Captures.empty() ? nullptr : LambdaData.Captures.front();
+    return isLambda() ? getLambdaData().Captures : nullptr;
   }
 
   capture_const_iterator captures_end() const {
@@ -1113,11 +1079,6 @@ public:
   }
 
   unsigned capture_size() const { return getLambdaData().NumCaptures; }
-
-  const LambdaCapture *getCapture(unsigned I) const {
-    assert(isLambda() && I < capture_size() && "invalid index for capture");
-    return captures_begin() + I;
-  }
 
   using conversion_iterator = UnresolvedSetIterator;
 
@@ -1187,10 +1148,6 @@ public:
   ///
   /// \note This does NOT include a check for union-ness.
   bool isEmpty() const { return data().Empty; }
-  /// Marks this record as empty. This is used by DWARFASTParserClang
-  /// when parsing records with empty fields having [[no_unique_address]]
-  /// attribute
-  void markEmpty() { data().Empty = true; }
 
   void setInitMethod(bool Val) { data().HasInitMethod = Val; }
   bool hasInitMethod() const { return data().HasInitMethod; }
@@ -1215,7 +1172,7 @@ public:
 
   /// Determine whether this class has a pure virtual function.
   ///
-  /// The class is abstract per (C++ [class.abstract]p2) if it declares
+  /// The class is is abstract per (C++ [class.abstract]p2) if it declares
   /// a pure virtual function or inherits a pure virtual function that is
   /// not overridden.
   bool isAbstract() const { return data().Abstract; }
@@ -1425,9 +1382,6 @@ public:
   /// (C++11 [class]p6).
   bool isTriviallyCopyable() const;
 
-  /// Determine whether this class is considered trivially copyable per
-  bool isTriviallyCopyConstructible() const;
-
   /// Determine whether this class is considered trivial.
   ///
   /// C++11 [class]p6:
@@ -1439,20 +1393,31 @@ public:
 
   /// Determine whether this class is a literal type.
   ///
-  /// C++20 [basic.types]p10:
+  /// C++11 [basic.types]p10:
   ///   A class type that has all the following properties:
-  ///     - it has a constexpr destructor
-  ///     - all of its non-static non-variant data members and base classes
-  ///       are of non-volatile literal types, and it:
-  ///        - is a closure type
-  ///        - is an aggregate union type that has either no variant members
-  ///          or at least one variant member of non-volatile literal type
-  ///        - is a non-union aggregate type for which each of its anonymous
-  ///          union members satisfies the above requirements for an aggregate
-  ///          union type, or
-  ///        - has at least one constexpr constructor or constructor template
-  ///          that is not a copy or move constructor.
-  bool isLiteral() const;
+  ///     - it has a trivial destructor
+  ///     - every constructor call and full-expression in the
+  ///       brace-or-equal-intializers for non-static data members (if any) is
+  ///       a constant expression.
+  ///     - it is an aggregate type or has at least one constexpr constructor
+  ///       or constructor template that is not a copy or move constructor, and
+  ///     - all of its non-static data members and base classes are of literal
+  ///       types
+  ///
+  /// We resolve DR1361 by ignoring the second bullet. We resolve DR1452 by
+  /// treating types with trivial default constructors as literal types.
+  ///
+  /// Only in C++17 and beyond, are lambdas literal types.
+  bool isLiteral() const {
+    const LangOptions &LangOpts = getLangOpts();
+    return (LangOpts.CPlusPlus20 ? hasConstexprDestructor()
+                                          : hasTrivialDestructor()) &&
+           (!isLambda() || LangOpts.CPlusPlus17) &&
+           !hasNonLiteralTypeFieldsOrBases() &&
+           (isAggregate() || isLambda() ||
+            hasConstexprNonCopyMoveConstructor() ||
+            hasTrivialDefaultConstructor());
+  }
 
   /// Determine whether this is a structural type.
   bool isStructural() const {
@@ -1460,7 +1425,7 @@ public:
   }
 
   /// Notify the class that this destructor is now selected.
-  ///
+  /// 
   /// Important properties of the class depend on destructor properties. Since
   /// C++20, it is possible to have multiple destructor declarations in a class
   /// out of which one will be selected at the end.
@@ -1786,31 +1751,18 @@ public:
   /// the declaration context suffices.
   Decl *getLambdaContextDecl() const;
 
-  /// Retrieve the index of this lambda within the context declaration returned
-  /// by getLambdaContextDecl().
-  unsigned getLambdaIndexInContext() const {
+  /// Set the mangling number and context declaration for a lambda
+  /// class.
+  void setLambdaMangling(unsigned ManglingNumber, Decl *ContextDecl,
+                         bool HasKnownInternalLinkage = false) {
     assert(isLambda() && "Not a lambda closure type!");
-    return getLambdaData().IndexInContext;
+    getLambdaData().ManglingNumber = ManglingNumber;
+    getLambdaData().ContextDecl = ContextDecl;
+    getLambdaData().HasKnownInternalLinkage = HasKnownInternalLinkage;
   }
 
-  /// Information about how a lambda is numbered within its context.
-  struct LambdaNumbering {
-    Decl *ContextDecl = nullptr;
-    unsigned IndexInContext = 0;
-    unsigned ManglingNumber = 0;
-    unsigned DeviceManglingNumber = 0;
-    bool HasKnownInternalLinkage = false;
-  };
-
-  /// Set the mangling numbers and context declaration for a lambda class.
-  void setLambdaNumbering(LambdaNumbering Numbering);
-
-  // Get the mangling numbers and context declaration for a lambda class.
-  LambdaNumbering getLambdaNumbering() const {
-    return {getLambdaContextDecl(), getLambdaIndexInContext(),
-            getLambdaManglingNumber(), getDeviceLambdaManglingNumber(),
-            hasKnownLambdaInternalLinkage()};
-  }
+  /// Set the device side mangling number.
+  void setDeviceLambdaManglingNumber(unsigned Num) const;
 
   /// Retrieve the device side mangling number.
   unsigned getDeviceLambdaManglingNumber() const;
@@ -1860,20 +1812,6 @@ public:
 
   TypeSourceInfo *getLambdaTypeInfo() const {
     return getLambdaData().MethodTyInfo;
-  }
-
-  void setLambdaTypeInfo(TypeSourceInfo *TS) {
-    assert(DefinitionData && DefinitionData->IsLambda &&
-           "setting lambda property of non-lambda class");
-    auto &DL = static_cast<LambdaDefinitionData &>(*DefinitionData);
-    DL.MethodTyInfo = TS;
-  }
-
-  void setLambdaIsGeneric(bool IsGeneric) {
-    assert(DefinitionData && DefinitionData->IsLambda &&
-           "setting lambda property of non-lambda class");
-    auto &DL = static_cast<LambdaDefinitionData &>(*DefinitionData);
-    DL.IsGenericLambda = IsGeneric;
   }
 
   // Determine whether this type is an Interface Like type for
@@ -1952,13 +1890,13 @@ private:
                         ExplicitSpecifier ES,
                         const DeclarationNameInfo &NameInfo, QualType T,
                         TypeSourceInfo *TInfo, SourceLocation EndLocation,
-                        CXXConstructorDecl *Ctor, DeductionCandidate Kind)
+                        CXXConstructorDecl *Ctor)
       : FunctionDecl(CXXDeductionGuide, C, DC, StartLoc, NameInfo, T, TInfo,
                      SC_None, false, false, ConstexprSpecKind::Unspecified),
         Ctor(Ctor), ExplicitSpec(ES) {
     if (EndLocation.isValid())
       setRangeEnd(EndLocation);
-    setDeductionCandidateKind(Kind);
+    setIsCopyDeductionCandidate(false);
   }
 
   CXXConstructorDecl *Ctor;
@@ -1973,8 +1911,7 @@ public:
   Create(ASTContext &C, DeclContext *DC, SourceLocation StartLoc,
          ExplicitSpecifier ES, const DeclarationNameInfo &NameInfo, QualType T,
          TypeSourceInfo *TInfo, SourceLocation EndLocation,
-         CXXConstructorDecl *Ctor = nullptr,
-         DeductionCandidate Kind = DeductionCandidate::Normal);
+         CXXConstructorDecl *Ctor = nullptr);
 
   static CXXDeductionGuideDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
@@ -1991,15 +1928,16 @@ public:
 
   /// Get the constructor from which this deduction guide was generated, if
   /// this is an implicit deduction guide.
-  CXXConstructorDecl *getCorrespondingConstructor() const { return Ctor; }
-
-  void setDeductionCandidateKind(DeductionCandidate K) {
-    FunctionDeclBits.DeductionCandidateKind = static_cast<unsigned char>(K);
+  CXXConstructorDecl *getCorrespondingConstructor() const {
+    return Ctor;
   }
 
-  DeductionCandidate getDeductionCandidateKind() const {
-    return static_cast<DeductionCandidate>(
-        FunctionDeclBits.DeductionCandidateKind);
+  void setIsCopyDeductionCandidate(bool isCDC = true) {
+    FunctionDeclBits.IsCopyDeductionCandidate = isCDC;
+  }
+
+  bool isCopyDeductionCandidate() const {
+    return FunctionDeclBits.IsCopyDeductionCandidate;
   }
 
   // Implement isa/cast/dyncast/etc.
@@ -2036,14 +1974,6 @@ public:
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == RequiresExprBody; }
-
-  static DeclContext *castToDeclContext(const RequiresExprBodyDecl *D) {
-    return static_cast<DeclContext *>(const_cast<RequiresExprBodyDecl *>(D));
-  }
-
-  static RequiresExprBodyDecl *castFromDeclContext(const DeclContext *DC) {
-    return static_cast<RequiresExprBodyDecl *>(const_cast<DeclContext *>(DC));
-  }
 };
 
 /// Represents a static or instance method of a struct/union/class.
@@ -2079,17 +2009,6 @@ public:
   bool isStatic() const;
   bool isInstance() const { return !isStatic(); }
 
-  /// [C++2b][dcl.fct]/p7
-  /// An explicit object member function is a non-static
-  /// member function with an explicit object parameter. e.g.,
-  ///   void func(this SomeType);
-  bool isExplicitObjectMemberFunction() const;
-
-  /// [C++2b][dcl.fct]/p7
-  /// An implicit object member function is a non-static
-  /// member function without an explicit object parameter.
-  bool isImplicitObjectMemberFunction() const;
-
   /// Returns true if the given operator is implicitly static in a record
   /// context.
   static bool isStaticOverloadedOperator(OverloadedOperatorKind OOK) {
@@ -2110,7 +2029,7 @@ public:
 
     // Member function is virtual if it is marked explicitly so, or if it is
     // declared in __interface -- then it is automatically pure virtual.
-    if (CD->isVirtualAsWritten() || CD->isPureVirtual())
+    if (CD->isVirtualAsWritten() || CD->isPure())
       return true;
 
     return CD->size_overridden_methods() != 0;
@@ -2198,18 +2117,13 @@ public:
   /// Return the type of the object pointed by \c this.
   ///
   /// See getThisType() for usage restriction.
-
-  QualType getFunctionObjectParameterReferenceType() const;
-  QualType getFunctionObjectParameterType() const {
-    return getFunctionObjectParameterReferenceType().getNonReferenceType();
-  }
-
-  unsigned getNumExplicitParams() const {
-    return getNumParams() - (isExplicitObjectMemberFunction() ? 1 : 0);
-  }
+  QualType getThisObjectType() const;
 
   static QualType getThisType(const FunctionProtoType *FPT,
                               const CXXRecordDecl *Decl);
+
+  static QualType getThisObjectType(const FunctionProtoType *FPT,
+                                    const CXXRecordDecl *Decl);
 
   Qualifiers getMethodQualifiers() const {
     return getType()->castAs<FunctionProtoType>()->getMethodQuals();
@@ -2317,17 +2231,14 @@ class CXXCtorInitializer final {
 
   /// If the initializee is a type, whether that type makes this
   /// a delegating initialization.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned IsDelegating : 1;
 
   /// If the initializer is a base initializer, this keeps track
   /// of whether the base is virtual or not.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned IsVirtual : 1;
 
   /// Whether or not the initializer is explicitly written
   /// in the sources.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned IsWritten : 1;
 
   /// If IsWritten is true, then this number keeps track of the textual order
@@ -2912,12 +2823,6 @@ public:
   static bool classofKind(Kind K) { return K == CXXConversion; }
 };
 
-/// Represents the language in a linkage specification.
-///
-/// The values are part of the serialization ABI for
-/// ASTs and cannot be changed without altering that ABI.
-enum class LinkageSpecLanguageIDs { C = 1, CXX = 2 };
-
 /// Represents a linkage specification.
 ///
 /// For example:
@@ -2928,7 +2833,14 @@ class LinkageSpecDecl : public Decl, public DeclContext {
   virtual void anchor();
   // This class stores some data in DeclContext::LinkageSpecDeclBits to save
   // some space. Use the provided accessors to access it.
+public:
+  /// Represents the language in a linkage specification.
+  ///
+  /// The values are part of the serialization ABI for
+  /// ASTs and cannot be changed without altering that ABI.
+  enum LanguageIDs { lang_c = 1, lang_cxx = 2 };
 
+private:
   /// The source location for the extern keyword.
   SourceLocation ExternLoc;
 
@@ -2936,25 +2848,22 @@ class LinkageSpecDecl : public Decl, public DeclContext {
   SourceLocation RBraceLoc;
 
   LinkageSpecDecl(DeclContext *DC, SourceLocation ExternLoc,
-                  SourceLocation LangLoc, LinkageSpecLanguageIDs lang,
-                  bool HasBraces);
+                  SourceLocation LangLoc, LanguageIDs lang, bool HasBraces);
 
 public:
   static LinkageSpecDecl *Create(ASTContext &C, DeclContext *DC,
                                  SourceLocation ExternLoc,
-                                 SourceLocation LangLoc,
-                                 LinkageSpecLanguageIDs Lang, bool HasBraces);
+                                 SourceLocation LangLoc, LanguageIDs Lang,
+                                 bool HasBraces);
   static LinkageSpecDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
   /// Return the language specified by this linkage specification.
-  LinkageSpecLanguageIDs getLanguage() const {
-    return static_cast<LinkageSpecLanguageIDs>(LinkageSpecDeclBits.Language);
+  LanguageIDs getLanguage() const {
+    return static_cast<LanguageIDs>(LinkageSpecDeclBits.Language);
   }
 
   /// Set the language specified by this linkage specification.
-  void setLanguage(LinkageSpecLanguageIDs L) {
-    LinkageSpecDeclBits.Language = llvm::to_underlying(L);
-  }
+  void setLanguage(LanguageIDs L) { LinkageSpecDeclBits.Language = L; }
 
   /// Determines whether this linkage specification had braces in
   /// its syntactic form.
@@ -3603,7 +3512,6 @@ class ConstructorUsingShadowDecl final : public UsingShadowDecl {
   /// \c true if the constructor ultimately named by this using shadow
   /// declaration is within a virtual base class subobject of the class that
   /// contains this declaration.
-  LLVM_PREFERRED_TYPE(bool)
   unsigned IsVirtual : 1;
 
   ConstructorUsingShadowDecl(ASTContext &C, DeclContext *DC, SourceLocation Loc,
@@ -3819,7 +3727,7 @@ public:
   /// Get the set of using declarations that this pack expanded into. Note that
   /// some of these may still be unresolved.
   ArrayRef<NamedDecl *> expansions() const {
-    return llvm::ArrayRef(getTrailingObjects<NamedDecl *>(), NumExpansions);
+    return llvm::makeArrayRef(getTrailingObjects<NamedDecl *>(), NumExpansions);
   }
 
   static UsingPackDecl *Create(ASTContext &C, DeclContext *DC,
@@ -4050,12 +3958,12 @@ public:
 /// Represents a C++11 static_assert declaration.
 class StaticAssertDecl : public Decl {
   llvm::PointerIntPair<Expr *, 1, bool> AssertExprAndFailed;
-  Expr *Message;
+  StringLiteral *Message;
   SourceLocation RParenLoc;
 
   StaticAssertDecl(DeclContext *DC, SourceLocation StaticAssertLoc,
-                   Expr *AssertExpr, Expr *Message, SourceLocation RParenLoc,
-                   bool Failed)
+                   Expr *AssertExpr, StringLiteral *Message,
+                   SourceLocation RParenLoc, bool Failed)
       : Decl(StaticAssert, DC, StaticAssertLoc),
         AssertExprAndFailed(AssertExpr, Failed), Message(Message),
         RParenLoc(RParenLoc) {}
@@ -4067,15 +3975,15 @@ public:
 
   static StaticAssertDecl *Create(ASTContext &C, DeclContext *DC,
                                   SourceLocation StaticAssertLoc,
-                                  Expr *AssertExpr, Expr *Message,
+                                  Expr *AssertExpr, StringLiteral *Message,
                                   SourceLocation RParenLoc, bool Failed);
   static StaticAssertDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
   Expr *getAssertExpr() { return AssertExprAndFailed.getPointer(); }
   const Expr *getAssertExpr() const { return AssertExprAndFailed.getPointer(); }
 
-  Expr *getMessage() { return Message; }
-  const Expr *getMessage() const { return Message; }
+  StringLiteral *getMessage() { return Message; }
+  const StringLiteral *getMessage() const { return Message; }
 
   bool isFailed() const { return AssertExprAndFailed.getInt(); }
 
@@ -4189,7 +4097,7 @@ public:
                                                unsigned NumBindings);
 
   ArrayRef<BindingDecl *> bindings() const {
-    return llvm::ArrayRef(getTrailingObjects<BindingDecl *>(), NumBindings);
+    return llvm::makeArrayRef(getTrailingObjects<BindingDecl *>(), NumBindings);
   }
 
   void printName(raw_ostream &OS, const PrintingPolicy &Policy) const override;

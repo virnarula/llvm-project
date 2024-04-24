@@ -8,7 +8,7 @@
 
 #include "gtest/gtest.h"
 
-#include "lldb/Utility/FileSpecList.h"
+#include "lldb/Core/FileSpecList.h"
 
 using namespace lldb_private;
 
@@ -20,7 +20,7 @@ static FileSpec WindowsSpec(llvm::StringRef path) {
   return FileSpec(path, FileSpec::Style::windows);
 }
 
-TEST(SupportFileListTest, RelativePathMatchesPosix) {
+TEST(FileSpecListTest, RelativePathMatchesPosix) {
 
   const FileSpec fullpath = PosixSpec("/build/src/main.cpp");
   const FileSpec relative = PosixSpec("./src/main.cpp");
@@ -32,7 +32,7 @@ TEST(SupportFileListTest, RelativePathMatchesPosix) {
   const FileSpec rel2_wrong = PosixSpec("asrc/main.cpp");
   const FileSpec rel3_wrong = PosixSpec("rc/main.cpp");
 
-  SupportFileList files;
+  FileSpecList files;
   files.Append(fullpath);
   files.Append(relative);
   files.Append(basename);
@@ -72,7 +72,7 @@ TEST(SupportFileListTest, RelativePathMatchesPosix) {
   EXPECT_EQ((size_t)6, files.FindCompatibleIndex(3, rel3_wrong));
 }
 
-TEST(SupportFileListTest, RelativePathMatchesWindows) {
+TEST(FileSpecListTest, RelativePathMatchesWindows) {
 
   const FileSpec fullpath = WindowsSpec(R"(C:\build\src\main.cpp)");
   const FileSpec relative = WindowsSpec(R"(.\src\main.cpp)");
@@ -84,7 +84,7 @@ TEST(SupportFileListTest, RelativePathMatchesWindows) {
   const FileSpec rel2_wrong = WindowsSpec(R"(asrc\main.cpp)");
   const FileSpec rel3_wrong = WindowsSpec(R"("rc\main.cpp)");
 
-  SupportFileList files;
+  FileSpecList files;
   files.Append(fullpath);
   files.Append(relative);
   files.Append(basename);

@@ -177,15 +177,11 @@ public:
   ComplexPairTy VisitImplicitCastExpr(ImplicitCastExpr *E) {
     // Unlike for scalars, we don't have to worry about function->ptr demotion
     // here.
-    if (E->changesVolatileQualification())
-      return EmitLoadOfLValue(E);
     return EmitCast(E->getCastKind(), E->getSubExpr(), E->getType());
   }
   ComplexPairTy VisitCastExpr(CastExpr *E) {
     if (const auto *ECE = dyn_cast<ExplicitCastExpr>(E))
       CGF.CGM.EmitExplicitCastExprType(ECE, &CGF);
-    if (E->changesVolatileQualification())
-       return EmitLoadOfLValue(E);
     return EmitCast(E->getCastKind(), E->getSubExpr(), E->getType());
   }
   ComplexPairTy VisitCallExpr(const CallExpr *E);
@@ -256,7 +252,6 @@ public:
     ComplexPairTy LHS;
     ComplexPairTy RHS;
     QualType Ty;  // Computation Type.
-    FPOptions FPFeatures;
   };
 
   BinOpInfo EmitBinOps(const BinaryOperator *E,
@@ -275,22 +270,23 @@ public:
   ComplexPairTy EmitBinSub(const BinOpInfo &Op);
   ComplexPairTy EmitBinMul(const BinOpInfo &Op);
   ComplexPairTy EmitBinDiv(const BinOpInfo &Op);
-  ComplexPairTy EmitAlgebraicDiv(llvm::Value *A, llvm::Value *B, llvm::Value *C,
-                                 llvm::Value *D);
-  ComplexPairTy EmitRangeReductionDiv(llvm::Value *A, llvm::Value *B,
-                                      llvm::Value *C, llvm::Value *D);
 
   ComplexPairTy EmitComplexBinOpLibCall(StringRef LibCallName,
                                         const BinOpInfo &Op);
 
   QualType getPromotionType(QualType Ty) {
-    if (auto *CT = Ty->getAs<ComplexType>()) {
-      QualType ElementType = CT->getElementType();
-      if (ElementType.UseExcessPrecision(CGF.getContext()))
-        return CGF.getContext().getComplexType(CGF.getContext().FloatTy);
+    if (CGF.getTarget().shouldEmitFloat16WithExcessPrecision()) {
+      if (Ty->isRealFloatingType()) {
+        if (Ty->isFloat16Type())
+          return CGF.getContext().FloatTy;
+      } else {
+        assert(Ty->isAnyComplexType() &&
+               "Expecting to promote a complex type!");
+        QualType ElementType = Ty->castAs<ComplexType>()->getElementType();
+        if (ElementType->isFloat16Type())
+          return CGF.getContext().getComplexType(CGF.getContext().FloatTy);
+      }
     }
-    if (Ty.UseExcessPrecision(CGF.getContext()))
-      return CGF.getContext().FloatTy;
     return QualType();
   }
 
@@ -496,14 +492,15 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
 
   case CK_LValueBitCast: {
     LValue origLV = CGF.EmitLValue(Op);
-    Address V = origLV.getAddress(CGF).withElementType(CGF.ConvertType(DestTy));
+    Address V = origLV.getAddress(CGF);
+    V = Builder.CreateElementBitCast(V, CGF.ConvertType(DestTy));
     return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy), Op->getExprLoc());
   }
 
   case CK_LValueToRValueBitCast: {
     LValue SourceLVal = CGF.EmitLValue(Op);
-    Address Addr = SourceLVal.getAddress(CGF).withElementType(
-        CGF.ConvertTypeForMem(DestTy));
+    Address Addr = Builder.CreateElementBitCast(SourceLVal.getAddress(CGF),
+                                                CGF.ConvertTypeForMem(DestTy));
     LValue DestLV = CGF.MakeAddrLValue(Addr, DestTy);
     DestLV.setTBAAInfo(TBAAAccessInfo::getMayAliasInfo());
     return EmitLoadOfLValue(DestLV, Op->getExprLoc());
@@ -651,7 +648,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinAdd(const BinOpInfo &Op) {
   llvm::Value *ResR, *ResI;
 
   if (Op.LHS.first->getType()->isFloatingPointTy()) {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
     ResR = Builder.CreateFAdd(Op.LHS.first,  Op.RHS.first,  "add.r");
     if (Op.LHS.second && Op.RHS.second)
       ResI = Builder.CreateFAdd(Op.LHS.second, Op.RHS.second, "add.i");
@@ -670,7 +666,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinAdd(const BinOpInfo &Op) {
 ComplexPairTy ComplexExprEmitter::EmitBinSub(const BinOpInfo &Op) {
   llvm::Value *ResR, *ResI;
   if (Op.LHS.first->getType()->isFloatingPointTy()) {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
     ResR = Builder.CreateFSub(Op.LHS.first, Op.RHS.first, "sub.r");
     if (Op.LHS.second && Op.RHS.second)
       ResI = Builder.CreateFSub(Op.LHS.second, Op.RHS.second, "sub.i");
@@ -763,7 +758,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
     // FIXME: C11 also provides for imaginary types which would allow folding
     // still more of this within the type system.
 
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
     if (Op.LHS.second && Op.RHS.second) {
       // If both operands are complex, emit the core math directly, and then
       // test for NaNs. If we find NaNs in the result, we delegate to a libcall
@@ -784,10 +778,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
       // the sum of the second.
       ResR = Builder.CreateFSub(AC, BD, "mul_r");
       ResI = Builder.CreateFAdd(AD, BC, "mul_i");
-
-      if (Op.FPFeatures.getComplexRange() == LangOptions::CX_Limited ||
-          Op.FPFeatures.getComplexRange() == LangOptions::CX_Fortran)
-        return ComplexPairTy(ResR, ResI);
 
       // Emit the test for the real part becoming NaN and create a branch to
       // handle it. We test for NaN by comparing the number to itself.
@@ -854,145 +844,22 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
   return ComplexPairTy(ResR, ResI);
 }
 
-ComplexPairTy ComplexExprEmitter::EmitAlgebraicDiv(llvm::Value *LHSr,
-                                                   llvm::Value *LHSi,
-                                                   llvm::Value *RHSr,
-                                                   llvm::Value *RHSi) {
-  // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-  llvm::Value *DSTr, *DSTi;
-
-  llvm::Value *AC = Builder.CreateFMul(LHSr, RHSr); // a*c
-  llvm::Value *BD = Builder.CreateFMul(LHSi, RHSi); // b*d
-  llvm::Value *ACpBD = Builder.CreateFAdd(AC, BD);  // ac+bd
-
-  llvm::Value *CC = Builder.CreateFMul(RHSr, RHSr); // c*c
-  llvm::Value *DD = Builder.CreateFMul(RHSi, RHSi); // d*d
-  llvm::Value *CCpDD = Builder.CreateFAdd(CC, DD);  // cc+dd
-
-  llvm::Value *BC = Builder.CreateFMul(LHSi, RHSr); // b*c
-  llvm::Value *AD = Builder.CreateFMul(LHSr, RHSi); // a*d
-  llvm::Value *BCmAD = Builder.CreateFSub(BC, AD);  // bc-ad
-
-  DSTr = Builder.CreateFDiv(ACpBD, CCpDD);
-  DSTi = Builder.CreateFDiv(BCmAD, CCpDD);
-  return ComplexPairTy(DSTr, DSTi);
-}
-
-// EmitFAbs - Emit a call to @llvm.fabs.
-static llvm::Value *EmitllvmFAbs(CodeGenFunction &CGF, llvm::Value *Value) {
-  llvm::Function *Func =
-      CGF.CGM.getIntrinsic(llvm::Intrinsic::fabs, Value->getType());
-  llvm::Value *Call = CGF.Builder.CreateCall(Func, Value);
-  return Call;
-}
-
-// EmitRangeReductionDiv - Implements Smith's algorithm for complex division.
-// SMITH, R. L. Algorithm 116: Complex division. Commun. ACM 5, 8 (1962).
-ComplexPairTy ComplexExprEmitter::EmitRangeReductionDiv(llvm::Value *LHSr,
-                                                        llvm::Value *LHSi,
-                                                        llvm::Value *RHSr,
-                                                        llvm::Value *RHSi) {
-  // FIXME: This could eventually be replaced by an LLVM intrinsic to
-  // avoid this long IR sequence.
-
-  // (a + ib) / (c + id) = (e + if)
-  llvm::Value *FAbsRHSr = EmitllvmFAbs(CGF, RHSr); // |c|
-  llvm::Value *FAbsRHSi = EmitllvmFAbs(CGF, RHSi); // |d|
-  // |c| >= |d|
-  llvm::Value *IsR = Builder.CreateFCmpUGT(FAbsRHSr, FAbsRHSi, "abs_cmp");
-
-  llvm::BasicBlock *TrueBB =
-      CGF.createBasicBlock("abs_rhsr_greater_or_equal_abs_rhsi");
-  llvm::BasicBlock *FalseBB =
-      CGF.createBasicBlock("abs_rhsr_less_than_abs_rhsi");
-  llvm::BasicBlock *ContBB = CGF.createBasicBlock("complex_div");
-  Builder.CreateCondBr(IsR, TrueBB, FalseBB);
-
-  CGF.EmitBlock(TrueBB);
-  // abs(c) >= abs(d)
-  // r = d/c
-  // tmp = c + rd
-  // e = (a + br)/tmp
-  // f = (b - ar)/tmp
-  llvm::Value *DdC = Builder.CreateFDiv(RHSi, RHSr); // r=d/c
-
-  llvm::Value *RD = Builder.CreateFMul(DdC, RHSi);  // rd
-  llvm::Value *CpRD = Builder.CreateFAdd(RHSr, RD); // tmp=c+rd
-
-  llvm::Value *T3 = Builder.CreateFMul(LHSi, DdC);   // br
-  llvm::Value *T4 = Builder.CreateFAdd(LHSr, T3);    // a+br
-  llvm::Value *DSTTr = Builder.CreateFDiv(T4, CpRD); // (a+br)/tmp
-
-  llvm::Value *T5 = Builder.CreateFMul(LHSr, DdC);   // ar
-  llvm::Value *T6 = Builder.CreateFSub(LHSi, T5);    // b-ar
-  llvm::Value *DSTTi = Builder.CreateFDiv(T6, CpRD); // (b-ar)/tmp
-  Builder.CreateBr(ContBB);
-
-  CGF.EmitBlock(FalseBB);
-  // abs(c) < abs(d)
-  // r = c/d
-  // tmp = d + rc
-  // e = (ar + b)/tmp
-  // f = (br - a)/tmp
-  llvm::Value *CdD = Builder.CreateFDiv(RHSr, RHSi); // r=c/d
-
-  llvm::Value *RC = Builder.CreateFMul(CdD, RHSr);  // rc
-  llvm::Value *DpRC = Builder.CreateFAdd(RHSi, RC); // tmp=d+rc
-
-  llvm::Value *T7 = Builder.CreateFMul(LHSr, CdD);   // ar
-  llvm::Value *T8 = Builder.CreateFAdd(T7, LHSi);    // ar+b
-  llvm::Value *DSTFr = Builder.CreateFDiv(T8, DpRC); // (ar+b)/tmp
-
-  llvm::Value *T9 = Builder.CreateFMul(LHSi, CdD);    // br
-  llvm::Value *T10 = Builder.CreateFSub(T9, LHSr);    // br-a
-  llvm::Value *DSTFi = Builder.CreateFDiv(T10, DpRC); // (br-a)/tmp
-  Builder.CreateBr(ContBB);
-
-  // Phi together the computation paths.
-  CGF.EmitBlock(ContBB);
-  llvm::PHINode *VALr = Builder.CreatePHI(DSTTr->getType(), 2);
-  VALr->addIncoming(DSTTr, TrueBB);
-  VALr->addIncoming(DSTFr, FalseBB);
-  llvm::PHINode *VALi = Builder.CreatePHI(DSTTi->getType(), 2);
-  VALi->addIncoming(DSTTi, TrueBB);
-  VALi->addIncoming(DSTFi, FalseBB);
-  return ComplexPairTy(VALr, VALi);
-}
-
 // See C11 Annex G.5.1 for the semantics of multiplicative operators on complex
 // typed values.
 ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
   llvm::Value *LHSr = Op.LHS.first, *LHSi = Op.LHS.second;
   llvm::Value *RHSr = Op.RHS.first, *RHSi = Op.RHS.second;
+
   llvm::Value *DSTr, *DSTi;
   if (LHSr->getType()->isFloatingPointTy()) {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
-    if (!RHSi) {
-      assert(LHSi && "Can have at most one non-complex operand!");
-
-      DSTr = Builder.CreateFDiv(LHSr, RHSr);
-      DSTi = Builder.CreateFDiv(LHSi, RHSr);
-      return ComplexPairTy(DSTr, DSTi);
-    }
-    llvm::Value *OrigLHSi = LHSi;
-    if (!LHSi)
-      LHSi = llvm::Constant::getNullValue(RHSi->getType());
-    if (Op.FPFeatures.getComplexRange() == LangOptions::CX_Fortran)
-      return EmitRangeReductionDiv(LHSr, LHSi, RHSr, RHSi);
-    else if (Op.FPFeatures.getComplexRange() == LangOptions::CX_Limited)
-      return EmitAlgebraicDiv(LHSr, LHSi, RHSr, RHSi);
-    else if (!CGF.getLangOpts().FastMath ||
-             // '-ffast-math' is used in the command line but followed by an
-             // '-fno-cx-limited-range'.
-             Op.FPFeatures.getComplexRange() == LangOptions::CX_Full) {
-      LHSi = OrigLHSi;
-      // If we have a complex operand on the RHS and FastMath is not allowed, we
-      // delegate to a libcall to handle all of the complexities and minimize
-      // underflow/overflow cases. When FastMath is allowed we construct the
-      // divide inline using the same algorithm as for integer operands.
-      //
-      // FIXME: We would be able to avoid the libcall in many places if we
-      // supported imaginary types in addition to complex types.
+    // If we have a complex operand on the RHS and FastMath is not allowed, we
+    // delegate to a libcall to handle all of the complexities and minimize
+    // underflow/overflow cases. When FastMath is allowed we construct the
+    // divide inline using the same algorithm as for integer operands.
+    //
+    // FIXME: We would be able to avoid the libcall in many places if we
+    // supported imaginary types in addition to complex types.
+    if (RHSi && !CGF.getLangOpts().FastMath) {
       BinOpInfo LibCallOp = Op;
       // If LHS was a real, supply a null imaginary part.
       if (!LHSi)
@@ -1014,8 +881,30 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
       case llvm::Type::FP128TyID:
         return EmitComplexBinOpLibCall("__divtc3", LibCallOp);
       }
+    } else if (RHSi) {
+      if (!LHSi)
+        LHSi = llvm::Constant::getNullValue(RHSi->getType());
+
+      // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
+      llvm::Value *AC = Builder.CreateFMul(LHSr, RHSr); // a*c
+      llvm::Value *BD = Builder.CreateFMul(LHSi, RHSi); // b*d
+      llvm::Value *ACpBD = Builder.CreateFAdd(AC, BD); // ac+bd
+
+      llvm::Value *CC = Builder.CreateFMul(RHSr, RHSr); // c*c
+      llvm::Value *DD = Builder.CreateFMul(RHSi, RHSi); // d*d
+      llvm::Value *CCpDD = Builder.CreateFAdd(CC, DD); // cc+dd
+
+      llvm::Value *BC = Builder.CreateFMul(LHSi, RHSr); // b*c
+      llvm::Value *AD = Builder.CreateFMul(LHSr, RHSi); // a*d
+      llvm::Value *BCmAD = Builder.CreateFSub(BC, AD); // bc-ad
+
+      DSTr = Builder.CreateFDiv(ACpBD, CCpDD);
+      DSTi = Builder.CreateFDiv(BCmAD, CCpDD);
     } else {
-      return EmitAlgebraicDiv(LHSr, LHSi, RHSr, RHSi);
+      assert(LHSi && "Can have at most one non-complex operand!");
+
+      DSTr = Builder.CreateFDiv(LHSr, RHSr);
+      DSTi = Builder.CreateFDiv(LHSi, RHSr);
     }
   } else {
     assert(Op.LHS.second && Op.RHS.second &&
@@ -1141,7 +1030,6 @@ ComplexExprEmitter::EmitBinOps(const BinaryOperator *E,
     Ops.Ty = PromotionType;
   else
     Ops.Ty = E->getType();
-  Ops.FPFeatures = E->getFPFeaturesInEffect(CGF.getLangOpts());
   return Ops;
 }
 
@@ -1156,9 +1044,8 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   if (const AtomicType *AT = LHSTy->getAs<AtomicType>())
     LHSTy = AT->getValueType();
 
+  CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
   BinOpInfo OpInfo;
-  OpInfo.FPFeatures = E->getFPFeaturesInEffect(CGF.getLangOpts());
-  CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, OpInfo.FPFeatures);
 
   // Load the RHS and LHS operands.
   // __block variables need to have the rhs evaluated first, plus this should

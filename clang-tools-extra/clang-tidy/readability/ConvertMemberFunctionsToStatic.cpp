@@ -16,7 +16,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 AST_MATCHER(CXXMethodDecl, isStatic) { return Node.isStatic(); }
 
@@ -61,11 +63,6 @@ AST_MATCHER(CXXMethodDecl, usesThis) {
       Used = true;
       return false; // Stop traversal.
     }
-
-    // If we enter a class declaration, don't traverse into it as any usages of
-    // `this` will correspond to the nested class.
-    bool TraverseCXXRecordDecl(CXXRecordDecl *RD) { return true; }
-
   } UsageOfThis;
 
   // TraverseStmt does not modify its argument.
@@ -170,4 +167,6 @@ void ConvertMemberFunctionsToStatic::check(
   Diag << FixItHint::CreateInsertion(Declaration->getBeginLoc(), "static ");
 }
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang

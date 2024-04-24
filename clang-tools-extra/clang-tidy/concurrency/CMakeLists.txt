@@ -11,9 +11,6 @@ add_clang_library(clangTidyConcurrencyModule
   LINK_LIBS
   clangTidy
   clangTidyUtils
-
-  DEPENDS
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyConcurrencyModule

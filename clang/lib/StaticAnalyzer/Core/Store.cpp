@@ -29,12 +29,12 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/StoreRef.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymExpr.h"
 #include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
-#include <optional>
 
 using namespace clang;
 using namespace ento;
@@ -71,8 +71,8 @@ const ElementRegion *StoreManager::GetElementZeroRegion(const SubRegion *R,
   return MRMgr.getElementRegion(T, idx, R, Ctx);
 }
 
-std::optional<const MemRegion *> StoreManager::castRegion(const MemRegion *R,
-                                                          QualType CastToTy) {
+Optional<const MemRegion *> StoreManager::castRegion(const MemRegion *R,
+                                                     QualType CastToTy) {
   ASTContext &Ctx = StateMgr.getContext();
 
   // Handle casts to Objective-C objects.
@@ -89,7 +89,7 @@ std::optional<const MemRegion *> StoreManager::castRegion(const MemRegion *R,
 
     // We don't know what to make of it.  Return a NULL region, which
     // will be interpreted as UnknownVal.
-    return std::nullopt;
+    return None;
   }
 
   // Now assume we are casting from pointer to pointer. Other cases should
@@ -144,7 +144,6 @@ std::optional<const MemRegion *> StoreManager::castRegion(const MemRegion *R,
     case MemRegion::NonParamVarRegionKind:
     case MemRegion::ParamVarRegionKind:
     case MemRegion::CXXTempObjectRegionKind:
-    case MemRegion::CXXLifetimeExtendedObjectRegionKind:
     case MemRegion::CXXBaseObjectRegionKind:
     case MemRegion::CXXDerivedObjectRegionKind:
       return MakeElementRegion(cast<SubRegion>(R), PointeeTy);
@@ -176,7 +175,7 @@ std::optional<const MemRegion *> StoreManager::castRegion(const MemRegion *R,
       // If we cannot compute a raw offset, throw up our hands and return
       // a NULL MemRegion*.
       if (!baseR)
-        return std::nullopt;
+        return None;
 
       CharUnits off = rawOff.getOffset();
 
@@ -257,8 +256,10 @@ SVal StoreManager::evalDerivedToBase(SVal Derived, const CastExpr *Cast) {
 
   // Walk through the cast path to create nested CXXBaseRegions.
   SVal Result = Derived;
-  for (const CXXBaseSpecifier *Base : Cast->path()) {
-    Result = evalDerivedToBase(Result, Base->getType(), Base->isVirtual());
+  for (CastExpr::path_const_iterator I = Cast->path_begin(),
+                                     E = Cast->path_end();
+       I != E; ++I) {
+    Result = evalDerivedToBase(Result, (*I)->getType(), (*I)->isVirtual());
   }
   return Result;
 }
@@ -313,8 +314,7 @@ static const CXXRecordDecl *getCXXRecordType(const MemRegion *MR) {
   return nullptr;
 }
 
-std::optional<SVal> StoreManager::evalBaseToDerived(SVal Base,
-                                                    QualType TargetType) {
+Optional<SVal> StoreManager::evalBaseToDerived(SVal Base, QualType TargetType) {
   const MemRegion *MR = Base.getAsRegion();
   if (!MR)
     return UnknownVal();
@@ -390,7 +390,7 @@ std::optional<SVal> StoreManager::evalBaseToDerived(SVal Base,
 
   // We failed if the region we ended up with has perfect type info.
   if (isa<TypedValueRegion>(MR))
-    return std::nullopt;
+    return None;
 
   return UnknownVal();
 }
@@ -402,7 +402,7 @@ SVal StoreManager::getLValueFieldOrIvar(const Decl *D, SVal Base) {
   Loc BaseL = Base.castAs<Loc>();
   const SubRegion* BaseR = nullptr;
 
-  switch (BaseL.getKind()) {
+  switch (BaseL.getSubKind()) {
   case loc::MemRegionValKind:
     BaseR = cast<SubRegion>(BaseL.castAs<loc::MemRegionVal>().getRegion());
     break;

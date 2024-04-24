@@ -6,10 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Picolibc does not define some of the floating point environment macros for
-// arm platforms without hardware floating point support.
-// UNSUPPORTED: LIBCXX-PICOLIBC-FIXME
-
 // <cfenv>
 
 #include <cfenv>

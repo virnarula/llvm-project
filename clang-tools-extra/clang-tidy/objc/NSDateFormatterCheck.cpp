@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::objc {
+namespace clang {
+namespace tidy {
+namespace objc {
 
 void NSDateFormatterCheck::registerMatchers(MatchFinder *Finder) {
   // Adding matchers.
@@ -103,4 +105,6 @@ void NSDateFormatterCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace clang::tidy::objc
+} // namespace objc
+} // namespace tidy
+} // namespace clang

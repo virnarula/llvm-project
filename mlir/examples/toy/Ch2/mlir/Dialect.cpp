@@ -13,22 +13,10 @@
 
 #include "toy/Dialect.h"
 
-#include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/FunctionImplementation.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/OperationSupport.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Interfaces/FunctionImplementation.h"
-#include "mlir/Support/LLVM.h"
-#include "mlir/Support/LogicalResult.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Casting.h"
-#include <algorithm>
-#include <string>
 
 using namespace mlir;
 using namespace mlir::toy;
@@ -66,7 +54,7 @@ static mlir::ParseResult parseBinaryOp(mlir::OpAsmParser &parser,
 
   // If the type is a function type, it contains the input and result types of
   // this operation.
-  if (FunctionType funcType = llvm::dyn_cast<FunctionType>(type)) {
+  if (FunctionType funcType = type.dyn_cast<FunctionType>()) {
     if (parser.resolveOperands(operands, funcType.getInputs(), operandsLoc,
                                result.operands))
       return mlir::failure();
@@ -145,13 +133,13 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
 mlir::LogicalResult ConstantOp::verify() {
   // If the return type of the constant is not an unranked tensor, the shape
   // must match the shape of the attribute holding the data.
-  auto resultType = llvm::dyn_cast<mlir::RankedTensorType>(getResult().getType());
+  auto resultType = getResult().getType().dyn_cast<mlir::RankedTensorType>();
   if (!resultType)
     return success();
 
   // Check that the rank of the attribute type matches the rank of the constant
   // result type.
-  auto attrType = llvm::cast<mlir::RankedTensorType>(getValue().getType());
+  auto attrType = getValue().getType().cast<mlir::TensorType>();
   if (attrType.getRank() != resultType.getRank()) {
     return emitOpError("return type must match the one of the attached value "
                        "attribute: ")
@@ -223,17 +211,14 @@ mlir::ParseResult FuncOp::parse(mlir::OpAsmParser &parser,
          std::string &) { return builder.getFunctionType(argTypes, results); };
 
   return mlir::function_interface_impl::parseFunctionOp(
-      parser, result, /*allowVariadic=*/false,
-      getFunctionTypeAttrName(result.name), buildFuncType,
-      getArgAttrsAttrName(result.name), getResAttrsAttrName(result.name));
+      parser, result, /*allowVariadic=*/false, buildFuncType);
 }
 
 void FuncOp::print(mlir::OpAsmPrinter &p) {
   // Dispatch to the FunctionOpInterface provided utility method that prints the
   // function operation.
-  mlir::function_interface_impl::printFunctionOp(
-      p, *this, /*isVariadic=*/false, getFunctionTypeAttrName(),
-      getArgAttrsAttrName(), getResAttrsAttrName());
+  mlir::function_interface_impl::printFunctionOp(p, *this,
+                                                 /*isVariadic=*/false);
 }
 
 //===----------------------------------------------------------------------===//
@@ -281,8 +266,8 @@ mlir::LogicalResult ReturnOp::verify() {
   auto resultType = results.front();
 
   // Check that the result type of the function matches the operand type.
-  if (inputType == resultType || llvm::isa<mlir::UnrankedTensorType>(inputType) ||
-      llvm::isa<mlir::UnrankedTensorType>(resultType))
+  if (inputType == resultType || inputType.isa<mlir::UnrankedTensorType>() ||
+      resultType.isa<mlir::UnrankedTensorType>())
     return mlir::success();
 
   return emitError() << "type of return operand (" << inputType
@@ -301,8 +286,8 @@ void TransposeOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
 }
 
 mlir::LogicalResult TransposeOp::verify() {
-  auto inputType = llvm::dyn_cast<RankedTensorType>(getOperand().getType());
-  auto resultType = llvm::dyn_cast<RankedTensorType>(getType());
+  auto inputType = getOperand().getType().dyn_cast<RankedTensorType>();
+  auto resultType = getType().dyn_cast<RankedTensorType>();
   if (!inputType || !resultType)
     return mlir::success();
 

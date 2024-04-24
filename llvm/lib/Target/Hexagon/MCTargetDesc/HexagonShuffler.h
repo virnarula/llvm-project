@@ -16,6 +16,7 @@
 
 #include "MCTargetDesc/HexagonMCInstrInfo.h"
 #include "MCTargetDesc/HexagonMCTargetDesc.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -23,7 +24,6 @@
 #include "llvm/Support/SMLoc.h"
 #include <cstdint>
 #include <functional>
-#include <optional>
 #include <utility>
 
 namespace llvm {
@@ -57,7 +57,7 @@ public:
 
   // Check if the resources are in ascending slot order.
   static bool lessUnits(const HexagonResource &A, const HexagonResource &B) {
-    return (llvm::popcount(A.getUnits()) < llvm::popcount(B.getUnits()));
+    return (countPopulation(A.getUnits()) < countPopulation(B.getUnits()));
   }
 
   // Check if the resources are in ascending weight order.
@@ -148,12 +148,12 @@ class HexagonShuffler {
     // Number of duplex insns
     unsigned duplex;
     unsigned pSlot3Cnt;
-    std::optional<HexagonInstr *> PrefSlot3Inst;
+    Optional<HexagonInstr *> PrefSlot3Inst;
     unsigned memops;
     unsigned ReservedSlotMask;
     SmallVector<HexagonInstr *, HEXAGON_PRESHUFFLE_PACKET_SIZE> branchInsts;
-    std::optional<SMLoc> Slot1AOKLoc;
-    std::optional<SMLoc> NoSlot1StoreLoc;
+    Optional<SMLoc> Slot1AOKLoc;
+    Optional<SMLoc> NoSlot1StoreLoc;
   };
   // Insn handles in a bundle.
   HexagonPacket Packet;
@@ -179,7 +179,7 @@ protected:
                            const bool DoShuffle);
   void permitNonSlot();
 
-  std::optional<HexagonPacket> tryAuction(HexagonPacketSummary const &Summary);
+  Optional<HexagonPacket> tryAuction(HexagonPacketSummary const &Summary);
 
   HexagonPacketSummary GetPacketSummary();
   bool ValidPacketMemoryOps(HexagonPacketSummary const &Summary) const;

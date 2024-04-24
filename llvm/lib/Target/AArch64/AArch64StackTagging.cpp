@@ -11,7 +11,11 @@
 #include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
 #include "AArch64TargetMachine.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -377,8 +381,8 @@ Instruction *AArch64StackTagging::collectInitializers(Instruction *StartInst,
         break;
 
       // Check to see if this store is to a constant offset from the start ptr.
-      std::optional<int64_t> Offset =
-          NextStore->getPointerOperand()->getPointerOffsetFrom(StartPtr, *DL);
+      Optional<int64_t> Offset =
+          isPointerOffset(StartPtr, NextStore->getPointerOperand(), *DL);
       if (!Offset)
         break;
 
@@ -395,8 +399,7 @@ Instruction *AArch64StackTagging::collectInitializers(Instruction *StartInst,
         break;
 
       // Check to see if this store is to a constant offset from the start ptr.
-      std::optional<int64_t> Offset =
-          MSI->getDest()->getPointerOffsetFrom(StartPtr, *DL);
+      Optional<int64_t> Offset = isPointerOffset(StartPtr, MSI->getDest(), *DL);
       if (!Offset)
         break;
 
@@ -433,7 +436,7 @@ void AArch64StackTagging::tagAlloca(AllocaInst *AI, Instruction *InsertBefore,
 void AArch64StackTagging::untagAlloca(AllocaInst *AI, Instruction *InsertBefore,
                                       uint64_t Size) {
   IRBuilder<> IRB(InsertBefore);
-  IRB.CreateCall(SetTagFunc, {IRB.CreatePointerCast(AI, IRB.getPtrTy()),
+  IRB.CreateCall(SetTagFunc, {IRB.CreatePointerCast(AI, IRB.getInt8PtrTy()),
                               ConstantInt::get(IRB.getInt64Ty(), Size)});
 }
 
@@ -561,8 +564,8 @@ bool AArch64StackTagging::runOnFunction(Function &Fn) {
           End->eraseFromParent();
       }
     } else {
-      uint64_t Size = *Info.AI->getAllocationSize(*DL);
-      Value *Ptr = IRB.CreatePointerCast(TagPCall, IRB.getPtrTy());
+      uint64_t Size = *Info.AI->getAllocationSizeInBits(*DL) / 8;
+      Value *Ptr = IRB.CreatePointerCast(TagPCall, IRB.getInt8PtrTy());
       tagAlloca(AI, &*IRB.GetInsertPoint(), Ptr, Size);
       for (auto *RI : SInfo.RetVec) {
         untagAlloca(AI, RI, Size);

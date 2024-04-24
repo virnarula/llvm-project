@@ -14,9 +14,8 @@
 
 // constexpr explicit move_sentinel(S s);
 
-#include <cassert>
 #include <iterator>
-#include <type_traits>
+#include <cassert>
 
 constexpr bool test()
 {

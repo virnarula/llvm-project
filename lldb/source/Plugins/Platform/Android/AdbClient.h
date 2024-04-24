@@ -36,22 +36,20 @@ public:
     friend class AdbClient;
 
   public:
-    virtual ~SyncService();
+    ~SyncService();
 
-    virtual Status PullFile(const FileSpec &remote_file,
-                            const FileSpec &local_file);
+    Status PullFile(const FileSpec &remote_file, const FileSpec &local_file);
 
     Status PushFile(const FileSpec &local_file, const FileSpec &remote_file);
 
-    virtual Status Stat(const FileSpec &remote_file, uint32_t &mode,
-                        uint32_t &size, uint32_t &mtime);
+    Status Stat(const FileSpec &remote_file, uint32_t &mode, uint32_t &size,
+                uint32_t &mtime);
 
     bool IsConnected() const;
 
-  protected:
+  private:
     explicit SyncService(std::unique_ptr<Connection> &&conn);
 
-  private:
     Status SendSyncRequest(const char *request_id, const uint32_t data_len,
                            const void *data);
 
@@ -80,7 +78,7 @@ public:
   AdbClient();
   explicit AdbClient(const std::string &device_id);
 
-  virtual ~AdbClient();
+  ~AdbClient();
 
   const std::string &GetDeviceID() const;
 
@@ -98,11 +96,10 @@ public:
   Status Shell(const char *command, std::chrono::milliseconds timeout,
                std::string *output);
 
-  virtual Status ShellToFile(const char *command,
-                             std::chrono::milliseconds timeout,
-                             const FileSpec &output_file_spec);
+  Status ShellToFile(const char *command, std::chrono::milliseconds timeout,
+                     const FileSpec &output_file_spec);
 
-  virtual std::unique_ptr<SyncService> GetSyncService(Status &error);
+  std::unique_ptr<SyncService> GetSyncService(Status &error);
 
   Status SwitchDeviceTransport();
 

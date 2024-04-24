@@ -10,9 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Shared/Environment.h"
-
-#include "Allocator.h"
 #include "Debug.h"
 #include "Interface.h"
 #include "Mapping.h"
@@ -20,31 +17,28 @@
 #include "Synchronization.h"
 #include "Types.h"
 
-#include "llvm/Frontend/OpenMP/OMPDeviceConstants.h"
-
-using namespace ompx;
+using namespace _OMP;
 
 #pragma omp begin declare target device_type(nohost)
 
-static void
-inititializeRuntime(bool IsSPMD, KernelEnvironmentTy &KernelEnvironment,
-                    KernelLaunchEnvironmentTy &KernelLaunchEnvironment) {
+static void inititializeRuntime(bool IsSPMD) {
   // Order is important here.
   synchronize::init(IsSPMD);
   mapping::init(IsSPMD);
-  state::init(IsSPMD, KernelEnvironment, KernelLaunchEnvironment);
-  allocator::init(IsSPMD, KernelEnvironment);
+  state::init(IsSPMD);
 }
 
 /// Simple generic state machine for worker threads.
 static void genericStateMachine(IdentTy *Ident) {
+  FunctionTracingRAII();
+
   uint32_t TId = mapping::getThreadIdInBlock();
 
   do {
     ParallelRegionFnTy WorkFn = nullptr;
 
     // Wait for the signal that we have a new work function.
-    synchronize::threads(atomic::seq_cst);
+    synchronize::threads();
 
     // Retrieve the work function from the runtime.
     bool IsActive = __kmpc_kernel_parallel(&WorkFn);
@@ -55,12 +49,12 @@ static void genericStateMachine(IdentTy *Ident) {
       return;
 
     if (IsActive) {
-      ASSERT(!mapping::isSPMDMode(), nullptr);
+      ASSERT(!mapping::isSPMDMode());
       ((void (*)(uint32_t, uint32_t))WorkFn)(0, TId);
       __kmpc_kernel_end_parallel();
     }
 
-    synchronize::threads(atomic::seq_cst);
+    synchronize::threads();
 
   } while (true);
 }
@@ -71,29 +65,21 @@ extern "C" {
 ///
 /// \param Ident               Source location identification, can be NULL.
 ///
-int32_t __kmpc_target_init(KernelEnvironmentTy &KernelEnvironment,
-                           KernelLaunchEnvironmentTy &KernelLaunchEnvironment) {
-  ConfigurationEnvironmentTy &Configuration = KernelEnvironment.Configuration;
-  bool IsSPMD = Configuration.ExecMode &
-                llvm::omp::OMPTgtExecModeFlags::OMP_TGT_EXEC_MODE_SPMD;
-  bool UseGenericStateMachine = Configuration.UseGenericStateMachine;
+int32_t __kmpc_target_init(IdentTy *Ident, int8_t Mode,
+                           bool UseGenericStateMachine, bool) {
+  FunctionTracingRAII();
+  const bool IsSPMD = Mode & OMP_TGT_EXEC_MODE_SPMD;
   if (IsSPMD) {
-    inititializeRuntime(/*IsSPMD=*/true, KernelEnvironment,
-                        KernelLaunchEnvironment);
-    synchronize::threadsAligned(atomic::relaxed);
+    inititializeRuntime(/* IsSPMD */ true);
+    synchronize::threadsAligned();
   } else {
-    inititializeRuntime(/*IsSPMD=*/false, KernelEnvironment,
-                        KernelLaunchEnvironment);
+    inititializeRuntime(/* IsSPMD */ false);
     // No need to wait since only the main threads will execute user
     // code and workers will run into a barrier right away.
   }
 
   if (IsSPMD) {
     state::assumeInitialState(IsSPMD);
-
-    // Synchronize to ensure the assertions above are in an aligned region.
-    // The barrier is eliminated later.
-    synchronize::threadsAligned(atomic::relaxed);
     return -1;
   }
 
@@ -111,12 +97,23 @@ int32_t __kmpc_target_init(KernelEnvironmentTy &KernelEnvironment,
   // reaches its corresponding synchronize::threads call: that would permit all
   // active worker threads to proceed before the main thread has actually set
   // state::ParallelRegionFn, and then they would immediately quit without
-  // doing any work.  mapping::getMaxTeamThreads() does not include any of the
-  // main thread's warp, so none of its threads can ever be active worker
-  // threads.
+  // doing any work.  mapping::getBlockSize() does not include any of the main
+  // thread's warp, so none of its threads can ever be active worker threads.
   if (UseGenericStateMachine &&
-      mapping::getThreadIdInBlock() < mapping::getMaxTeamThreads(IsSPMD))
-    genericStateMachine(KernelEnvironment.Ident);
+      mapping::getThreadIdInBlock() < mapping::getBlockSize(IsSPMD)) {
+    genericStateMachine(Ident);
+  } else {
+    // Retrieve the work function just to ensure we always call
+    // __kmpc_kernel_parallel even if a custom state machine is used.
+    // TODO: this is not super pretty. The problem is we create the call to
+    // __kmpc_kernel_parallel in the openmp-opt pass but while we optimize it is
+    // not there yet. Thus, we assume we never reach it from
+    // __kmpc_target_deinit. That allows us to remove the store in there to
+    // ParallelRegionFn, which leads to bad results later on.
+    ParallelRegionFnTy WorkFn = nullptr;
+    __kmpc_kernel_parallel(&WorkFn);
+    ASSERT(WorkFn == nullptr);
+  }
 
   return mapping::getThreadIdInBlock();
 }
@@ -128,30 +125,21 @@ int32_t __kmpc_target_init(KernelEnvironmentTy &KernelEnvironment,
 ///
 /// \param Ident Source location identification, can be NULL.
 ///
-void __kmpc_target_deinit() {
-  bool IsSPMD = mapping::isSPMDMode();
+void __kmpc_target_deinit(IdentTy *Ident, int8_t Mode, bool) {
+  FunctionTracingRAII();
+  const bool IsSPMD = Mode & OMP_TGT_EXEC_MODE_SPMD;
+  state::assumeInitialState(IsSPMD);
   if (IsSPMD)
     return;
 
-  if (mapping::isInitialThreadInLevel0(IsSPMD)) {
-    // Signal the workers to exit the state machine and exit the kernel.
-    state::ParallelRegionFn = nullptr;
-  } else if (!state::getKernelEnvironment()
-                  .Configuration.UseGenericStateMachine) {
-    // Retrieve the work function just to ensure we always call
-    // __kmpc_kernel_parallel even if a custom state machine is used.
-    // TODO: this is not super pretty. The problem is we create the call to
-    // __kmpc_kernel_parallel in the openmp-opt pass but while we optimize it
-    // is not there yet. Thus, we assume we never reach it from
-    // __kmpc_target_deinit. That allows us to remove the store in there to
-    // ParallelRegionFn, which leads to bad results later on.
-    ParallelRegionFnTy WorkFn = nullptr;
-    __kmpc_kernel_parallel(&WorkFn);
-    ASSERT(WorkFn == nullptr, nullptr);
-  }
+  // Signal the workers to exit the state machine and exit the kernel.
+  state::ParallelRegionFn = nullptr;
 }
 
-int8_t __kmpc_is_spmd_exec_mode() { return mapping::isSPMDMode(); }
+int8_t __kmpc_is_spmd_exec_mode() {
+  FunctionTracingRAII();
+  return mapping::isSPMDMode();
+}
 }
 
 #pragma omp end declare target

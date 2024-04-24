@@ -29,7 +29,6 @@ add_lld_library(lldWasm
   Option
   Passes
   Support
-  TargetParser
 
   LINK_LIBS
   lldCommon

@@ -34,7 +34,8 @@ bool ValidateMemRefs::checkAndFixJTReference(BinaryFunction &BF, MCInst &Inst,
   if (!JT)
     return false;
 
-  const bool IsLegitAccess = llvm::is_contained(JT->Parents, &BF);
+  const bool IsLegitAccess = llvm::any_of(
+      JT->Parents, [&](const BinaryFunction *Parent) { return Parent == &BF; });
   if (IsLegitAccess)
     return true;
 

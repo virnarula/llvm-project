@@ -8,12 +8,10 @@
 ; RUN:   --ppc-asm-full-reg-names -mcpu=pwr8 < %s | FileCheck %s -check-prefix=AIX
 ; RUN: llc -verify-machineinstrs -mtriple=powerpc64-unknown-aix \
 ; RUN:   --ppc-asm-full-reg-names -mcpu=pwr8 < %s | FileCheck %s -check-prefix=AIX
-; RUN: llc -mtriple=powerpc-ibm-aix-xcoff -filetype=obj -o %t_32.o < %s
-; RUN: llvm-readobj --exception-section %t_32.o | FileCheck %s --check-prefix=OBJ
+; RUN: not --crash llc -verify-machineinstrs -mtriple=powerpc64-unknown-aix \
+; RUN:   --ppc-asm-full-reg-names -mcpu=pwr8 --filetype=obj -o /dev/null %s 2>&1 | FileCheck %s -check-prefix=OBJ
 
-; Check that we do not crash in object mode
-; OBJ:       Exception section {
-; OBJ-NEXT:    Symbol: .test__trap_annotation (3)
+; OBJ: LLVM ERROR: emitXCOFFExceptDirective not yet supported for integrated assembler path.
 
 !1 = !{!"ppc-trap-reason", !"1", !"2"}
 declare void @llvm.ppc.trap(i32 %a)

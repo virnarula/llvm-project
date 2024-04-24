@@ -1,13 +1,7 @@
 // clang-format off
 // UNSUPPORTED: system-aix
-// XFAIL for arm and arm64, or running on Windows.
-// XFAIL: target=arm{{.*}}, system-windows
+// XFAIL: arm, arm64-apple, system-windows
 // RUN: cat %s | clang-repl | FileCheck %s
-
-// Incompatible with msan. It passes with -O3 but fail -Oz. Interpreter
-// generates non-instrumented code, which may call back to instrumented.
-// UNSUPPORTED: msan
-
 extern "C" int printf(const char *, ...);
 
 int f() { throw "Simple exception"; return 0; }

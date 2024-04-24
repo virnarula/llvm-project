@@ -16,7 +16,6 @@
 #include "llvm/Support/VirtualFileSystem.h"
 
 #include "gtest/gtest.h"
-#include <string>
 
 namespace clang {
 namespace {
@@ -92,9 +91,7 @@ TestAST::TestAST(const TestInputs &In) {
     Argv.push_back(S.c_str());
   for (const auto &S : In.ExtraArgs)
     Argv.push_back(S.c_str());
-  std::string Filename = In.FileName;
-  if (Filename.empty())
-    Filename = getFilenameForTesting(In.Language).str();
+  std::string Filename = getFilenameForTesting(In.Language).str();
   Argv.push_back(Filename.c_str());
   Clang->setInvocation(std::make_unique<CompilerInvocation>());
   if (!CompilerInvocation::CreateFromArgs(Clang->getInvocation(), Argv,

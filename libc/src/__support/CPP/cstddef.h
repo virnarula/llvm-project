@@ -6,66 +6,59 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_CPP_CSTDDEF_H
-#define LLVM_LIBC_SRC___SUPPORT_CPP_CSTDDEF_H
+#ifndef LLVM_LIBC_SRC_SUPPORT_CPP_BYTE_H
+#define LLVM_LIBC_SRC_SUPPORT_CPP_BYTE_H
 
-#include "src/__support/macros/attributes.h"
 #include "type_traits.h" // For enable_if_t, is_integral_v.
 
-namespace LIBC_NAMESPACE::cpp {
+namespace __llvm_libc::cpp {
 
 enum class byte : unsigned char {};
 
 template <class IntegerType>
-LIBC_INLINE constexpr enable_if_t<is_integral_v<IntegerType>, byte>
+constexpr enable_if_t<is_integral_v<IntegerType>, byte>
 operator>>(byte b, IntegerType shift) noexcept {
   return static_cast<byte>(static_cast<unsigned char>(b) >> shift);
 }
 template <class IntegerType>
-LIBC_INLINE constexpr enable_if_t<is_integral_v<IntegerType>, byte &>
+constexpr enable_if_t<is_integral_v<IntegerType>, byte &>
 operator>>=(byte &b, IntegerType shift) noexcept {
   return b = b >> shift;
 }
 template <class IntegerType>
-LIBC_INLINE constexpr enable_if_t<is_integral_v<IntegerType>, byte>
+constexpr enable_if_t<is_integral_v<IntegerType>, byte>
 operator<<(byte b, IntegerType shift) noexcept {
   return static_cast<byte>(static_cast<unsigned char>(b) << shift);
 }
 template <class IntegerType>
-LIBC_INLINE constexpr enable_if_t<is_integral_v<IntegerType>, byte &>
+constexpr enable_if_t<is_integral_v<IntegerType>, byte &>
 operator<<=(byte &b, IntegerType shift) noexcept {
   return b = b << shift;
 }
-LIBC_INLINE constexpr byte operator|(byte l, byte r) noexcept {
+constexpr byte operator|(byte l, byte r) noexcept {
   return static_cast<byte>(static_cast<unsigned char>(l) |
                            static_cast<unsigned char>(r));
 }
-LIBC_INLINE constexpr byte &operator|=(byte &l, byte r) noexcept {
-  return l = l | r;
-}
-LIBC_INLINE constexpr byte operator&(byte l, byte r) noexcept {
+constexpr byte &operator|=(byte &l, byte r) noexcept { return l = l | r; }
+constexpr byte operator&(byte l, byte r) noexcept {
   return static_cast<byte>(static_cast<unsigned char>(l) &
                            static_cast<unsigned char>(r));
 }
-LIBC_INLINE constexpr byte &operator&=(byte &l, byte r) noexcept {
-  return l = l & r;
-}
-LIBC_INLINE constexpr byte operator^(byte l, byte r) noexcept {
+constexpr byte &operator&=(byte &l, byte r) noexcept { return l = l & r; }
+constexpr byte operator^(byte l, byte r) noexcept {
   return static_cast<byte>(static_cast<unsigned char>(l) ^
                            static_cast<unsigned char>(r));
 }
-LIBC_INLINE constexpr byte &operator^=(byte &l, byte r) noexcept {
-  return l = l ^ r;
-}
-LIBC_INLINE constexpr byte operator~(byte b) noexcept {
+constexpr byte &operator^=(byte &l, byte r) noexcept { return l = l ^ r; }
+constexpr byte operator~(byte b) noexcept {
   return static_cast<byte>(~static_cast<unsigned char>(b));
 }
 template <typename IntegerType>
-LIBC_INLINE constexpr enable_if_t<is_integral_v<IntegerType>, IntegerType>
+constexpr enable_if_t<is_integral_v<IntegerType>, IntegerType>
 to_integer(byte b) noexcept {
   return static_cast<IntegerType>(b);
 }
 
-} // namespace LIBC_NAMESPACE::cpp
+} // namespace __llvm_libc::cpp
 
-#endif // LLVM_LIBC_SRC___SUPPORT_CPP_CSTDDEF_H
+#endif // LLVM_LIBC_SRC_SUPPORT_CPP_BYTE_H

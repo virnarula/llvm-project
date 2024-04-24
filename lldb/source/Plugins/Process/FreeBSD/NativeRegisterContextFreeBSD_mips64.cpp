@@ -22,7 +22,6 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 // clang-format on
-#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -61,7 +60,7 @@ uint32_t NativeRegisterContextFreeBSD_mips64::GetUserRegisterCount() const {
   return count;
 }
 
-std::optional<NativeRegisterContextFreeBSD_mips64::RegSetKind>
+llvm::Optional<NativeRegisterContextFreeBSD_mips64::RegSetKind>
 NativeRegisterContextFreeBSD_mips64::GetSetForNativeRegNum(
     uint32_t reg_num) const {
   switch (GetRegisterInfoInterface().GetTargetArchitecture().GetMachine()) {
@@ -121,7 +120,7 @@ NativeRegisterContextFreeBSD_mips64::ReadRegister(const RegisterInfo *reg_info,
                                                ? reg_info->name
                                                : "<unknown register>");
 
-  std::optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
+  llvm::Optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
   if (!opt_set) {
     // This is likely an internal register for lldb use only and should not be
     // directly queried.
@@ -130,7 +129,7 @@ NativeRegisterContextFreeBSD_mips64::ReadRegister(const RegisterInfo *reg_info,
     return error;
   }
 
-  RegSetKind set = *opt_set;
+  RegSetKind set = opt_set.getValue();
   error = ReadRegisterSet(set);
   if (error.Fail())
     return error;
@@ -155,7 +154,7 @@ Status NativeRegisterContextFreeBSD_mips64::WriteRegister(
                                                ? reg_info->name
                                                : "<unknown register>");
 
-  std::optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
+  llvm::Optional<RegSetKind> opt_set = GetSetForNativeRegNum(reg);
   if (!opt_set) {
     // This is likely an internal register for lldb use only and should not be
     // directly queried.
@@ -164,7 +163,7 @@ Status NativeRegisterContextFreeBSD_mips64::WriteRegister(
     return error;
   }
 
-  RegSetKind set = *opt_set;
+  RegSetKind set = opt_set.getValue();
   error = ReadRegisterSet(set);
   if (error.Fail())
     return error;

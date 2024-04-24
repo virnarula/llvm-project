@@ -65,10 +65,12 @@ bool GenericOptionalFrontend::Update() {
   ValueObjectSP engaged_sp;
 
   if (m_stdlib == StdLib::LibCxx)
-    engaged_sp = m_backend.GetChildMemberWithName("__engaged_");
+    engaged_sp =
+        m_backend.GetChildMemberWithName(ConstString("__engaged_"), true);
   else if (m_stdlib == StdLib::LibStdcpp)
-    engaged_sp = m_backend.GetChildMemberWithName("_M_payload")
-                     ->GetChildMemberWithName("_M_engaged");
+    engaged_sp =
+        m_backend.GetChildMemberWithName(ConstString("_M_payload"), true)
+            ->GetChildMemberWithName(ConstString("_M_engaged"), true);
 
   if (!engaged_sp)
     return false;
@@ -92,17 +94,18 @@ ValueObjectSP GenericOptionalFrontend::GetChildAtIndex(size_t _idx) {
     // Currently because it is part of an anonymous union
     // GetChildMemberWithName() does not peer through and find it unless we are
     // at the parent itself. We can obtain the parent through __engaged_.
-    val_sp = m_backend.GetChildMemberWithName("__engaged_")
+    val_sp = m_backend.GetChildMemberWithName(ConstString("__engaged_"), true)
                  ->GetParent()
-                 ->GetChildAtIndex(0)
-                 ->GetChildMemberWithName("__val_");
+                 ->GetChildAtIndex(0, true)
+                 ->GetChildMemberWithName(ConstString("__val_"), true);
   else if (m_stdlib == StdLib::LibStdcpp) {
-    val_sp = m_backend.GetChildMemberWithName("_M_payload")
-                 ->GetChildMemberWithName("_M_payload");
+    val_sp = m_backend.GetChildMemberWithName(ConstString("_M_payload"), true)
+                 ->GetChildMemberWithName(ConstString("_M_payload"), true);
 
     // In some implementations, _M_value contains the underlying value of an
     // optional, and in other versions, it's in the payload member.
-    ValueObjectSP candidate = val_sp->GetChildMemberWithName("_M_value");
+    ValueObjectSP candidate =
+        val_sp->GetChildMemberWithName(ConstString("_M_value"), true);
     if (candidate)
       val_sp = candidate;
   }

@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Find constructions of smart (unique or shared) pointers where the pointer
 /// is declared with non-array target type and an array (created with a
@@ -43,6 +45,8 @@ private:
   StringRef const SmartPointerName;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_SMARTPTRARRAYMISMATCHCHECK_H

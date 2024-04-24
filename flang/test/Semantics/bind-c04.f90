@@ -11,26 +11,18 @@ subroutine sub(x, y)
     end
   end interface
 
-  abstract interface
-    !ERROR: An ABSTRACT interface may not have a BIND attribute with a name
-    subroutine aproc1() bind(c,name="foo")
-    end
-    subroutine aproc2() bind(c) ! ok
-    end
-  end interface
-
   !Acceptable (as an extension)
   procedure(proc), bind(c, name="aaa") :: pc1, pc2
 
-  !ERROR: A procedure pointer may not have a BIND attribute with a name
+  !ERROR: BIND(C) procedure with NAME= specified can neither have POINTER attribute nor be a dummy procedure
   procedure(proc), bind(c, name="bbb"), pointer :: pc3
 
-  !ERROR: An internal or dummy procedure may not have a BIND(C,NAME=) binding label
+  !ERROR: BIND(C) procedure with NAME= specified can neither have POINTER attribute nor be a dummy procedure
   procedure(proc), bind(c, name="ccc") :: x
 
   procedure(proc), bind(c) :: pc4, pc5
 
-  !ERROR: A procedure pointer may not have a BIND attribute with a name
+  !ERROR: BIND(C) procedure with NAME= specified can neither have POINTER attribute nor be a dummy procedure
   procedure(proc), bind(c, name="pc6"), pointer :: pc6
 
   procedure(proc), bind(c), pointer :: pc7
@@ -38,7 +30,7 @@ subroutine sub(x, y)
   procedure(proc), bind(c) :: y
 
   !WARNING: Attribute 'BIND(C)' cannot be used more than once
-  !ERROR: A procedure pointer may not have a BIND attribute with a name
+  !ERROR: BIND(C) procedure with NAME= specified can neither have POINTER attribute nor be a dummy procedure
   procedure(proc), bind(c, name="pc8"), bind(c), pointer :: pc8
 
 end

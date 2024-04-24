@@ -15,7 +15,6 @@
 #include "LoongArch.h"
 #include "LoongArchInstrInfo.h"
 #include "LoongArchSubtarget.h"
-#include "MCTargetDesc/LoongArchBaseInfo.h"
 #include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -39,8 +38,6 @@ const MCPhysReg *
 LoongArchRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   auto &Subtarget = MF->getSubtarget<LoongArchSubtarget>();
 
-  if (MF->getFunction().getCallingConv() == CallingConv::GHC)
-    return CSR_NoRegs_SaveList;
   switch (Subtarget.getTargetABI()) {
   default:
     llvm_unreachable("Unrecognized ABI");
@@ -61,8 +58,6 @@ LoongArchRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                                             CallingConv::ID CC) const {
   auto &Subtarget = MF.getSubtarget<LoongArchSubtarget>();
 
-  if (CC == CallingConv::GHC)
-    return CSR_NoRegs_RegMask;
   switch (Subtarget.getTargetABI()) {
   default:
     llvm_unreachable("Unrecognized ABI");
@@ -109,7 +104,7 @@ LoongArchRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return TFI->hasFP(MF) ? LoongArch::R22 : LoongArch::R3;
 }
 
-bool LoongArchRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+void LoongArchRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                                 int SPAdj,
                                                 unsigned FIOperandNum,
                                                 RegScavenger *RS) const {
@@ -129,8 +124,6 @@ bool LoongArchRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const LoongArchInstrInfo *TII = STI.getInstrInfo();
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
   DebugLoc DL = MI.getDebugLoc();
-  bool IsLA64 = STI.is64Bit();
-  unsigned MIOpc = MI.getOpcode();
 
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   Register FrameReg;
@@ -141,19 +134,19 @@ bool LoongArchRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   bool FrameRegIsKill = false;
 
   if (!isInt<12>(Offset.getFixed())) {
-    unsigned Addi = IsLA64 ? LoongArch::ADDI_D : LoongArch::ADDI_W;
-    unsigned Add = IsLA64 ? LoongArch::ADD_D : LoongArch::ADD_W;
+    unsigned Addi = STI.is64Bit() ? LoongArch::ADDI_D : LoongArch::ADDI_W;
+    unsigned Add = STI.is64Bit() ? LoongArch::ADD_D : LoongArch::ADD_W;
 
     // The offset won't fit in an immediate, so use a scratch register instead.
     // Modify Offset and FrameReg appropriately.
     Register ScratchReg = MRI.createVirtualRegister(&LoongArch::GPRRegClass);
     TII->movImm(MBB, II, DL, ScratchReg, Offset.getFixed());
-    if (MIOpc == Addi) {
+    if (MI.getOpcode() == Addi) {
       BuildMI(MBB, II, DL, TII->get(Add), MI.getOperand(0).getReg())
           .addReg(FrameReg)
           .addReg(ScratchReg, RegState::Kill);
       MI.eraseFromParent();
-      return true;
+      return;
     }
     BuildMI(MBB, II, DL, TII->get(Add), ScratchReg)
         .addReg(FrameReg)
@@ -163,57 +156,7 @@ bool LoongArchRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     FrameRegIsKill = true;
   }
 
-  // Spill CFRs.
-  if (MIOpc == LoongArch::PseudoST_CFR) {
-    Register ScratchReg = MRI.createVirtualRegister(&LoongArch::GPRRegClass);
-    BuildMI(MBB, II, DL, TII->get(LoongArch::MOVCF2GR), ScratchReg)
-        .add(MI.getOperand(0));
-    BuildMI(MBB, II, DL, TII->get(IsLA64 ? LoongArch::ST_D : LoongArch::ST_W))
-        .addReg(ScratchReg, RegState::Kill)
-        .addReg(FrameReg)
-        .addImm(Offset.getFixed());
-    MI.eraseFromParent();
-    return true;
-  }
-
-  // Reload CFRs.
-  if (MIOpc == LoongArch::PseudoLD_CFR) {
-    Register ScratchReg = MRI.createVirtualRegister(&LoongArch::GPRRegClass);
-    BuildMI(MBB, II, DL, TII->get(IsLA64 ? LoongArch::LD_D : LoongArch::LD_W),
-            ScratchReg)
-        .addReg(FrameReg)
-        .addImm(Offset.getFixed());
-    BuildMI(MBB, II, DL, TII->get(LoongArch::MOVGR2CF))
-        .add(MI.getOperand(0))
-        .addReg(ScratchReg, RegState::Kill);
-    MI.eraseFromParent();
-    return true;
-  }
-
   MI.getOperand(FIOperandNum)
       .ChangeToRegister(FrameReg, false, false, FrameRegIsKill);
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset.getFixed());
-  return false;
-}
-
-bool LoongArchRegisterInfo::canRealignStack(const MachineFunction &MF) const {
-  if (!TargetRegisterInfo::canRealignStack(MF))
-    return false;
-
-  const MachineRegisterInfo *MRI = &MF.getRegInfo();
-  const LoongArchFrameLowering *TFI = getFrameLowering(MF);
-
-  // Stack realignment requires a frame pointer.  If we already started
-  // register allocation with frame pointer elimination, it is too late now.
-  if (!MRI->canReserveReg(LoongArch::R22))
-    return false;
-
-  // We may also need a base pointer if there are dynamic allocas or stack
-  // pointer adjustments around calls.
-  if (TFI->hasReservedCallFrame(MF))
-    return true;
-
-  // A base pointer is required and allowed.  Check that it isn't too late to
-  // reserve it.
-  return MRI->canReserveReg(LoongArchABI::getBPReg());
 }

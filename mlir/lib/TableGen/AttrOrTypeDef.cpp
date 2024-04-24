@@ -8,10 +8,8 @@
 
 #include "mlir/TableGen/AttrOrTypeDef.h"
 #include "mlir/TableGen/Dialect.h"
-#include "llvm/ADT/FunctionExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 
@@ -22,9 +20,9 @@ using namespace mlir::tblgen;
 // AttrOrTypeBuilder
 //===----------------------------------------------------------------------===//
 
-std::optional<StringRef> AttrOrTypeBuilder::getReturnType() const {
-  std::optional<StringRef> type = def->getValueAsOptionalString("returnType");
-  return type && !type->empty() ? type : std::nullopt;
+Optional<StringRef> AttrOrTypeBuilder::getReturnType() const {
+  Optional<StringRef> type = def->getValueAsOptionalString("returnType");
+  return type && !type->empty() ? type : llvm::None;
 }
 
 bool AttrOrTypeBuilder::hasInferredContextParameter() const {
@@ -58,23 +56,9 @@ AttrOrTypeDef::AttrOrTypeDef(const llvm::Record *def) : def(def) {
   if (auto *traitList = def->getValueAsListInit("traits")) {
     SmallPtrSet<const llvm::Init *, 32> traitSet;
     traits.reserve(traitSet.size());
-    llvm::unique_function<void(llvm::ListInit *)> processTraitList =
-        [&](llvm::ListInit *traitList) {
-          for (auto *traitInit : *traitList) {
-            if (!traitSet.insert(traitInit).second)
-              continue;
-
-            // If this is an interface, add any bases to the trait list.
-            auto *traitDef = cast<llvm::DefInit>(traitInit)->getDef();
-            if (traitDef->isSubClassOf("Interface")) {
-              if (auto *bases = traitDef->getValueAsListInit("baseInterfaces"))
-                processTraitList(bases);
-            }
-
-            traits.push_back(Trait::create(traitInit));
-          }
-        };
-    processTraitList(traitList);
+    for (auto *traitInit : *traitList)
+      if (traitSet.insert(traitInit).second)
+        traits.push_back(Trait::create(traitInit));
   }
 
   // Populate the parameters.
@@ -164,7 +148,7 @@ unsigned AttrOrTypeDef::getNumParameters() const {
   return parametersDag ? parametersDag->getNumArgs() : 0;
 }
 
-std::optional<StringRef> AttrOrTypeDef::getMnemonic() const {
+Optional<StringRef> AttrOrTypeDef::getMnemonic() const {
   return def->getValueAsOptionalString("mnemonic");
 }
 
@@ -172,7 +156,7 @@ bool AttrOrTypeDef::hasCustomAssemblyFormat() const {
   return def->getValueAsBit("hasCustomAssemblyFormat");
 }
 
-std::optional<StringRef> AttrOrTypeDef::getAssemblyFormat() const {
+Optional<StringRef> AttrOrTypeDef::getAssemblyFormat() const {
   return def->getValueAsOptionalString("assemblyFormat");
 }
 
@@ -184,14 +168,14 @@ bool AttrOrTypeDef::genVerifyDecl() const {
   return def->getValueAsBit("genVerifyDecl");
 }
 
-std::optional<StringRef> AttrOrTypeDef::getExtraDecls() const {
+Optional<StringRef> AttrOrTypeDef::getExtraDecls() const {
   auto value = def->getValueAsString("extraClassDeclaration");
-  return value.empty() ? std::optional<StringRef>() : value;
+  return value.empty() ? Optional<StringRef>() : value;
 }
 
-std::optional<StringRef> AttrOrTypeDef::getExtraDefs() const {
+Optional<StringRef> AttrOrTypeDef::getExtraDefs() const {
   auto value = def->getValueAsString("extraClassDefinition");
-  return value.empty() ? std::optional<StringRef>() : value;
+  return value.empty() ? Optional<StringRef>() : value;
 }
 
 ArrayRef<SMLoc> AttrOrTypeDef::getLoc() const { return def->getLoc(); }
@@ -212,28 +196,12 @@ bool AttrOrTypeDef::operator<(const AttrOrTypeDef &other) const {
 // AttrDef
 //===----------------------------------------------------------------------===//
 
-std::optional<StringRef> AttrDef::getTypeBuilder() const {
+Optional<StringRef> AttrDef::getTypeBuilder() const {
   return def->getValueAsOptionalString("typeBuilder");
 }
 
 bool AttrDef::classof(const AttrOrTypeDef *def) {
   return def->getDef()->isSubClassOf("AttrDef");
-}
-
-StringRef AttrDef::getAttrName() const {
-  return def->getValueAsString("attrName");
-}
-
-//===----------------------------------------------------------------------===//
-// TypeDef
-//===----------------------------------------------------------------------===//
-
-bool TypeDef::classof(const AttrOrTypeDef *def) {
-  return def->getDef()->isSubClassOf("TypeDef");
-}
-
-StringRef TypeDef::getTypeName() const {
-  return def->getValueAsString("typeName");
 }
 
 //===----------------------------------------------------------------------===//
@@ -242,7 +210,7 @@ StringRef TypeDef::getTypeName() const {
 
 template <typename InitT>
 auto AttrOrTypeParameter::getDefValue(StringRef name) const {
-  std::optional<decltype(std::declval<InitT>().getValue())> result;
+  Optional<decltype(std::declval<InitT>().getValue())> result;
   if (auto *param = dyn_cast<llvm::DefInit>(getDef()))
     if (auto *init = param->getDef()->getValue(name))
       if (auto *value = dyn_cast_or_null<InitT>(init->getValue()))
@@ -263,7 +231,7 @@ std::string AttrOrTypeParameter::getAccessorName() const {
          llvm::convertToCamelFromSnakeCase(getName(), /*capitalizeFirst=*/true);
 }
 
-std::optional<StringRef> AttrOrTypeParameter::getAllocator() const {
+Optional<StringRef> AttrOrTypeParameter::getAllocator() const {
   return getDefValue<llvm::StringInit>("allocator");
 }
 
@@ -274,18 +242,7 @@ StringRef AttrOrTypeParameter::getComparator() const {
 StringRef AttrOrTypeParameter::getCppType() const {
   if (auto *stringType = dyn_cast<llvm::StringInit>(getDef()))
     return stringType->getValue();
-  auto cppType = getDefValue<llvm::StringInit>("cppType");
-  if (cppType)
-    return *cppType;
-  if (auto *init = dyn_cast<llvm::DefInit>(getDef()))
-    llvm::PrintFatalError(
-        init->getDef()->getLoc(),
-        Twine("Missing `cppType` field in Attribute/Type parameter: ") +
-            init->getAsString());
-  llvm::report_fatal_error(
-      Twine("Missing `cppType` field in Attribute/Type parameter: ") +
-          getDef()->getAsString(),
-      /*gen_crash_diag=*/false);
+  return getDefValue<llvm::StringInit>("cppType").value();
 }
 
 StringRef AttrOrTypeParameter::getCppAccessorType() const {
@@ -301,15 +258,15 @@ StringRef AttrOrTypeParameter::getConvertFromStorage() const {
   return getDefValue<llvm::StringInit>("convertFromStorage").value_or("$_self");
 }
 
-std::optional<StringRef> AttrOrTypeParameter::getParser() const {
+Optional<StringRef> AttrOrTypeParameter::getParser() const {
   return getDefValue<llvm::StringInit>("parser");
 }
 
-std::optional<StringRef> AttrOrTypeParameter::getPrinter() const {
+Optional<StringRef> AttrOrTypeParameter::getPrinter() const {
   return getDefValue<llvm::StringInit>("printer");
 }
 
-std::optional<StringRef> AttrOrTypeParameter::getSummary() const {
+Optional<StringRef> AttrOrTypeParameter::getSummary() const {
   return getDefValue<llvm::StringInit>("summary");
 }
 
@@ -323,10 +280,9 @@ bool AttrOrTypeParameter::isOptional() const {
   return getDefaultValue().has_value();
 }
 
-std::optional<StringRef> AttrOrTypeParameter::getDefaultValue() const {
-  std::optional<StringRef> result =
-      getDefValue<llvm::StringInit>("defaultValue");
-  return result && !result->empty() ? result : std::nullopt;
+Optional<StringRef> AttrOrTypeParameter::getDefaultValue() const {
+  Optional<StringRef> result = getDefValue<llvm::StringInit>("defaultValue");
+  return result && !result->empty() ? result : llvm::None;
 }
 
 llvm::Init *AttrOrTypeParameter::getDef() const { return def->getArg(index); }

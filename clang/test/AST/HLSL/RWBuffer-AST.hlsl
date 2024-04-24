@@ -13,6 +13,8 @@
 
 // EMPTY: ClassTemplateDecl 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> <invalid sloc> implicit RWBuffer
 // EMPTY-NEXT: TemplateTypeParmDecl 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> <invalid sloc> class depth 0 index 0 element_type
+// EMPTY-NEXT: TemplateArgument type 'float'
+// EMPTY-NEXT: BuiltinType 0x{{[0-9A-Fa-f]+}} 'float'
 // EMPTY-NEXT: CXXRecordDecl 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> <invalid sloc> implicit <undeserialized declarations> class RWBuffer
 // EMPTY-NEXT: FinalAttr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> Implicit final
 
@@ -31,6 +33,8 @@ RWBuffer<float> Buffer;
 
 // CHECK: ClassTemplateDecl 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> <invalid sloc> implicit RWBuffer
 // CHECK-NEXT: TemplateTypeParmDecl 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> <invalid sloc> class depth 0 index 0 element_type
+// CHECK-NEXT: TemplateArgument type 'float'
+// CHECK-NEXT: BuiltinType 0x{{[0-9A-Fa-f]+}} 'float'
 // CHECK-NEXT: CXXRecordDecl 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> <invalid sloc> implicit class RWBuffer definition
 
 // CHECK: FinalAttr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> Implicit final
@@ -42,8 +46,8 @@ RWBuffer<float> Buffer;
 // CHECK-NEXT: CompoundStmt 0x{{[0-9A-Fa-f]+}} <<invalid sloc>>
 // CHECK-NEXT: ReturnStmt 0x{{[0-9A-Fa-f]+}} <<invalid sloc>>
 // CHECK-NEXT: ArraySubscriptExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'element_type' lvalue
-// CHECK-NEXT: MemberExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'element_type *' lvalue .h 0x{{[0-9A-Fa-f]+}}
-// CHECK-NEXT: CXXThisExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'const RWBuffer<element_type>' lvalue implicit this
+// CHECK-NEXT: MemberExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'element_type *' lvalue ->h 0x{{[0-9A-Fa-f]+}}
+// CHECK-NEXT: CXXThisExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'const RWBuffer<element_type> *' implicit this
 // CHECK-NEXT: DeclRefExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'unsigned int' ParmVar 0x{{[0-9A-Fa-f]+}} 'Idx' 'unsigned int'
 // CHECK-NEXT: AlwaysInlineAttr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> Implicit always_inline
 
@@ -52,8 +56,8 @@ RWBuffer<float> Buffer;
 // CHECK-NEXT: CompoundStmt 0x{{[0-9A-Fa-f]+}} <<invalid sloc>>
 // CHECK-NEXT: ReturnStmt 0x{{[0-9A-Fa-f]+}} <<invalid sloc>>
 // CHECK-NEXT: ArraySubscriptExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'element_type' lvalue
-// CHECK-NEXT: MemberExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'element_type *' lvalue .h 0x{{[0-9A-Fa-f]+}}
-// CHECK-NEXT: CXXThisExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'RWBuffer<element_type>' lvalue implicit this
+// CHECK-NEXT: MemberExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'element_type *' lvalue ->h 0x{{[0-9A-Fa-f]+}}
+// CHECK-NEXT: CXXThisExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'RWBuffer<element_type> *' implicit this
 // CHECK-NEXT: DeclRefExpr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> 'unsigned int' ParmVar 0x{{[0-9A-Fa-f]+}} 'Idx' 'unsigned int'
 // CHECK-NEXT: AlwaysInlineAttr 0x{{[0-9A-Fa-f]+}} <<invalid sloc>> Implicit always_inline
 

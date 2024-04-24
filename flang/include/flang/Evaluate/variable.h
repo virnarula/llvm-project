@@ -80,9 +80,6 @@ public:
 
   const DataRef &base() const { return base_.value(); }
   DataRef &base() { return base_.value(); }
-  const SymbolRef &symbol() const { return symbol_; }
-  SymbolRef &symbol() { return symbol_; }
-
   int Rank() const;
   const Symbol &GetFirstSymbol() const;
   const Symbol &GetLastSymbol() const { return symbol_; }
@@ -110,9 +107,7 @@ public:
   const Symbol &GetLastSymbol() const;
   const Component &GetComponent() const { return std::get<Component>(u_); }
   Component &GetComponent() { return std::get<Component>(u_); }
-  const SymbolRef *UnwrapSymbolRef() const; // null if a Component
-  SymbolRef *UnwrapSymbolRef();
-  const Component *UnwrapComponent() const; // null if not a Component
+  const Component *UnwrapComponent() const; // null if just a Symbol
   Component *UnwrapComponent();
 
   int Rank() const;

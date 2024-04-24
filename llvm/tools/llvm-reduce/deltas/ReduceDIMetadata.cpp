@@ -14,10 +14,11 @@
 #include "ReduceDIMetadata.h"
 #include "Delta.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstIterator.h"
+#include <set>
+#include <stack>
 #include <tuple>
 #include <vector>
 
@@ -77,9 +78,7 @@ void identifyUninterestingMDNodes(Oracle &O, MDNodeList &MDs) {
   }
 }
 
-static void extractDIMetadataFromModule(Oracle &O, ReducerWorkItem &WorkItem) {
-  Module &Program = WorkItem.getModule();
-
+static void extractDIMetadataFromModule(Oracle &O, Module &Program) {
   MDNodeList MDs;
   // Collect all !dbg metadata attachments.
   for (const auto &DC : Program.debug_compile_units())

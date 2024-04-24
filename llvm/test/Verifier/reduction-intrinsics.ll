@@ -1,4 +1,4 @@
-; RUN: not opt -S -passes=verify < %s 2>&1 | FileCheck %s
+; RUN: not opt -S -verify < %s 2>&1 | FileCheck %s
 
 ; Reject a vector reduction with a non-vector argument.
 
@@ -39,10 +39,10 @@ define float @not_float_reduce(<4 x float> %x) {
   ret float %r
 }
 
-define ptr @not_pointer_reduce(<4 x ptr> %x) {
+define i32* @not_pointer_reduce(<4 x i32*> %x) {
 ; CHECK: Intrinsic has incorrect argument type!
-  %r = call ptr @llvm.vector.reduce.or.v4p0(<4 x ptr> %x)
-  ret ptr %r
+  %r = call i32* @llvm.vector.reduce.or.v4p0i32(<4 x i32*> %x)
+  ret i32* %r
 }
 
 define i32 @not_integer_reduce(<4 x i32> %x) {
@@ -51,17 +51,17 @@ define i32 @not_integer_reduce(<4 x i32> %x) {
   ret i32 %r
 }
 
-define ptr @not_pointer_reduce2(<4 x ptr> %x) {
+define i32* @not_pointer_reduce2(<4 x i32*> %x) {
 ; CHECK: Intrinsic has incorrect argument type!
-  %r = call ptr @llvm.vector.reduce.fmin.v4p0(<4 x ptr> %x)
-  ret ptr %r
+  %r = call i32* @llvm.vector.reduce.fmin.v4p0i32(<4 x i32*> %x)
+  ret i32* %r
 }
 
 declare float @llvm.vector.reduce.umin.v4f32(<4 x float>)
-declare ptr @llvm.vector.reduce.or.v4p0(<4 x ptr>)
+declare i32* @llvm.vector.reduce.or.v4p0i32(<4 x i32*>)
 declare i32 @llvm.vector.reduce.fadd.v4i32(i32, <4 x i32>)
 declare float @llvm.vector.reduce.fadd.v4f32(double, <4 x float>)
-declare ptr @llvm.vector.reduce.fmin.v4p0(<4 x ptr>)
+declare i32* @llvm.vector.reduce.fmin.v4p0i32(<4 x i32*>)
 declare float @llvm.vector.reduce.fmax.f32(float)
 declare i32 @llvm.vector.reduce.smax.i32(i32)
 declare i64 @llvm.vector.reduce.add.v4i32(<4 x i32>)

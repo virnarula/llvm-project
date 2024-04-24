@@ -6,29 +6,9 @@ load("//mlir:tblgen.bzl", "gentbl_cc_library")
 
 package(
     default_visibility = ["//visibility:public"],
-    features = ["layering_check"],
 )
 
 licenses(["notice"])
-
-cc_test(
-    name = "debug_tests",
-    size = "small",
-    srcs = glob([
-        "Debug/*.cpp",
-        "Debug/*.h",
-    ]),
-    deps = [
-        "//llvm:Support",
-        "//llvm:TestingSupport",
-        "//mlir:Debug",
-        "//mlir:IR",
-        "//mlir:Support",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
-    ],
-)
 
 cc_test(
     name = "ir_tests",
@@ -38,15 +18,10 @@ cc_test(
         "IR/*.h",
     ]),
     deps = [
-        "//llvm:Support",
-        "//mlir:FunctionInterfaces",
+        "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:IR",
-        "//mlir:Parser",
-        "//mlir:Support",
         "//mlir/test:TestDialect",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -58,9 +33,8 @@ cc_test(
         "Interfaces/*.h",
     ]),
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
-        "//mlir:ArithDialect",
+        "//llvm:gtest_main",
         "//mlir:ControlFlowInterfaces",
         "//mlir:DLTIDialect",
         "//mlir:DataLayoutInterfaces",
@@ -69,8 +43,6 @@ cc_test(
         "//mlir:InferIntRangeInterface",
         "//mlir:InferTypeOpInterface",
         "//mlir:Parser",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -84,9 +56,8 @@ cc_test(
     deps = [
         "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:Support",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -98,15 +69,12 @@ cc_test(
         "Pass/*.h",
     ]),
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:Analysis",
-        "//mlir:Debug",
         "//mlir:FuncDialect",
         "//mlir:IR",
         "//mlir:Pass",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -118,10 +86,9 @@ cc_test(
         "Rewrite/*.h",
     ]),
     deps = [
+        "//llvm:gtest_main",
         "//mlir:IR",
         "//mlir:Rewrite",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -133,10 +100,9 @@ cc_test(
         "Dialect/*.h",
     ]),
     deps = [
-        "//llvm:Support",
+        "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:Dialect",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -149,10 +115,8 @@ cc_test(
     ]),
     deps = [
         "//llvm:TestingSupport",
-        "//mlir:IR",
+        "//llvm:gtest_main",
         "//mlir:MemRefDialect",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -165,9 +129,9 @@ cc_test(
     ]),
     deps = [
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:QuantOps",
         "//mlir:Transforms",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -179,13 +143,10 @@ cc_test(
         "Dialect/SCF/*.h",
     ]),
     deps = [
-        "//mlir:ArithDialect",
+        "//llvm:gtest_main",
         "//mlir:FuncDialect",
-        "//mlir:IR",
         "//mlir:Parser",
         "//mlir:SCFDialect",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -197,12 +158,9 @@ cc_test(
         "Dialect/SparseTensor/*.h",
     ]),
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:SparseTensorUtils",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -214,15 +172,11 @@ cc_test(
         "Dialect/SPIRV/*.h",
     ]),
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
-        "//mlir:IR",
-        "//mlir:SPIRVBinaryUtils",
+        "//llvm:gtest_main",
         "//mlir:SPIRVDeserialization",
         "//mlir:SPIRVDialect",
         "//mlir:SPIRVSerialization",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -234,20 +188,10 @@ cc_test(
         "Dialect/Transform/*.h",
     ]),
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:FuncDialect",
-        "//mlir:IR",
-        "//mlir:MlirOptLib",
-        "//mlir:Parser",
-        "//mlir:Pass",
-        "//mlir:Support",
-        "//mlir:TransformDebugExtension",
         "//mlir:TransformDialect",
-        "//mlir:TransformDialectTransforms",
-        "//mlir/test:TestTransformDialect",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -259,13 +203,9 @@ cc_test(
         "Dialect/Utils/*.h",
     ]),
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:DialectUtils",
-        "//mlir:IR",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -320,13 +260,10 @@ cc_test(
         ":PassIncGen",
         "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:IR",
-        "//mlir:Pass",
-        "//mlir:Support",
         "//mlir:TableGen",
         "//mlir/test:TestDialect",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -338,14 +275,13 @@ cc_test(
         "Transforms/*.h",
     ]),
     deps = [
+        "//llvm:gtest_main",
         "//mlir:AffineAnalysis",
         "//mlir:IR",
         "//mlir:Parser",
         "//mlir:Pass",
         "//mlir:TransformUtils",
         "//mlir:Transforms",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -360,36 +296,11 @@ cc_test(
     ]),
     deps = [
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:AffineAnalysis",
         "//mlir:Analysis",
-        "//mlir:AsmParser",
         "//mlir:IR",
         "//mlir:Parser",
-        "//mlir:Support",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "bytecode_tests",
-    size = "small",
-    srcs = glob([
-        "Bytecode/*.cpp",
-        "Bytecode/*.h",
-        "Bytecode/*/*.cpp",
-        "Bytecode/*/*.h",
-    ]),
-    deps = [
-        "//llvm:Support",
-        "//mlir:BytecodeReader",
-        "//mlir:BytecodeWriter",
-        "//mlir:IR",
-        "//mlir:Parser",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -403,11 +314,9 @@ cc_test(
         "Conversion/*/*.h",
     ]),
     deps = [
+        "//llvm:gtest_main",
         "//mlir:ArithDialect",
-        "//mlir:IR",
         "//mlir:PDLToPDLInterp",
-        "//third-party/unittest:gtest",
-        "//third-party/unittest:gtest_main",
     ],
 )
 
@@ -422,28 +331,15 @@ cc_test(
         "nomsan",
     ],
     deps = [
-        "//llvm:Support",
         "//llvm:TestingSupport",
+        "//llvm:gtest_main",
         "//mlir:AllPassesAndDialects",
         "//mlir:Analysis",
-        "//mlir:ArithToLLVM",
-        "//mlir:BuiltinToLLVMIRTranslation",
         "//mlir:ExecutionEngine",
-        "//mlir:FuncDialect",
-        "//mlir:FuncToLLVM",
         "//mlir:IR",
-        "//mlir:LLVMToLLVMIRTranslation",
-        "//mlir:LinalgTransforms",
+        "//mlir:LinalgToLLVM",
         "//mlir:MemRefToLLVM",
-        "//mlir:Parser",
-        "//mlir:Pass",
-        "//mlir:ReconcileUnrealizedCasts",
-        "//mlir:ToLLVMIRTranslation",
-        "//mlir:VectorToLLVM",
-        "//mlir:VectorToSCF",
         "//mlir:mlir_c_runner_utils",
         "//mlir:mlir_runner_utils",
-        "//third-party/unittest:gmock",
-        "//third-party/unittest:gtest_main",
     ],
 )

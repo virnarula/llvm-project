@@ -124,7 +124,8 @@ int madvise(void *addr, size_t length, int advice)
   return 0;
 }
 
-static int lock(HANDLE handle, DWORD lockType, BOOL blocking) {
+COMPILER_RT_VISIBILITY
+int lock(HANDLE handle, DWORD lockType, BOOL blocking) {
   DWORD flags = lockType;
   if (!blocking)
     flags |= LOCKFILE_FAIL_IMMEDIATELY;

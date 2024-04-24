@@ -63,11 +63,12 @@ using LVScopeKindSet = std::set<LVScopeKind>;
 using LVScopeDispatch = std::map<LVScopeKind, LVScopeGetFunction>;
 using LVScopeRequest = std::vector<LVScopeGetFunction>;
 
+using LVOffsetList = std::list<LVOffset>;
 using LVOffsetElementMap = std::map<LVOffset, LVElement *>;
-using LVOffsetLinesMap = std::map<LVOffset, LVLines>;
-using LVOffsetLocationsMap = std::map<LVOffset, LVLocations>;
+using LVOffsetLinesMap = std::map<LVOffset, LVLines *>;
+using LVOffsetLocationsMap = std::map<LVOffset, LVLocations *>;
 using LVOffsetSymbolMap = std::map<LVOffset, LVSymbol *>;
-using LVTagOffsetsMap = std::map<dwarf::Tag, LVOffsets>;
+using LVTagOffsetsMap = std::map<dwarf::Tag, LVOffsetList *>;
 
 // Class to represent a DWARF Scope.
 class LVScope : public LVElement {
@@ -99,8 +100,7 @@ class LVScope : public LVElement {
   // Calculate coverage factor.
   void calculateCoverage() {
     float CoveragePercentage = 0;
-    LVLocation::calculateCoverage(Ranges.get(), CoverageFactor,
-                                  CoveragePercentage);
+    LVLocation::calculateCoverage(Ranges, CoverageFactor, CoveragePercentage);
   }
 
   // Decide if the scope will be printed, using some conditions given by:
@@ -117,11 +117,11 @@ class LVScope : public LVElement {
 
 protected:
   // Types, Symbols, Scopes, Lines, Locations in this scope.
-  std::unique_ptr<LVTypes> Types;
-  std::unique_ptr<LVSymbols> Symbols;
-  std::unique_ptr<LVScopes> Scopes;
-  std::unique_ptr<LVLines> Lines;
-  std::unique_ptr<LVLocations> Ranges;
+  LVAutoTypes *Types = nullptr;
+  LVAutoSymbols *Symbols = nullptr;
+  LVAutoScopes *Scopes = nullptr;
+  LVAutoLines *Lines = nullptr;
+  LVAutoLocations *Ranges = nullptr;
 
   // Vector of elements (types, scopes and symbols).
   // It is the union of (*Types, *Symbols and *Scopes) to be used for
@@ -129,7 +129,7 @@ protected:
   // - Preserve the order the logical elements are read in.
   // - To have a single container with all the logical elements, when
   //   the traversal does not require any specific element kind.
-  std::unique_ptr<LVElements> Children;
+  LVElements *Children = nullptr;
 
   // Resolve the template parameters/arguments relationship.
   void resolveTemplate();
@@ -150,7 +150,7 @@ public:
   }
   LVScope(const LVScope &) = delete;
   LVScope &operator=(const LVScope &) = delete;
-  virtual ~LVScope() = default;
+  virtual ~LVScope();
 
   static bool classof(const LVElement *Element) {
     return Element->getSubclassID() == LVSubclassID::LV_SCOPE;
@@ -202,12 +202,12 @@ public:
   const char *kind() const override;
 
   // Get the specific children.
-  const LVLines *getLines() const { return Lines.get(); }
-  const LVLocations *getRanges() const { return Ranges.get(); }
-  const LVScopes *getScopes() const { return Scopes.get(); }
-  const LVSymbols *getSymbols() const { return Symbols.get(); }
-  const LVTypes *getTypes() const { return Types.get(); }
-  const LVElements *getChildren() const { return Children.get(); }
+  const LVLines *getLines() const { return Lines; }
+  const LVLocations *getRanges() const { return Ranges; }
+  const LVScopes *getScopes() const { return Scopes; }
+  const LVSymbols *getSymbols() const { return Symbols; }
+  const LVTypes *getTypes() const { return Types; }
+  const LVElements *getChildren() const { return Children; }
 
   void addElement(LVElement *Element);
   void addElement(LVLine *Line);
@@ -410,9 +410,6 @@ class LVScopeCompileUnit final : public LVScope {
   // Compilation directory name.
   size_t CompilationDirectoryIndex = 0;
 
-  // Used by the CodeView Reader.
-  codeview::CPUType CompilationCPUType = codeview::CPUType::X64;
-
   // Keep record of elements. They are needed at the compilation unit level
   // to print the summary at the end of the printing.
   LVCounter Allocated;
@@ -459,8 +456,8 @@ class LVScopeCompileUnit final : public LVScope {
                                  LVOffsetLocationsMap *Map) {
     LVOffset Offset = Element->getOffset();
     addInvalidOffset(Offset, Element);
-    addItem<LVOffsetLocationsMap, LVOffset, LVLocation *>(Map, Offset,
-                                                          Location);
+    addItem<LVOffsetLocationsMap, LVLocations, LVOffset, LVLocation *>(
+        Map, Offset, Location);
   }
 
   // Record scope sizes indexed by lexical level.
@@ -492,7 +489,12 @@ public:
   }
   LVScopeCompileUnit(const LVScopeCompileUnit &) = delete;
   LVScopeCompileUnit &operator=(const LVScopeCompileUnit &) = delete;
-  ~LVScopeCompileUnit() = default;
+  ~LVScopeCompileUnit() {
+    deleteList<LVTagOffsetsMap>(DebugTags);
+    deleteList<LVOffsetLocationsMap>(InvalidLocations);
+    deleteList<LVOffsetLocationsMap>(InvalidRanges);
+    deleteList<LVOffsetLinesMap>(LinesZero);
+  }
 
   LVScope *getCompileUnitParent() const override {
     return static_cast<LVScope *>(const_cast<LVScopeCompileUnit *>(this));
@@ -540,9 +542,6 @@ public:
     ProducerIndex = getStringPool().getIndex(ProducerName);
   }
 
-  void setCPUType(codeview::CPUType Type) { CompilationCPUType = Type; }
-  codeview::CPUType getCPUType() { return CompilationCPUType; }
-
   // Record DWARF tags.
   void addDebugTag(dwarf::Tag Target, LVOffset Offset);
   // Record elements with invalid offsets.
@@ -556,16 +555,16 @@ public:
   // Record line zero.
   void addLineZero(LVLine *Line);
 
-  const LVTagOffsetsMap &getDebugTags() const { return DebugTags; }
-  const LVOffsetElementMap &getWarningOffsets() const { return WarningOffsets; }
-  const LVOffsetLocationsMap &getInvalidLocations() const {
+  const LVTagOffsetsMap getDebugTags() const { return DebugTags; }
+  const LVOffsetElementMap getWarningOffsets() const { return WarningOffsets; }
+  const LVOffsetLocationsMap getInvalidLocations() const {
     return InvalidLocations;
   }
-  const LVOffsetSymbolMap &getInvalidCoverages() const {
+  const LVOffsetSymbolMap getInvalidCoverages() const {
     return InvalidCoverages;
   }
-  const LVOffsetLocationsMap &getInvalidRanges() const { return InvalidRanges; }
-  const LVOffsetLinesMap &getLinesZero() const { return LinesZero; }
+  const LVOffsetLocationsMap getInvalidRanges() const { return InvalidRanges; }
+  const LVOffsetLinesMap getLinesZero() const { return LinesZero; }
 
   // Process ranges, locations and calculate coverage.
   void processRangeLocationCoverage(
@@ -794,10 +793,6 @@ public:
   void setFileFormatName(StringRef FileFormatName) {
     FileFormatNameIndex = getStringPool().getIndex(FileFormatName);
   }
-
-  // The CodeView Reader uses scoped names. Recursively transform the
-  // element name to use just the most inner component.
-  void transformScopedName();
 
   // Process the collected location, ranges and calculate coverage.
   void processRangeInformation();

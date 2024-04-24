@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
@@ -16,17 +14,19 @@
 // bool is_directory(path const& p);
 // bool is_directory(path const& p, std::error_code& ec) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 #include <type_traits>
 #include <cassert>
 
-#include "assert_macros.h"
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
-static void signature_test()
+TEST_SUITE(is_directory_test_suite)
+
+TEST_CASE(signature_test)
 {
     file_status s; ((void)s);
     const path p; ((void)p);
@@ -36,7 +36,7 @@ static void signature_test()
     ASSERT_NOT_NOEXCEPT(is_directory(p));
 }
 
-static void is_directory_status_test()
+TEST_CASE(is_directory_status_test)
 {
     struct TestCase {
         file_type type;
@@ -56,26 +56,26 @@ static void is_directory_status_test()
     };
     for (auto& TC : testCases) {
         file_status s(TC.type);
-        assert(is_directory(s) == TC.expect);
+        TEST_CHECK(is_directory(s) == TC.expect);
     }
 }
 
-static void test_exist_not_found()
+TEST_CASE(test_exist_not_found)
 {
     static_test_env static_env;
     const path p = static_env.DNE;
-    assert(is_directory(p) == false);
+    TEST_CHECK(is_directory(p) == false);
 }
 
-static void static_env_test()
+TEST_CASE(static_env_test)
 {
     static_test_env static_env;
-    assert(is_directory(static_env.Dir));
-    assert(is_directory(static_env.SymlinkToDir));
-    assert(!is_directory(static_env.File));
+    TEST_CHECK(is_directory(static_env.Dir));
+    TEST_CHECK(is_directory(static_env.SymlinkToDir));
+    TEST_CHECK(!is_directory(static_env.File));
 }
 
-static void test_is_directory_fails()
+TEST_CASE(test_is_directory_fails)
 {
     scoped_test_env env;
 #ifdef _WIN32
@@ -84,7 +84,7 @@ static void test_is_directory_fails()
     // instead.
     const path p = GetWindowsInaccessibleDir();
     if (p.empty())
-        return;
+        TEST_UNSUPPORTED();
 #else
     const path dir = env.create_dir("dir");
     const path p = env.create_dir("dir/dir2");
@@ -92,18 +92,10 @@ static void test_is_directory_fails()
 #endif
 
     std::error_code ec;
-    assert(is_directory(p, ec) == false);
-    assert(ec);
+    TEST_CHECK(is_directory(p, ec) == false);
+    TEST_CHECK(ec);
 
-    TEST_THROWS_TYPE(filesystem_error, is_directory(p));
+    TEST_CHECK_THROW(filesystem_error, is_directory(p));
 }
 
-int main(int, char**) {
-    signature_test();
-    is_directory_status_test();
-    test_exist_not_found();
-    static_env_test();
-    test_is_directory_fails();
-
-    return 0;
-}
+TEST_SUITE_END()

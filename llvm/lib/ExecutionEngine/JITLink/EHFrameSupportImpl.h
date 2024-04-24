@@ -60,11 +60,7 @@ private:
     Edge::AddendT Addend = 0;
   };
 
-  struct BlockEdgesInfo {
-    DenseMap<Edge::OffsetT, EdgeTarget> TargetMap;
-    DenseSet<Edge::OffsetT> Multiple;
-  };
-
+  using BlockEdgeMap = DenseMap<Edge::OffsetT, EdgeTarget>;
   using CIEInfosMap = DenseMap<orc::ExecutorAddr, CIEInformation>;
 
   struct ParseContext {
@@ -85,10 +81,12 @@ private:
   };
 
   Error processBlock(ParseContext &PC, Block &B);
-  Error processCIE(ParseContext &PC, Block &B, size_t CIEDeltaFieldOffset,
-                   const BlockEdgesInfo &BlockEdges);
-  Error processFDE(ParseContext &PC, Block &B, size_t CIEDeltaFieldOffset,
-                   uint32_t CIEDelta, const BlockEdgesInfo &BlockEdges);
+  Error processCIE(ParseContext &PC, Block &B, size_t RecordOffset,
+                   size_t RecordLength, size_t CIEDeltaFieldOffset,
+                   const BlockEdgeMap &BlockEdges);
+  Error processFDE(ParseContext &PC, Block &B, size_t RecordOffset,
+                   size_t RecordLength, size_t CIEDeltaFieldOffset,
+                   uint32_t CIEDelta, const BlockEdgeMap &BlockEdges);
 
   Expected<AugmentationInfo>
   parseAugmentationString(BinaryStreamReader &RecordReader);
@@ -98,9 +96,9 @@ private:
   Error skipEncodedPointer(uint8_t PointerEncoding,
                            BinaryStreamReader &RecordReader);
   Expected<Symbol *> getOrCreateEncodedPointerEdge(
-      ParseContext &PC, const BlockEdgesInfo &BlockEdges,
-      uint8_t PointerEncoding, BinaryStreamReader &RecordReader,
-      Block &BlockToFix, size_t PointerFieldOffset, const char *FieldName);
+      ParseContext &PC, const BlockEdgeMap &BlockEdges, uint8_t PointerEncoding,
+      BinaryStreamReader &RecordReader, Block &BlockToFix,
+      size_t PointerFieldOffset, const char *FieldName);
 
   Expected<Symbol &> getOrCreateSymbol(ParseContext &PC,
                                        orc::ExecutorAddr Addr);

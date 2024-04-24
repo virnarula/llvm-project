@@ -11,12 +11,13 @@
 
 #include <time.h>
 
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
+namespace tmmatcher {
 namespace testing {
 
-class StructTmMatcher : public Matcher<::tm> {
+class StructTmMatcher : public __llvm_libc::testing::Matcher<::tm> {
   ::tm expected;
   ::tm actual;
 
@@ -36,30 +37,33 @@ public:
             actual.tm_isdst == expected.tm_isdst);
   }
 
-  void describeValue(const char *label, ::tm value) {
-    tlog << label;
-    tlog << " sec: " << value.tm_sec;
-    tlog << " min: " << value.tm_min;
-    tlog << " hour: " << value.tm_hour;
-    tlog << " mday: " << value.tm_mday;
-    tlog << " mon: " << value.tm_mon;
-    tlog << " year: " << value.tm_year;
-    tlog << " wday: " << value.tm_wday;
-    tlog << " yday: " << value.tm_yday;
-    tlog << " isdst: " << value.tm_isdst;
-    tlog << '\n';
+  void describeValue(const char *label, ::tm value,
+                     __llvm_libc::testutils::StreamWrapper &stream) {
+    stream << label;
+    stream << " sec: " << value.tm_sec;
+    stream << " min: " << value.tm_min;
+    stream << " hour: " << value.tm_hour;
+    stream << " mday: " << value.tm_mday;
+    stream << " mon: " << value.tm_mon;
+    stream << " year: " << value.tm_year;
+    stream << " wday: " << value.tm_wday;
+    stream << " yday: " << value.tm_yday;
+    stream << " isdst: " << value.tm_isdst;
+    stream << '\n';
   }
 
-  void explainError() override {
-    describeValue("Expected tm_struct value: ", expected);
-    describeValue("  Actual tm_struct value: ", actual);
+  void explainError(__llvm_libc::testutils::StreamWrapper &stream) override {
+    describeValue("Expected tm_struct value: ", expected, stream);
+    describeValue("  Actual tm_struct value: ", actual, stream);
   }
 };
 
 } // namespace testing
-} // namespace LIBC_NAMESPACE
+} // namespace tmmatcher
+} // namespace __llvm_libc
 
 #define EXPECT_TM_EQ(expected, actual)                                         \
-  EXPECT_THAT((actual), LIBC_NAMESPACE::testing::StructTmMatcher((expected)))
+  EXPECT_THAT((actual),                                                        \
+              __llvm_libc::tmmatcher::testing::StructTmMatcher((expected)))
 
 #endif // LLVM_LIBC_TEST_SRC_TIME_TM_MATCHER_H

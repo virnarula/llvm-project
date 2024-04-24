@@ -14,7 +14,6 @@
 #include "WriterUtils.h"
 #include "lld/Common/LLVM.h"
 #include "llvm/Object/Wasm.h"
-#include <optional>
 
 namespace lld {
 namespace wasm {
@@ -28,7 +27,7 @@ protected:
 
 public:
   StringRef getName() const { return name; }
-  uint32_t getAssignedIndex() const { return *assignedIndex; }
+  uint32_t getAssignedIndex() const { return assignedIndex.value(); }
   bool hasAssignedIndex() const { return assignedIndex.has_value(); }
   void assignIndex(uint32_t index) {
     assert(!hasAssignedIndex());
@@ -40,7 +39,7 @@ public:
 
 protected:
   StringRef name;
-  std::optional<uint32_t> assignedIndex;
+  llvm::Optional<uint32_t> assignedIndex;
 };
 
 inline WasmInitExpr intConst(uint64_t value, bool is64) {

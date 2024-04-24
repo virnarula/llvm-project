@@ -16,12 +16,12 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/StreamAsynchronousIO.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/DataFormatters/DataVisualization.h"
 #include "lldb/Expression/REPL.h"
 #include "lldb/Host/File.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Host/StreamFile.h"
 #include "lldb/Host/Terminal.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -51,13 +51,13 @@
 #include "lldb/Utility/State.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
-#include "lldb/lldb-enumerations.h"
 
 #if defined(_WIN32)
 #include "lldb/Host/windows/PosixApi.h"
 #include "lldb/Host/windows/windows.h"
 #endif
 
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
@@ -74,7 +74,6 @@
 #include <list>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <set>
 #include <string>
 #include <system_error>
@@ -99,9 +98,10 @@ static size_t g_debugger_event_thread_stack_bytes = 8 * 1024 * 1024;
 
 #pragma mark Static Functions
 
+typedef std::vector<DebuggerSP> DebuggerList;
 static std::recursive_mutex *g_debugger_list_mutex_ptr =
     nullptr; // NOTE: intentional leak to avoid issues with C++ destructor chain
-static Debugger::DebuggerList *g_debugger_list_ptr =
+static DebuggerList *g_debugger_list_ptr =
     nullptr; // NOTE: intentional leak to avoid issues with C++ destructor chain
 static llvm::ThreadPool *g_thread_pool = nullptr;
 
@@ -146,16 +146,6 @@ static constexpr OptionEnumValueElement g_language_enumerators[] = {
         "default",
         "Select the lldb default as the default scripting language.",
     },
-};
-
-static constexpr OptionEnumValueElement g_dwim_print_verbosities[] = {
-    {eDWIMPrintVerbosityNone, "none",
-     "Use no verbosity when running dwim-print."},
-    {eDWIMPrintVerbosityExpression, "expression",
-     "Use partial verbosity when running dwim-print - display a message when "
-     "`expression` evaluation is used."},
-    {eDWIMPrintVerbosityFull, "full",
-     "Use full verbosity when running dwim-print."},
 };
 
 static constexpr OptionEnumValueElement s_stop_show_column_values[] = {
@@ -212,7 +202,7 @@ Status Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
 
   TargetSP target_sp;
   LoadScriptFromSymFile load_script_old_value = eLoadScriptFromSymFileFalse;
-  if (is_load_script && exe_ctx && exe_ctx->GetTargetSP()) {
+  if (is_load_script && exe_ctx->GetTargetSP()) {
     target_sp = exe_ctx->GetTargetSP();
     load_script_old_value =
         target_sp->TargetProperties::GetLoadScriptFromSymbolFile();
@@ -235,17 +225,8 @@ Status Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
       // use-color changed. Ping the prompt so it can reset the ansi terminal
       // codes.
       SetPrompt(GetPrompt());
-    } else if (property_path ==
-                   g_debugger_properties[ePropertyPromptAnsiPrefix].name ||
-               property_path ==
-                   g_debugger_properties[ePropertyPromptAnsiSuffix].name) {
-      // Prompt colors changed. Ping the prompt so it can reset the ansi
-      // terminal codes.
-      SetPrompt(GetPrompt());
-    } else if (property_path ==
-               g_debugger_properties[ePropertyUseSourceCache].name) {
-      // use-source-cache changed. Wipe out the cache contents if it was
-      // disabled.
+    } else if (property_path == g_debugger_properties[ePropertyUseSourceCache].name) {
+      // use-source-cache changed. Wipe out the cache contents if it was disabled.
       if (!GetUseSourceCache()) {
         m_source_file_cache.Clear();
       }
@@ -255,7 +236,7 @@ Status Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
           eLoadScriptFromSymFileTrue) {
         std::list<Status> errors;
         StreamString feedback_stream;
-        if (!target_sp->LoadScriptingResources(errors, feedback_stream)) {
+        if (!target_sp->LoadScriptingResources(errors, &feedback_stream)) {
           Stream &s = GetErrorStream();
           for (auto error : errors) {
             s.Printf("%s\n", error.AsCString());
@@ -270,59 +251,47 @@ Status Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
 }
 
 bool Debugger::GetAutoConfirm() const {
-  constexpr uint32_t idx = ePropertyAutoConfirm;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  const uint32_t idx = ePropertyAutoConfirm;
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 const FormatEntity::Entry *Debugger::GetDisassemblyFormat() const {
-  constexpr uint32_t idx = ePropertyDisassemblyFormat;
-  return GetPropertyAtIndexAs<const FormatEntity::Entry *>(idx);
+  const uint32_t idx = ePropertyDisassemblyFormat;
+  return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
 }
 
 const FormatEntity::Entry *Debugger::GetFrameFormat() const {
-  constexpr uint32_t idx = ePropertyFrameFormat;
-  return GetPropertyAtIndexAs<const FormatEntity::Entry *>(idx);
+  const uint32_t idx = ePropertyFrameFormat;
+  return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
 }
 
 const FormatEntity::Entry *Debugger::GetFrameFormatUnique() const {
-  constexpr uint32_t idx = ePropertyFrameFormatUnique;
-  return GetPropertyAtIndexAs<const FormatEntity::Entry *>(idx);
+  const uint32_t idx = ePropertyFrameFormatUnique;
+  return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
 }
 
-uint64_t Debugger::GetStopDisassemblyMaxSize() const {
-  constexpr uint32_t idx = ePropertyStopDisassemblyMaxSize;
-  return GetPropertyAtIndexAs<uint64_t>(
-      idx, g_debugger_properties[idx].default_uint_value);
+uint32_t Debugger::GetStopDisassemblyMaxSize() const {
+  const uint32_t idx = ePropertyStopDisassemblyMaxSize;
+  return m_collection_sp->GetPropertyAtIndexAsUInt64(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
 bool Debugger::GetNotifyVoid() const {
-  constexpr uint32_t idx = ePropertyNotiftVoid;
-  return GetPropertyAtIndexAs<uint64_t>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  const uint32_t idx = ePropertyNotiftVoid;
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 llvm::StringRef Debugger::GetPrompt() const {
-  constexpr uint32_t idx = ePropertyPrompt;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
-}
-
-llvm::StringRef Debugger::GetPromptAnsiPrefix() const {
-  const uint32_t idx = ePropertyPromptAnsiPrefix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
-}
-
-llvm::StringRef Debugger::GetPromptAnsiSuffix() const {
-  const uint32_t idx = ePropertyPromptAnsiSuffix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  const uint32_t idx = ePropertyPrompt;
+  return m_collection_sp->GetPropertyAtIndexAsString(
+      nullptr, idx, g_debugger_properties[idx].default_cstr_value);
 }
 
 void Debugger::SetPrompt(llvm::StringRef p) {
-  constexpr uint32_t idx = ePropertyPrompt;
-  SetPropertyAtIndex(idx, p);
+  const uint32_t idx = ePropertyPrompt;
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
   llvm::StringRef new_prompt = GetPrompt();
   std::string str =
       lldb_private::ansi::FormatAnsiTerminalCodes(new_prompt, GetUseColor());
@@ -332,154 +301,126 @@ void Debugger::SetPrompt(llvm::StringRef p) {
 }
 
 const FormatEntity::Entry *Debugger::GetThreadFormat() const {
-  constexpr uint32_t idx = ePropertyThreadFormat;
-  return GetPropertyAtIndexAs<const FormatEntity::Entry *>(idx);
+  const uint32_t idx = ePropertyThreadFormat;
+  return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
 }
 
 const FormatEntity::Entry *Debugger::GetThreadStopFormat() const {
-  constexpr uint32_t idx = ePropertyThreadStopFormat;
-  return GetPropertyAtIndexAs<const FormatEntity::Entry *>(idx);
+  const uint32_t idx = ePropertyThreadStopFormat;
+  return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
 }
 
 lldb::ScriptLanguage Debugger::GetScriptLanguage() const {
   const uint32_t idx = ePropertyScriptLanguage;
-  return GetPropertyAtIndexAs<lldb::ScriptLanguage>(
-      idx, static_cast<lldb::ScriptLanguage>(
-               g_debugger_properties[idx].default_uint_value));
+  return (lldb::ScriptLanguage)m_collection_sp->GetPropertyAtIndexAsEnumeration(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
 bool Debugger::SetScriptLanguage(lldb::ScriptLanguage script_lang) {
   const uint32_t idx = ePropertyScriptLanguage;
-  return SetPropertyAtIndex(idx, script_lang);
+  return m_collection_sp->SetPropertyAtIndexAsEnumeration(nullptr, idx,
+                                                          script_lang);
 }
 
 lldb::LanguageType Debugger::GetREPLLanguage() const {
   const uint32_t idx = ePropertyREPLLanguage;
-  return GetPropertyAtIndexAs<LanguageType>(idx, {});
+  OptionValueLanguage *value =
+      m_collection_sp->GetPropertyAtIndexAsOptionValueLanguage(nullptr, idx);
+  if (value)
+    return value->GetCurrentValue();
+  return LanguageType();
 }
 
 bool Debugger::SetREPLLanguage(lldb::LanguageType repl_lang) {
   const uint32_t idx = ePropertyREPLLanguage;
-  return SetPropertyAtIndex(idx, repl_lang);
+  return m_collection_sp->SetPropertyAtIndexAsLanguage(nullptr, idx, repl_lang);
 }
 
-uint64_t Debugger::GetTerminalWidth() const {
+uint32_t Debugger::GetTerminalWidth() const {
   const uint32_t idx = ePropertyTerminalWidth;
-  return GetPropertyAtIndexAs<int64_t>(
-      idx, g_debugger_properties[idx].default_uint_value);
+  return m_collection_sp->GetPropertyAtIndexAsSInt64(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
-bool Debugger::SetTerminalWidth(uint64_t term_width) {
+bool Debugger::SetTerminalWidth(uint32_t term_width) {
   if (auto handler_sp = m_io_handler_stack.Top())
     handler_sp->TerminalSizeChanged();
 
   const uint32_t idx = ePropertyTerminalWidth;
-  return SetPropertyAtIndex(idx, term_width);
+  return m_collection_sp->SetPropertyAtIndexAsSInt64(nullptr, idx, term_width);
 }
 
 bool Debugger::GetUseExternalEditor() const {
   const uint32_t idx = ePropertyUseExternalEditor;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 bool Debugger::SetUseExternalEditor(bool b) {
   const uint32_t idx = ePropertyUseExternalEditor;
-  return SetPropertyAtIndex(idx, b);
-}
-
-llvm::StringRef Debugger::GetExternalEditor() const {
-  const uint32_t idx = ePropertyExternalEditor;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
-}
-
-bool Debugger::SetExternalEditor(llvm::StringRef editor) {
-  const uint32_t idx = ePropertyExternalEditor;
-  return SetPropertyAtIndex(idx, editor);
+  return m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, b);
 }
 
 bool Debugger::GetUseColor() const {
   const uint32_t idx = ePropertyUseColor;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 bool Debugger::SetUseColor(bool b) {
   const uint32_t idx = ePropertyUseColor;
-  bool ret = SetPropertyAtIndex(idx, b);
+  bool ret = m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, b);
   SetPrompt(GetPrompt());
   return ret;
 }
 
 bool Debugger::GetShowProgress() const {
   const uint32_t idx = ePropertyShowProgress;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 bool Debugger::SetShowProgress(bool show_progress) {
   const uint32_t idx = ePropertyShowProgress;
-  return SetPropertyAtIndex(idx, show_progress);
+  return m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx,
+                                                      show_progress);
 }
 
 llvm::StringRef Debugger::GetShowProgressAnsiPrefix() const {
   const uint32_t idx = ePropertyShowProgressAnsiPrefix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 llvm::StringRef Debugger::GetShowProgressAnsiSuffix() const {
   const uint32_t idx = ePropertyShowProgressAnsiSuffix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 bool Debugger::GetUseAutosuggestion() const {
   const uint32_t idx = ePropertyShowAutosuggestion;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 llvm::StringRef Debugger::GetAutosuggestionAnsiPrefix() const {
   const uint32_t idx = ePropertyShowAutosuggestionAnsiPrefix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 llvm::StringRef Debugger::GetAutosuggestionAnsiSuffix() const {
   const uint32_t idx = ePropertyShowAutosuggestionAnsiSuffix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
-}
-
-llvm::StringRef Debugger::GetRegexMatchAnsiPrefix() const {
-  const uint32_t idx = ePropertyShowRegexMatchAnsiPrefix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
-}
-
-llvm::StringRef Debugger::GetRegexMatchAnsiSuffix() const {
-  const uint32_t idx = ePropertyShowRegexMatchAnsiSuffix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
-}
-
-bool Debugger::GetShowDontUsePoHint() const {
-  const uint32_t idx = ePropertyShowDontUsePoHint;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 bool Debugger::GetUseSourceCache() const {
   const uint32_t idx = ePropertyUseSourceCache;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value != 0);
 }
 
 bool Debugger::SetUseSourceCache(bool b) {
   const uint32_t idx = ePropertyUseSourceCache;
-  bool ret = SetPropertyAtIndex(idx, b);
+  bool ret = m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, b);
   if (!ret) {
     m_source_file_cache.Clear();
   }
@@ -487,111 +428,95 @@ bool Debugger::SetUseSourceCache(bool b) {
 }
 bool Debugger::GetHighlightSource() const {
   const uint32_t idx = ePropertyHighlightSource;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
 StopShowColumn Debugger::GetStopShowColumn() const {
   const uint32_t idx = ePropertyStopShowColumn;
-  return GetPropertyAtIndexAs<lldb::StopShowColumn>(
-      idx, static_cast<lldb::StopShowColumn>(
-               g_debugger_properties[idx].default_uint_value));
+  return (lldb::StopShowColumn)m_collection_sp->GetPropertyAtIndexAsEnumeration(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
 llvm::StringRef Debugger::GetStopShowColumnAnsiPrefix() const {
   const uint32_t idx = ePropertyStopShowColumnAnsiPrefix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 llvm::StringRef Debugger::GetStopShowColumnAnsiSuffix() const {
   const uint32_t idx = ePropertyStopShowColumnAnsiSuffix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 llvm::StringRef Debugger::GetStopShowLineMarkerAnsiPrefix() const {
   const uint32_t idx = ePropertyStopShowLineMarkerAnsiPrefix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
 llvm::StringRef Debugger::GetStopShowLineMarkerAnsiSuffix() const {
   const uint32_t idx = ePropertyStopShowLineMarkerAnsiSuffix;
-  return GetPropertyAtIndexAs<llvm::StringRef>(
-      idx, g_debugger_properties[idx].default_cstr_value);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, "");
 }
 
-uint64_t Debugger::GetStopSourceLineCount(bool before) const {
+uint32_t Debugger::GetStopSourceLineCount(bool before) const {
   const uint32_t idx =
       before ? ePropertyStopLineCountBefore : ePropertyStopLineCountAfter;
-  return GetPropertyAtIndexAs<uint64_t>(
-      idx, g_debugger_properties[idx].default_uint_value);
+  return m_collection_sp->GetPropertyAtIndexAsSInt64(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
 Debugger::StopDisassemblyType Debugger::GetStopDisassemblyDisplay() const {
   const uint32_t idx = ePropertyStopDisassemblyDisplay;
-  return GetPropertyAtIndexAs<Debugger::StopDisassemblyType>(
-      idx, static_cast<Debugger::StopDisassemblyType>(
-               g_debugger_properties[idx].default_uint_value));
+  return (Debugger::StopDisassemblyType)
+      m_collection_sp->GetPropertyAtIndexAsEnumeration(
+          nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
-uint64_t Debugger::GetDisassemblyLineCount() const {
+uint32_t Debugger::GetDisassemblyLineCount() const {
   const uint32_t idx = ePropertyStopDisassemblyCount;
-  return GetPropertyAtIndexAs<uint64_t>(
-      idx, g_debugger_properties[idx].default_uint_value);
+  return m_collection_sp->GetPropertyAtIndexAsSInt64(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
 bool Debugger::GetAutoOneLineSummaries() const {
   const uint32_t idx = ePropertyAutoOneLineSummaries;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(nullptr, idx, true);
 }
 
 bool Debugger::GetEscapeNonPrintables() const {
   const uint32_t idx = ePropertyEscapeNonPrintables;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(nullptr, idx, true);
 }
 
 bool Debugger::GetAutoIndent() const {
   const uint32_t idx = ePropertyAutoIndent;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(nullptr, idx, true);
 }
 
 bool Debugger::SetAutoIndent(bool b) {
   const uint32_t idx = ePropertyAutoIndent;
-  return SetPropertyAtIndex(idx, b);
+  return m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, b);
 }
 
 bool Debugger::GetPrintDecls() const {
   const uint32_t idx = ePropertyPrintDecls;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_debugger_properties[idx].default_uint_value != 0);
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(nullptr, idx, true);
 }
 
 bool Debugger::SetPrintDecls(bool b) {
   const uint32_t idx = ePropertyPrintDecls;
-  return SetPropertyAtIndex(idx, b);
+  return m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, b);
 }
 
-uint64_t Debugger::GetTabSize() const {
+uint32_t Debugger::GetTabSize() const {
   const uint32_t idx = ePropertyTabSize;
-  return GetPropertyAtIndexAs<uint64_t>(
-      idx, g_debugger_properties[idx].default_uint_value);
+  return m_collection_sp->GetPropertyAtIndexAsUInt64(
+      nullptr, idx, g_debugger_properties[idx].default_uint_value);
 }
 
-bool Debugger::SetTabSize(uint64_t tab_size) {
+bool Debugger::SetTabSize(uint32_t tab_size) {
   const uint32_t idx = ePropertyTabSize;
-  return SetPropertyAtIndex(idx, tab_size);
-}
-
-lldb::DWIMPrintVerbosity Debugger::GetDWIMPrintVerbosity() const {
-  const uint32_t idx = ePropertyDWIMPrintVerbosity;
-  return GetPropertyAtIndexAs<lldb::DWIMPrintVerbosity>(
-      idx, static_cast<lldb::DWIMPrintVerbosity>(
-               g_debugger_properties[idx].default_uint_value));
+  return m_collection_sp->SetPropertyAtIndexAsUInt64(nullptr, idx, tab_size);
 }
 
 #pragma mark Debugger
@@ -615,12 +540,6 @@ void Debugger::Initialize(LoadPluginCallbackType load_plugin_callback) {
 void Debugger::Terminate() {
   assert(g_debugger_list_ptr &&
          "Debugger::Terminate called without a matching Debugger::Initialize!");
-
-  if (g_debugger_list_ptr && g_debugger_list_mutex_ptr) {
-    std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
-    for (const auto &debugger : *g_debugger_list_ptr)
-      debugger->HandleDestroyCallback();
-  }
 
   if (g_thread_pool) {
     // The destructor will wait for all the threads to complete.
@@ -664,8 +583,8 @@ LoadPluginCallback(void *baton, llvm::sys::fs::file_type ft,
                    llvm::StringRef path) {
   Status error;
 
-  static constexpr llvm::StringLiteral g_dylibext(".dylib");
-  static constexpr llvm::StringLiteral g_solibext(".so");
+  static ConstString g_dylibext(".dylib");
+  static ConstString g_solibext(".so");
 
   if (!baton)
     return FileSystem::eEnumerateDirectoryResultQuit;
@@ -741,18 +660,10 @@ DebuggerSP Debugger::CreateInstance(lldb::LogOutputCallback log_callback,
   return debugger_sp;
 }
 
-void Debugger::HandleDestroyCallback() {
-  if (m_destroy_callback) {
-    m_destroy_callback(GetID(), m_destroy_callback_baton);
-    m_destroy_callback = nullptr;
-  }
-}
-
 void Debugger::Destroy(DebuggerSP &debugger_sp) {
   if (!debugger_sp)
     return;
 
-  debugger_sp->HandleDestroyCallback();
   CommandInterpreter &cmd_interpreter = debugger_sp->GetCommandInterpreter();
 
   if (cmd_interpreter.GetSaveSessionOnQuit()) {
@@ -778,20 +689,19 @@ void Debugger::Destroy(DebuggerSP &debugger_sp) {
   }
 }
 
-DebuggerSP
-Debugger::FindDebuggerWithInstanceName(llvm::StringRef instance_name) {
-  if (!g_debugger_list_ptr || !g_debugger_list_mutex_ptr)
-    return DebuggerSP();
-
-  std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
-  for (const DebuggerSP &debugger_sp : *g_debugger_list_ptr) {
-    if (!debugger_sp)
-      continue;
-
-    if (llvm::StringRef(debugger_sp->GetInstanceName()) == instance_name)
-      return debugger_sp;
+DebuggerSP Debugger::FindDebuggerWithInstanceName(ConstString instance_name) {
+  DebuggerSP debugger_sp;
+  if (g_debugger_list_ptr && g_debugger_list_mutex_ptr) {
+    std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
+    DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
+    for (pos = g_debugger_list_ptr->begin(); pos != end; ++pos) {
+      if ((*pos)->m_instance_name == instance_name) {
+        debugger_sp = *pos;
+        break;
+      }
+    }
   }
-  return DebuggerSP();
+  return debugger_sp;
 }
 
 TargetSP Debugger::FindTargetWithProcessID(lldb::pid_t pid) {
@@ -840,31 +750,13 @@ Debugger::Debugger(lldb::LogOutputCallback log_callback, void *baton)
       m_source_manager_up(), m_source_file_cache(),
       m_command_interpreter_up(
           std::make_unique<CommandInterpreter>(*this, false)),
-      m_io_handler_stack(),
-      m_instance_name(llvm::formatv("debugger_{0}", GetID()).str()),
-      m_loaded_plugins(), m_event_handler_thread(), m_io_handler_thread(),
+      m_io_handler_stack(), m_instance_name(), m_loaded_plugins(),
+      m_event_handler_thread(), m_io_handler_thread(),
       m_sync_broadcaster(nullptr, "lldb.debugger.sync"),
       m_broadcaster(m_broadcaster_manager_sp,
                     GetStaticBroadcasterClass().AsCString()),
       m_forward_listener_sp(), m_clear_once() {
-  // Initialize the debugger properties as early as possible as other parts of
-  // LLDB will start querying them during construction.
-  m_collection_sp->Initialize(g_debugger_properties);
-  m_collection_sp->AppendProperty(
-      "target", "Settings specify to debugging targets.", true,
-      Target::GetGlobalProperties().GetValueProperties());
-  m_collection_sp->AppendProperty(
-      "platform", "Platform settings.", true,
-      Platform::GetGlobalPlatformProperties().GetValueProperties());
-  m_collection_sp->AppendProperty(
-      "symbols", "Symbol lookup and cache settings.", true,
-      ModuleList::GetGlobalModuleListProperties().GetValueProperties());
-  if (m_command_interpreter_up) {
-    m_collection_sp->AppendProperty(
-        "interpreter",
-        "Settings specify to the debugger's command interpreter.", true,
-        m_command_interpreter_up->GetValueProperties());
-  }
+  m_instance_name.SetString(llvm::formatv("debugger_{0}", GetID()).str());
   if (log_callback)
     m_callback_handler_sp =
         std::make_shared<CallbackLogHandler>(log_callback, baton);
@@ -886,9 +778,26 @@ Debugger::Debugger(lldb::LogOutputCallback log_callback, void *baton)
   }
   assert(m_dummy_target_sp.get() && "Couldn't construct dummy target?");
 
+  m_collection_sp->Initialize(g_debugger_properties);
+  m_collection_sp->AppendProperty(
+      ConstString("target"),
+      ConstString("Settings specify to debugging targets."), true,
+      Target::GetGlobalProperties().GetValueProperties());
+  m_collection_sp->AppendProperty(
+      ConstString("platform"), ConstString("Platform settings."), true,
+      Platform::GetGlobalPlatformProperties().GetValueProperties());
+  m_collection_sp->AppendProperty(
+      ConstString("symbols"), ConstString("Symbol lookup and cache settings."),
+      true, ModuleList::GetGlobalModuleListProperties().GetValueProperties());
+  if (m_command_interpreter_up) {
+    m_collection_sp->AppendProperty(
+        ConstString("interpreter"),
+        ConstString("Settings specify to the debugger's command interpreter."),
+        true, m_command_interpreter_up->GetValueProperties());
+  }
   OptionValueSInt64 *term_width =
       m_collection_sp->GetPropertyAtIndexAsOptionValueSInt64(
-          ePropertyTerminalWidth);
+          nullptr, ePropertyTerminalWidth);
   term_width->SetMinimumValue(10);
   term_width->SetMaximumValue(1024);
 
@@ -899,22 +808,6 @@ Debugger::Debugger(lldb::LogOutputCallback log_callback, void *baton)
   // Turn off use-color if we don't write to a terminal with color support.
   if (!GetOutputFile().GetIsTerminalWithColors())
     SetUseColor(false);
-
-  if (Diagnostics::Enabled()) {
-    m_diagnostics_callback_id = Diagnostics::Instance().AddCallback(
-        [this](const FileSpec &dir) -> llvm::Error {
-          for (auto &entry : m_stream_handlers) {
-            llvm::StringRef log_path = entry.first();
-            llvm::StringRef file_name = llvm::sys::path::filename(log_path);
-            FileSpec destination = dir.CopyByAppendingPathComponent(file_name);
-            std::error_code ec =
-                llvm::sys::fs::copy_file(log_path, destination.GetPath());
-            if (ec)
-              return llvm::errorCodeToError(ec);
-          }
-          return llvm::Error::success();
-        });
-  }
 
 #if defined(_WIN32) && defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
   // Enabling use of ANSI color codes because LLDB is using them to highlight
@@ -942,7 +835,7 @@ void Debugger::Clear() {
     for (TargetSP target_sp : m_target_list.Targets()) {
       if (target_sp) {
         if (ProcessSP process_sp = target_sp->GetProcessSP())
-          process_sp->Finalize(false /* not destructing */);
+          process_sp->Finalize();
         target_sp->Destroy();
       }
     }
@@ -954,10 +847,16 @@ void Debugger::Clear() {
     GetInputFile().Close();
 
     m_command_interpreter_up->Clear();
-
-    if (Diagnostics::Enabled())
-      Diagnostics::Instance().RemoveCallback(m_diagnostics_callback_id);
   });
+}
+
+bool Debugger::GetCloseInputOnEOF() const {
+  //    return m_input_comm.GetCloseOnEOF();
+  return false;
+}
+
+void Debugger::SetCloseInputOnEOF(bool b) {
+  //    m_input_comm.SetCloseOnEOF(b);
 }
 
 bool Debugger::GetAsyncExecution() {
@@ -1156,7 +1055,7 @@ void Debugger::PrintAsync(const char *s, size_t len, bool is_stdout) {
   }
 }
 
-llvm::StringRef Debugger::GetTopIOHandlerControlSequence(char ch) {
+ConstString Debugger::GetTopIOHandlerControlSequence(char ch) {
   return m_io_handler_stack.GetTopIOHandlerControlSequence(ch);
 }
 
@@ -1280,56 +1179,6 @@ StreamSP Debugger::GetAsyncErrorStream() {
   return std::make_shared<StreamAsynchronousIO>(*this, false, GetUseColor());
 }
 
-void Debugger::RequestInterrupt() {
-  std::lock_guard<std::mutex> guard(m_interrupt_mutex);
-  m_interrupt_requested++;
-}
-
-void Debugger::CancelInterruptRequest() {
-  std::lock_guard<std::mutex> guard(m_interrupt_mutex);
-  if (m_interrupt_requested > 0)
-    m_interrupt_requested--;
-}
-
-bool Debugger::InterruptRequested() {
-  // This is the one we should call internally.  This will return true either
-  // if there's a debugger interrupt and we aren't on the IOHandler thread,
-  // or if we are on the IOHandler thread and there's a CommandInterpreter
-  // interrupt.
-  if (!IsIOHandlerThreadCurrentThread()) {
-    std::lock_guard<std::mutex> guard(m_interrupt_mutex);
-    return m_interrupt_requested != 0;
-  }
-  return GetCommandInterpreter().WasInterrupted();
-}
-
-Debugger::InterruptionReport::InterruptionReport(
-    std::string function_name, const llvm::formatv_object_base &payload)
-    : m_function_name(std::move(function_name)),
-      m_interrupt_time(std::chrono::system_clock::now()),
-      m_thread_id(llvm::get_threadid()) {
-  llvm::raw_string_ostream desc(m_description);
-  desc << payload << "\n";
-}
-
-void Debugger::ReportInterruption(const InterruptionReport &report) {
-  // For now, just log the description:
-  Log *log = GetLog(LLDBLog::Host);
-  LLDB_LOG(log, "Interruption: {0}", report.m_description);
-}
-
-Debugger::DebuggerList Debugger::DebuggersRequestingInterruption() {
-  DebuggerList result;
-  if (g_debugger_list_ptr && g_debugger_list_mutex_ptr) {
-    std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
-    for (auto debugger_sp : *g_debugger_list_ptr) {
-      if (debugger_sp->InterruptRequested())
-        result.push_back(debugger_sp);
-    }
-  }
-  return result;
-}
-
 size_t Debugger::GetNumDebuggers() {
   if (g_debugger_list_ptr && g_debugger_list_mutex_ptr) {
     std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
@@ -1408,13 +1257,6 @@ bool Debugger::FormatDisassemblerAddress(const FormatEntity::Entry *format,
                               function_changed, initial_function);
 }
 
-void Debugger::AssertCallback(llvm::StringRef message,
-                              llvm::StringRef backtrace,
-                              llvm::StringRef prompt) {
-  Debugger::ReportError(
-      llvm::formatv("{0}\n{1}{2}", message, backtrace, prompt).str());
-}
-
 void Debugger::SetLoggingCallback(lldb::LogOutputCallback log_callback,
                                   void *baton) {
   // For simplicity's sake, I am not going to deal with how to close down any
@@ -1424,14 +1266,8 @@ void Debugger::SetLoggingCallback(lldb::LogOutputCallback log_callback,
       std::make_shared<CallbackLogHandler>(log_callback, baton);
 }
 
-void Debugger::SetDestroyCallback(
-    lldb_private::DebuggerDestroyCallback destroy_callback, void *baton) {
-  m_destroy_callback = destroy_callback;
-  m_destroy_callback_baton = baton;
-}
-
 static void PrivateReportProgress(Debugger &debugger, uint64_t progress_id,
-                                  std::string title, std::string details,
+                                  const std::string &message,
                                   uint64_t completed, uint64_t total,
                                   bool is_debugger_specific) {
   // Only deliver progress events if we have any progress listeners.
@@ -1439,25 +1275,22 @@ static void PrivateReportProgress(Debugger &debugger, uint64_t progress_id,
   if (!debugger.GetBroadcaster().EventTypeHasListeners(event_type))
     return;
   EventSP event_sp(new Event(
-      event_type,
-      new ProgressEventData(progress_id, std::move(title), std::move(details),
-                            completed, total, is_debugger_specific)));
+      event_type, new ProgressEventData(progress_id, message, completed, total,
+                                        is_debugger_specific)));
   debugger.GetBroadcaster().BroadcastEvent(event_sp);
 }
 
-void Debugger::ReportProgress(uint64_t progress_id, std::string title,
-                              std::string details, uint64_t completed,
-                              uint64_t total,
-                              std::optional<lldb::user_id_t> debugger_id) {
+void Debugger::ReportProgress(uint64_t progress_id, const std::string &message,
+                              uint64_t completed, uint64_t total,
+                              llvm::Optional<lldb::user_id_t> debugger_id) {
   // Check if this progress is for a specific debugger.
   if (debugger_id) {
     // It is debugger specific, grab it and deliver the event if the debugger
     // still exists.
     DebuggerSP debugger_sp = FindDebuggerWithID(*debugger_id);
     if (debugger_sp)
-      PrivateReportProgress(*debugger_sp, progress_id, std::move(title),
-                            std::move(details), completed, total,
-                            /*is_debugger_specific*/ true);
+      PrivateReportProgress(*debugger_sp, progress_id, message, completed,
+                            total, /*is_debugger_specific*/ true);
     return;
   }
   // The progress event is not debugger specific, iterate over all debuggers
@@ -1466,8 +1299,8 @@ void Debugger::ReportProgress(uint64_t progress_id, std::string title,
     std::lock_guard<std::recursive_mutex> guard(*g_debugger_list_mutex_ptr);
     DebuggerList::iterator pos, end = g_debugger_list_ptr->end();
     for (pos = g_debugger_list_ptr->begin(); pos != end; ++pos)
-      PrivateReportProgress(*(*pos), progress_id, title, details, completed,
-                            total, /*is_debugger_specific*/ false);
+      PrivateReportProgress(*(*pos), progress_id, message, completed, total,
+                            /*is_debugger_specific*/ false);
   }
 }
 
@@ -1477,9 +1310,6 @@ static void PrivateReportDiagnostic(Debugger &debugger,
                                     bool debugger_specific) {
   uint32_t event_type = 0;
   switch (type) {
-  case DiagnosticEventData::Type::Info:
-    assert(false && "DiagnosticEventData::Type::Info should not be broadcast");
-    return;
   case DiagnosticEventData::Type::Warning:
     event_type = Debugger::eBroadcastBitWarning;
     break;
@@ -1505,18 +1335,9 @@ static void PrivateReportDiagnostic(Debugger &debugger,
 
 void Debugger::ReportDiagnosticImpl(DiagnosticEventData::Type type,
                                     std::string message,
-                                    std::optional<lldb::user_id_t> debugger_id,
+                                    llvm::Optional<lldb::user_id_t> debugger_id,
                                     std::once_flag *once) {
   auto ReportDiagnosticLambda = [&]() {
-    // The diagnostic subsystem is optional but we still want to broadcast
-    // events when it's disabled.
-    if (Diagnostics::Enabled())
-      Diagnostics::Instance().Report(message);
-
-    // We don't broadcast info events.
-    if (type == DiagnosticEventData::Type::Info)
-      return;
-
     // Check if this diagnostic is for a specific debugger.
     if (debugger_id) {
       // It is debugger specific, grab it and deliver the event if the debugger
@@ -1542,23 +1363,16 @@ void Debugger::ReportDiagnosticImpl(DiagnosticEventData::Type type,
 }
 
 void Debugger::ReportWarning(std::string message,
-                             std::optional<lldb::user_id_t> debugger_id,
+                             llvm::Optional<lldb::user_id_t> debugger_id,
                              std::once_flag *once) {
   ReportDiagnosticImpl(DiagnosticEventData::Type::Warning, std::move(message),
                        debugger_id, once);
 }
 
 void Debugger::ReportError(std::string message,
-                           std::optional<lldb::user_id_t> debugger_id,
+                           llvm::Optional<lldb::user_id_t> debugger_id,
                            std::once_flag *once) {
   ReportDiagnosticImpl(DiagnosticEventData::Type::Error, std::move(message),
-                       debugger_id, once);
-}
-
-void Debugger::ReportInfo(std::string message,
-                          std::optional<lldb::user_id_t> debugger_id,
-                          std::once_flag *once) {
-  ReportDiagnosticImpl(DiagnosticEventData::Type::Info, std::move(message),
                        debugger_id, once);
 }
 
@@ -1642,7 +1456,7 @@ bool Debugger::EnableLog(llvm::StringRef channel,
 
 ScriptInterpreter *
 Debugger::GetScriptInterpreter(bool can_create,
-                               std::optional<lldb::ScriptLanguage> language) {
+                               llvm::Optional<lldb::ScriptLanguage> language) {
   std::lock_guard<std::recursive_mutex> locker(m_script_interpreter_mutex);
   lldb::ScriptLanguage script_language =
       language ? *language : GetScriptLanguage();
@@ -1763,10 +1577,7 @@ void Debugger::HandleProcessEvent(const EventSP &event_sp) {
 
     // Display running state changes first before any STDIO
     if (got_state_changed && !state_is_stopped) {
-      // This is a public stop which we are going to announce to the user, so
-      // we should force the most relevant frame selection here.
       Process::HandleProcessStateChangedEvent(event_sp, output_stream_sp.get(),
-                                              SelectMostRelevantFrame,
                                               pop_process_io_handler);
     }
 
@@ -1806,7 +1617,6 @@ void Debugger::HandleProcessEvent(const EventSP &event_sp) {
     // Now display any stopped state changes after any STDIO
     if (got_state_changed && state_is_stopped) {
       Process::HandleProcessStateChangedEvent(event_sp, output_stream_sp.get(),
-                                              SelectMostRelevantFrame,
                                               pop_process_io_handler);
     }
 
@@ -1884,7 +1694,7 @@ lldb::thread_result_t Debugger::DefaultEventHandler() {
   bool done = false;
   while (!done) {
     EventSP event_sp;
-    if (listener_sp->GetEvent(event_sp, std::nullopt)) {
+    if (listener_sp->GetEvent(event_sp, llvm::None)) {
       if (event_sp) {
         Broadcaster *broadcaster = event_sp->GetBroadcaster();
         if (broadcaster) {
@@ -1969,8 +1779,8 @@ bool Debugger::StartEventHandlerThread() {
     if (event_handler_thread) {
       m_event_handler_thread = *event_handler_thread;
     } else {
-      LLDB_LOG_ERROR(GetLog(LLDBLog::Host), event_handler_thread.takeError(),
-                     "failed to launch host thread: {0}");
+      LLDB_LOG(GetLog(LLDBLog::Host), "failed to launch host thread: {}",
+               llvm::toString(event_handler_thread.takeError()));
     }
 
     // Make sure DefaultEventHandler() is running and listening to events
@@ -1979,7 +1789,7 @@ bool Debugger::StartEventHandlerThread() {
     // event, we just need to wait an infinite amount of time for it (nullptr
     // timeout as the first parameter)
     lldb::EventSP event_sp;
-    listener_sp->GetEvent(event_sp, std::nullopt);
+    listener_sp->GetEvent(event_sp, llvm::None);
   }
   return m_event_handler_thread.IsJoinable();
 }
@@ -2092,15 +1902,7 @@ void Debugger::HandleDiagnosticEvent(const lldb::EventSP &event_sp) {
   data->Dump(stream.get());
 }
 
-bool Debugger::HasIOHandlerThread() const {
-  return m_io_handler_thread.IsJoinable();
-}
-
-HostThread Debugger::SetIOHandlerThread(HostThread &new_thread) {
-  HostThread old_host = m_io_handler_thread;
-  m_io_handler_thread = new_thread;
-  return old_host;
-}
+bool Debugger::HasIOHandlerThread() { return m_io_handler_thread.IsJoinable(); }
 
 bool Debugger::StartIOHandlerThread() {
   if (!m_io_handler_thread.IsJoinable()) {
@@ -2110,8 +1912,8 @@ bool Debugger::StartIOHandlerThread() {
     if (io_handler_thread) {
       m_io_handler_thread = *io_handler_thread;
     } else {
-      LLDB_LOG_ERROR(GetLog(LLDBLog::Host), io_handler_thread.takeError(),
-                     "failed to launch host thread: {0}");
+      LLDB_LOG(GetLog(LLDBLog::Host), "failed to launch host thread: {}",
+               llvm::toString(io_handler_thread.takeError()));
     }
   }
   return m_io_handler_thread.IsJoinable();
@@ -2130,12 +1932,6 @@ void Debugger::JoinIOHandlerThread() {
     m_io_handler_thread.Join(&result);
     m_io_handler_thread = LLDB_INVALID_HOST_THREAD;
   }
-}
-
-bool Debugger::IsIOHandlerThreadCurrentThread() const {
-  if (!HasIOHandlerThread())
-    return false;
-  return m_io_handler_thread.EqualsThread(Host::GetCurrentThread());
 }
 
 Target &Debugger::GetSelectedOrDummyTarget(bool prefer_dummy) {

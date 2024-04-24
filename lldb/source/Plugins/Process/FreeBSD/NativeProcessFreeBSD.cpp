@@ -51,8 +51,9 @@ static Status EnsureFDFlags(int fd, int flags) {
 // Public Static Methods
 
 llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-NativeProcessFreeBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
-                                      NativeDelegate &native_delegate) {
+NativeProcessFreeBSD::Factory::Launch(ProcessLaunchInfo &launch_info,
+                                      NativeDelegate &native_delegate,
+                                      MainLoop &mainloop) const {
   Log *log = GetLog(POSIXLog::Process);
 
   Status status;
@@ -69,7 +70,7 @@ NativeProcessFreeBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
   int wstatus;
   ::pid_t wpid = llvm::sys::RetryAfterSignal(-1, ::waitpid, pid, &wstatus, 0);
   assert(wpid == pid);
-  UNUSED_IF_ASSERT_DISABLED(wpid);
+  (void)wpid;
   if (!WIFSTOPPED(wstatus)) {
     LLDB_LOG(log, "Could not sync with inferior process: wstatus={1}",
              WaitStatus::Decode(wstatus));
@@ -90,7 +91,7 @@ NativeProcessFreeBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
 
   std::unique_ptr<NativeProcessFreeBSD> process_up(new NativeProcessFreeBSD(
       pid, launch_info.GetPTY().ReleasePrimaryFileDescriptor(), native_delegate,
-      Info.GetArchitecture(), m_mainloop));
+      Info.GetArchitecture(), mainloop));
 
   status = process_up->SetupTrace();
   if (status.Fail())
@@ -104,8 +105,9 @@ NativeProcessFreeBSD::Manager::Launch(ProcessLaunchInfo &launch_info,
 }
 
 llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-NativeProcessFreeBSD::Manager::Attach(
-    lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate) {
+NativeProcessFreeBSD::Factory::Attach(
+    lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate,
+    MainLoop &mainloop) const {
   Log *log = GetLog(POSIXLog::Process);
   LLDB_LOG(log, "pid = {0:x}", pid);
 
@@ -117,7 +119,7 @@ NativeProcessFreeBSD::Manager::Attach(
   }
 
   std::unique_ptr<NativeProcessFreeBSD> process_up(new NativeProcessFreeBSD(
-      pid, -1, native_delegate, Info.GetArchitecture(), m_mainloop));
+      pid, -1, native_delegate, Info.GetArchitecture(), mainloop));
 
   Status status = process_up->Attach();
   if (!status.Success())
@@ -127,7 +129,7 @@ NativeProcessFreeBSD::Manager::Attach(
 }
 
 NativeProcessFreeBSD::Extension
-NativeProcessFreeBSD::Manager::GetSupportedExtensions() const {
+NativeProcessFreeBSD::Factory::GetSupportedExtensions() const {
   return
 #if defined(PT_COREDUMP)
       Extension::savecore |
@@ -415,9 +417,9 @@ NativeProcessFreeBSD::GetSoftwareBreakpointTrapOpcode(size_t size_hint) {
   case llvm::Triple::arm:
     switch (size_hint) {
     case 2:
-      return llvm::ArrayRef(g_thumb_opcode);
+      return llvm::makeArrayRef(g_thumb_opcode);
     case 4:
-      return llvm::ArrayRef(g_arm_opcode);
+      return llvm::makeArrayRef(g_arm_opcode);
     default:
       return llvm::createStringError(llvm::inconvertibleErrorCode(),
                                      "Unrecognised trap opcode size hint!");

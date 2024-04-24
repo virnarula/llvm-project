@@ -12,7 +12,6 @@
 #include "bolt/Core/BinaryContext.h"
 #include "bolt/Core/BinaryFunction.h"
 #include "llvm/Support/Errc.h"
-#include <optional>
 #include <queue>
 
 namespace llvm {
@@ -153,7 +152,7 @@ class DataflowAnalysis {
     return *static_cast<const Derived *>(this);
   }
 
-  mutable std::optional<unsigned> AnnotationIndex;
+  mutable Optional<unsigned> AnnotationIndex;
 
 protected:
   const BinaryContext &BC;
@@ -341,11 +340,12 @@ public:
         }
       }
     } else {
-      for (BinaryBasicBlock &BB : llvm::reverse(Func)) {
-        Worklist.push(&BB);
+      for (auto I = Func.rbegin(), E = Func.rend(); I != E; ++I) {
+        Worklist.push(&*I);
         MCInst *Prev = nullptr;
-        for (MCInst &Inst : llvm::reverse(BB)) {
-          PrevPoint[&Inst] = Prev ? ProgramPoint(Prev) : ProgramPoint(&BB);
+        for (auto J = (*I).rbegin(), E2 = (*I).rend(); J != E2; ++J) {
+          MCInst &Inst = *J;
+          PrevPoint[&Inst] = Prev ? ProgramPoint(Prev) : ProgramPoint(&*I);
           Prev = &Inst;
         }
       }
@@ -416,8 +416,8 @@ public:
         for (MCInst &Inst : *BB)
           doNext(Inst, *BB);
       else
-        for (MCInst &Inst : llvm::reverse(*BB))
-          doNext(Inst, *BB);
+        for (auto I = BB->rbegin(), E = BB->rend(); I != E; ++I)
+          doNext(*I, *BB);
 
       if (Changed) {
         if (!Backward) {

@@ -3,15 +3,15 @@
 
 target triple = "wasm32-unknown-unknown"
 
-declare void @llvm.wasm.throw(i32, ptr)
+declare void @llvm.wasm.throw(i32, i8*)
 
-define i32 @test_throw0(ptr %p) {
-  call void @llvm.wasm.throw(i32 0, ptr %p)
+define i32 @test_throw0(i8* %p) {
+  call void @llvm.wasm.throw(i32 0, i8* %p)
   ret i32 0
 }
 
-define i32 @test_throw1(ptr %p) {
-  call void @llvm.wasm.throw(i32 0, ptr %p)
+define i32 @test_throw1(i8* %p) {
+  call void @llvm.wasm.throw(i32 0, i8* %p)
   ret i32 1
 }
 
@@ -53,4 +53,4 @@ define i32 @test_throw1(ptr %p) {
 
 ; SEC:          Type: TAG (0xD)
 ; SEC-NEXT:     Size: 3
-; SEC-NEXT:     Offset: 69
+; SEC-NEXT:     Offset: 63

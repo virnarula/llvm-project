@@ -32,7 +32,7 @@ public:
 
   ~CSKYMCCodeEmitter() {}
 
-  void encodeInstruction(const MCInst &Inst, SmallVectorImpl<char> &CB,
+  void encodeInstruction(const MCInst &Inst, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override;
 
@@ -172,13 +172,13 @@ public:
     return 0;
   }
 
-  void expandJBTF(const MCInst &MI, SmallVectorImpl<char> &CB,
+  void expandJBTF(const MCInst &MI, raw_ostream &OS,
                   SmallVectorImpl<MCFixup> &Fixups,
                   const MCSubtargetInfo &STI) const;
-  void expandNEG(const MCInst &MI, SmallVectorImpl<char> &CB,
+  void expandNEG(const MCInst &MI, raw_ostream &OS,
                  SmallVectorImpl<MCFixup> &Fixups,
                  const MCSubtargetInfo &STI) const;
-  void expandRSUBI(const MCInst &MI, SmallVectorImpl<char> &CB,
+  void expandRSUBI(const MCInst &MI, raw_ostream &OS,
                    SmallVectorImpl<MCFixup> &Fixups,
                    const MCSubtargetInfo &STI) const;
 };

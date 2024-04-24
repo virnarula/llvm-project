@@ -27,6 +27,7 @@
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
+#include "lldb/Core/StreamFile.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Expression/ExpressionSourceCode.h"
 #include "lldb/Expression/IRExecutionUnit.h"
@@ -488,18 +489,18 @@ CppModuleConfiguration GetModuleConfig(lldb::LanguageType language,
 
   // Build a list of files we need to analyze to build the configuration.
   FileSpecList files;
-  for (auto &f : sc.comp_unit->GetSupportFiles())
-    files.AppendIfUnique(f->Materialize());
+  for (const FileSpec &f : sc.comp_unit->GetSupportFiles())
+    files.AppendIfUnique(f);
   // We also need to look at external modules in the case of -gmodules as they
   // contain the support files for libc++ and the C library.
   llvm::DenseSet<SymbolFile *> visited_symbol_files;
   sc.comp_unit->ForEachExternalModule(
       visited_symbol_files, [&files](Module &module) {
         for (std::size_t i = 0; i < module.GetNumCompileUnits(); ++i) {
-          const SupportFileList &support_files =
+          const FileSpecList &support_files =
               module.GetCompileUnitAtIndex(i)->GetSupportFiles();
-          for (auto &f : support_files) {
-            files.AppendIfUnique(f->Materialize());
+          for (const FileSpec &f : support_files) {
+            files.AppendIfUnique(f);
           }
         }
         return false;
@@ -508,7 +509,7 @@ CppModuleConfiguration GetModuleConfig(lldb::LanguageType language,
   LLDB_LOG(log, "[C++ module config] Found {0} support files to analyze",
            files.GetSize());
   if (log && log->GetVerbose()) {
-    for (auto &f : files)
+    for (const FileSpec &f : files)
       LLDB_LOGV(log, "[C++ module config] Analyzing support file: {0}",
                 f.GetPath());
   }
@@ -872,14 +873,15 @@ bool ClangUserExpression::Complete(ExecutionContext &exe_ctx,
 }
 
 lldb::addr_t ClangUserExpression::GetCppObjectPointer(
-    lldb::StackFrameSP frame_sp, llvm::StringRef object_name, Status &err) {
+    lldb::StackFrameSP frame_sp, ConstString &object_name, Status &err) {
   auto valobj_sp =
       GetObjectPointerValueObject(std::move(frame_sp), object_name, err);
 
   // We're inside a C++ class method. This could potentially be an unnamed
   // lambda structure. If the lambda captured a "this", that should be
   // the object pointer.
-  if (auto thisChildSP = valobj_sp->GetChildMemberWithName("this")) {
+  if (auto thisChildSP =
+          valobj_sp->GetChildMemberWithName(ConstString("this"), true)) {
     valobj_sp = thisChildSP;
   }
 
@@ -889,9 +891,9 @@ lldb::addr_t ClangUserExpression::GetCppObjectPointer(
   lldb::addr_t ret = valobj_sp->GetValueAsUnsigned(LLDB_INVALID_ADDRESS);
 
   if (ret == LLDB_INVALID_ADDRESS) {
-    err.SetErrorStringWithFormatv(
-        "Couldn't load '{0}' because its value couldn't be evaluated",
-        object_name);
+    err.SetErrorStringWithFormat(
+        "Couldn't load '%s' because its value couldn't be evaluated",
+        object_name.AsCString());
     return LLDB_INVALID_ADDRESS;
   }
 
@@ -910,17 +912,18 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
     if (!frame_sp)
       return true;
 
-    if (!m_in_cplusplus_method && !m_in_objectivec_method) {
+    ConstString object_name;
+
+    if (m_in_cplusplus_method) {
+      object_name.SetCString("this");
+    } else if (m_in_objectivec_method) {
+      object_name.SetCString("self");
+    } else {
       diagnostic_manager.PutString(
           eDiagnosticSeverityError,
           "need object pointer but don't know the language");
       return false;
     }
-
-    static constexpr llvm::StringLiteral g_cplusplus_object_name("this");
-    static constexpr llvm::StringLiteral g_objc_object_name("self");
-    llvm::StringRef object_name =
-        m_in_cplusplus_method ? g_cplusplus_object_name : g_objc_object_name;
 
     Status object_ptr_error;
 
@@ -941,14 +944,14 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
     }
 
     if (!object_ptr_error.Success()) {
-      exe_ctx.GetTargetRef().GetDebugger().GetAsyncOutputStream()->Format(
-          "warning: `{0}' is not accessible (substituting 0). {1}\n",
-          object_name, object_ptr_error.AsCString());
+      exe_ctx.GetTargetRef().GetDebugger().GetAsyncOutputStream()->Printf(
+          "warning: `%s' is not accessible (substituting 0). %s\n",
+          object_name.AsCString(), object_ptr_error.AsCString());
       object_ptr = 0;
     }
 
     if (m_in_objectivec_method) {
-      static constexpr llvm::StringLiteral cmd_name("_cmd");
+      ConstString cmd_name("_cmd");
 
       cmd_ptr = GetObjectPointer(frame_sp, cmd_name, object_ptr_error);
 
@@ -977,8 +980,6 @@ lldb::ExpressionVariableSP ClangUserExpression::GetResultAfterDematerialization(
     ExecutionContextScope *exe_scope) {
   return m_result_delegate.GetVariable();
 }
-
-char ClangUserExpression::ClangUserExpressionHelper::ID;
 
 void ClangUserExpression::ClangUserExpressionHelper::ResetDeclMap(
     ExecutionContext &exe_ctx,

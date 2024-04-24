@@ -11,7 +11,6 @@
 #include "mlir/Dialect/Arith/Transforms/WideIntEmulationConverter.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
-#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -67,8 +66,7 @@ struct ConvertMemRefLoad final : OpConversionPattern<memref::LoadOp> {
                                       op.getMemRefType()));
 
     rewriter.replaceOpWithNewOp<memref::LoadOp>(
-        op, newResTy, adaptor.getMemref(), adaptor.getIndices(),
-        op.getNontemporal());
+        op, newResTy, adaptor.getMemref(), adaptor.getIndices());
     return success();
   }
 };
@@ -90,8 +88,7 @@ struct ConvertMemRefStore final : OpConversionPattern<memref::StoreOp> {
                                       op.getMemRefType()));
 
     rewriter.replaceOpWithNewOp<memref::StoreOp>(
-        op, adaptor.getValue(), adaptor.getMemref(), adaptor.getIndices(),
-        op.getNontemporal());
+        op, adaptor.getValue(), adaptor.getMemref(), adaptor.getIndices());
     return success();
   }
 };
@@ -148,8 +145,8 @@ void memref::populateMemRefWideIntEmulationPatterns(
 void memref::populateMemRefWideIntEmulationConversions(
     arith::WideIntEmulationConverter &typeConverter) {
   typeConverter.addConversion(
-      [&typeConverter](MemRefType ty) -> std::optional<Type> {
-        auto intTy = dyn_cast<IntegerType>(ty.getElementType());
+      [&typeConverter](MemRefType ty) -> Optional<Type> {
+        auto intTy = ty.getElementType().dyn_cast<IntegerType>();
         if (!intTy)
           return ty;
 
@@ -159,8 +156,8 @@ void memref::populateMemRefWideIntEmulationConversions(
 
         Type newElemTy = typeConverter.convertType(intTy);
         if (!newElemTy)
-          return std::nullopt;
+          return None;
 
-        return ty.cloneWith(std::nullopt, newElemTy);
+        return ty.cloneWith(None, newElemTy);
       });
 }

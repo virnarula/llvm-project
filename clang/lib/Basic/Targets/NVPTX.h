@@ -16,9 +16,8 @@
 #include "clang/Basic/Cuda.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TargetOptions.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/TargetParser/Triple.h"
-#include <optional>
 
 namespace clang {
 namespace targets {
@@ -45,9 +44,6 @@ static const unsigned NVPTXAddrSpaceMap[] = {
     0, // ptr32_uptr
     0, // ptr64
     0, // hlsl_groupshared
-    // Wasm address space values for this target are dummy values,
-    // as it is only enabled for Wasm targets.
-    20, // wasm_funcref
 };
 
 /// The DWARF address class. Taken from
@@ -62,6 +58,7 @@ static const int NVPTXDWARFAddrSpaceMap[] = {
 
 class LLVM_LIBRARY_VISIBILITY NVPTXTargetInfo : public TargetInfo {
   static const char *const GCCRegNames[];
+  static const Builtin::Info BuiltinInfo[];
   CudaArch GPU;
   uint32_t PTXVersion;
   std::unique_ptr<TargetInfo> HostTarget;
@@ -90,7 +87,7 @@ public:
 
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
     // No aliases.
-    return std::nullopt;
+    return None;
   }
 
   bool validateAsmConstraint(const char *&Name,
@@ -109,7 +106,7 @@ public:
     }
   }
 
-  std::string_view getClobbers() const override {
+  const char *getClobbers() const override {
     // FIXME: Is this really right?
     return "";
   }
@@ -159,13 +156,13 @@ public:
   /// space \p AddressSpace to be converted in order to be used, then return the
   /// corresponding target specific DWARF address space.
   ///
-  /// \returns Otherwise return std::nullopt and no conversion will be emitted
-  /// in the DWARF.
-  std::optional<unsigned>
+  /// \returns Otherwise return None and no conversion will be emitted in the
+  /// DWARF.
+  Optional<unsigned>
   getDWARFAddressSpace(unsigned AddressSpace) const override {
     if (AddressSpace >= std::size(NVPTXDWARFAddrSpaceMap) ||
         NVPTXDWARFAddrSpaceMap[AddressSpace] < 0)
-      return std::nullopt;
+      return llvm::None;
     return NVPTXDWARFAddrSpaceMap[AddressSpace];
   }
 
@@ -181,8 +178,7 @@ public:
 
   bool hasBitIntType() const override { return true; }
   bool hasBFloat16Type() const override { return true; }
-
-  CudaArch getGPU() const { return GPU; }
+  const char *getBFloat16Mangling() const override { return "u6__bf16"; };
 };
 } // namespace targets
 } // namespace clang

@@ -17,7 +17,6 @@
 
 namespace mlir {
 class ModuleOp;
-class ConversionTarget;
 
 #define GEN_PASS_DECL
 #include "mlir/Dialect/Async/Passes.h.inc"
@@ -27,11 +26,6 @@ std::unique_ptr<Pass> createAsyncParallelForPass();
 std::unique_ptr<Pass> createAsyncParallelForPass(bool asyncDispatch,
                                                  int32_t numWorkerThreads,
                                                  int32_t minTaskSize);
-
-void populateAsyncFuncToAsyncRuntimeConversionPatterns(
-    RewritePatternSet &patterns, ConversionTarget &target);
-
-std::unique_ptr<OperationPass<ModuleOp>> createAsyncFuncToAsyncRuntimePass();
 
 std::unique_ptr<OperationPass<ModuleOp>> createAsyncToAsyncRuntimePass();
 

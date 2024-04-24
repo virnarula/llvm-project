@@ -6,20 +6,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: no-filesystem
-// UNSUPPORTED: availability-filesystem-missing
+// UNSUPPORTED: c++03
 
 // <filesystem>
 
 // space_info space(const path& p);
 // space_info space(const path& p, error_code& ec) noexcept;
 
-#include <filesystem>
+#include "filesystem_include.h"
 
 #include "test_macros.h"
+#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-namespace fs = std::filesystem;
+
 using namespace fs;
 
 bool EqualDelta(std::uintmax_t x, std::uintmax_t y, std::uintmax_t delta) {
@@ -30,7 +29,9 @@ bool EqualDelta(std::uintmax_t x, std::uintmax_t y, std::uintmax_t delta) {
     }
 }
 
-static void signature_test()
+TEST_SUITE(filesystem_space_test_suite)
+
+TEST_CASE(signature_test)
 {
     const path p; ((void)p);
     std::error_code ec; ((void)ec);
@@ -40,7 +41,7 @@ static void signature_test()
     ASSERT_NOEXCEPT(space(p, ec));
 }
 
-static void test_error_reporting()
+TEST_CASE(test_error_reporting)
 {
     static_test_env static_env;
     auto checkThrow = [](path const& f, const std::error_code& ec)
@@ -68,15 +69,15 @@ static void test_error_reporting()
         const auto expect = static_cast<std::uintmax_t>(-1);
         std::error_code ec;
         space_info info = space(p, ec);
-        assert(ec);
-        assert(info.capacity == expect);
-        assert(info.free == expect);
-        assert(info.available == expect);
-        assert(checkThrow(p, ec));
+        TEST_CHECK(ec);
+        TEST_CHECK(info.capacity == expect);
+        TEST_CHECK(info.free == expect);
+        TEST_CHECK(info.available == expect);
+        TEST_CHECK(checkThrow(p, ec));
     }
 }
 
-static void basic_space_test()
+TEST_CASE(basic_space_test)
 {
     static_test_env static_env;
 
@@ -87,7 +88,7 @@ static void basic_space_test()
     std::uintmax_t expect_capacity;
     std::uintmax_t expect_free;
     std::uintmax_t expect_avail;
-    assert(utils::space(static_env.Dir.string(), expect_capacity,
+    TEST_REQUIRE(utils::space(static_env.Dir.string(), expect_capacity,
                               expect_free, expect_avail));
 
     // Other processes running on the operating system may have changed
@@ -104,20 +105,14 @@ static void basic_space_test()
     for (auto& p : cases) {
         std::error_code ec = GetTestEC();
         space_info info = space(p, ec);
-        assert(!ec);
-        assert(info.capacity != bad_value);
-        assert(expect_capacity == info.capacity);
-        assert(info.free != bad_value);
-        assert(EqualDelta(expect_free, info.free, delta));
-        assert(info.available != bad_value);
-        assert(EqualDelta(expect_avail, info.available, delta));
+        TEST_CHECK(!ec);
+        TEST_CHECK(info.capacity != bad_value);
+        TEST_CHECK(expect_capacity == info.capacity);
+        TEST_CHECK(info.free != bad_value);
+        TEST_CHECK(EqualDelta(expect_free, info.free, delta));
+        TEST_CHECK(info.available != bad_value);
+        TEST_CHECK(EqualDelta(expect_avail, info.available, delta));
     }
 }
 
-int main(int, char**) {
-    signature_test();
-    test_error_reporting();
-    basic_space_test();
-
-    return 0;
-}
+TEST_SUITE_END()

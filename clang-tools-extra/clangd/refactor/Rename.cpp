@@ -19,7 +19,6 @@
 #include "clang/AST/ASTTypeTraits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/Stmt.h"
@@ -27,6 +26,7 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Tooling/Syntax/Tokens.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
@@ -34,20 +34,19 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/JSON.h"
 #include <algorithm>
-#include <optional>
 
 namespace clang {
 namespace clangd {
 namespace {
 
-std::optional<std::string> filePath(const SymbolLocation &Loc,
-                                    llvm::StringRef HintFilePath) {
+llvm::Optional<std::string> filePath(const SymbolLocation &Loc,
+                                     llvm::StringRef HintFilePath) {
   if (!Loc)
-    return std::nullopt;
+    return None;
   auto Path = URI::resolve(Loc.FileURI, HintFilePath);
   if (!Path) {
     elog("Could not resolve URI {0}: {1}", Loc.FileURI, Path.takeError());
-    return std::nullopt;
+    return None;
   }
 
   return *Path;
@@ -141,18 +140,6 @@ const NamedDecl *canonicalRenameDecl(const NamedDecl *D) {
   return dyn_cast<NamedDecl>(D->getCanonicalDecl());
 }
 
-// Some AST nodes can reference multiple declarations. We try to pick the
-// relevant one to rename here.
-const NamedDecl *pickInterestingTarget(const NamedDecl *D) {
-  // We only support renaming the class name, not the category name. This has
-  // to be done outside of canonicalization since we don't want a category name
-  // reference to be canonicalized to the class.
-  if (const auto *CD = dyn_cast<ObjCCategoryDecl>(D))
-    if (const auto CI = CD->getClassInterface())
-      return CI;
-  return D;
-}
-
 llvm::DenseSet<const NamedDecl *> locateDeclAt(ParsedAST &AST,
                                                SourceLocation TokenStartLoc) {
   unsigned Offset =
@@ -169,7 +156,6 @@ llvm::DenseSet<const NamedDecl *> locateDeclAt(ParsedAST &AST,
        targetDecl(SelectedNode->ASTNode,
                   DeclRelation::Alias | DeclRelation::TemplatePattern,
                   AST.getHeuristicResolver())) {
-    D = pickInterestingTarget(D);
     Result.insert(canonicalRenameDecl(D));
   }
   return Result;
@@ -211,10 +197,10 @@ enum class ReasonToReject {
   SameName,
 };
 
-std::optional<ReasonToReject> renameable(const NamedDecl &RenameDecl,
-                                         StringRef MainFilePath,
-                                         const SymbolIndex *Index,
-                                         const RenameOptions &Opts) {
+llvm::Optional<ReasonToReject> renameable(const NamedDecl &RenameDecl,
+                                          StringRef MainFilePath,
+                                          const SymbolIndex *Index,
+                                          const RenameOptions& Opts) {
   trace::Span Tracer("Renameable");
   if (!Opts.RenameVirtual) {
     if (const auto *S = llvm::dyn_cast<CXXMethodDecl>(&RenameDecl)) {
@@ -231,7 +217,7 @@ std::optional<ReasonToReject> renameable(const NamedDecl &RenameDecl,
   }
   // function-local symbols is safe to rename.
   if (RenameDecl.getParentFunctionOrMethod())
-    return std::nullopt;
+    return None;
 
   if (isExcluded(RenameDecl))
     return ReasonToReject::UnsupportedSymbol;
@@ -253,7 +239,7 @@ std::optional<ReasonToReject> renameable(const NamedDecl &RenameDecl,
           IsMainFileOnly))
     return ReasonToReject::NonIndexable;
 
-  return std::nullopt;
+  return None;
 }
 
 llvm::Error makeError(ReasonToReject Reason) {
@@ -332,8 +318,7 @@ const NamedDecl *lookupSiblingWithinEnclosingScope(ASTContext &Ctx,
       return nullptr;
     for (const auto &Child : DS->getDeclGroup())
       if (const auto *ND = dyn_cast<NamedDecl>(Child))
-        if (ND != &RenamedDecl && ND->getDeclName().isIdentifier() &&
-            ND->getName() == Name)
+        if (ND != &RenamedDecl && ND->getName() == Name)
           return ND;
     return nullptr;
   };
@@ -516,13 +501,13 @@ static bool mayBeValidIdentifier(llvm::StringRef Ident) {
 
 // Check if we can rename the given RenameDecl into NewName.
 // Return details if the rename would produce a conflict.
-std::optional<InvalidName> checkName(const NamedDecl &RenameDecl,
-                                     llvm::StringRef NewName) {
+llvm::Optional<InvalidName> checkName(const NamedDecl &RenameDecl,
+                                      llvm::StringRef NewName) {
   trace::Span Tracer("CheckName");
   static constexpr trace::Metric InvalidNameMetric(
       "rename_name_invalid", trace::Metric::Counter, "invalid_kind");
   auto &ASTCtx = RenameDecl.getASTContext();
-  std::optional<InvalidName> Result;
+  llvm::Optional<InvalidName> Result;
   if (isKeyword(NewName, ASTCtx.getLangOpts()))
     Result = InvalidName{InvalidName::Keywords, NewName.str()};
   else if (!mayBeValidIdentifier(NewName))
@@ -530,8 +515,7 @@ std::optional<InvalidName> checkName(const NamedDecl &RenameDecl,
   else {
     // Name conflict detection.
     // Function conflicts are subtle (overloading), so ignore them.
-    if (RenameDecl.getKind() != Decl::Function &&
-        RenameDecl.getKind() != Decl::CXXMethod) {
+    if (RenameDecl.getKind() != Decl::Function) {
       if (auto *Conflict = lookupSiblingWithName(ASTCtx, RenameDecl, NewName))
         Result = InvalidName{
             InvalidName::Conflict,
@@ -927,7 +911,7 @@ llvm::Expected<Edit> buildRenameEdit(llvm::StringRef AbsFilePath,
 //          ranges onto candidates in a plausible way (e.g. guess that lines
 //          were inserted). If such a "near miss" is found, the rename is still
 //          possible
-std::optional<std::vector<Range>>
+llvm::Optional<std::vector<Range>>
 adjustRenameRanges(llvm::StringRef DraftCode, llvm::StringRef Identifier,
                    std::vector<Range> Indexed, const LangOptions &LangOpts) {
   trace::Span Tracer("AdjustRenameRanges");
@@ -939,8 +923,8 @@ adjustRenameRanges(llvm::StringRef DraftCode, llvm::StringRef Identifier,
   return getMappedRanges(Indexed, Lexed);
 }
 
-std::optional<std::vector<Range>> getMappedRanges(ArrayRef<Range> Indexed,
-                                                  ArrayRef<Range> Lexed) {
+llvm::Optional<std::vector<Range>> getMappedRanges(ArrayRef<Range> Indexed,
+                                                   ArrayRef<Range> Lexed) {
   trace::Span Tracer("GetMappedRanges");
   assert(!Indexed.empty());
   assert(llvm::is_sorted(Indexed));
@@ -951,7 +935,7 @@ std::optional<std::vector<Range>> getMappedRanges(ArrayRef<Range> Indexed,
     SPAN_ATTACH(
         Tracer, "error",
         "The number of lexed occurrences is less than indexed occurrences");
-    return std::nullopt;
+    return llvm::None;
   }
   // Fast check for the special subset case.
   if (std::includes(Indexed.begin(), Indexed.end(), Lexed.begin(), Lexed.end()))
@@ -978,12 +962,12 @@ std::optional<std::vector<Range>> getMappedRanges(ArrayRef<Range> Indexed,
   if (HasMultiple) {
     vlog("The best near miss is not unique.");
     SPAN_ATTACH(Tracer, "error", "The best near miss is not unique");
-    return std::nullopt;
+    return llvm::None;
   }
   if (Best.empty()) {
     vlog("Didn't find a near miss.");
     SPAN_ATTACH(Tracer, "error", "Didn't find a near miss");
-    return std::nullopt;
+    return llvm::None;
   }
   std::vector<Range> Mapped;
   for (auto I : Best)

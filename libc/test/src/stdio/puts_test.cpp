@@ -8,21 +8,21 @@
 
 #include "src/stdio/puts.h"
 
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
 TEST(LlvmLibcPutsTest, PrintOut) {
   int result;
 
   constexpr char simple[] = "A simple string";
-  result = LIBC_NAMESPACE::puts(simple);
+  result = __llvm_libc::puts(simple);
   EXPECT_GE(result, 0);
 
   // check that it appends a second newline at the end.
   constexpr char numbers[] = "1234567890\n";
-  result = LIBC_NAMESPACE::puts(numbers);
+  result = __llvm_libc::puts(numbers);
   EXPECT_GE(result, 0);
 
   constexpr char more[] = "1234 and more\n6789 and rhyme";
-  result = LIBC_NAMESPACE::puts(more);
+  result = __llvm_libc::puts(more);
   EXPECT_GE(result, 0);
 }

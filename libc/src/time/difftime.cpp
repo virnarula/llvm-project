@@ -9,10 +9,10 @@
 #include "src/time/difftime.h"
 #include "src/__support/common.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(double, difftime, (time_t end, time_t beginning)) {
-  return static_cast<double>(end - beginning);
+  return end - beginning;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

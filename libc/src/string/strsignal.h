@@ -10,10 +10,10 @@
 #ifndef LLVM_LIBC_SRC_STRING_STRSIGNAL_H
 #define LLVM_LIBC_SRC_STRING_STRSIGNAL_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 char *strsignal(int sig_num);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STRING_STRSIGNAL_H

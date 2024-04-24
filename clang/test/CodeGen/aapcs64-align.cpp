@@ -1,5 +1,5 @@
 // REQUIRES: arm-registered-target
-// RUN: %clang_cc1 -triple aarch64-none-elf \
+// RUN: %clang_cc1 -triple aarch64-none-none-eabi \
 // RUN:   -O2 \
 // RUN:   -emit-llvm -o - %s | FileCheck %s
 

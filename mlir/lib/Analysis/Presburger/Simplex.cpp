@@ -7,26 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Analysis/Presburger/Simplex.h"
-#include "mlir/Analysis/Presburger/Fraction.h"
-#include "mlir/Analysis/Presburger/IntegerRelation.h"
-#include "mlir/Analysis/Presburger/MPInt.h"
 #include "mlir/Analysis/Presburger/Matrix.h"
-#include "mlir/Analysis/Presburger/PresburgerSpace.h"
-#include "mlir/Analysis/Presburger/Utils.h"
-#include "mlir/Support/LLVM.h"
-#include "mlir/Support/LogicalResult.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/SmallVector.h"
+#include "mlir/Support/MathExtras.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
-#include <cassert>
-#include <functional>
-#include <limits>
-#include <optional>
-#include <tuple>
-#include <utility>
+#include <numeric>
 
 using namespace mlir;
 using namespace presburger;
@@ -203,7 +188,7 @@ Direction flippedDirection(Direction direction) {
 /// greater, so A*y + b is always equal to or lexicographically greater than b.
 /// Thus, since we can attain x = b, that is the lexicographic minimum.
 ///
-/// We have that every column in A is lexicopositive, i.e., has at least
+/// We have that that every column in A is lexicopositive, i.e., has at least
 /// one non-zero element, with the first such element being positive. Since for
 /// the tableau to be consistent we must have non-negative sample values not
 /// only for the constraints but also for the variables, we also have x >= 0 and
@@ -286,7 +271,7 @@ LogicalResult LexSimplexBase::addCut(unsigned row) {
   return moveRowUnknownToColumn(cutRow);
 }
 
-std::optional<unsigned> LexSimplex::maybeGetNonIntegralVarRow() const {
+Optional<unsigned> LexSimplex::maybeGetNonIntegralVarRow() const {
   for (const Unknown &u : var) {
     if (u.orientation == Orientation::Column)
       continue;
@@ -306,7 +291,7 @@ MaybeOptimum<SmallVector<MPInt, 8>> LexSimplex::findIntegerLexMin() {
     return OptimumKind::Empty;
 
   // Then, if the sample value is integral, we are done.
-  while (std::optional<unsigned> maybeRow = maybeGetNonIntegralVarRow()) {
+  while (Optional<unsigned> maybeRow = maybeGetNonIntegralVarRow()) {
     // Otherwise, for the variable whose row has a non-integral sample value,
     // we add a cut, a constraint that remove this rational point
     // while preserving all integer points, thus keeping the lexmin the same.
@@ -450,9 +435,9 @@ LogicalResult SymbolicLexSimplex::addSymbolicCut(unsigned row) {
   return moveRowUnknownToColumn(cutRow);
 }
 
-void SymbolicLexSimplex::recordOutput(SymbolicLexOpt &result) const {
-  IntMatrix output(0, domainPoly.getNumVars() + 1);
-  output.reserveRows(result.lexopt.getNumOutputs());
+void SymbolicLexSimplex::recordOutput(SymbolicLexMin &result) const {
+  Matrix output(0, domainPoly.getNumVars() + 1);
+  output.reserveRows(result.lexmin.getNumOutputs());
   for (const Unknown &u : var) {
     if (u.isSymbol)
       continue;
@@ -484,15 +469,15 @@ void SymbolicLexSimplex::recordOutput(SymbolicLexOpt &result) const {
   }
 
   // Store the output in a MultiAffineFunction and add it the result.
-  PresburgerSpace funcSpace = result.lexopt.getSpace();
+  PresburgerSpace funcSpace = result.lexmin.getSpace();
   funcSpace.insertVar(VarKind::Local, 0, domainPoly.getNumLocalVars());
 
-  result.lexopt.addPiece(
+  result.lexmin.addPiece(
       {PresburgerSet(domainPoly),
        MultiAffineFunction(funcSpace, output, domainPoly.getLocalReprs())});
 }
 
-std::optional<unsigned> SymbolicLexSimplex::maybeGetAlwaysViolatedRow() {
+Optional<unsigned> SymbolicLexSimplex::maybeGetAlwaysViolatedRow() {
   // First look for rows that are clearly violated just from the big M
   // coefficient, without needing to perform any simplex queries on the domain.
   for (unsigned row = 0, e = getNumRows(); row < e; ++row)
@@ -510,7 +495,7 @@ std::optional<unsigned> SymbolicLexSimplex::maybeGetAlwaysViolatedRow() {
   return {};
 }
 
-std::optional<unsigned> SymbolicLexSimplex::maybeGetNonIntegralVarRow() {
+Optional<unsigned> SymbolicLexSimplex::maybeGetNonIntegralVarRow() {
   for (const Unknown &u : var) {
     if (u.orientation == Orientation::Column)
       continue;
@@ -524,14 +509,14 @@ std::optional<unsigned> SymbolicLexSimplex::maybeGetNonIntegralVarRow() {
 /// The non-branching pivots are just the ones moving the rows
 /// that are always violated in the symbol domain.
 LogicalResult SymbolicLexSimplex::doNonBranchingPivots() {
-  while (std::optional<unsigned> row = maybeGetAlwaysViolatedRow())
+  while (Optional<unsigned> row = maybeGetAlwaysViolatedRow())
     if (moveRowUnknownToColumn(*row).failed())
       return failure();
   return success();
 }
 
-SymbolicLexOpt SymbolicLexSimplex::computeSymbolicIntegerLexMin() {
-  SymbolicLexOpt result(PresburgerSpace::getRelationSpace(
+SymbolicLexMin SymbolicLexSimplex::computeSymbolicIntegerLexMin() {
+  SymbolicLexMin result(PresburgerSpace::getRelationSpace(
       /*numDomain=*/domainPoly.getNumDimVars(),
       /*numRange=*/var.size() - nSymbol,
       /*numSymbols=*/domainPoly.getNumSymbolVars()));
@@ -626,7 +611,7 @@ SymbolicLexOpt SymbolicLexSimplex::computeSymbolicIntegerLexMin() {
 
       // The tableau is rationally consistent for the current domain.
       // Now we look for non-integral sample values and add cuts for them.
-      if (std::optional<unsigned> row = maybeGetNonIntegralVarRow()) {
+      if (Optional<unsigned> row = maybeGetNonIntegralVarRow()) {
         if (addSymbolicCut(*row).failed()) {
           // No integral points; return.
           --level;
@@ -689,7 +674,7 @@ bool LexSimplex::rowIsViolated(unsigned row) const {
   return false;
 }
 
-std::optional<unsigned> LexSimplex::maybeGetViolatedRow() const {
+Optional<unsigned> LexSimplex::maybeGetViolatedRow() const {
   for (unsigned row = 0, e = getNumRows(); row < e; ++row)
     if (rowIsViolated(row))
       return row;
@@ -702,7 +687,7 @@ std::optional<unsigned> LexSimplex::maybeGetViolatedRow() const {
 LogicalResult LexSimplex::restoreRationalConsistency() {
   if (empty)
     return failure();
-  while (std::optional<unsigned> maybeViolatedRow = maybeGetViolatedRow())
+  while (Optional<unsigned> maybeViolatedRow = maybeGetViolatedRow())
     if (moveRowUnknownToColumn(*maybeViolatedRow).failed())
       return failure();
   return success();
@@ -771,7 +756,7 @@ LogicalResult LexSimplex::restoreRationalConsistency() {
 // lexicographically smaller than B.col(k) / B(i,k), since it lexicographically
 // minimizes the change in sample value.
 LogicalResult LexSimplexBase::moveRowUnknownToColumn(unsigned row) {
-  std::optional<unsigned> maybeColumn;
+  Optional<unsigned> maybeColumn;
   for (unsigned col = 3 + nSymbol, e = getNumColumns(); col < e; ++col) {
     if (tableau(row, col) <= 0)
       continue;
@@ -879,9 +864,9 @@ unsigned LexSimplexBase::getLexMinPivotColumn(unsigned row, unsigned colA,
 ///
 /// If multiple columns are valid, we break ties by considering a lexicographic
 /// ordering where we prefer unknowns with lower index.
-std::optional<SimplexBase::Pivot>
-Simplex::findPivot(int row, Direction direction) const {
-  std::optional<unsigned> col;
+Optional<SimplexBase::Pivot> Simplex::findPivot(int row,
+                                                Direction direction) const {
+  Optional<unsigned> col;
   for (unsigned j = 2, e = getNumColumns(); j < e; ++j) {
     MPInt elem = tableau(row, j);
     if (elem == 0)
@@ -899,7 +884,7 @@ Simplex::findPivot(int row, Direction direction) const {
 
   Direction newDirection =
       tableau(row, *col) < 0 ? flippedDirection(direction) : direction;
-  std::optional<unsigned> maybePivotRow = findPivotRow(row, newDirection, *col);
+  Optional<unsigned> maybePivotRow = findPivotRow(row, newDirection, *col);
   return Pivot{maybePivotRow.value_or(row), *col};
 }
 
@@ -991,7 +976,7 @@ LogicalResult Simplex::restoreRow(Unknown &u) {
          "unknown should be in row position");
 
   while (tableau(u.pos, 1) < 0) {
-    std::optional<Pivot> maybePivot = findPivot(u.pos, Direction::Up);
+    Optional<Pivot> maybePivot = findPivot(u.pos, Direction::Up);
     if (!maybePivot)
       break;
 
@@ -1024,10 +1009,10 @@ LogicalResult Simplex::restoreRow(Unknown &u) {
 /// 0 and hence saturates the bound it imposes. We break ties between rows that
 /// impose the same bound by considering a lexicographic ordering where we
 /// prefer unknowns with lower index value.
-std::optional<unsigned> Simplex::findPivotRow(std::optional<unsigned> skipRow,
-                                              Direction direction,
-                                              unsigned col) const {
-  std::optional<unsigned> retRow;
+Optional<unsigned> Simplex::findPivotRow(Optional<unsigned> skipRow,
+                                         Direction direction,
+                                         unsigned col) const {
+  Optional<unsigned> retRow;
   // Initialize these to zero in order to silence a warning about retElem and
   // retConst being used uninitialized in the initialization of `diff` below. In
   // reality, these are always initialized when that line is reached since these
@@ -1166,7 +1151,7 @@ void SimplexBase::removeLastConstraintRowOrientation() {
 //
 // If we have a variable, then the column has zero coefficients for every row
 // iff no constraints have been added with a non-zero coefficient for this row.
-std::optional<unsigned> SimplexBase::findAnyPivotRow(unsigned col) {
+Optional<unsigned> SimplexBase::findAnyPivotRow(unsigned col) {
   for (unsigned row = nRedundant, e = getNumRows(); row < e; ++row)
     if (tableau(row, col) != 0)
       return row;
@@ -1187,14 +1172,13 @@ void Simplex::undoLastConstraint() {
     // coefficient for the column. findAnyPivotRow will always be able to
     // find such a row for a constraint.
     unsigned column = con.back().pos;
-    if (std::optional<unsigned> maybeRow =
-            findPivotRow({}, Direction::Up, column)) {
+    if (Optional<unsigned> maybeRow = findPivotRow({}, Direction::Up, column)) {
       pivot(*maybeRow, column);
-    } else if (std::optional<unsigned> maybeRow =
+    } else if (Optional<unsigned> maybeRow =
                    findPivotRow({}, Direction::Down, column)) {
       pivot(*maybeRow, column);
     } else {
-      std::optional<unsigned> row = findAnyPivotRow(column);
+      Optional<unsigned> row = findAnyPivotRow(column);
       assert(row && "Pivot should always exist for a constraint!");
       pivot(*row, column);
     }
@@ -1213,7 +1197,7 @@ void LexSimplexBase::undoLastConstraint() {
     // snapshot, so what pivots we perform while undoing doesn't matter as
     // long as we get the unknown to row orientation and remove it.
     unsigned column = con.back().pos;
-    std::optional<unsigned> row = findAnyPivotRow(column);
+    Optional<unsigned> row = findAnyPivotRow(column);
     assert(row && "Pivot should always exist for a constraint!");
     pivot(*row, column);
   }
@@ -1339,9 +1323,9 @@ void SimplexBase::intersectIntegerRelation(const IntegerRelation &rel) {
 MaybeOptimum<Fraction> Simplex::computeRowOptimum(Direction direction,
                                                   unsigned row) {
   // Keep trying to find a pivot for the row in the specified direction.
-  while (std::optional<Pivot> maybePivot = findPivot(row, direction)) {
+  while (Optional<Pivot> maybePivot = findPivot(row, direction)) {
     // If findPivot returns a pivot involving the row itself, then the optimum
-    // is unbounded, so we return std::nullopt.
+    // is unbounded, so we return None.
     if (maybePivot->row == row)
       return OptimumKind::Unbounded;
     pivot(*maybePivot);
@@ -1354,7 +1338,7 @@ MaybeOptimum<Fraction> Simplex::computeRowOptimum(Direction direction,
 }
 
 /// Compute the optimum of the specified expression in the specified direction,
-/// or std::nullopt if it is unbounded.
+/// or None if it is unbounded.
 MaybeOptimum<Fraction> Simplex::computeOptimum(Direction direction,
                                                ArrayRef<MPInt> coeffs) {
   if (empty)
@@ -1372,7 +1356,7 @@ MaybeOptimum<Fraction> Simplex::computeOptimum(Direction direction,
     return OptimumKind::Empty;
   if (u.orientation == Orientation::Column) {
     unsigned column = u.pos;
-    std::optional<unsigned> pivotRow = findPivotRow({}, direction, column);
+    Optional<unsigned> pivotRow = findPivotRow({}, direction, column);
     // If no pivot is returned, the constraint is unbounded in the specified
     // direction.
     if (!pivotRow)
@@ -1439,8 +1423,7 @@ void Simplex::detectRedundant(unsigned offset, unsigned count) {
     Unknown &u = con[offset + i];
     if (u.orientation == Orientation::Column) {
       unsigned column = u.pos;
-      std::optional<unsigned> pivotRow =
-          findPivotRow({}, Direction::Down, column);
+      Optional<unsigned> pivotRow = findPivotRow({}, Direction::Down, column);
       // If no downward pivot is returned, the constraint is unbounded below
       // and hence not redundant.
       if (!pivotRow)
@@ -1562,7 +1545,7 @@ Simplex Simplex::makeProduct(const Simplex &a, const Simplex &b) {
   return result;
 }
 
-std::optional<SmallVector<Fraction, 8>> Simplex::getRationalSample() const {
+Optional<SmallVector<Fraction, 8>> Simplex::getRationalSample() const {
   if (empty)
     return {};
 
@@ -1617,7 +1600,7 @@ MaybeOptimum<SmallVector<Fraction, 8>> LexSimplex::getRationalSample() const {
   return sample;
 }
 
-std::optional<SmallVector<MPInt, 8>> Simplex::getSamplePointIfIntegral() const {
+Optional<SmallVector<MPInt, 8>> Simplex::getSamplePointIfIntegral() const {
   // If the tableau is empty, no sample point exists.
   if (empty)
     return {};
@@ -1627,7 +1610,7 @@ std::optional<SmallVector<MPInt, 8>> Simplex::getSamplePointIfIntegral() const {
   SmallVector<MPInt, 8> integerSample;
   integerSample.reserve(var.size());
   for (const Fraction &coord : rationalSample) {
-    // If the sample is non-integral, return std::nullopt.
+    // If the sample is non-integral, return None.
     if (coord.num % coord.den != 0)
       return {};
     integerSample.push_back(coord.num / coord.den);
@@ -1816,7 +1799,7 @@ private:
 ///
 /// When incrementing i, no cached f values get invalidated. However, the cached
 /// duals do get invalidated as the duals for the higher levels are different.
-void Simplex::reduceBasis(IntMatrix &basis, unsigned level) {
+void Simplex::reduceBasis(Matrix &basis, unsigned level) {
   const Fraction epsilon(3, 4);
 
   if (level == basis.getNumRows() - 1)
@@ -1985,12 +1968,12 @@ void Simplex::reduceBasis(IntMatrix &basis, unsigned level) {
 ///
 /// To avoid potentially arbitrarily large recursion depths leading to stack
 /// overflows, this algorithm is implemented iteratively.
-std::optional<SmallVector<MPInt, 8>> Simplex::findIntegerSample() {
+Optional<SmallVector<MPInt, 8>> Simplex::findIntegerSample() {
   if (empty)
     return {};
 
   unsigned nDims = var.size();
-  IntMatrix basis = IntMatrix::identity(nDims);
+  Matrix basis = Matrix::identity(nDims);
 
   unsigned level = 0;
   // The snapshot just before constraining a direction to a value at each level.

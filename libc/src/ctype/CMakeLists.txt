@@ -5,7 +5,6 @@ add_entrypoint_object(
   HDRS
     isalnum.h
   DEPENDS
-    libc.include.ctype
     libc.src.__support.ctype_utils
 )
 

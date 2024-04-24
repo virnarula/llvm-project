@@ -20,11 +20,8 @@ add_mlir_library(MLIRTestPDLL
   MLIRTestPDLLPatternsIncGen
 
   LINK_LIBS PUBLIC
-  MLIRCastInterfaces
   MLIRIR
   MLIRPass
-  MLIRPDLInterpDialect
-  MLIRPDLDialect
   MLIRSupport
   MLIRTestDialect
   MLIRTransformUtils

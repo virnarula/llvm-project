@@ -16,30 +16,40 @@
 #ifndef LLVM_CODEGEN_STACKPROTECTOR_H
 #define LLVM_CODEGEN_STACKPROTECTOR_H
 
-#include "llvm/Analysis/DomTreeUpdater.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/TargetParser/Triple.h"
 
 namespace llvm {
 
 class BasicBlock;
+class DominatorTree;
 class Function;
+class Instruction;
 class Module;
 class TargetLoweringBase;
 class TargetMachine;
+class Type;
 
-class SSPLayoutInfo {
-  friend class StackProtectorPass;
-  friend class SSPLayoutAnalysis;
-  friend class StackProtector;
-  static constexpr unsigned DefaultSSPBufferSize = 8;
-
+class StackProtector : public FunctionPass {
+private:
   /// A mapping of AllocaInsts to their required SSP layout.
-  using SSPLayoutMap =
-      DenseMap<const AllocaInst *, MachineFrameInfo::SSPLayoutKind>;
+  using SSPLayoutMap = DenseMap<const AllocaInst *,
+                                MachineFrameInfo::SSPLayoutKind>;
+
+  const TargetMachine *TM = nullptr;
+
+  /// TLI - Keep a pointer of a TargetLowering to consult for determining
+  /// target type sizes.
+  const TargetLoweringBase *TLI = nullptr;
+  Triple Trip;
+
+  Function *F;
+  Module *M;
+
+  DominatorTree *DT;
 
   /// Layout - Mapping of allocations to the required SSPLayoutKind.
   /// StackProtector analysis will update this map when determining if an
@@ -48,9 +58,13 @@ class SSPLayoutInfo {
 
   /// The minimum size of buffers that will receive stack smashing
   /// protection when -fstack-protection is used.
-  unsigned SSPBufferSize = DefaultSSPBufferSize;
+  unsigned SSPBufferSize = 0;
 
-  bool RequireStackProtector = false;
+  /// VisitedPHIs - The set of PHI nodes visited when determining
+  /// if a variable's reference has been taken.  This set
+  /// is maintained to ensure we don't visit the same PHI node multiple
+  /// times.
+  SmallPtrSet<const PHINode *, 16> VisitedPHIs;
 
   // A prologue is generated.
   bool HasPrologue = false;
@@ -58,51 +72,33 @@ class SSPLayoutInfo {
   // IR checking code is generated.
   bool HasIRCheck = false;
 
-public:
-  // Return true if StackProtector is supposed to be handled by SelectionDAG.
-  bool shouldEmitSDCheck(const BasicBlock &BB) const;
+  /// InsertStackProtectors - Insert code into the prologue and epilogue of
+  /// the function.
+  ///
+  ///  - The prologue code loads and stores the stack guard onto the stack.
+  ///  - The epilogue checks the value stored in the prologue against the
+  ///    original value. It calls __stack_chk_fail if they differ.
+  bool InsertStackProtectors();
 
-  void copyToMachineFrameInfo(MachineFrameInfo &MFI) const;
-};
+  /// CreateFailBB - Create a basic block to jump to when the stack protector
+  /// check fails.
+  BasicBlock *CreateFailBB();
 
-class SSPLayoutAnalysis : public AnalysisInfoMixin<SSPLayoutAnalysis> {
-  friend AnalysisInfoMixin<SSPLayoutAnalysis>;
-  using SSPLayoutMap = SSPLayoutInfo::SSPLayoutMap;
+  /// ContainsProtectableArray - Check whether the type either is an array or
+  /// contains an array of sufficient size so that we need stack protectors
+  /// for it.
+  /// \param [out] IsLarge is set to true if a protectable array is found and
+  /// it is "large" ( >= ssp-buffer-size).  In the case of a structure with
+  /// multiple arrays, this gets set if any of them is large.
+  bool ContainsProtectableArray(Type *Ty, bool &IsLarge, bool Strong = false,
+                                bool InStruct = false) const;
 
-  static AnalysisKey Key;
+  /// Check whether a stack allocation has its address taken.
+  bool HasAddressTaken(const Instruction *AI, TypeSize AllocSize);
 
-public:
-  using Result = SSPLayoutInfo;
-
-  Result run(Function &F, FunctionAnalysisManager &FAM);
-
-  /// Check whether or not \p F needs a stack protector based upon the stack
-  /// protector level.
-  static bool requiresStackProtector(Function *F,
-                                     SSPLayoutMap *Layout = nullptr);
-};
-
-class StackProtectorPass : public PassInfoMixin<StackProtectorPass> {
-  const TargetMachine *TM;
-
-public:
-  explicit StackProtectorPass(const TargetMachine *TM) : TM(TM) {}
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
-};
-
-class StackProtector : public FunctionPass {
-private:
-  /// A mapping of AllocaInsts to their required SSP layout.
-  using SSPLayoutMap = SSPLayoutInfo::SSPLayoutMap;
-
-  const TargetMachine *TM = nullptr;
-
-  Function *F = nullptr;
-  Module *M = nullptr;
-
-  std::optional<DomTreeUpdater> DTU;
-
-  SSPLayoutInfo LayoutInfo;
+  /// RequiresStackProtector - Check whether or not this function needs a
+  /// stack protector based upon the stack protector level.
+  bool RequiresStackProtector();
 
 public:
   static char ID; // Pass identification, replacement for typeid.
@@ -112,22 +108,11 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   // Return true if StackProtector is supposed to be handled by SelectionDAG.
-  bool shouldEmitSDCheck(const BasicBlock &BB) const {
-    return LayoutInfo.shouldEmitSDCheck(BB);
-  }
+  bool shouldEmitSDCheck(const BasicBlock &BB) const;
 
   bool runOnFunction(Function &Fn) override;
 
-  void copyToMachineFrameInfo(MachineFrameInfo &MFI) const {
-    LayoutInfo.copyToMachineFrameInfo(MFI);
-  }
-
-  /// Check whether or not \p F needs a stack protector based upon the stack
-  /// protector level.
-  static bool requiresStackProtector(Function *F,
-                                     SSPLayoutMap *Layout = nullptr) {
-    return SSPLayoutAnalysis::requiresStackProtector(F, Layout);
-  }
+  void copyToMachineFrameInfo(MachineFrameInfo &MFI) const;
 };
 
 } // end namespace llvm

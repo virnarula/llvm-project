@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_STDLIB_ATOF_H
 #define LLVM_LIBC_SRC_STDLIB_ATOF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 double atof(const char *str);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
-#endif // LLVM_LIBC_SRC_STDLIB_ATOF_H
+#endif // LLVM_LIBC_SRC_STDLIB_ATOI_H

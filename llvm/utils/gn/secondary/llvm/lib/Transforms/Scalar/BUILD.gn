@@ -33,7 +33,6 @@ static_library("Scalar") {
     "IndVarSimplify.cpp",
     "InductiveRangeCheckElimination.cpp",
     "InferAddressSpaces.cpp",
-    "InferAlignment.cpp",
     "InstSimplifyPass.cpp",
     "JumpThreading.cpp",
     "LICM.cpp",

@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: c++03
 // ALLOW_RETRIES: 2
 
 // <mutex>
@@ -16,11 +15,10 @@
 
 // unique_lock(mutex_type& m, try_to_lock_t);
 
-#include <cassert>
-#include <chrono>
-#include <cstdlib>
 #include <mutex>
 #include <thread>
+#include <cstdlib>
+#include <cassert>
 
 #include "make_test_thread.h"
 #include "test_macros.h"

@@ -10,8 +10,6 @@
 ! CHECK: Flang: symbols dump
 
 program bad
-  type dt(k)
-    integer(kind=16) :: k
-    integer(kind=16) :: comp
-  end type dt
+  real,pointer :: x
+  x = null()      ! Error - must be pointer assignment
 end

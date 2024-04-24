@@ -18,7 +18,6 @@
 #include "test_macros.h"
 
 template <class T>
-TEST_CONSTEXPR_CXX20
 void
 test_constexpr()
 {
@@ -36,37 +35,31 @@ test_constexpr()
 #endif
 }
 
+
 template <class T>
-TEST_CONSTEXPR_CXX20
-bool
+void
 test()
 {
     {
-    const std::complex<T> lhs(1.5,  2.5);
-    const std::complex<T> rhs(1.5, -2.5);
+    std::complex<T> lhs(1.5,  2.5);
+    std::complex<T> rhs(1.5, -2.5);
     assert(lhs != rhs);
     }
     {
-    const std::complex<T> lhs(1.5, 2.5);
-    const std::complex<T> rhs(1.5, 2.5);
+    std::complex<T> lhs(1.5, 2.5);
+    std::complex<T> rhs(1.5, 2.5);
     assert(!(lhs != rhs));
     }
 
     test_constexpr<T> ();
-    return true;
-}
+    }
 
 int main(int, char**)
 {
     test<float>();
     test<double>();
     test<long double>();
-
-#if TEST_STD_VER > 17
-    static_assert(test<float>());
-    static_assert(test<double>());
-    static_assert(test<long double>());
-#endif
+//   test_constexpr<int> ();
 
   return 0;
 }

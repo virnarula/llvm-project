@@ -32,6 +32,5 @@ Options
 
 .. option:: IgnoreMacros
 
-   If set to `true`, the check will not give warnings inside macros and will
-   ignore special members with bodies contain macros or preprocessor directives.
-   Default is `true`.
+   If set to `true`, the check will not give warnings inside macros. Default
+   is `true`.

@@ -18,7 +18,6 @@ add_clang_library(clangTidyMain
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )
 
 clang_target_link_libraries(clangTidyMain

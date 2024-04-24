@@ -49,8 +49,7 @@
     {
       "kind": "conformsTo",
       "source": "c:objc(pl)AnotherProtocol",
-      "target": "c:objc(pl)Protocol",
-      "targetFallback": "Protocol"
+      "target": "c:objc(pl)Protocol"
     }
   ],
   "symbols": [
@@ -80,8 +79,8 @@
       },
       "location": {
         "position": {
-          "character": 10,
-          "line": 0
+          "character": 11,
+          "line": 1
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -143,8 +142,8 @@
       },
       "location": {
         "position": {
-          "character": 10,
-          "line": 3
+          "character": 11,
+          "line": 4
         },
         "uri": "file://INPUT_DIR/input.h"
       },

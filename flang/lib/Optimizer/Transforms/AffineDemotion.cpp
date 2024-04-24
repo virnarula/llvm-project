@@ -31,6 +31,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -46,17 +47,16 @@ using namespace mlir;
 
 namespace {
 
-class AffineLoadConversion
-    : public OpConversionPattern<mlir::affine::AffineLoadOp> {
+class AffineLoadConversion : public OpConversionPattern<mlir::AffineLoadOp> {
 public:
-  using OpConversionPattern<mlir::affine::AffineLoadOp>::OpConversionPattern;
+  using OpConversionPattern<mlir::AffineLoadOp>::OpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(mlir::affine::AffineLoadOp op, OpAdaptor adaptor,
+  matchAndRewrite(mlir::AffineLoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     SmallVector<Value> indices(adaptor.getIndices());
-    auto maybeExpandedMap = affine::expandAffineMap(rewriter, op.getLoc(),
-                                                    op.getAffineMap(), indices);
+    auto maybeExpandedMap =
+        expandAffineMap(rewriter, op.getLoc(), op.getAffineMap(), indices);
     if (!maybeExpandedMap)
       return failure();
 
@@ -69,17 +69,16 @@ public:
   }
 };
 
-class AffineStoreConversion
-    : public OpConversionPattern<mlir::affine::AffineStoreOp> {
+class AffineStoreConversion : public OpConversionPattern<mlir::AffineStoreOp> {
 public:
-  using OpConversionPattern<mlir::affine::AffineStoreOp>::OpConversionPattern;
+  using OpConversionPattern<mlir::AffineStoreOp>::OpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(mlir::affine::AffineStoreOp op, OpAdaptor adaptor,
+  matchAndRewrite(mlir::AffineStoreOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     SmallVector<Value> indices(op.getIndices());
-    auto maybeExpandedMap = affine::expandAffineMap(rewriter, op.getLoc(),
-                                                    op.getAffineMap(), indices);
+    auto maybeExpandedMap =
+        expandAffineMap(rewriter, op.getLoc(), op.getAffineMap(), indices);
     if (!maybeExpandedMap)
       return failure();
 
@@ -114,9 +113,9 @@ public:
                                                       op.getValue());
           return success();
         }
-      rewriter.startOpModification(op->getParentOp());
+      rewriter.startRootUpdate(op->getParentOp());
       op.getResult().replaceAllUsesWith(op.getValue());
-      rewriter.finalizeOpModification(op->getParentOp());
+      rewriter.finalizeRootUpdate(op->getParentOp());
       rewriter.eraseOp(op);
     }
     return success();

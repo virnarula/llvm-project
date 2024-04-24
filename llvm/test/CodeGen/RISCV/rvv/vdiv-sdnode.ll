@@ -324,16 +324,27 @@ define <vscale x 1 x i16> @vdiv_vx_nxv1i16(<vscale x 1 x i16> %va, i16 signext %
 }
 
 define <vscale x 1 x i16> @vdiv_vi_nxv1i16_0(<vscale x 1 x i16> %va) {
-; CHECK-LABEL: vdiv_vi_nxv1i16_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    lui a0, 1048571
-; CHECK-NEXT:    addi a0, a0, 1755
-; CHECK-NEXT:    vsetvli a1, zero, e16, mf4, ta, ma
-; CHECK-NEXT:    vmulh.vx v8, v8, a0
-; CHECK-NEXT:    vsra.vi v8, v8, 1
-; CHECK-NEXT:    vsrl.vi v9, v8, 15
-; CHECK-NEXT:    vadd.vv v8, v8, v9
-; CHECK-NEXT:    ret
+; RV32-LABEL: vdiv_vi_nxv1i16_0:
+; RV32:       # %bb.0:
+; RV32-NEXT:    lui a0, 1048571
+; RV32-NEXT:    addi a0, a0, 1755
+; RV32-NEXT:    vsetvli a1, zero, e16, mf4, ta, ma
+; RV32-NEXT:    vmulh.vx v8, v8, a0
+; RV32-NEXT:    vsra.vi v8, v8, 1
+; RV32-NEXT:    vsrl.vi v9, v8, 15
+; RV32-NEXT:    vadd.vv v8, v8, v9
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: vdiv_vi_nxv1i16_0:
+; RV64:       # %bb.0:
+; RV64-NEXT:    lui a0, 1048571
+; RV64-NEXT:    addiw a0, a0, 1755
+; RV64-NEXT:    vsetvli a1, zero, e16, mf4, ta, ma
+; RV64-NEXT:    vmulh.vx v8, v8, a0
+; RV64-NEXT:    vsra.vi v8, v8, 1
+; RV64-NEXT:    vsrl.vi v9, v8, 15
+; RV64-NEXT:    vadd.vv v8, v8, v9
+; RV64-NEXT:    ret
   %head = insertelement <vscale x 1 x i16> poison, i16 -7, i32 0
   %splat = shufflevector <vscale x 1 x i16> %head, <vscale x 1 x i16> poison, <vscale x 1 x i32> zeroinitializer
   %vc = sdiv <vscale x 1 x i16> %va, %splat
@@ -363,16 +374,27 @@ define <vscale x 2 x i16> @vdiv_vx_nxv2i16(<vscale x 2 x i16> %va, i16 signext %
 }
 
 define <vscale x 2 x i16> @vdiv_vi_nxv2i16_0(<vscale x 2 x i16> %va) {
-; CHECK-LABEL: vdiv_vi_nxv2i16_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    lui a0, 1048571
-; CHECK-NEXT:    addi a0, a0, 1755
-; CHECK-NEXT:    vsetvli a1, zero, e16, mf2, ta, ma
-; CHECK-NEXT:    vmulh.vx v8, v8, a0
-; CHECK-NEXT:    vsra.vi v8, v8, 1
-; CHECK-NEXT:    vsrl.vi v9, v8, 15
-; CHECK-NEXT:    vadd.vv v8, v8, v9
-; CHECK-NEXT:    ret
+; RV32-LABEL: vdiv_vi_nxv2i16_0:
+; RV32:       # %bb.0:
+; RV32-NEXT:    lui a0, 1048571
+; RV32-NEXT:    addi a0, a0, 1755
+; RV32-NEXT:    vsetvli a1, zero, e16, mf2, ta, ma
+; RV32-NEXT:    vmulh.vx v8, v8, a0
+; RV32-NEXT:    vsra.vi v8, v8, 1
+; RV32-NEXT:    vsrl.vi v9, v8, 15
+; RV32-NEXT:    vadd.vv v8, v8, v9
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: vdiv_vi_nxv2i16_0:
+; RV64:       # %bb.0:
+; RV64-NEXT:    lui a0, 1048571
+; RV64-NEXT:    addiw a0, a0, 1755
+; RV64-NEXT:    vsetvli a1, zero, e16, mf2, ta, ma
+; RV64-NEXT:    vmulh.vx v8, v8, a0
+; RV64-NEXT:    vsra.vi v8, v8, 1
+; RV64-NEXT:    vsrl.vi v9, v8, 15
+; RV64-NEXT:    vadd.vv v8, v8, v9
+; RV64-NEXT:    ret
   %head = insertelement <vscale x 2 x i16> poison, i16 -7, i32 0
   %splat = shufflevector <vscale x 2 x i16> %head, <vscale x 2 x i16> poison, <vscale x 2 x i32> zeroinitializer
   %vc = sdiv <vscale x 2 x i16> %va, %splat
@@ -402,16 +424,27 @@ define <vscale x 4 x i16> @vdiv_vx_nxv4i16(<vscale x 4 x i16> %va, i16 signext %
 }
 
 define <vscale x 4 x i16> @vdiv_vi_nxv4i16_0(<vscale x 4 x i16> %va) {
-; CHECK-LABEL: vdiv_vi_nxv4i16_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    lui a0, 1048571
-; CHECK-NEXT:    addi a0, a0, 1755
-; CHECK-NEXT:    vsetvli a1, zero, e16, m1, ta, ma
-; CHECK-NEXT:    vmulh.vx v8, v8, a0
-; CHECK-NEXT:    vsra.vi v8, v8, 1
-; CHECK-NEXT:    vsrl.vi v9, v8, 15
-; CHECK-NEXT:    vadd.vv v8, v8, v9
-; CHECK-NEXT:    ret
+; RV32-LABEL: vdiv_vi_nxv4i16_0:
+; RV32:       # %bb.0:
+; RV32-NEXT:    lui a0, 1048571
+; RV32-NEXT:    addi a0, a0, 1755
+; RV32-NEXT:    vsetvli a1, zero, e16, m1, ta, ma
+; RV32-NEXT:    vmulh.vx v8, v8, a0
+; RV32-NEXT:    vsra.vi v8, v8, 1
+; RV32-NEXT:    vsrl.vi v9, v8, 15
+; RV32-NEXT:    vadd.vv v8, v8, v9
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: vdiv_vi_nxv4i16_0:
+; RV64:       # %bb.0:
+; RV64-NEXT:    lui a0, 1048571
+; RV64-NEXT:    addiw a0, a0, 1755
+; RV64-NEXT:    vsetvli a1, zero, e16, m1, ta, ma
+; RV64-NEXT:    vmulh.vx v8, v8, a0
+; RV64-NEXT:    vsra.vi v8, v8, 1
+; RV64-NEXT:    vsrl.vi v9, v8, 15
+; RV64-NEXT:    vadd.vv v8, v8, v9
+; RV64-NEXT:    ret
   %head = insertelement <vscale x 4 x i16> poison, i16 -7, i32 0
   %splat = shufflevector <vscale x 4 x i16> %head, <vscale x 4 x i16> poison, <vscale x 4 x i32> zeroinitializer
   %vc = sdiv <vscale x 4 x i16> %va, %splat
@@ -441,16 +474,27 @@ define <vscale x 8 x i16> @vdiv_vx_nxv8i16(<vscale x 8 x i16> %va, i16 signext %
 }
 
 define <vscale x 8 x i16> @vdiv_vi_nxv8i16_0(<vscale x 8 x i16> %va) {
-; CHECK-LABEL: vdiv_vi_nxv8i16_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    lui a0, 1048571
-; CHECK-NEXT:    addi a0, a0, 1755
-; CHECK-NEXT:    vsetvli a1, zero, e16, m2, ta, ma
-; CHECK-NEXT:    vmulh.vx v8, v8, a0
-; CHECK-NEXT:    vsra.vi v8, v8, 1
-; CHECK-NEXT:    vsrl.vi v10, v8, 15
-; CHECK-NEXT:    vadd.vv v8, v8, v10
-; CHECK-NEXT:    ret
+; RV32-LABEL: vdiv_vi_nxv8i16_0:
+; RV32:       # %bb.0:
+; RV32-NEXT:    lui a0, 1048571
+; RV32-NEXT:    addi a0, a0, 1755
+; RV32-NEXT:    vsetvli a1, zero, e16, m2, ta, ma
+; RV32-NEXT:    vmulh.vx v8, v8, a0
+; RV32-NEXT:    vsra.vi v8, v8, 1
+; RV32-NEXT:    vsrl.vi v10, v8, 15
+; RV32-NEXT:    vadd.vv v8, v8, v10
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: vdiv_vi_nxv8i16_0:
+; RV64:       # %bb.0:
+; RV64-NEXT:    lui a0, 1048571
+; RV64-NEXT:    addiw a0, a0, 1755
+; RV64-NEXT:    vsetvli a1, zero, e16, m2, ta, ma
+; RV64-NEXT:    vmulh.vx v8, v8, a0
+; RV64-NEXT:    vsra.vi v8, v8, 1
+; RV64-NEXT:    vsrl.vi v10, v8, 15
+; RV64-NEXT:    vadd.vv v8, v8, v10
+; RV64-NEXT:    ret
   %head = insertelement <vscale x 8 x i16> poison, i16 -7, i32 0
   %splat = shufflevector <vscale x 8 x i16> %head, <vscale x 8 x i16> poison, <vscale x 8 x i32> zeroinitializer
   %vc = sdiv <vscale x 8 x i16> %va, %splat
@@ -480,16 +524,27 @@ define <vscale x 16 x i16> @vdiv_vx_nxv16i16(<vscale x 16 x i16> %va, i16 signex
 }
 
 define <vscale x 16 x i16> @vdiv_vi_nxv16i16_0(<vscale x 16 x i16> %va) {
-; CHECK-LABEL: vdiv_vi_nxv16i16_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    lui a0, 1048571
-; CHECK-NEXT:    addi a0, a0, 1755
-; CHECK-NEXT:    vsetvli a1, zero, e16, m4, ta, ma
-; CHECK-NEXT:    vmulh.vx v8, v8, a0
-; CHECK-NEXT:    vsra.vi v8, v8, 1
-; CHECK-NEXT:    vsrl.vi v12, v8, 15
-; CHECK-NEXT:    vadd.vv v8, v8, v12
-; CHECK-NEXT:    ret
+; RV32-LABEL: vdiv_vi_nxv16i16_0:
+; RV32:       # %bb.0:
+; RV32-NEXT:    lui a0, 1048571
+; RV32-NEXT:    addi a0, a0, 1755
+; RV32-NEXT:    vsetvli a1, zero, e16, m4, ta, ma
+; RV32-NEXT:    vmulh.vx v8, v8, a0
+; RV32-NEXT:    vsra.vi v8, v8, 1
+; RV32-NEXT:    vsrl.vi v12, v8, 15
+; RV32-NEXT:    vadd.vv v8, v8, v12
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: vdiv_vi_nxv16i16_0:
+; RV64:       # %bb.0:
+; RV64-NEXT:    lui a0, 1048571
+; RV64-NEXT:    addiw a0, a0, 1755
+; RV64-NEXT:    vsetvli a1, zero, e16, m4, ta, ma
+; RV64-NEXT:    vmulh.vx v8, v8, a0
+; RV64-NEXT:    vsra.vi v8, v8, 1
+; RV64-NEXT:    vsrl.vi v12, v8, 15
+; RV64-NEXT:    vadd.vv v8, v8, v12
+; RV64-NEXT:    ret
   %head = insertelement <vscale x 16 x i16> poison, i16 -7, i32 0
   %splat = shufflevector <vscale x 16 x i16> %head, <vscale x 16 x i16> poison, <vscale x 16 x i32> zeroinitializer
   %vc = sdiv <vscale x 16 x i16> %va, %splat
@@ -519,16 +574,27 @@ define <vscale x 32 x i16> @vdiv_vx_nxv32i16(<vscale x 32 x i16> %va, i16 signex
 }
 
 define <vscale x 32 x i16> @vdiv_vi_nxv32i16_0(<vscale x 32 x i16> %va) {
-; CHECK-LABEL: vdiv_vi_nxv32i16_0:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    lui a0, 1048571
-; CHECK-NEXT:    addi a0, a0, 1755
-; CHECK-NEXT:    vsetvli a1, zero, e16, m8, ta, ma
-; CHECK-NEXT:    vmulh.vx v8, v8, a0
-; CHECK-NEXT:    vsra.vi v8, v8, 1
-; CHECK-NEXT:    vsrl.vi v16, v8, 15
-; CHECK-NEXT:    vadd.vv v8, v8, v16
-; CHECK-NEXT:    ret
+; RV32-LABEL: vdiv_vi_nxv32i16_0:
+; RV32:       # %bb.0:
+; RV32-NEXT:    lui a0, 1048571
+; RV32-NEXT:    addi a0, a0, 1755
+; RV32-NEXT:    vsetvli a1, zero, e16, m8, ta, ma
+; RV32-NEXT:    vmulh.vx v8, v8, a0
+; RV32-NEXT:    vsra.vi v8, v8, 1
+; RV32-NEXT:    vsrl.vi v16, v8, 15
+; RV32-NEXT:    vadd.vv v8, v8, v16
+; RV32-NEXT:    ret
+;
+; RV64-LABEL: vdiv_vi_nxv32i16_0:
+; RV64:       # %bb.0:
+; RV64-NEXT:    lui a0, 1048571
+; RV64-NEXT:    addiw a0, a0, 1755
+; RV64-NEXT:    vsetvli a1, zero, e16, m8, ta, ma
+; RV64-NEXT:    vmulh.vx v8, v8, a0
+; RV64-NEXT:    vsra.vi v8, v8, 1
+; RV64-NEXT:    vsrl.vi v16, v8, 15
+; RV64-NEXT:    vadd.vv v8, v8, v16
+; RV64-NEXT:    ret
   %head = insertelement <vscale x 32 x i16> poison, i16 -7, i32 0
   %splat = shufflevector <vscale x 32 x i16> %head, <vscale x 32 x i16> poison, <vscale x 32 x i32> zeroinitializer
   %vc = sdiv <vscale x 32 x i16> %va, %splat
@@ -573,7 +639,7 @@ define <vscale x 1 x i32> @vdiv_vi_nxv1i32_0(<vscale x 1 x i32> %va) {
 ; RV64-LABEL: vdiv_vi_nxv1i32_0:
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    lui a0, 449390
-; RV64-NEXT:    addi a0, a0, -1171
+; RV64-NEXT:    addiw a0, a0, -1171
 ; RV64-NEXT:    vsetvli a1, zero, e32, mf2, ta, ma
 ; RV64-NEXT:    vmulh.vx v9, v8, a0
 ; RV64-NEXT:    vsub.vv v8, v9, v8
@@ -625,7 +691,7 @@ define <vscale x 2 x i32> @vdiv_vi_nxv2i32_0(<vscale x 2 x i32> %va) {
 ; RV64-LABEL: vdiv_vi_nxv2i32_0:
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    lui a0, 449390
-; RV64-NEXT:    addi a0, a0, -1171
+; RV64-NEXT:    addiw a0, a0, -1171
 ; RV64-NEXT:    vsetvli a1, zero, e32, m1, ta, ma
 ; RV64-NEXT:    vmulh.vx v9, v8, a0
 ; RV64-NEXT:    vsub.vv v8, v9, v8
@@ -677,7 +743,7 @@ define <vscale x 4 x i32> @vdiv_vi_nxv4i32_0(<vscale x 4 x i32> %va) {
 ; RV64-LABEL: vdiv_vi_nxv4i32_0:
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    lui a0, 449390
-; RV64-NEXT:    addi a0, a0, -1171
+; RV64-NEXT:    addiw a0, a0, -1171
 ; RV64-NEXT:    vsetvli a1, zero, e32, m2, ta, ma
 ; RV64-NEXT:    vmulh.vx v10, v8, a0
 ; RV64-NEXT:    vsub.vv v8, v10, v8
@@ -729,7 +795,7 @@ define <vscale x 8 x i32> @vdiv_vi_nxv8i32_0(<vscale x 8 x i32> %va) {
 ; RV64-LABEL: vdiv_vi_nxv8i32_0:
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    lui a0, 449390
-; RV64-NEXT:    addi a0, a0, -1171
+; RV64-NEXT:    addiw a0, a0, -1171
 ; RV64-NEXT:    vsetvli a1, zero, e32, m4, ta, ma
 ; RV64-NEXT:    vmulh.vx v12, v8, a0
 ; RV64-NEXT:    vsub.vv v8, v12, v8
@@ -781,7 +847,7 @@ define <vscale x 16 x i32> @vdiv_vi_nxv16i32_0(<vscale x 16 x i32> %va) {
 ; RV64-LABEL: vdiv_vi_nxv16i32_0:
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    lui a0, 449390
-; RV64-NEXT:    addi a0, a0, -1171
+; RV64-NEXT:    addiw a0, a0, -1171
 ; RV64-NEXT:    vsetvli a1, zero, e32, m8, ta, ma
 ; RV64-NEXT:    vmulh.vx v16, v8, a0
 ; RV64-NEXT:    vsub.vv v8, v16, v8
@@ -1117,53 +1183,4 @@ define <vscale x 8 x i64> @vdiv_vi_nxv8i64_0(<vscale x 8 x i64> %va) {
   %splat = shufflevector <vscale x 8 x i64> %head, <vscale x 8 x i64> poison, <vscale x 8 x i32> zeroinitializer
   %vc = sdiv <vscale x 8 x i64> %va, %splat
   ret <vscale x 8 x i64> %vc
-}
-
-define <vscale x 8 x i32> @vdiv_vv_mask_nxv8i32(<vscale x 8 x i32> %va, <vscale x 8 x i32> %vb, <vscale x 8 x i1> %mask) {
-; CHECK-LABEL: vdiv_vv_mask_nxv8i32:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetvli a0, zero, e32, m4, ta, ma
-; CHECK-NEXT:    vmv.v.i v16, 1
-; CHECK-NEXT:    vmerge.vvm v12, v16, v12, v0
-; CHECK-NEXT:    vdiv.vv v8, v8, v12
-; CHECK-NEXT:    ret
-  %head = insertelement <vscale x 8 x i32> poison, i32 1, i32 0
-  %one = shufflevector <vscale x 8 x i32> %head, <vscale x 8 x i32> poison, <vscale x 8 x i32> zeroinitializer
-  %vs = select <vscale x 8 x i1> %mask, <vscale x 8 x i32> %vb, <vscale x 8 x i32> %one
-  %vc = sdiv <vscale x 8 x i32> %va, %vs
-  ret <vscale x 8 x i32> %vc
-}
-
-define <vscale x 8 x i32> @vdiv_vx_mask_nxv8i32(<vscale x 8 x i32> %va, i32 signext %b, <vscale x 8 x i1> %mask) {
-; CHECK-LABEL: vdiv_vx_mask_nxv8i32:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetvli a1, zero, e32, m4, ta, ma
-; CHECK-NEXT:    vmv.v.i v12, 1
-; CHECK-NEXT:    vmerge.vxm v12, v12, a0, v0
-; CHECK-NEXT:    vdiv.vv v8, v8, v12
-; CHECK-NEXT:    ret
-  %head1 = insertelement <vscale x 8 x i32> poison, i32 1, i32 0
-  %one = shufflevector <vscale x 8 x i32> %head1, <vscale x 8 x i32> poison, <vscale x 8 x i32> zeroinitializer
-  %head2 = insertelement <vscale x 8 x i32> poison, i32 %b, i32 0
-  %splat = shufflevector <vscale x 8 x i32> %head2, <vscale x 8 x i32> poison, <vscale x 8 x i32> zeroinitializer
-  %vs = select <vscale x 8 x i1> %mask, <vscale x 8 x i32> %splat, <vscale x 8 x i32> %one
-  %vc = sdiv <vscale x 8 x i32> %va, %vs
-  ret <vscale x 8 x i32> %vc
-}
-
-define <vscale x 8 x i32> @vdiv_vi_mask_nxv8i32(<vscale x 8 x i32> %va, <vscale x 8 x i1> %mask) {
-; CHECK-LABEL: vdiv_vi_mask_nxv8i32:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetvli a0, zero, e32, m4, ta, ma
-; CHECK-NEXT:    vmv.v.i v12, 1
-; CHECK-NEXT:    vmerge.vim v12, v12, 7, v0
-; CHECK-NEXT:    vdiv.vv v8, v8, v12
-; CHECK-NEXT:    ret
-  %head1 = insertelement <vscale x 8 x i32> poison, i32 1, i32 0
-  %one = shufflevector <vscale x 8 x i32> %head1, <vscale x 8 x i32> poison, <vscale x 8 x i32> zeroinitializer
-  %head2 = insertelement <vscale x 8 x i32> poison, i32 7, i32 0
-  %splat = shufflevector <vscale x 8 x i32> %head2, <vscale x 8 x i32> poison, <vscale x 8 x i32> zeroinitializer
-  %vs = select <vscale x 8 x i1> %mask, <vscale x 8 x i32> %splat, <vscale x 8 x i32> %one
-  %vc = sdiv <vscale x 8 x i32> %va, %vs
-  ret <vscale x 8 x i32> %vc
 }

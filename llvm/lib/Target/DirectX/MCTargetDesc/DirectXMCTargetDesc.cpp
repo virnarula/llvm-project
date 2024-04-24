@@ -14,6 +14,7 @@
 #include "DirectXMCTargetDesc.h"
 #include "DirectXContainerObjectWriter.h"
 #include "TargetInfo/DirectXTargetInfo.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -26,7 +27,6 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/TargetParser/Triple.h"
 #include <memory>
 
 using namespace llvm;
@@ -64,7 +64,7 @@ class DXILMCCodeEmitter : public MCCodeEmitter {
 public:
   DXILMCCodeEmitter() {}
 
-  void encodeInstruction(const MCInst &Inst, SmallVectorImpl<char> &CB,
+  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override {}
 };
@@ -72,8 +72,7 @@ public:
 class DXILAsmBackend : public MCAsmBackend {
 
 public:
-  DXILAsmBackend(const MCSubtargetInfo &STI)
-      : MCAsmBackend(llvm::endianness::little) {}
+  DXILAsmBackend(const MCSubtargetInfo &STI) : MCAsmBackend(support::little) {}
   ~DXILAsmBackend() override = default;
 
   void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,

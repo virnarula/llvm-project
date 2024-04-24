@@ -11,7 +11,9 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 
-namespace clang::tidy::utils {
+namespace clang {
+namespace tidy {
+namespace utils {
 
 /// Return whether \p S is a reference to the declaration of \p Var.
 static bool isAccessForVar(const Stmt *S, const VarDecl *Var) {
@@ -94,4 +96,6 @@ bool hasPtrOrReferenceInFunc(const Decl *Func, const VarDecl *Var) {
          refersToEnclosingLambdaCaptureByRef(Func, Var);
 }
 
-} // namespace clang::tidy::utils
+} // namespace utils
+} // namespace tidy
+} // namespace clang

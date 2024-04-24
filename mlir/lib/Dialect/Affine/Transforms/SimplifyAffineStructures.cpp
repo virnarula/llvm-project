@@ -20,16 +20,13 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 namespace mlir {
-namespace affine {
 #define GEN_PASS_DEF_SIMPLIFYAFFINESTRUCTURES
 #include "mlir/Dialect/Affine/Passes.h.inc"
-} // namespace affine
 } // namespace mlir
 
 #define DEBUG_TYPE "simplify-affine-structure"
 
 using namespace mlir;
-using namespace mlir::affine;
 
 namespace {
 
@@ -38,8 +35,7 @@ namespace {
 /// all memrefs with non-trivial layout maps are converted to ones with trivial
 /// identity layout ones.
 struct SimplifyAffineStructures
-    : public affine::impl::SimplifyAffineStructuresBase<
-          SimplifyAffineStructures> {
+    : public impl::SimplifyAffineStructuresBase<SimplifyAffineStructures> {
   void runOnOperation() override;
 
   /// Utility to simplify an affine attribute and update its entry in the parent
@@ -82,7 +78,7 @@ struct SimplifyAffineStructures
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::affine::createSimplifyAffineStructuresPass() {
+mlir::createSimplifyAffineStructuresPass() {
   return std::make_unique<SimplifyAffineStructures>();
 }
 
@@ -100,16 +96,14 @@ void SimplifyAffineStructures::runOnOperation() {
   SmallVector<Operation *> opsToSimplify;
   func.walk([&](Operation *op) {
     for (auto attr : op->getAttrs()) {
-      if (auto mapAttr = dyn_cast<AffineMapAttr>(attr.getValue()))
+      if (auto mapAttr = attr.getValue().dyn_cast<AffineMapAttr>())
         simplifyAndUpdateAttribute(op, attr.getName(), mapAttr);
-      else if (auto setAttr = dyn_cast<IntegerSetAttr>(attr.getValue()))
+      else if (auto setAttr = attr.getValue().dyn_cast<IntegerSetAttr>())
         simplifyAndUpdateAttribute(op, attr.getName(), setAttr);
     }
 
     if (isa<AffineForOp, AffineIfOp, AffineApplyOp>(op))
       opsToSimplify.push_back(op);
   });
-  GreedyRewriteConfig config;
-  config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-  (void)applyOpPatternsAndFold(opsToSimplify, frozenPatterns, config);
+  (void)applyOpPatternsAndFold(opsToSimplify, frozenPatterns, /*strict=*/true);
 }

@@ -160,14 +160,7 @@ static void substituteOperandWithArgument(Function *OldF,
   for (Use *Op : OpsToReplace) {
     Value *NewArg = OldValMap.lookup(Op->get());
     auto *NewUser = cast<Instruction>(VMap.lookup(Op->getUser()));
-
-    if (PHINode *NewPhi = dyn_cast<PHINode>(NewUser)) {
-      PHINode *OldPhi = cast<PHINode>(Op->getUser());
-      BasicBlock *OldBB = OldPhi->getIncomingBlock(*Op);
-      NewPhi->setIncomingValueForBlock(cast<BasicBlock>(VMap.lookup(OldBB)),
-                                       NewArg);
-    } else
-      NewUser->setOperand(Op->getOperandNo(), NewArg);
+    NewUser->setOperand(Op->getOperandNo(), NewArg);
   }
 
   // Replace all OldF uses with NewF.
@@ -175,14 +168,12 @@ static void substituteOperandWithArgument(Function *OldF,
 
   // Rename NewF to OldF's name.
   std::string FName = OldF->getName().str();
-  OldF->replaceAllUsesWith(NewF);
+  OldF->replaceAllUsesWith(ConstantExpr::getBitCast(NewF, OldF->getType()));
   OldF->eraseFromParent();
   NewF->setName(FName);
 }
 
-static void reduceOperandsToArgs(Oracle &O, ReducerWorkItem &WorkItem) {
-  Module &Program = WorkItem.getModule();
-
+static void reduceOperandsToArgs(Oracle &O, Module &Program) {
   SmallVector<Use *> OperandsToReduce;
   for (Function &F : make_early_inc_range(Program.functions())) {
     if (!canReplaceFunction(&F))

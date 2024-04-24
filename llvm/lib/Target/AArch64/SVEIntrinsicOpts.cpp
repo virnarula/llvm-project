@@ -34,7 +34,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
-#include <optional>
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -285,7 +284,7 @@ bool SVEIntrinsicOpts::optimizePredicateStore(Instruction *I) {
     return false;
 
   unsigned MinVScale = Attr.getVScaleRangeMin();
-  std::optional<unsigned> MaxVScale = Attr.getVScaleRangeMax();
+  Optional<unsigned> MaxVScale = Attr.getVScaleRangeMax();
   // The transform needs to know the exact runtime length of scalable vectors
   if (!MaxVScale || MinVScale != MaxVScale)
     return false;
@@ -325,7 +324,10 @@ bool SVEIntrinsicOpts::optimizePredicateStore(Instruction *I) {
   IRBuilder<> Builder(I->getContext());
   Builder.SetInsertPoint(I);
 
-  Builder.CreateStore(BitCast->getOperand(0), Store->getPointerOperand());
+  auto *PtrBitCast = Builder.CreateBitCast(
+      Store->getPointerOperand(),
+      PredType->getPointerTo(Store->getPointerAddressSpace()));
+  Builder.CreateStore(BitCast->getOperand(0), PtrBitCast);
 
   Store->eraseFromParent();
   if (IntrI->getNumUses() == 0)
@@ -345,7 +347,7 @@ bool SVEIntrinsicOpts::optimizePredicateLoad(Instruction *I) {
     return false;
 
   unsigned MinVScale = Attr.getVScaleRangeMin();
-  std::optional<unsigned> MaxVScale = Attr.getVScaleRangeMax();
+  Optional<unsigned> MaxVScale = Attr.getVScaleRangeMax();
   // The transform needs to know the exact runtime length of scalable vectors
   if (!MaxVScale || MinVScale != MaxVScale)
     return false;
@@ -382,7 +384,10 @@ bool SVEIntrinsicOpts::optimizePredicateLoad(Instruction *I) {
   IRBuilder<> Builder(I->getContext());
   Builder.SetInsertPoint(Load);
 
-  auto *LoadPred = Builder.CreateLoad(PredType, Load->getPointerOperand());
+  auto *PtrBitCast = Builder.CreateBitCast(
+      Load->getPointerOperand(),
+      PredType->getPointerTo(Load->getPointerAddressSpace()));
+  auto *LoadPred = Builder.CreateLoad(PredType, PtrBitCast);
 
   BitCast->replaceAllUsesWith(LoadPred);
   BitCast->eraseFromParent();

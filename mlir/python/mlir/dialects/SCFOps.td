@@ -9,6 +9,7 @@
 #ifndef PYTHON_BINDINGS_SCF_OPS
 #define PYTHON_BINDINGS_SCF_OPS
 
+include "mlir/Bindings/Python/Attributes.td"
 include "mlir/Dialect/SCF/IR/SCFOps.td"
 
 #endif

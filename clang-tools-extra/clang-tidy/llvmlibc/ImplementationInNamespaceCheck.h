@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::llvm_libc {
+namespace clang {
+namespace tidy {
+namespace llvm_libc {
 
 /// Checks all llvm-libc implementation is within the correct namespace.
 ///
@@ -29,6 +31,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::llvm_libc
+} // namespace llvm_libc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LLVMLIBC_IMPLEMENTATIONINNAMESPACECHECK_H

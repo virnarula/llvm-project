@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_STDLIB_STRTOLD_H
 #define LLVM_LIBC_SRC_STDLIB_STRTOLD_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 long double strtold(const char *__restrict str, char **__restrict str_end);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDLIB_STRTOLD_H

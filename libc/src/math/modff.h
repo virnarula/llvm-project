@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_MATH_MODFF_H
 #define LLVM_LIBC_SRC_MATH_MODFF_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 float modff(float x, float *iptr);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_MATH_MODFF_H

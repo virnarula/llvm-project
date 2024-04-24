@@ -51,34 +51,27 @@ private:
   /// Map a function ID from a YAML profile to a BinaryFunction object.
   std::vector<BinaryFunction *> YamlProfileToFunction;
 
-  using FunctionSet = std::unordered_set<const BinaryFunction *>;
   /// To keep track of functions that have a matched profile before the profile
   /// is attributed.
-  FunctionSet ProfiledFunctions;
+  std::unordered_set<const BinaryFunction *> ProfiledFunctions;
 
   /// For LTO symbol resolution.
   /// Map a common LTO prefix to a list of YAML profiles matching the prefix.
   StringMap<std::vector<yaml::bolt::BinaryFunctionProfile *>> LTOCommonNameMap;
 
   /// Map a common LTO prefix to a set of binary functions.
-  StringMap<std::unordered_set<BinaryFunction *>> LTOCommonNameFunctionMap;
+  StringMap<std::unordered_set<const BinaryFunction *>>
+      LTOCommonNameFunctionMap;
 
-  /// Function names in profile.
-  StringSet<> ProfileFunctionNames;
-
-  /// BinaryFunction pointers indexed by YamlBP functions.
-  std::vector<BinaryFunction *> ProfileBFs;
+  /// Strict matching of a name in a profile to its contents.
+  StringMap<yaml::bolt::BinaryFunctionProfile *> ProfileNameToProfile;
 
   /// Populate \p Function profile with the one supplied in YAML format.
   bool parseFunctionProfile(BinaryFunction &Function,
                             const yaml::bolt::BinaryFunctionProfile &YamlBF);
 
-  /// Infer function profile from stale data (collected on older binaries).
-  bool inferStaleProfile(BinaryFunction &Function,
-                         const yaml::bolt::BinaryFunctionProfile &YamlBF);
-
   /// Initialize maps for profile matching.
-  void buildNameMaps(BinaryContext &BC);
+  void buildNameMaps(std::map<uint64_t, BinaryFunction> &Functions);
 
   /// Update matched YAML -> BinaryFunction pair.
   void matchProfileToFunction(yaml::bolt::BinaryFunctionProfile &YamlBF,

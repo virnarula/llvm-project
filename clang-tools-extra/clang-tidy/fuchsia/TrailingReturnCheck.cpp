@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::fuchsia {
+namespace clang {
+namespace tidy {
+namespace fuchsia {
 
 void TrailingReturnCheck::registerMatchers(MatchFinder *Finder) {
   // Functions that have trailing returns are disallowed, except for those
@@ -34,4 +36,6 @@ void TrailingReturnCheck::check(const MatchFinder::MatchResult &Result) {
          "a trailing return type is disallowed for this function declaration");
 }
 
-} // namespace clang::tidy::fuchsia
+} // namespace fuchsia
+} // namespace tidy
+} // namespace clang

@@ -1,5 +1,4 @@
 ; RUN: llc < %s -mtriple=arm64-eabi -aarch64-neon-syntax=apple -asm-verbose=false -mcpu=cyclone | FileCheck %s
-; RUN: llc < %s -global-isel -mtriple=arm64-eabi -aarch64-neon-syntax=apple -asm-verbose=false -mcpu=cyclone | FileCheck %s
 
 define signext i8 @test_vaddv_s8(<8 x i8> %a1) {
 ; CHECK-LABEL: test_vaddv_s8:

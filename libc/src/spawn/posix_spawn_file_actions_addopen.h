@@ -11,12 +11,12 @@
 
 #include <spawn.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 int posix_spawn_file_actions_addopen(
     posix_spawn_file_actions_t *__restrict actions, int fd,
     const char *__restrict path, int oflag, mode_t mode);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_SPAWN_POSIX_SPAWN_FILE_ACTIONS_ADDOPEN_H

@@ -4,13 +4,11 @@
 ; CHECK-DAG: OpName %[[#FOO:]] "foo"
 ; CHECK-DAG: OpName %[[#GOO:]] "goo"
 
-; CHECK-DAG: %[[#CHAR:]] = OpTypeInt 8
-; CHECK-DAG: %[[#INT:]] = OpTypeInt 32
-; CHECK-DAG: %[[#STACK_PTR_INT:]] = OpTypePointer Function %[[#INT]]
-; CHECK-DAG: %[[#GLOBAL_PTR_INT:]] = OpTypePointer CrossWorkgroup %[[#INT]]
-; CHECK-DAG: %[[#GLOBAL_PTR_CHAR:]] = OpTypePointer CrossWorkgroup %[[#CHAR]]
+; CHECK:     %[[#INT:]] = OpTypeInt 32
+; CHECK-DAG: %[[#STACK_PTR:]] = OpTypePointer Function %[[#INT]]
+; CHECK-DAG: %[[#GLOBAL_PTR:]] = OpTypePointer CrossWorkgroup %[[#INT]]
 ; CHECK-DAG: %[[#FN1:]] = OpTypeFunction %[[#INT]] %[[#INT]]
-; CHECK-DAG: %[[#FN2:]] = OpTypeFunction %[[#INT]] %[[#INT]] %[[#GLOBAL_PTR_CHAR]]
+; CHECK-DAG: %[[#FN2:]] = OpTypeFunction %[[#INT]] %[[#INT]] %[[#GLOBAL_PTR]]
 
 define i32 @bar(i32 %a) {
   %p = alloca i32
@@ -22,7 +20,7 @@ define i32 @bar(i32 %a) {
 ; CHECK: %[[#BAR]] = OpFunction %[[#INT]] None %[[#FN1]]
 ; CHECK: %[[#A:]] = OpFunctionParameter %[[#INT]]
 ; CHECK: OpLabel
-; CHECK: %[[#P:]] = OpVariable %[[#STACK_PTR_INT]] Function
+; CHECK: %[[#P:]] = OpVariable %[[#STACK_PTR]] Function
 ; CHECK: OpStore %[[#P]] %[[#A]]
 ; CHECK: %[[#B:]] = OpLoad %[[#INT]] %[[#P]]
 ; CHECK: OpReturnValue %[[#B]]
@@ -39,7 +37,7 @@ define i32 @foo(i32 %a) {
 ; CHECK: %[[#FOO]] = OpFunction %[[#INT]] None %[[#FN1]]
 ; CHECK: %[[#A:]] = OpFunctionParameter %[[#INT]]
 ; CHECK: OpLabel
-; CHECK: %[[#P:]] = OpVariable %[[#STACK_PTR_INT]] Function
+; CHECK: %[[#P:]] = OpVariable %[[#STACK_PTR]] Function
 ; CHECK: OpStore %[[#P]] %[[#A]] Volatile
 ; CHECK: %[[#B:]] = OpLoad %[[#INT]] %[[#P]] Volatile
 ; CHECK: OpReturnValue %[[#B]]
@@ -47,7 +45,7 @@ define i32 @foo(i32 %a) {
 
 
 ;; Test load and store in global address space.
-define i32 @goo(i32 %a, ptr addrspace(1) %p) {
+define i32 @goo(i32 %a, i32 addrspace(1)* %p) {
   store i32 %a, i32 addrspace(1)* %p
   %b = load i32, i32 addrspace(1)* %p
   ret i32 %b
@@ -55,10 +53,9 @@ define i32 @goo(i32 %a, ptr addrspace(1) %p) {
 
 ; CHECK: %[[#GOO]] = OpFunction %[[#INT]] None %[[#FN2]]
 ; CHECK: %[[#A:]] = OpFunctionParameter %[[#INT]]
-; CHECK: %[[#P:]] = OpFunctionParameter %[[#GLOBAL_PTR_CHAR]]
+; CHECK: %[[#P:]] = OpFunctionParameter %[[#GLOBAL_PTR]]
 ; CHECK: OpLabel
-; CHECK: %[[#C:]] = OpBitcast %[[#GLOBAL_PTR_INT]] %[[#P]]
-; CHECK: OpStore %[[#C]] %[[#A]]
-; CHECK: %[[#B:]] = OpLoad %[[#INT]] %[[#C]]
+; CHECK: OpStore %[[#P]] %[[#A]]
+; CHECK: %[[#B:]] = OpLoad %[[#INT]] %[[#P]]
 ; CHECK: OpReturnValue %[[#B]]
 ; CHECK: OpFunctionEnd

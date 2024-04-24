@@ -69,11 +69,11 @@ StringRef Attribute::getReturnType() const {
 }
 
 // Return the type constraint corresponding to the type of this attribute, or
-// std::nullopt if this is not a TypedAttr.
-std::optional<Type> Attribute::getValueType() const {
+// None if this is not a TypedAttr.
+llvm::Optional<Type> Attribute::getValueType() const {
   if (auto *defInit = dyn_cast<llvm::DefInit>(def->getValueInit("valueType")))
     return Type(defInit->getDef());
-  return std::nullopt;
+  return llvm::None;
 }
 
 StringRef Attribute::getConvertFromStorageCall() const {

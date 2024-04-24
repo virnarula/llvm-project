@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::portability {
+namespace clang {
+namespace tidy {
+namespace portability {
 
 /// Report use of ``std::vector<const T>`` (and similar containers of const
 /// elements). These are not allowed in standard C++ due to undefined
@@ -28,6 +30,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::portability
+} // namespace portability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_PORTABILITY_STDALLOCATORCONSTCHECK_H

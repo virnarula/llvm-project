@@ -12,7 +12,7 @@
 
 #include <fenv.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 LLVM_LIBC_FUNCTION(int, feholdexcept, (fenv_t * envp)) {
   if (fputil::get_env(envp) != 0)
@@ -22,4 +22,4 @@ LLVM_LIBC_FUNCTION(int, feholdexcept, (fenv_t * envp)) {
   return 0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc

@@ -13,7 +13,10 @@
 #include "clang/AST/Type.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
-namespace clang::tidy::utils::decl_ref_expr {
+namespace clang {
+namespace tidy {
+namespace utils {
+namespace decl_ref_expr {
 
 /// Returns true if all ``DeclRefExpr`` to the variable within ``Stmt``
 /// do not modify it.
@@ -48,6 +51,9 @@ bool isCopyConstructorArgument(const DeclRefExpr &DeclRef, const Decl &Decl,
 bool isCopyAssignmentArgument(const DeclRefExpr &DeclRef, const Decl &Decl,
                               ASTContext &Context);
 
-} // namespace clang::tidy::utils::decl_ref_expr
+} // namespace decl_ref_expr
+} // namespace utils
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_UTILS_DECLREFEXPRUTILS_H

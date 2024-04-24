@@ -57,16 +57,15 @@ DEFINE_SYMBOL_TABLE_PARENT_TYPE(GlobalAlias, Module)
 DEFINE_SYMBOL_TABLE_PARENT_TYPE(GlobalIFunc, Module)
 #undef DEFINE_SYMBOL_TABLE_PARENT_TYPE
 
-template <typename NodeTy, typename... Args> class SymbolTableList;
+template <typename NodeTy> class SymbolTableList;
 
 // ValueSubClass   - The type of objects that I hold, e.g. Instruction.
 // ItemParentClass - The type of object that owns the list, e.g. BasicBlock.
-// OptionsT        - Extra options to ilist nodes.
 //
-template <typename ValueSubClass, typename... Args>
+template <typename ValueSubClass>
 class SymbolTableListTraits : public ilist_alloc_traits<ValueSubClass> {
-  using ListTy = SymbolTableList<ValueSubClass, Args...>;
-  using iterator = typename simple_ilist<ValueSubClass, Args...>::iterator;
+  using ListTy = SymbolTableList<ValueSubClass>;
+  using iterator = typename simple_ilist<ValueSubClass>::iterator;
   using ItemParentClass =
       typename SymbolTableListParentType<ValueSubClass>::type;
 
@@ -111,10 +110,9 @@ public:
 /// When nodes are inserted into and removed from this list, the associated
 /// symbol table will be automatically updated.  Similarly, parent links get
 /// updated automatically.
-template <class T, typename... Args>
-class SymbolTableList : public iplist_impl<simple_ilist<T, Args...>,
-                                           SymbolTableListTraits<T, Args...>> {
-};
+template <class T>
+class SymbolTableList
+    : public iplist_impl<simple_ilist<T>, SymbolTableListTraits<T>> {};
 
 } // end namespace llvm
 

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/BPFMCFixups.h"
 #include "MCTargetDesc/BPFMCTargetDesc.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCCodeEmitter.h"
@@ -59,7 +58,7 @@ public:
                             SmallVectorImpl<MCFixup> &Fixups,
                             const MCSubtargetInfo &STI) const;
 
-  void encodeInstruction(const MCInst &MI, SmallVectorImpl<char> &CB,
+  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override;
 };
@@ -96,8 +95,6 @@ unsigned BPFMCCodeEmitter::getMachineOpValue(const MCInst &MI,
     Fixups.push_back(MCFixup::create(0, Expr, FK_PCRel_4));
   else if (MI.getOpcode() == BPF::LD_imm64)
     Fixups.push_back(MCFixup::create(0, Expr, FK_SecRel_8));
-  else if (MI.getOpcode() == BPF::JMPL)
-    Fixups.push_back(MCFixup::create(0, Expr, (MCFixupKind)BPF::FK_BPF_PCRel_4));
   else
     // bb label
     Fixups.push_back(MCFixup::create(0, Expr, FK_PCRel_2));
@@ -110,22 +107,20 @@ static uint8_t SwapBits(uint8_t Val)
   return (Val & 0x0F) << 4 | (Val & 0xF0) >> 4;
 }
 
-void BPFMCCodeEmitter::encodeInstruction(const MCInst &MI,
-                                         SmallVectorImpl<char> &CB,
+void BPFMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
                                          SmallVectorImpl<MCFixup> &Fixups,
                                          const MCSubtargetInfo &STI) const {
   unsigned Opcode = MI.getOpcode();
-  raw_svector_ostream OS(CB);
-  support::endian::Writer OSE(OS, IsLittleEndian ? llvm::endianness::little
-                                                 : llvm::endianness::big);
+  support::endian::Writer OSE(OS,
+                              IsLittleEndian ? support::little : support::big);
 
   if (Opcode == BPF::LD_imm64 || Opcode == BPF::LD_pseudo) {
     uint64_t Value = getBinaryCodeForInstr(MI, Fixups, STI);
-    CB.push_back(Value >> 56);
+    OS << char(Value >> 56);
     if (IsLittleEndian)
-      CB.push_back((Value >> 48) & 0xff);
+      OS << char((Value >> 48) & 0xff);
     else
-      CB.push_back(SwapBits((Value >> 48) & 0xff));
+      OS << char(SwapBits((Value >> 48) & 0xff));
     OSE.write<uint16_t>(0);
     OSE.write<uint32_t>(Value & 0xffffFFFF);
 
@@ -138,11 +133,11 @@ void BPFMCCodeEmitter::encodeInstruction(const MCInst &MI,
   } else {
     // Get instruction encoding and emit it
     uint64_t Value = getBinaryCodeForInstr(MI, Fixups, STI);
-    CB.push_back(Value >> 56);
+    OS << char(Value >> 56);
     if (IsLittleEndian)
-      CB.push_back(char((Value >> 48) & 0xff));
+      OS << char((Value >> 48) & 0xff);
     else
-      CB.push_back(SwapBits((Value >> 48) & 0xff));
+      OS << char(SwapBits((Value >> 48) & 0xff));
     OSE.write<uint16_t>((Value >> 32) & 0xffff);
     OSE.write<uint32_t>(Value & 0xffffFFFF);
   }

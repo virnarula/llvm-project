@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang {
+namespace tidy {
+namespace modernize {
 
 UseTransparentFunctorsCheck::UseTransparentFunctorsCheck(
     StringRef Name, ClangTidyContext *Context)
@@ -122,4 +124,6 @@ void UseTransparentFunctorsCheck::check(
                                   FunctorTypeLoc.getArgLoc(0).getSourceRange());
 }
 
-} // namespace clang::tidy::modernize
+} // namespace modernize
+} // namespace tidy
+} // namespace clang

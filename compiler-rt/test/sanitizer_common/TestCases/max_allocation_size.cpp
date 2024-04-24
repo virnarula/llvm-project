@@ -35,16 +35,13 @@
 // RUN:   | FileCheck %s --check-prefix=CHECK-nnCRASH
 // RUN: %env_tool_opts=max_allocation_size_mb=2:allocator_may_return_null=1 \
 // RUN:   %run %t new-nothrow 2>&1 | FileCheck %s --check-prefix=CHECK-NULL
-// RUN: %env_tool_opts=max_allocation_size_mb=2:allocator_may_return_null=0:fast_unwind_on_malloc=0 \
+// RUN: %env_tool_opts=max_allocation_size_mb=2:allocator_may_return_null=0 \
 // RUN:   not %run %t strndup 2>&1 | FileCheck %s --check-prefix=CHECK-sCRASH
 // RUN: %env_tool_opts=max_allocation_size_mb=2:allocator_may_return_null=1 \
 // RUN:   %run %t strndup 2>&1 | FileCheck %s --check-prefix=CHECK-NULL
 
 // win32 is disabled due to failing errno tests.
-// UNSUPPORTED: ubsan, target={{.*windows-msvc.*}}
-
-// Symbolizer needs to allocated memory when reporting.
-// UNSUPPORTED: internal_symbolizer
+// UNSUPPORTED: ubsan, windows-msvc
 
 #include <assert.h>
 #include <errno.h>
@@ -123,29 +120,21 @@ int main(int Argc, char **Argv) {
 }
 
 // CHECK-mCRASH: malloc:
-// CHECK-mCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-mCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.* in allocate}}
+// CHECK-mCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-cCRASH: calloc:
-// CHECK-cCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-cCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.* in allocate}}
+// CHECK-cCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-rCRASH: realloc:
-// CHECK-rCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-rCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.* in allocate}}
+// CHECK-rCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-mrCRASH: realloc-after-malloc:
-// CHECK-mrCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-mrCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.* in allocate}}
+// CHECK-mrCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-nCRASH: new:
-// CHECK-nCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-nCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.* in allocate}}
+// CHECK-nCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-nCRASH-OOM: new:
-// CHECK-nCRASH-OOM: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-nCRASH-OOM: {{SUMMARY: .*Sanitizer: out-of-memory.* in allocate}}
+// CHECK-nCRASH-OOM: {{SUMMARY: .*Sanitizer: out-of-memory}}
 // CHECK-nnCRASH: new-nothrow:
-// CHECK-nnCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-nnCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.* in allocate}}
+// CHECK-nnCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 // CHECK-sCRASH: strndup:
-// CHECK-sCRASH: #{{[0-9]+.*}}max_allocation_size.cpp
-// CHECK-sCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big.*}}
+// CHECK-sCRASH: {{SUMMARY: .*Sanitizer: allocation-size-too-big}}
 
 // CHECK-NULL: {{malloc|calloc|calloc-overflow|realloc|realloc-after-malloc|new-nothrow|strndup}}
 // CHECK-NULL: errno: 12, P: 0

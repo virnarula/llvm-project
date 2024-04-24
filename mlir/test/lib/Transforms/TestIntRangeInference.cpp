@@ -9,7 +9,6 @@
 // functionality has been integrated into SCCP.
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
@@ -17,7 +16,6 @@
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Support/TypeID.h"
 #include "mlir/Transforms/FoldUtils.h"
-#include <optional>
 
 using namespace mlir;
 using namespace mlir::dataflow;
@@ -31,7 +29,7 @@ static LogicalResult replaceWithConstant(DataFlowSolver &solver, OpBuilder &b,
     return failure();
   const ConstantIntRanges &inferredRange =
       maybeInferredRange->getValue().getValue();
-  std::optional<APInt> maybeConstValue = inferredRange.getConstantValue();
+  Optional<APInt> maybeConstValue = inferredRange.getConstantValue();
   if (!maybeConstValue.has_value())
     return failure();
 
@@ -40,8 +38,8 @@ static LogicalResult replaceWithConstant(DataFlowSolver &solver, OpBuilder &b,
       maybeDefiningOp ? maybeDefiningOp->getDialect()
                       : value.getParentRegion()->getParentOp()->getDialect();
   Attribute constAttr = b.getIntegerAttr(value.getType(), *maybeConstValue);
-  Value constant = folder.getOrCreateConstant(
-      b.getInsertionBlock(), valueDialect, constAttr, value.getType());
+  Value constant = folder.getOrCreateConstant(b, valueDialect, constAttr,
+                                              value.getType(), value.getLoc());
   if (!constant)
     return failure();
 
@@ -107,7 +105,6 @@ struct TestIntRangeInference
     Operation *op = getOperation();
     DataFlowSolver solver;
     solver.load<DeadCodeAnalysis>();
-    solver.load<SparseConstantPropagation>();
     solver.load<IntegerRangeAnalysis>();
     if (failed(solver.initializeAndRun(op)))
       return signalPassFailure();

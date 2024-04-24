@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 void CloexecDupCheck::registerMatchers(MatchFinder *Finder) {
   registerMatchersImpl(Finder,
@@ -30,4 +32,6 @@ void CloexecDupCheck::check(const MatchFinder::MatchResult &Result) {
               ReplacementText);
 }
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang

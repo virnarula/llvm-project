@@ -8,7 +8,7 @@ target triple = "nvptx64-nvidia-cuda"
 declare void @conv() convergent
 declare void @not_conv()
 
-define void @test(ptr %f) {
+define void @test(void ()* %f) {
   ; CHECK: ConvergentCallUniPrintCall
   ; CHECK-NEXT: @conv
   call void @conv()

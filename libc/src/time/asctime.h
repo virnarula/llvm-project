@@ -11,10 +11,12 @@
 
 #include <time.h>
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 char *asctime(const struct tm *timeptr);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_TIME_ASCTIME_H
+
+#include "include/time.h"

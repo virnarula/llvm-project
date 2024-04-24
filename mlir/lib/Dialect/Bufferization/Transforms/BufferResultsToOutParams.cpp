@@ -28,9 +28,9 @@ static bool hasFullyDynamicLayoutMap(MemRefType type) {
   SmallVector<int64_t, 4> strides;
   if (failed(getStridesAndOffset(type, strides, offset)))
     return false;
-  if (!llvm::all_of(strides, ShapedType::isDynamic))
+  if (!llvm::all_of(strides, ShapedType::isDynamicStrideOrOffset))
     return false;
-  if (!ShapedType::isDynamic(offset))
+  if (!ShapedType::isDynamicStrideOrOffset(offset))
     return false;
   return true;
 }
@@ -53,7 +53,7 @@ updateFuncOp(func::FuncOp func,
   SmallVector<Type, 6> erasedResultTypes;
   BitVector erasedResultIndices(functionType.getNumResults());
   for (const auto &resultType : llvm::enumerate(functionType.getResults())) {
-    if (auto memrefType = dyn_cast<MemRefType>(resultType.value())) {
+    if (auto memrefType = resultType.value().dyn_cast<MemRefType>()) {
       if (!hasStaticIdentityLayout(memrefType) &&
           !hasFullyDynamicLayoutMap(memrefType)) {
         // Only buffers with static identity layout can be allocated. These can
@@ -103,7 +103,7 @@ static void updateReturnOps(func::FuncOp func,
     SmallVector<Value, 6> copyIntoOutParams;
     SmallVector<Value, 6> keepAsReturnOperands;
     for (Value operand : op.getOperands()) {
-      if (isa<MemRefType>(operand.getType()))
+      if (operand.getType().isa<MemRefType>())
         copyIntoOutParams.push_back(operand);
       else
         keepAsReturnOperands.push_back(operand);
@@ -119,25 +119,13 @@ static void updateReturnOps(func::FuncOp func,
 
 // Updates all CallOps in the scope of the given ModuleOp by allocating
 // temporary buffers for newly introduced out params.
-static LogicalResult
-updateCalls(ModuleOp module,
-            const bufferization::BufferResultsToOutParamsOptions &options) {
+static LogicalResult updateCalls(ModuleOp module) {
   bool didFail = false;
-  SymbolTable symtab(module);
   module.walk([&](func::CallOp op) {
-    auto callee = symtab.lookup<func::FuncOp>(op.getCallee());
-    if (!callee) {
-      op.emitError() << "cannot find callee '" << op.getCallee() << "' in "
-                     << "symbol table";
-      didFail = true;
-      return;
-    }
-    if (!options.filterFn(&callee))
-      return;
     SmallVector<Value, 6> replaceWithNewCallResults;
     SmallVector<Value, 6> replaceWithOutParams;
     for (OpResult result : op.getResults()) {
-      if (isa<MemRefType>(result.getType()))
+      if (result.getType().isa<MemRefType>())
         replaceWithOutParams.push_back(result);
       else
         replaceWithNewCallResults.push_back(result);
@@ -145,16 +133,16 @@ updateCalls(ModuleOp module,
     SmallVector<Value, 6> outParams;
     OpBuilder builder(op);
     for (Value memref : replaceWithOutParams) {
-      if (!cast<MemRefType>(memref.getType()).hasStaticShape()) {
+      if (!memref.getType().cast<MemRefType>().hasStaticShape()) {
         op.emitError()
             << "cannot create out param for dynamically shaped result";
         didFail = true;
         return;
       }
-      auto memrefType = cast<MemRefType>(memref.getType());
+      auto memrefType = memref.getType().cast<MemRefType>();
       auto allocType =
           MemRefType::get(memrefType.getShape(), memrefType.getElementType(),
-                          AffineMap(), memrefType.getMemorySpace());
+                          AffineMap(), memrefType.getMemorySpaceAsInt());
       Value outParam = builder.create<memref::AllocOp>(op.getLoc(), allocType);
       if (!hasStaticIdentityLayout(memrefType)) {
         // Layout maps are already checked in `updateFuncOp`.
@@ -181,12 +169,9 @@ updateCalls(ModuleOp module,
   return failure(didFail);
 }
 
-LogicalResult mlir::bufferization::promoteBufferResultsToOutParams(
-    ModuleOp module,
-    const bufferization::BufferResultsToOutParamsOptions &options) {
+LogicalResult
+mlir::bufferization::promoteBufferResultsToOutParams(ModuleOp module) {
   for (auto func : module.getOps<func::FuncOp>()) {
-    if (!options.filterFn(&func))
-      continue;
     SmallVector<BlockArgument, 6> appendedEntryArgs;
     if (failed(updateFuncOp(func, appendedEntryArgs)))
       return failure();
@@ -194,7 +179,7 @@ LogicalResult mlir::bufferization::promoteBufferResultsToOutParams(
       continue;
     updateReturnOps(func, appendedEntryArgs);
   }
-  if (failed(updateCalls(module, options)))
+  if (failed(updateCalls(module)))
     return failure();
   return success();
 }
@@ -203,22 +188,14 @@ namespace {
 struct BufferResultsToOutParamsPass
     : bufferization::impl::BufferResultsToOutParamsBase<
           BufferResultsToOutParamsPass> {
-  explicit BufferResultsToOutParamsPass(
-      const bufferization::BufferResultsToOutParamsOptions &options)
-      : options(options) {}
-
   void runOnOperation() override {
-    if (failed(bufferization::promoteBufferResultsToOutParams(getOperation(),
-                                                              options)))
+    if (failed(bufferization::promoteBufferResultsToOutParams(getOperation())))
       return signalPassFailure();
   }
-
-private:
-  bufferization::BufferResultsToOutParamsOptions options;
 };
 } // namespace
 
-std::unique_ptr<Pass> mlir::bufferization::createBufferResultsToOutParamsPass(
-    const bufferization::BufferResultsToOutParamsOptions &options) {
-  return std::make_unique<BufferResultsToOutParamsPass>(options);
+std::unique_ptr<Pass>
+mlir::bufferization::createBufferResultsToOutParamsPass() {
+  return std::make_unique<BufferResultsToOutParamsPass>();
 }

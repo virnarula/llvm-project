@@ -1,212 +1,150 @@
-add_custom_target(libc-stdlib-tests)
+add_libc_testsuite(libc_stdlib_unittests)
 
-add_libc_test(
+add_libc_unittest(
   atof_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     atof_test.cpp
   DEPENDS
-    libc.src.errno.errno
     libc.src.stdlib.atof
 )
 
-add_header_library(
-  atoi_test_support
-  HDRS
-    AtoiTest.h
-  DEPENDS
-    libc.src.errno.errno
-    libc.src.__support.CPP.type_traits
-)
-
-add_libc_test(
+add_libc_unittest(
   atoi_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     atoi_test.cpp
   DEPENDS
-    .atoi_test_support
     libc.src.stdlib.atoi
 )
 
-add_libc_test(
+add_libc_unittest(
   atol_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     atol_test.cpp
   DEPENDS
-    .atoi_test_support
     libc.src.stdlib.atol
 )
 
-add_libc_test(
+add_libc_unittest(
   atoll_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     atoll_test.cpp
   DEPENDS
-    .atoi_test_support
     libc.src.stdlib.atoll
 )
 
-# This fails on NVPTX where the output value is one-off of the expected value.
-if(NOT LIBC_GPU_TARGET_ARCHITECTURE_IS_NVPTX)
-  add_fp_unittest(
-    strtod_test
-    SUITE
-      libc-stdlib-tests
-    SRCS
-      strtod_test.cpp
-    DEPENDS
-      libc.src.errno.errno
-      libc.src.stdlib.strtod
-      libc.src.__support.FPUtil.fenv_impl
-  )
-endif()
+add_libc_unittest(
+  strtod_test
+  SUITE
+    libc_stdlib_unittests
+  SRCS
+    strtod_test.cpp
+  DEPENDS
+    libc.src.stdlib.strtod
+)
 
-add_fp_unittest(
+add_libc_unittest(
   strtof_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     strtof_test.cpp
   DEPENDS
-    libc.src.errno.errno
     libc.src.stdlib.strtof
-    libc.src.__support.FPUtil.fenv_impl
 )
 
-add_header_library(
-  strtol_test_support
-  HDRS
-    StrtolTest.h
-  DEPENDS
-    libc.src.__support.CPP.limits
-    libc.src.__support.CPP.type_traits
-    libc.src.errno.errno
-)
-
-add_libc_test(
-  strtoint32_test
-  SUITE
-    libc-stdlib-tests
-  SRCS
-    strtoint32_test.cpp
-  DEPENDS
-    libc.src.__support.str_to_integer
-    libc.src.errno.errno
-    .strtol_test_support
-)
-
-add_libc_test(
-  strtoint64_test
-  SUITE
-    libc-stdlib-tests
-  SRCS
-    strtoint64_test.cpp
-  DEPENDS
-    libc.src.__support.str_to_integer
-    libc.src.errno.errno
-    .strtol_test_support
-)
-
-add_libc_test(
+add_libc_unittest(
   strtol_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     strtol_test.cpp
   DEPENDS
     libc.src.stdlib.strtol
-    .strtol_test_support
 )
 
-# This fails on NVPTX where the output value is one-off of the expected value.
-if(NOT LIBC_GPU_TARGET_ARCHITECTURE_IS_NVPTX)
-  add_libc_test(
-    strtold_test
-    SUITE
-      libc-stdlib-tests
-    SRCS
-      strtold_test.cpp
-    DEPENDS
-      libc.src.errno.errno
-      libc.src.__support.uint128
-      libc.src.stdlib.strtold
-  )
-endif()
+add_libc_unittest(
+  strtold_test
+  SUITE
+    libc_stdlib_unittests
+  SRCS
+    strtold_test.cpp
+  DEPENDS
+    libc.src.__support.uint128
+    libc.src.stdlib.strtold
+)
 
-add_libc_test(
+add_libc_unittest(
   strtoll_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     strtoll_test.cpp
   DEPENDS
     libc.src.stdlib.strtoll
-    .strtol_test_support
 )
 
-add_libc_test(
+add_libc_unittest(
   strtoul_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     strtoul_test.cpp
   DEPENDS
     libc.src.stdlib.strtoul
-    .strtol_test_support
 )
 
-add_libc_test(
+add_libc_unittest(
   strtoull_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     strtoull_test.cpp
   DEPENDS
     libc.src.stdlib.strtoull
-    .strtol_test_support
 )
 
-add_libc_test(
+add_libc_unittest(
   abs_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     abs_test.cpp
   DEPENDS
     libc.src.stdlib.abs
 )
 
-add_libc_test(
+add_libc_unittest(
   labs_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     labs_test.cpp
   DEPENDS
     libc.src.stdlib.labs
 )
 
-add_libc_test(
+add_libc_unittest(
   llabs_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     llabs_test.cpp
   DEPENDS
     libc.src.stdlib.llabs
 )
 
-add_libc_test(
+add_libc_unittest(
   div_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     div_test.cpp
   HDRS
@@ -216,10 +154,10 @@ add_libc_test(
     libc.src.stdlib.div
 )
 
-add_libc_test(
+add_libc_unittest(
   ldiv_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     ldiv_test.cpp
   HDRS
@@ -229,10 +167,10 @@ add_libc_test(
     libc.src.stdlib.ldiv
 )
 
-add_libc_test(
+add_libc_unittest(
   lldiv_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     lldiv_test.cpp
   HDRS
@@ -242,10 +180,10 @@ add_libc_test(
     libc.src.stdlib.lldiv
 )
 
-add_libc_test(
+add_libc_unittest(
   bsearch_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     bsearch_test.cpp
   DEPENDS
@@ -253,10 +191,10 @@ add_libc_test(
     libc.src.stdlib.bsearch
 )
 
-add_libc_test(
+add_libc_unittest(
   qsort_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     qsort_test.cpp
   DEPENDS
@@ -264,22 +202,10 @@ add_libc_test(
     libc.src.stdlib.qsort
 )
 
-
-add_libc_test(
-  qsort_r_test
-  SUITE
-    libc-stdlib-tests
-  SRCS
-    qsort_r_test.cpp
-  DEPENDS
-    libc.include.stdlib
-    libc.src.stdlib.qsort_r
-)
-
-add_libc_test(
+add_libc_unittest(
   rand_test
   SUITE
-    libc-stdlib-tests
+    libc_stdlib_unittests
   SRCS
     rand_test.cpp
   DEPENDS
@@ -290,12 +216,10 @@ add_libc_test(
 
 if(LLVM_LIBC_FULL_BUILD)
 
-  add_libc_test(
+  add_libc_unittest(
     _Exit_test
-    # The EXPECT_EXITS test is only availible for unit tests.
-    UNIT_TEST_ONLY
     SUITE
-      libc-stdlib-tests
+      libc_stdlib_unittests
     SRCS
       _Exit_test.cpp
     DEPENDS
@@ -304,12 +228,10 @@ if(LLVM_LIBC_FULL_BUILD)
       libc.src.stdlib.exit
   )
 
-  add_libc_test(
+  add_libc_unittest(
     atexit_test
-    # The EXPECT_EXITS test is only availible for unit tests.
-    UNIT_TEST_ONLY
     SUITE
-      libc-stdlib-tests
+      libc_stdlib_unittests
     SRCS
       atexit_test.cpp
     DEPENDS
@@ -321,12 +243,10 @@ if(LLVM_LIBC_FULL_BUILD)
       libc.src.__support.CPP.utility
   )
 
-  add_libc_test(
+  add_libc_unittest(
     abort_test
-    # The EXPECT_DEATH test is only availible for unit tests.
-    UNIT_TEST_ONLY
     SUITE
-      libc-stdlib-tests
+      libc_stdlib_unittests
     SRCS
       abort_test.cpp
     DEPENDS
@@ -337,19 +257,4 @@ if(LLVM_LIBC_FULL_BUILD)
       libc.src.signal.raise
   )
 
-  # Only the GPU has an in-tree 'malloc' implementation.
-  if(LIBC_TARGET_ARCHITECTURE_IS_GPU)
-    add_libc_test(
-      malloc_test
-      HERMETIC_TEST_ONLY
-      SUITE
-        libc-stdlib-tests
-      SRCS
-        malloc_test.cpp
-      DEPENDS
-        libc.include.stdlib
-        libc.src.stdlib.malloc
-        libc.src.stdlib.free
-    )
-  endif()
 endif()

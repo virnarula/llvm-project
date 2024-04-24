@@ -29,160 +29,53 @@ class SourceMgr;
 class Twine;
 
 namespace tgtok {
-enum TokKind {
-  // Markers
-  Eof,
-  Error,
+  enum TokKind {
+    // Markers
+    Eof, Error,
 
-  // Tokens with no info.
-  minus,     // -
-  plus,      // +
-  l_square,  // [
-  r_square,  // ]
-  l_brace,   // {
-  r_brace,   // }
-  l_paren,   // (
-  r_paren,   // )
-  less,      // <
-  greater,   // >
-  colon,     // :
-  semi,      // ;
-  comma,     // ,
-  dot,       // .
-  equal,     // =
-  question,  // ?
-  paste,     // #
-  dotdotdot, // ...
+    // Tokens with no info.
+    minus, plus,        // - +
+    l_square, r_square, // [ ]
+    l_brace, r_brace,   // { }
+    l_paren, r_paren,   // ( )
+    less, greater,      // < >
+    colon, semi,        // : ;
+    comma, dot,         // , .
+    equal, question,    // = ?
+    paste,              // #
+    dotdotdot,          // ...
 
-  // Boolean literals.
-  TrueVal,
-  FalseVal,
+    // Reserved keywords. ('ElseKW' is named to distinguish it from the
+    // existing 'Else' that means the preprocessor #else.)
+    Assert, Bit, Bits, Class, Code, Dag, Def, Defm, Defset, Defvar, ElseKW,
+    FalseKW, Field, Foreach, If, In, Include, Int, Let, List, MultiClass,
+    String, Then, TrueKW,
 
-  // Integer value.
-  IntVal,
+    // Bang operators.
+    XConcat, XADD, XSUB, XMUL, XDIV, XNOT, XLOG2, XAND, XOR, XXOR, XSRA, XSRL,
+    XSHL, XListConcat, XListSplat, XStrConcat, XInterleave, XSubstr, XFind,
+    XCast, XSubst, XForEach, XFilter, XFoldl, XHead, XTail, XSize, XEmpty, XIf,
+    XCond, XEq, XIsA, XDag, XNe, XLe, XLt, XGe, XGt, XSetDagOp, XGetDagOp,
+    XExists,
 
-  // Binary constant.  Note that these are sized according to the number of
-  // bits given.
-  BinaryIntVal,
+    // Boolean literals.
+    TrueVal, FalseVal,
 
-  // Preprocessing tokens for internal usage by the lexer.
-  // They are never returned as a result of Lex().
-  Ifdef,
-  Ifndef,
-  Else,
-  Endif,
-  Define,
+    // Integer value.
+    IntVal,
 
-  // Reserved keywords. ('ElseKW' is named to distinguish it from the
-  // existing 'Else' that means the preprocessor #else.)
-  Bit,
-  Bits,
-  Code,
-  Dag,
-  ElseKW,
-  FalseKW,
-  Field,
-  In,
-  Include,
-  Int,
-  List,
-  String,
-  Then,
-  TrueKW,
+    // Binary constant.  Note that these are sized according to the number of
+    // bits given.
+    BinaryIntVal,
 
-  // Object start tokens.
-  OBJECT_START_FIRST,
-  Assert = OBJECT_START_FIRST,
-  Class,
-  Def,
-  Defm,
-  Defset,
-  Defvar,
-  Dump,
-  Foreach,
-  If,
-  Let,
-  MultiClass,
-  OBJECT_START_LAST = MultiClass,
+    // String valued tokens.
+    Id, StrVal, VarName, CodeFragment,
 
-  // Bang operators.
-  BANG_OPERATOR_FIRST,
-  XConcat = BANG_OPERATOR_FIRST,
-  XADD,
-  XSUB,
-  XMUL,
-  XDIV,
-  XNOT,
-  XLOG2,
-  XAND,
-  XOR,
-  XXOR,
-  XSRA,
-  XSRL,
-  XSHL,
-  XListConcat,
-  XListSplat,
-  XStrConcat,
-  XInterleave,
-  XSubstr,
-  XFind,
-  XCast,
-  XSubst,
-  XForEach,
-  XFilter,
-  XFoldl,
-  XHead,
-  XTail,
-  XSize,
-  XEmpty,
-  XIf,
-  XCond,
-  XEq,
-  XIsA,
-  XDag,
-  XNe,
-  XLe,
-  XLt,
-  XGe,
-  XGt,
-  XSetDagOp,
-  XGetDagOp,
-  XExists,
-  XListRemove,
-  XToLower,
-  XToUpper,
-  XRange,
-  XGetDagArg,
-  XGetDagName,
-  XSetDagArg,
-  XSetDagName,
-  XRepr,
-  BANG_OPERATOR_LAST = XRepr,
-
-  // String valued tokens.
-  STRING_VALUE_FIRST,
-  Id = STRING_VALUE_FIRST,
-  StrVal,
-  VarName,
-  CodeFragment,
-  STRING_VALUE_LAST = CodeFragment,
-};
-
-/// isBangOperator - Return true if this is a bang operator.
-static inline bool isBangOperator(tgtok::TokKind Kind) {
-  return tgtok::BANG_OPERATOR_FIRST <= Kind && Kind <= BANG_OPERATOR_LAST;
+    // Preprocessing tokens for internal usage by the lexer.
+    // They are never returned as a result of Lex().
+    Ifdef, Ifndef, Else, Endif, Define
+  };
 }
-
-/// isObjectStart - Return true if this is a valid first token for a statement.
-static inline bool isObjectStart(tgtok::TokKind Kind) {
-  return tgtok::OBJECT_START_FIRST <= Kind && Kind <= OBJECT_START_LAST;
-}
-
-/// isStringValue - Return true if this is a string value.
-static inline bool isStringValue(tgtok::TokKind Kind) {
-  return tgtok::STRING_VALUE_FIRST <= Kind && Kind <= STRING_VALUE_LAST;
-}
-} // namespace tgtok
 
 /// TGLexer - TableGen Lexer class.
 class TGLexer {
@@ -222,7 +115,8 @@ public:
   tgtok::TokKind getCode() const { return CurCode; }
 
   const std::string &getCurStrVal() const {
-    assert(tgtok::isStringValue(CurCode) &&
+    assert((CurCode == tgtok::Id || CurCode == tgtok::StrVal ||
+            CurCode == tgtok::VarName || CurCode == tgtok::CodeFragment) &&
            "This token doesn't have a string value");
     return CurStrVal;
   }

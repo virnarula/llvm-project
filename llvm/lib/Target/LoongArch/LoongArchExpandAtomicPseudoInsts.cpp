@@ -133,12 +133,6 @@ bool LoongArchExpandAtomicPseudo::expandMI(
     return expandAtomicCmpXchg(MBB, MBBI, false, 64, NextMBBI);
   case LoongArch::PseudoMaskedCmpXchg32:
     return expandAtomicCmpXchg(MBB, MBBI, true, 32, NextMBBI);
-  case LoongArch::PseudoMaskedAtomicLoadMax32:
-    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Max, true, 32,
-                                NextMBBI);
-  case LoongArch::PseudoMaskedAtomicLoadMin32:
-    return expandAtomicMinMaxOp(MBB, MBBI, AtomicRMWInst::Min, true, 32,
-                                NextMBBI);
   }
   return false;
 }
@@ -155,10 +149,12 @@ static void doAtomicBinOpExpansion(const LoongArchInstrInfo *TII,
   Register IncrReg = MI.getOperand(3).getReg();
 
   // .loop:
+  //   dbar 0
   //   ll.[w|d] dest, (addr)
   //   binop scratch, dest, val
   //   sc.[w|d] scratch, scratch, (addr)
   //   beqz scratch, loop
+  BuildMI(LoopMBB, DL, TII->get(LoongArch::DBAR)).addImm(0);
   BuildMI(LoopMBB, DL,
           TII->get(Width == 32 ? LoongArch::LL_W : LoongArch::LL_D), DestReg)
       .addReg(AddrReg)
@@ -247,6 +243,7 @@ static void doMaskedAtomicBinOpExpansion(
   Register MaskReg = MI.getOperand(4).getReg();
 
   // .loop:
+  //   dbar 0
   //   ll.w destreg, (alignedaddr)
   //   binop scratch, destreg, incr
   //   xor scratch, destreg, scratch
@@ -254,6 +251,7 @@ static void doMaskedAtomicBinOpExpansion(
   //   xor scratch, destreg, scratch
   //   sc.w scratch, scratch, (alignedaddr)
   //   beqz scratch, loop
+  BuildMI(LoopMBB, DL, TII->get(LoongArch::DBAR)).addImm(0);
   BuildMI(LoopMBB, DL, TII->get(LoongArch::LL_W), DestReg)
       .addReg(AddrReg)
       .addImm(0);
@@ -335,17 +333,6 @@ bool LoongArchExpandAtomicPseudo::expandAtomicBinOp(
   return true;
 }
 
-static void insertSext(const LoongArchInstrInfo *TII, DebugLoc DL,
-                       MachineBasicBlock *MBB, Register ValReg,
-                       Register ShamtReg) {
-  BuildMI(MBB, DL, TII->get(LoongArch::SLL_W), ValReg)
-      .addReg(ValReg)
-      .addReg(ShamtReg);
-  BuildMI(MBB, DL, TII->get(LoongArch::SRA_W), ValReg)
-      .addReg(ValReg)
-      .addReg(ShamtReg);
-}
-
 bool LoongArchExpandAtomicPseudo::expandAtomicMinMaxOp(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
     AtomicRMWInst::BinOp BinOp, bool IsMasked, int Width,
@@ -387,9 +374,11 @@ bool LoongArchExpandAtomicPseudo::expandAtomicMinMaxOp(
 
   //
   // .loophead:
+  //   dbar 0
   //   ll.w destreg, (alignedaddr)
   //   and scratch2, destreg, mask
   //   move scratch1, destreg
+  BuildMI(LoopHeadMBB, DL, TII->get(LoongArch::DBAR)).addImm(0);
   BuildMI(LoopHeadMBB, DL, TII->get(LoongArch::LL_W), DestReg)
       .addReg(AddrReg)
       .addImm(0);
@@ -417,22 +406,6 @@ bool LoongArchExpandAtomicPseudo::expandAtomicMinMaxOp(
         .addReg(Scratch2Reg)
         .addMBB(LoopTailMBB);
     break;
-  case AtomicRMWInst::Max:
-    insertSext(TII, DL, LoopHeadMBB, Scratch2Reg, MI.getOperand(6).getReg());
-    // bge scratch2, incr, .looptail
-    BuildMI(LoopHeadMBB, DL, TII->get(LoongArch::BGE))
-        .addReg(Scratch2Reg)
-        .addReg(IncrReg)
-        .addMBB(LoopTailMBB);
-    break;
-  case AtomicRMWInst::Min:
-    insertSext(TII, DL, LoopHeadMBB, Scratch2Reg, MI.getOperand(6).getReg());
-    // bge incr, scratch2, .looptail
-    BuildMI(LoopHeadMBB, DL, TII->get(LoongArch::BGE))
-        .addReg(IncrReg)
-        .addReg(Scratch2Reg)
-        .addMBB(LoopTailMBB);
-    break;
     // TODO: support other AtomicRMWInst.
   }
 
@@ -446,6 +419,7 @@ bool LoongArchExpandAtomicPseudo::expandAtomicMinMaxOp(
   // .looptail:
   //   sc.w scratch1, scratch1, (addr)
   //   beqz scratch1, loop
+  //   dbar 0x700
   BuildMI(LoopTailMBB, DL, TII->get(LoongArch::SC_W), Scratch1Reg)
       .addReg(Scratch1Reg)
       .addReg(AddrReg)
@@ -453,6 +427,7 @@ bool LoongArchExpandAtomicPseudo::expandAtomicMinMaxOp(
   BuildMI(LoopTailMBB, DL, TII->get(LoongArch::BEQZ))
       .addReg(Scratch1Reg)
       .addMBB(LoopHeadMBB);
+  BuildMI(LoopTailMBB, DL, TII->get(LoongArch::DBAR)).addImm(0x700);
 
   NextMBBI = MBB.end();
   MI.eraseFromParent();
@@ -512,10 +487,12 @@ bool LoongArchExpandAtomicPseudo::expandAtomicCmpXchg(
         .addReg(CmpValReg)
         .addMBB(TailMBB);
     // .looptail:
+    //   dbar 0
     //   move scratch, newval
     //   sc.[w|d] scratch, scratch, (addr)
     //   beqz scratch, loophead
     //   b done
+    BuildMI(LoopTailMBB, DL, TII->get(LoongArch::DBAR)).addImm(0);
     BuildMI(LoopTailMBB, DL, TII->get(LoongArch::OR), ScratchReg)
         .addReg(NewValReg)
         .addReg(LoongArch::R0);
@@ -548,11 +525,13 @@ bool LoongArchExpandAtomicPseudo::expandAtomicCmpXchg(
         .addMBB(TailMBB);
 
     // .looptail:
+    //   dbar 0
     //   andn scratch, dest, mask
     //   or scratch, scratch, newval
     //   sc.[w|d] scratch, scratch, (addr)
     //   beqz scratch, loophead
     //   b done
+    BuildMI(LoopTailMBB, DL, TII->get(LoongArch::DBAR)).addImm(0);
     BuildMI(LoopTailMBB, DL, TII->get(LoongArch::ANDN), ScratchReg)
         .addReg(DestReg)
         .addReg(MaskReg);
@@ -571,24 +550,9 @@ bool LoongArchExpandAtomicPseudo::expandAtomicCmpXchg(
     BuildMI(LoopTailMBB, DL, TII->get(LoongArch::B)).addMBB(DoneMBB);
   }
 
-  AtomicOrdering FailureOrdering =
-      static_cast<AtomicOrdering>(MI.getOperand(IsMasked ? 6 : 5).getImm());
-  int hint;
-
-  switch (FailureOrdering) {
-  case AtomicOrdering::Acquire:
-  case AtomicOrdering::AcquireRelease:
-  case AtomicOrdering::SequentiallyConsistent:
-    // acquire
-    hint = 0b10100;
-    break;
-  default:
-    hint = 0x700;
-  }
-
   // .tail:
-  //   dbar 0x700 | acquire
-  BuildMI(TailMBB, DL, TII->get(LoongArch::DBAR)).addImm(hint);
+  //   dbar 0x700
+  BuildMI(TailMBB, DL, TII->get(LoongArch::DBAR)).addImm(0x700);
 
   NextMBBI = MBB.end();
   MI.eraseFromParent();

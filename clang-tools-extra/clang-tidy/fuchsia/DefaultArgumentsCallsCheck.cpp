@@ -10,7 +10,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::fuchsia {
+namespace clang {
+namespace tidy {
+namespace fuchsia {
 
 void DefaultArgumentsCallsCheck::registerMatchers(MatchFinder *Finder) {
   // Calling a function which uses default arguments is disallowed.
@@ -28,4 +30,6 @@ void DefaultArgumentsCallsCheck::check(const MatchFinder::MatchResult &Result) {
        DiagnosticIDs::Note);
 }
 
-} // namespace clang::tidy::fuchsia
+} // namespace fuchsia
+} // namespace tidy
+} // namespace clang

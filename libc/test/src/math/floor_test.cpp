@@ -10,4 +10,4 @@
 
 #include "src/math/floor.h"
 
-LIST_FLOOR_TESTS(double, LIBC_NAMESPACE::floor)
+LIST_FLOOR_TESTS(double, __llvm_libc::floor)

@@ -17,6 +17,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CodeGen.h"
 #include <functional>
+#include <vector>
 
 namespace llvm {
 
@@ -27,8 +28,8 @@ class ARMSubtarget;
 class Function;
 class FunctionPass;
 class InstructionSelector;
-class MCInst;
 class MachineInstr;
+class MCInst;
 class PassRegistry;
 
 Pass *createMVETailPredicationPass();
@@ -36,7 +37,7 @@ FunctionPass *createARMLowOverheadLoopsPass();
 FunctionPass *createARMBlockPlacementPass();
 Pass *createARMParallelDSPPass();
 FunctionPass *createARMISelDag(ARMBaseTargetMachine &TM,
-                               CodeGenOptLevel OptLevel);
+                               CodeGenOpt::Level OptLevel);
 FunctionPass *createA15SDOptimizerPass();
 FunctionPass *createARMLoadStoreOptimizationPass(bool PreAlloc = false);
 FunctionPass *createARMExpandPseudoPass();
@@ -61,24 +62,23 @@ FunctionPass *createARMFixCortexA57AES1742098Pass();
 void LowerARMMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
                                   ARMAsmPrinter &AP);
 
-void initializeARMBlockPlacementPass(PassRegistry &);
+void initializeARMParallelDSPPass(PassRegistry &);
+void initializeARMLoadStoreOptPass(PassRegistry &);
+void initializeARMPreAllocLoadStoreOptPass(PassRegistry &);
 void initializeARMBranchTargetsPass(PassRegistry &);
 void initializeARMConstantIslandsPass(PassRegistry &);
-void initializeARMDAGToDAGISelPass(PassRegistry &);
 void initializeARMExpandPseudoPass(PassRegistry &);
-void initializeARMFixCortexA57AES1742098Pass(PassRegistry &);
-void initializeARMLoadStoreOptPass(PassRegistry &);
-void initializeARMLowOverheadLoopsPass(PassRegistry &);
-void initializeARMParallelDSPPass(PassRegistry &);
-void initializeARMPreAllocLoadStoreOptPass(PassRegistry &);
-void initializeARMSLSHardeningPass(PassRegistry &);
-void initializeMVEGatherScatterLoweringPass(PassRegistry &);
-void initializeMVELaneInterleavingPass(PassRegistry &);
-void initializeMVETPAndVPTOptimisationsPass(PassRegistry &);
-void initializeMVETailPredicationPass(PassRegistry &);
-void initializeMVEVPTBlockPass(PassRegistry &);
-void initializeThumb2ITBlockPass(PassRegistry &);
 void initializeThumb2SizeReducePass(PassRegistry &);
+void initializeThumb2ITBlockPass(PassRegistry &);
+void initializeMVEVPTBlockPass(PassRegistry &);
+void initializeMVETPAndVPTOptimisationsPass(PassRegistry &);
+void initializeARMLowOverheadLoopsPass(PassRegistry &);
+void initializeARMBlockPlacementPass(PassRegistry &);
+void initializeMVETailPredicationPass(PassRegistry &);
+void initializeMVEGatherScatterLoweringPass(PassRegistry &);
+void initializeARMSLSHardeningPass(PassRegistry &);
+void initializeMVELaneInterleavingPass(PassRegistry &);
+void initializeARMFixCortexA57AES1742098Pass(PassRegistry &);
 
 } // end namespace llvm
 

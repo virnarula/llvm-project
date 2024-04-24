@@ -9,7 +9,6 @@
 #ifndef SORTABLE_HELPERS_H
 #define SORTABLE_HELPERS_H
 
-#include <cstddef>
 #include <type_traits>
 
 #include "test_macros.h"
@@ -109,7 +108,7 @@ struct TracedCopy {
 template <class Iter>
 struct NonBorrowedRange {
   int* data_;
-  std::size_t size_;
+  size_t size_;
 
   // TODO: some algorithms calls std::__copy
   // std::__copy(contiguous_iterator<int*>, sentinel_wrapper<contiguous_iterator<int*>>, contiguous_iterator<int*>) doesn't seem to work.
@@ -117,7 +116,7 @@ struct NonBorrowedRange {
   // sentinel_wrapper<contiguous_iterator<int*>>
   using Sent = std::conditional_t<std::contiguous_iterator<Iter>, Iter, sentinel_wrapper<Iter>>;
 
-  constexpr NonBorrowedRange(int* d, std::size_t s) : data_{d}, size_{s} {}
+  constexpr NonBorrowedRange(int* d, size_t s) : data_{d}, size_{s} {}
 
   constexpr Iter begin() const { return Iter{data_}; };
   constexpr Sent end() const { return Sent{Iter{data_ + size_}}; };

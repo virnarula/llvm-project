@@ -5,9 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 // UNSUPPORTED: c++03, c++11, c++14, c++17
-// UNSUPPORTED: GCC-ALWAYS_INLINE-FIXME
 
 // <deque>
 
@@ -15,7 +13,6 @@
 //   typename deque<T, Allocator>::size_type
 //   erase(deque<T, Allocator>& c, const U& value);
 
-#include "asan_testing.h"
 #include <deque>
 #include <optional>
 
@@ -24,11 +21,10 @@
 #include "min_allocator.h"
 
 template <class S, class U>
-void test0(S s, U val, S expected, std::size_t expected_erased_count) {
+void test0(S s, U val, S expected, size_t expected_erased_count) {
   ASSERT_SAME_TYPE(typename S::size_type, decltype(std::erase(s, val)));
   assert(expected_erased_count == std::erase(s, val));
   assert(s == expected);
-  LIBCPP_ASSERT(is_double_ended_contiguous_container_asan_correct(s));
 }
 
 template <class S>
@@ -71,7 +67,6 @@ int main(int, char**)
 {
     test<std::deque<int>>();
     test<std::deque<int, min_allocator<int>>> ();
-    test<std::deque<int, safe_allocator<int>>> ();
     test<std::deque<int, test_allocator<int>>> ();
 
     test<std::deque<long>>();

@@ -236,15 +236,13 @@ define float @fnmsub_s(float %a, float %b, float %c) nounwind {
 ; LA32-CONTRACT-ON-LABEL: fnmsub_s:
 ; LA32-CONTRACT-ON:       # %bb.0:
 ; LA32-CONTRACT-ON-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA32-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa0, $fa2
-; LA32-CONTRACT-ON-NEXT:    fneg.s $fa0, $fa0
+; LA32-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa2, $fa0
 ; LA32-CONTRACT-ON-NEXT:    ret
 ;
 ; LA32-CONTRACT-OFF-LABEL: fnmsub_s:
 ; LA32-CONTRACT-OFF:       # %bb.0:
 ; LA32-CONTRACT-OFF-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA32-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa0, $fa2
-; LA32-CONTRACT-OFF-NEXT:    fneg.s $fa0, $fa0
+; LA32-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa2, $fa0
 ; LA32-CONTRACT-OFF-NEXT:    ret
 ;
 ; LA64-CONTRACT-FAST-LABEL: fnmsub_s:
@@ -255,96 +253,10 @@ define float @fnmsub_s(float %a, float %b, float %c) nounwind {
 ; LA64-CONTRACT-ON-LABEL: fnmsub_s:
 ; LA64-CONTRACT-ON:       # %bb.0:
 ; LA64-CONTRACT-ON-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA64-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa0, $fa2
-; LA64-CONTRACT-ON-NEXT:    fneg.s $fa0, $fa0
+; LA64-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa2, $fa0
 ; LA64-CONTRACT-ON-NEXT:    ret
 ;
 ; LA64-CONTRACT-OFF-LABEL: fnmsub_s:
-; LA64-CONTRACT-OFF:       # %bb.0:
-; LA64-CONTRACT-OFF-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA64-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa0, $fa2
-; LA64-CONTRACT-OFF-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-OFF-NEXT:    ret
-  %negc = fneg float %c
-  %mul = fmul float %a, %b
-  %add = fadd float %mul, %negc
-  %neg = fneg float %add
-  ret float %neg
-}
-
-define float @fnmsub_s_nsz(float %a, float %b, float %c) nounwind {
-; LA32-CONTRACT-FAST-LABEL: fnmsub_s_nsz:
-; LA32-CONTRACT-FAST:       # %bb.0:
-; LA32-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-FAST-NEXT:    ret
-;
-; LA32-CONTRACT-ON-LABEL: fnmsub_s_nsz:
-; LA32-CONTRACT-ON:       # %bb.0:
-; LA32-CONTRACT-ON-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA32-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA32-CONTRACT-ON-NEXT:    ret
-;
-; LA32-CONTRACT-OFF-LABEL: fnmsub_s_nsz:
-; LA32-CONTRACT-OFF:       # %bb.0:
-; LA32-CONTRACT-OFF-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA32-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA32-CONTRACT-OFF-NEXT:    ret
-;
-; LA64-CONTRACT-FAST-LABEL: fnmsub_s_nsz:
-; LA64-CONTRACT-FAST:       # %bb.0:
-; LA64-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-FAST-NEXT:    ret
-;
-; LA64-CONTRACT-ON-LABEL: fnmsub_s_nsz:
-; LA64-CONTRACT-ON:       # %bb.0:
-; LA64-CONTRACT-ON-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA64-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA64-CONTRACT-ON-NEXT:    ret
-;
-; LA64-CONTRACT-OFF-LABEL: fnmsub_s_nsz:
-; LA64-CONTRACT-OFF:       # %bb.0:
-; LA64-CONTRACT-OFF-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA64-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA64-CONTRACT-OFF-NEXT:    ret
-  %nega = fneg nsz float %a
-  %mul = fmul nsz float %nega, %b
-  %add = fadd nsz float %mul, %c
-  ret float %add
-}
-
-;; Check that fnmsub.s is not emitted.
-define float @not_fnmsub_s(float %a, float %b, float %c) nounwind {
-; LA32-CONTRACT-FAST-LABEL: not_fnmsub_s:
-; LA32-CONTRACT-FAST:       # %bb.0:
-; LA32-CONTRACT-FAST-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-FAST-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-FAST-NEXT:    ret
-;
-; LA32-CONTRACT-ON-LABEL: not_fnmsub_s:
-; LA32-CONTRACT-ON:       # %bb.0:
-; LA32-CONTRACT-ON-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA32-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA32-CONTRACT-ON-NEXT:    ret
-;
-; LA32-CONTRACT-OFF-LABEL: not_fnmsub_s:
-; LA32-CONTRACT-OFF:       # %bb.0:
-; LA32-CONTRACT-OFF-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA32-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA32-CONTRACT-OFF-NEXT:    ret
-;
-; LA64-CONTRACT-FAST-LABEL: not_fnmsub_s:
-; LA64-CONTRACT-FAST:       # %bb.0:
-; LA64-CONTRACT-FAST-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-FAST-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-FAST-NEXT:    ret
-;
-; LA64-CONTRACT-ON-LABEL: not_fnmsub_s:
-; LA64-CONTRACT-ON:       # %bb.0:
-; LA64-CONTRACT-ON-NEXT:    fmul.s $fa0, $fa0, $fa1
-; LA64-CONTRACT-ON-NEXT:    fsub.s $fa0, $fa2, $fa0
-; LA64-CONTRACT-ON-NEXT:    ret
-;
-; LA64-CONTRACT-OFF-LABEL: not_fnmsub_s:
 ; LA64-CONTRACT-OFF:       # %bb.0:
 ; LA64-CONTRACT-OFF-NEXT:    fmul.s $fa0, $fa0, $fa1
 ; LA64-CONTRACT-OFF-NEXT:    fsub.s $fa0, $fa2, $fa0
@@ -572,86 +484,6 @@ define float @contract_fnmsub_s(float %a, float %b, float %c) nounwind {
 ; LA64-CONTRACT-OFF:       # %bb.0:
 ; LA64-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
 ; LA64-CONTRACT-OFF-NEXT:    ret
-  %negc = fneg contract float %c
-  %mul = fmul contract float %a, %b
-  %add = fadd contract float %mul, %negc
-  %neg = fneg contract float %add
-  ret float %neg
-}
-
-define float @contract_fnmsub_s_nsz(float %a, float %b, float %c) nounwind {
-; LA32-CONTRACT-FAST-LABEL: contract_fnmsub_s_nsz:
-; LA32-CONTRACT-FAST:       # %bb.0:
-; LA32-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-FAST-NEXT:    ret
-;
-; LA32-CONTRACT-ON-LABEL: contract_fnmsub_s_nsz:
-; LA32-CONTRACT-ON:       # %bb.0:
-; LA32-CONTRACT-ON-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-ON-NEXT:    ret
-;
-; LA32-CONTRACT-OFF-LABEL: contract_fnmsub_s_nsz:
-; LA32-CONTRACT-OFF:       # %bb.0:
-; LA32-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-OFF-NEXT:    ret
-;
-; LA64-CONTRACT-FAST-LABEL: contract_fnmsub_s_nsz:
-; LA64-CONTRACT-FAST:       # %bb.0:
-; LA64-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-FAST-NEXT:    ret
-;
-; LA64-CONTRACT-ON-LABEL: contract_fnmsub_s_nsz:
-; LA64-CONTRACT-ON:       # %bb.0:
-; LA64-CONTRACT-ON-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-ON-NEXT:    ret
-;
-; LA64-CONTRACT-OFF-LABEL: contract_fnmsub_s_nsz:
-; LA64-CONTRACT-OFF:       # %bb.0:
-; LA64-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-OFF-NEXT:    ret
-  %nega = fneg contract nsz float %a
-  %mul = fmul contract nsz float %nega, %b
-  %add = fadd contract nsz float %mul, %c
-  ret float %add
-}
-
-;; Check that fnmsub.s is not emitted.
-define float @not_contract_fnmsub_s(float %a, float %b, float %c) nounwind {
-; LA32-CONTRACT-FAST-LABEL: not_contract_fnmsub_s:
-; LA32-CONTRACT-FAST:       # %bb.0:
-; LA32-CONTRACT-FAST-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-FAST-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-FAST-NEXT:    ret
-;
-; LA32-CONTRACT-ON-LABEL: not_contract_fnmsub_s:
-; LA32-CONTRACT-ON:       # %bb.0:
-; LA32-CONTRACT-ON-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-ON-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-ON-NEXT:    ret
-;
-; LA32-CONTRACT-OFF-LABEL: not_contract_fnmsub_s:
-; LA32-CONTRACT-OFF:       # %bb.0:
-; LA32-CONTRACT-OFF-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-OFF-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-OFF-NEXT:    ret
-;
-; LA64-CONTRACT-FAST-LABEL: not_contract_fnmsub_s:
-; LA64-CONTRACT-FAST:       # %bb.0:
-; LA64-CONTRACT-FAST-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-FAST-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-FAST-NEXT:    ret
-;
-; LA64-CONTRACT-ON-LABEL: not_contract_fnmsub_s:
-; LA64-CONTRACT-ON:       # %bb.0:
-; LA64-CONTRACT-ON-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-ON-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-ON-NEXT:    ret
-;
-; LA64-CONTRACT-OFF-LABEL: not_contract_fnmsub_s:
-; LA64-CONTRACT-OFF:       # %bb.0:
-; LA64-CONTRACT-OFF-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-OFF-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-OFF-NEXT:    ret
   %nega = fneg contract float %a
   %mul = fmul contract float %nega, %b
   %add = fadd contract float %mul, %c
@@ -760,8 +592,8 @@ define float @fnmadd_s_intrinsics(float %a, float %b, float %c) nounwind {
 ; LA64-CONTRACT-OFF-NEXT:    fnmadd.s $fa0, $fa0, $fa1, $fa2
 ; LA64-CONTRACT-OFF-NEXT:    ret
   %fma = call float @llvm.fma.f64(float %a, float %b, float %c)
-  %negfma = fneg float %fma
-  ret float %negfma
+  %neg = fneg float %fma
+  ret float %neg
 }
 
 define float @fnmadd_s_nsz_intrinsics(float %a, float %b, float %c) nounwind {
@@ -873,86 +705,43 @@ define float @fnmsub_s_intrinsics(float %a, float %b, float %c) nounwind {
 ; LA64-CONTRACT-OFF:       # %bb.0:
 ; LA64-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
 ; LA64-CONTRACT-OFF-NEXT:    ret
-  %negc = fneg float %c
-  %fma = call float @llvm.fma.f64(float %a, float %b, float %negc)
-  %negfma = fneg float %fma
-  ret float %negfma
-}
-
-define float @fnmsub_s_nsz_intrinsics(float %a, float %b, float %c) nounwind {
-; LA32-CONTRACT-FAST-LABEL: fnmsub_s_nsz_intrinsics:
-; LA32-CONTRACT-FAST:       # %bb.0:
-; LA32-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-FAST-NEXT:    ret
-;
-; LA32-CONTRACT-ON-LABEL: fnmsub_s_nsz_intrinsics:
-; LA32-CONTRACT-ON:       # %bb.0:
-; LA32-CONTRACT-ON-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-ON-NEXT:    ret
-;
-; LA32-CONTRACT-OFF-LABEL: fnmsub_s_nsz_intrinsics:
-; LA32-CONTRACT-OFF:       # %bb.0:
-; LA32-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA32-CONTRACT-OFF-NEXT:    ret
-;
-; LA64-CONTRACT-FAST-LABEL: fnmsub_s_nsz_intrinsics:
-; LA64-CONTRACT-FAST:       # %bb.0:
-; LA64-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-FAST-NEXT:    ret
-;
-; LA64-CONTRACT-ON-LABEL: fnmsub_s_nsz_intrinsics:
-; LA64-CONTRACT-ON:       # %bb.0:
-; LA64-CONTRACT-ON-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-ON-NEXT:    ret
-;
-; LA64-CONTRACT-OFF-LABEL: fnmsub_s_nsz_intrinsics:
-; LA64-CONTRACT-OFF:       # %bb.0:
-; LA64-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
-; LA64-CONTRACT-OFF-NEXT:    ret
   %nega = fneg float %a
-  %fma = call nsz float @llvm.fma.f64(float %nega, float %b, float %c)
+  %fma = call float @llvm.fma.f64(float %nega, float %b, float %c)
   ret float %fma
 }
 
-;; Check that fnmsub.s is not emitted.
-define float @not_fnmsub_s_intrinsics(float %a, float %b, float %c) nounwind {
-; LA32-CONTRACT-FAST-LABEL: not_fnmsub_s_intrinsics:
+define float @fnmsub_s_swap_intrinsics(float %a, float %b, float %c) nounwind {
+; LA32-CONTRACT-FAST-LABEL: fnmsub_s_swap_intrinsics:
 ; LA32-CONTRACT-FAST:       # %bb.0:
-; LA32-CONTRACT-FAST-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-FAST-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
+; LA32-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa1, $fa0, $fa2
 ; LA32-CONTRACT-FAST-NEXT:    ret
 ;
-; LA32-CONTRACT-ON-LABEL: not_fnmsub_s_intrinsics:
+; LA32-CONTRACT-ON-LABEL: fnmsub_s_swap_intrinsics:
 ; LA32-CONTRACT-ON:       # %bb.0:
-; LA32-CONTRACT-ON-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-ON-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
+; LA32-CONTRACT-ON-NEXT:    fnmsub.s $fa0, $fa1, $fa0, $fa2
 ; LA32-CONTRACT-ON-NEXT:    ret
 ;
-; LA32-CONTRACT-OFF-LABEL: not_fnmsub_s_intrinsics:
+; LA32-CONTRACT-OFF-LABEL: fnmsub_s_swap_intrinsics:
 ; LA32-CONTRACT-OFF:       # %bb.0:
-; LA32-CONTRACT-OFF-NEXT:    fneg.s $fa0, $fa0
-; LA32-CONTRACT-OFF-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
+; LA32-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa1, $fa0, $fa2
 ; LA32-CONTRACT-OFF-NEXT:    ret
 ;
-; LA64-CONTRACT-FAST-LABEL: not_fnmsub_s_intrinsics:
+; LA64-CONTRACT-FAST-LABEL: fnmsub_s_swap_intrinsics:
 ; LA64-CONTRACT-FAST:       # %bb.0:
-; LA64-CONTRACT-FAST-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-FAST-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
+; LA64-CONTRACT-FAST-NEXT:    fnmsub.s $fa0, $fa1, $fa0, $fa2
 ; LA64-CONTRACT-FAST-NEXT:    ret
 ;
-; LA64-CONTRACT-ON-LABEL: not_fnmsub_s_intrinsics:
+; LA64-CONTRACT-ON-LABEL: fnmsub_s_swap_intrinsics:
 ; LA64-CONTRACT-ON:       # %bb.0:
-; LA64-CONTRACT-ON-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-ON-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
+; LA64-CONTRACT-ON-NEXT:    fnmsub.s $fa0, $fa1, $fa0, $fa2
 ; LA64-CONTRACT-ON-NEXT:    ret
 ;
-; LA64-CONTRACT-OFF-LABEL: not_fnmsub_s_intrinsics:
+; LA64-CONTRACT-OFF-LABEL: fnmsub_s_swap_intrinsics:
 ; LA64-CONTRACT-OFF:       # %bb.0:
-; LA64-CONTRACT-OFF-NEXT:    fneg.s $fa0, $fa0
-; LA64-CONTRACT-OFF-NEXT:    fmadd.s $fa0, $fa0, $fa1, $fa2
+; LA64-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa1, $fa0, $fa2
 ; LA64-CONTRACT-OFF-NEXT:    ret
-  %nega = fneg float %a
-  %fma = call float @llvm.fma.f64(float %nega, float %b, float %c)
+  %negb = fneg float %b
+  %fma = call float @llvm.fma.f64(float %a, float %negb, float %c)
   ret float %fma
 }
 
@@ -1093,8 +882,6 @@ define float @fnmsub_s_contract(float %a, float %b, float %c) nounwind {
 ; LA64-CONTRACT-OFF-NEXT:    fnmsub.s $fa0, $fa0, $fa1, $fa2
 ; LA64-CONTRACT-OFF-NEXT:    ret
   %mul = fmul contract float %a, %b
-  %negc = fneg contract float %c
-  %add = fadd contract float %negc, %mul
-  %negadd = fneg contract float %add
-  ret float %negadd
+  %sub = fsub contract float %c, %mul
+  ret float %sub
 }

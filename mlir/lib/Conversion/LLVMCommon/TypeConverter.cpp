@@ -11,33 +11,8 @@
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
-#include "llvm/ADT/ScopeExit.h"
-#include "llvm/Support/Threading.h"
-#include <memory>
-#include <mutex>
-#include <optional>
 
 using namespace mlir;
-
-SmallVector<Type> &LLVMTypeConverter::getCurrentThreadRecursiveStack() {
-  {
-    // Most of the time, the entry already exists in the map.
-    std::shared_lock<decltype(callStackMutex)> lock(callStackMutex,
-                                                    std::defer_lock);
-    if (getContext().isMultithreadingEnabled())
-      lock.lock();
-    auto recursiveStack = conversionCallStack.find(llvm::get_threadid());
-    if (recursiveStack != conversionCallStack.end())
-      return *recursiveStack->second;
-  }
-
-  // First time this thread gets here, we have to get an exclusive access to
-  // inset in the map
-  std::unique_lock<decltype(callStackMutex)> lock(callStackMutex);
-  auto recursiveStackInserted = conversionCallStack.insert(std::make_pair(
-      llvm::get_threadid(), std::make_unique<SmallVector<Type>>()));
-  return *recursiveStackInserted.first->second;
-}
 
 /// Create an LLVMTypeConverter using default LowerToLLVMOptions.
 LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
@@ -61,23 +36,27 @@ LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
   addConversion([&](MemRefType type) { return convertMemRefType(type); });
   addConversion(
       [&](UnrankedMemRefType type) { return convertUnrankedMemRefType(type); });
-  addConversion([&](VectorType type) -> std::optional<Type> {
-    FailureOr<Type> llvmType = convertVectorType(type);
-    if (failed(llvmType))
-      return std::nullopt;
-    return llvmType;
-  });
+  addConversion([&](VectorType type) { return convertVectorType(type); });
 
   // LLVM-compatible types are legal, so add a pass-through conversion. Do this
   // before the conversions below since conversions are attempted in reverse
   // order and those should take priority.
   addConversion([](Type type) {
-    return LLVM::isCompatibleType(type) ? std::optional<Type>(type)
-                                        : std::nullopt;
+    return LLVM::isCompatibleType(type) ? llvm::Optional<Type>(type)
+                                        : llvm::None;
   });
 
-  addConversion([&](LLVM::LLVMStructType type, SmallVectorImpl<Type> &results)
-                    -> std::optional<LogicalResult> {
+  // LLVM container types may (recursively) contain other types that must be
+  // converted even when the outer type is compatible.
+  addConversion([&](LLVM::LLVMPointerType type) -> llvm::Optional<Type> {
+    if (type.isOpaque())
+      return type;
+    if (auto pointee = convertType(type.getElementType()))
+      return LLVM::LLVMPointerType::get(pointee, type.getAddressSpace());
+    return llvm::None;
+  });
+  addConversion([&](LLVM::LLVMStructType type, SmallVectorImpl<Type> &results,
+                    ArrayRef<Type> callStack) -> llvm::Optional<LogicalResult> {
     // Fastpath for types that won't be converted by this callback anyway.
     if (LLVM::isCompatibleType(type)) {
       results.push_back(type);
@@ -86,68 +65,54 @@ LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
 
     if (type.isIdentified()) {
       auto convertedType = LLVM::LLVMStructType::getIdentified(
-          type.getContext(), ("_Converted." + type.getName()).str());
-
-      SmallVectorImpl<Type> &recursiveStack = getCurrentThreadRecursiveStack();
-      if (llvm::count(recursiveStack, type)) {
+          type.getContext(), ("_Converted_" + type.getName()).str());
+      unsigned counter = 1;
+      while (convertedType.isInitialized()) {
+        assert(counter != UINT_MAX &&
+               "about to overflow struct renaming counter in conversion");
+        convertedType = LLVM::LLVMStructType::getIdentified(
+            type.getContext(),
+            ("_Converted_" + std::to_string(counter) + type.getName()).str());
+      }
+      if (llvm::count(callStack, type) > 1) {
         results.push_back(convertedType);
         return success();
       }
-      recursiveStack.push_back(type);
-      auto popConversionCallStack = llvm::make_scope_exit(
-          [&recursiveStack]() { recursiveStack.pop_back(); });
 
       SmallVector<Type> convertedElemTypes;
       convertedElemTypes.reserve(type.getBody().size());
       if (failed(convertTypes(type.getBody(), convertedElemTypes)))
-        return std::nullopt;
+        return llvm::None;
 
-      // If the converted type has not been initialized yet, just set its body
-      // to be the converted arguments and return.
-      if (!convertedType.isInitialized()) {
-        if (failed(
-                convertedType.setBody(convertedElemTypes, type.isPacked()))) {
-          return failure();
-        }
-        results.push_back(convertedType);
-        return success();
-      }
-
-      // If it has been initialized, has the same body and packed bit, just use
-      // it. This ensures that recursive structs keep being recursive rather
-      // than including a non-updated name.
-      if (TypeRange(convertedType.getBody()) == TypeRange(convertedElemTypes) &&
-          convertedType.isPacked() == type.isPacked()) {
-        results.push_back(convertedType);
-        return success();
-      }
-
-      return failure();
+      if (failed(convertedType.setBody(convertedElemTypes, type.isPacked())))
+        return failure();
+      results.push_back(convertedType);
+      return success();
     }
 
     SmallVector<Type> convertedSubtypes;
     convertedSubtypes.reserve(type.getBody().size());
     if (failed(convertTypes(type.getBody(), convertedSubtypes)))
-      return std::nullopt;
+      return llvm::None;
 
     results.push_back(LLVM::LLVMStructType::getLiteral(
         type.getContext(), convertedSubtypes, type.isPacked()));
     return success();
   });
-  addConversion([&](LLVM::LLVMArrayType type) -> std::optional<Type> {
+  addConversion([&](LLVM::LLVMArrayType type) -> llvm::Optional<Type> {
     if (auto element = convertType(type.getElementType()))
       return LLVM::LLVMArrayType::get(element, type.getNumElements());
-    return std::nullopt;
+    return llvm::None;
   });
-  addConversion([&](LLVM::LLVMFunctionType type) -> std::optional<Type> {
+  addConversion([&](LLVM::LLVMFunctionType type) -> llvm::Optional<Type> {
     Type convertedResType = convertType(type.getReturnType());
     if (!convertedResType)
-      return std::nullopt;
+      return llvm::None;
 
     SmallVector<Type> convertedArgTypes;
     convertedArgTypes.reserve(type.getNumParams());
     if (failed(convertTypes(type.getParams(), convertedArgTypes)))
-      return std::nullopt;
+      return llvm::None;
 
     return LLVM::LLVMFunctionType::get(convertedResType, convertedArgTypes,
                                        type.isVarArg());
@@ -158,80 +123,71 @@ LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
   // value represents a memref.
   addArgumentMaterialization(
       [&](OpBuilder &builder, UnrankedMemRefType resultType, ValueRange inputs,
-          Location loc) -> std::optional<Value> {
+          Location loc) -> Optional<Value> {
         if (inputs.size() == 1)
-          return std::nullopt;
+          return llvm::None;
         return UnrankedMemRefDescriptor::pack(builder, loc, *this, resultType,
                                               inputs);
       });
   addArgumentMaterialization([&](OpBuilder &builder, MemRefType resultType,
                                  ValueRange inputs,
-                                 Location loc) -> std::optional<Value> {
+                                 Location loc) -> Optional<Value> {
     // TODO: bare ptr conversion could be handled here but we would need a way
     // to distinguish between FuncOp and other regions.
     if (inputs.size() == 1)
-      return std::nullopt;
+      return llvm::None;
     return MemRefDescriptor::pack(builder, loc, *this, resultType, inputs);
   });
   // Add generic source and target materializations to handle cases where
   // non-LLVM types persist after an LLVM conversion.
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
-      return std::nullopt;
+      return llvm::None;
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
-      return std::nullopt;
+      return llvm::None;
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
-
-  // Integer memory spaces map to themselves.
-  addTypeAttributeConversion(
-      [](BaseMemRefType memref, IntegerAttr addrspace) { return addrspace; });
 }
 
 /// Returns the MLIR context.
-MLIRContext &LLVMTypeConverter::getContext() const {
+MLIRContext &LLVMTypeConverter::getContext() {
   return *getDialect()->getContext();
 }
 
-Type LLVMTypeConverter::getIndexType() const {
+Type LLVMTypeConverter::getIndexType() {
   return IntegerType::get(&getContext(), getIndexTypeBitwidth());
 }
 
-unsigned LLVMTypeConverter::getPointerBitwidth(unsigned addressSpace) const {
+unsigned LLVMTypeConverter::getPointerBitwidth(unsigned addressSpace) {
   return options.dataLayout.getPointerSizeInBits(addressSpace);
 }
 
-Type LLVMTypeConverter::convertIndexType(IndexType type) const {
+Type LLVMTypeConverter::convertIndexType(IndexType type) {
   return getIndexType();
 }
 
-Type LLVMTypeConverter::convertIntegerType(IntegerType type) const {
+Type LLVMTypeConverter::convertIntegerType(IntegerType type) {
   return IntegerType::get(&getContext(), type.getWidth());
 }
 
-Type LLVMTypeConverter::convertFloatType(FloatType type) const {
-  if (type.isFloat8E5M2() || type.isFloat8E4M3FN() || type.isFloat8E5M2FNUZ() ||
-      type.isFloat8E4M3FNUZ() || type.isFloat8E4M3B11FNUZ())
-    return IntegerType::get(&getContext(), type.getWidth());
-  return type;
-}
+Type LLVMTypeConverter::convertFloatType(FloatType type) { return type; }
 
 // Convert a `ComplexType` to an LLVM type. The result is a complex number
 // struct with entries for the
 //   1. real part and for the
 //   2. imaginary part.
-Type LLVMTypeConverter::convertComplexType(ComplexType type) const {
+Type LLVMTypeConverter::convertComplexType(ComplexType type) {
   auto elementType = convertType(type.getElementType());
   return LLVM::LLVMStructType::getLiteral(&getContext(),
                                           {elementType, elementType});
@@ -239,8 +195,11 @@ Type LLVMTypeConverter::convertComplexType(ComplexType type) const {
 
 // Except for signatures, MLIR function types are converted into LLVM
 // pointer-to-function types.
-Type LLVMTypeConverter::convertFunctionType(FunctionType type) const {
-  return LLVM::LLVMPointerType::get(type.getContext());
+Type LLVMTypeConverter::convertFunctionType(FunctionType type) {
+  SignatureConversion conversion(type.getNumInputs());
+  Type converted =
+      convertFunctionSignature(type, /*isVariadic=*/false, conversion);
+  return LLVM::LLVMPointerType::get(converted);
 }
 
 // Function types are converted to LLVM Function types by recursively converting
@@ -248,27 +207,27 @@ Type LLVMTypeConverter::convertFunctionType(FunctionType type) const {
 // Function has one VoidType result.  If MLIR Function has more than one result,
 // they are into an LLVM StructType in their order of appearance.
 Type LLVMTypeConverter::convertFunctionSignature(
-    FunctionType funcTy, bool isVariadic, bool useBarePtrCallConv,
-    LLVMTypeConverter::SignatureConversion &result) const {
+    FunctionType funcTy, bool isVariadic,
+    LLVMTypeConverter::SignatureConversion &result) {
   // Select the argument converter depending on the calling convention.
-  useBarePtrCallConv = useBarePtrCallConv || options.useBarePtrCallConv;
-  auto funcArgConverter = useBarePtrCallConv ? barePtrFuncArgTypeConverter
-                                             : structFuncArgTypeConverter;
+  auto funcArgConverter = options.useBarePtrCallConv
+                              ? barePtrFuncArgTypeConverter
+                              : structFuncArgTypeConverter;
   // Convert argument types one by one and check for errors.
-  for (auto [idx, type] : llvm::enumerate(funcTy.getInputs())) {
+  for (auto &en : llvm::enumerate(funcTy.getInputs())) {
+    Type type = en.value();
     SmallVector<Type, 8> converted;
     if (failed(funcArgConverter(*this, type, converted)))
       return {};
-    result.addInputs(idx, converted);
+    result.addInputs(en.index(), converted);
   }
 
   // If function does not return anything, create the void result type,
   // if it returns on element, convert it, otherwise pack the result types into
   // a struct.
-  Type resultType =
-      funcTy.getNumResults() == 0
-          ? LLVM::LLVMVoidType::get(&getContext())
-          : packFunctionResults(funcTy.getResults(), useBarePtrCallConv);
+  Type resultType = funcTy.getNumResults() == 0
+                        ? LLVM::LLVMVoidType::get(&getContext())
+                        : packFunctionResults(funcTy.getResults());
   if (!resultType)
     return {};
   return LLVM::LLVMFunctionType::get(resultType, result.getConvertedTypes(),
@@ -277,9 +236,10 @@ Type LLVMTypeConverter::convertFunctionSignature(
 
 /// Converts the function type to a C-compatible format, in particular using
 /// pointers to memref descriptors for arguments.
-std::pair<LLVM::LLVMFunctionType, LLVM::LLVMStructType>
-LLVMTypeConverter::convertFunctionTypeCWrapper(FunctionType type) const {
+std::pair<Type, bool>
+LLVMTypeConverter::convertFunctionTypeCWrapper(FunctionType type) {
   SmallVector<Type, 4> inputs;
+  bool resultIsNowArg = false;
 
   Type resultType = type.getNumResults() == 0
                         ? LLVM::LLVMVoidType::get(&getContext())
@@ -287,25 +247,24 @@ LLVMTypeConverter::convertFunctionTypeCWrapper(FunctionType type) const {
   if (!resultType)
     return {};
 
-  auto ptrType = LLVM::LLVMPointerType::get(type.getContext());
-  auto structType = dyn_cast<LLVM::LLVMStructType>(resultType);
-  if (structType) {
+  if (auto structType = resultType.dyn_cast<LLVM::LLVMStructType>()) {
     // Struct types cannot be safely returned via C interface. Make this a
     // pointer argument, instead.
-    inputs.push_back(ptrType);
+    inputs.push_back(LLVM::LLVMPointerType::get(structType));
     resultType = LLVM::LLVMVoidType::get(&getContext());
+    resultIsNowArg = true;
   }
 
   for (Type t : type.getInputs()) {
     auto converted = convertType(t);
     if (!converted || !LLVM::isCompatibleType(converted))
       return {};
-    if (isa<MemRefType, UnrankedMemRefType>(t))
-      converted = ptrType;
+    if (t.isa<MemRefType, UnrankedMemRefType>())
+      converted = LLVM::LLVMPointerType::get(converted);
     inputs.push_back(converted);
   }
 
-  return {LLVM::LLVMFunctionType::get(resultType, inputs), structType};
+  return {LLVM::LLVMFunctionType::get(resultType, inputs), resultIsNowArg};
 }
 
 /// Convert a memref type into a list of LLVM IR types that will form the
@@ -338,30 +297,15 @@ LLVMTypeConverter::convertFunctionTypeCWrapper(FunctionType type) const {
 ///  };
 SmallVector<Type, 5>
 LLVMTypeConverter::getMemRefDescriptorFields(MemRefType type,
-                                             bool unpackAggregates) const {
-  if (!isStrided(type)) {
-    emitError(
-        UnknownLoc::get(type.getContext()),
-        "conversion to strided form failed either due to non-strided layout "
-        "maps (which should have been normalized away) or other reasons");
-    return {};
-  }
+                                             bool unpackAggregates) {
+  assert(isStrided(type) &&
+         "Non-strided layout maps must have been normalized away");
 
   Type elementType = convertType(type.getElementType());
   if (!elementType)
     return {};
-
-  FailureOr<unsigned> addressSpace = getMemRefAddressSpace(type);
-  if (failed(addressSpace)) {
-    emitError(UnknownLoc::get(type.getContext()),
-              "conversion of memref memory space ")
-        << type.getMemorySpace()
-        << " to integer address space "
-           "failed. Consider adding memory space conversions.";
-    return {};
-  }
-  auto ptrTy = LLVM::LLVMPointerType::get(type.getContext(), *addressSpace);
-
+  auto ptrTy =
+      LLVM::LLVMPointerType::get(elementType, type.getMemorySpaceAsInt());
   auto indexTy = getIndexType();
 
   SmallVector<Type, 5> results = {ptrTy, ptrTy, indexTy};
@@ -376,18 +320,17 @@ LLVMTypeConverter::getMemRefDescriptorFields(MemRefType type,
   return results;
 }
 
-unsigned
-LLVMTypeConverter::getMemRefDescriptorSize(MemRefType type,
-                                           const DataLayout &layout) const {
+unsigned LLVMTypeConverter::getMemRefDescriptorSize(MemRefType type,
+                                                    const DataLayout &layout) {
   // Compute the descriptor size given that of its components indicated above.
-  unsigned space = *getMemRefAddressSpace(type);
+  unsigned space = type.getMemorySpaceAsInt();
   return 2 * llvm::divideCeil(getPointerBitwidth(space), 8) +
          (1 + 2 * type.getRank()) * layout.getTypeSize(getIndexType());
 }
 
 /// Converts MemRefType to LLVMType. A MemRefType is converted to a struct that
 /// packs the descriptor fields as defined by `getMemRefDescriptorFields`.
-Type LLVMTypeConverter::convertMemRefType(MemRefType type) const {
+Type LLVMTypeConverter::convertMemRefType(MemRefType type) {
   // When converting a MemRefType to a struct with descriptor fields, do not
   // unpack the `sizes` and `strides` arrays.
   SmallVector<Type, 5> types =
@@ -404,51 +347,36 @@ Type LLVMTypeConverter::convertMemRefType(MemRefType type) const {
 /// 2. void* ptr, pointer to the static ranked MemRef descriptor. This will be
 ///    stack allocated (alloca) copy of a MemRef descriptor that got casted to
 ///    be unranked.
-SmallVector<Type, 2>
-LLVMTypeConverter::getUnrankedMemRefDescriptorFields() const {
-  return {getIndexType(), LLVM::LLVMPointerType::get(&getContext())};
+SmallVector<Type, 2> LLVMTypeConverter::getUnrankedMemRefDescriptorFields() {
+  return {getIndexType(),
+          LLVM::LLVMPointerType::get(IntegerType::get(&getContext(), 8))};
 }
 
-unsigned LLVMTypeConverter::getUnrankedMemRefDescriptorSize(
-    UnrankedMemRefType type, const DataLayout &layout) const {
+unsigned
+LLVMTypeConverter::getUnrankedMemRefDescriptorSize(UnrankedMemRefType type,
+                                                   const DataLayout &layout) {
   // Compute the descriptor size given that of its components indicated above.
-  unsigned space = *getMemRefAddressSpace(type);
+  unsigned space = type.getMemorySpaceAsInt();
   return layout.getTypeSize(getIndexType()) +
          llvm::divideCeil(getPointerBitwidth(space), 8);
 }
 
-Type LLVMTypeConverter::convertUnrankedMemRefType(
-    UnrankedMemRefType type) const {
+Type LLVMTypeConverter::convertUnrankedMemRefType(UnrankedMemRefType type) {
   if (!convertType(type.getElementType()))
     return {};
   return LLVM::LLVMStructType::getLiteral(&getContext(),
                                           getUnrankedMemRefDescriptorFields());
 }
 
-FailureOr<unsigned>
-LLVMTypeConverter::getMemRefAddressSpace(BaseMemRefType type) const {
-  if (!type.getMemorySpace()) // Default memory space -> 0.
-    return 0;
-  std::optional<Attribute> converted =
-      convertTypeAttribute(type, type.getMemorySpace());
-  if (!converted)
-    return failure();
-  if (!(*converted)) // Conversion to default is 0.
-    return 0;
-  if (auto explicitSpace = llvm::dyn_cast_if_present<IntegerAttr>(*converted))
-    return explicitSpace.getInt();
-  return failure();
-}
-
 // Check if a memref type can be converted to a bare pointer.
 bool LLVMTypeConverter::canConvertToBarePtr(BaseMemRefType type) {
-  if (isa<UnrankedMemRefType>(type))
+  if (type.isa<UnrankedMemRefType>())
     // Unranked memref is not supported in the bare pointer calling convention.
     return false;
 
   // Check that the memref has static shape, strides and offset. Otherwise, it
   // cannot be lowered to a bare pointer.
-  auto memrefTy = cast<MemRefType>(type);
+  auto memrefTy = type.cast<MemRefType>();
   if (!memrefTy.hasStaticShape())
     return false;
 
@@ -458,23 +386,20 @@ bool LLVMTypeConverter::canConvertToBarePtr(BaseMemRefType type) {
     return false;
 
   for (int64_t stride : strides)
-    if (ShapedType::isDynamic(stride))
+    if (ShapedType::isDynamicStrideOrOffset(stride))
       return false;
 
-  return !ShapedType::isDynamic(offset);
+  return !ShapedType::isDynamicStrideOrOffset(offset);
 }
 
 /// Convert a memref type to a bare pointer to the memref element type.
-Type LLVMTypeConverter::convertMemRefToBarePtr(BaseMemRefType type) const {
+Type LLVMTypeConverter::convertMemRefToBarePtr(BaseMemRefType type) {
   if (!canConvertToBarePtr(type))
     return {};
   Type elementType = convertType(type.getElementType());
   if (!elementType)
     return {};
-  FailureOr<unsigned> addressSpace = getMemRefAddressSpace(type);
-  if (failed(addressSpace))
-    return {};
-  return LLVM::LLVMPointerType::get(type.getContext(), *addressSpace);
+  return LLVM::LLVMPointerType::get(elementType, type.getMemorySpaceAsInt());
 }
 
 /// Convert an n-D vector type to an LLVM vector type:
@@ -482,21 +407,16 @@ Type LLVMTypeConverter::convertMemRefToBarePtr(BaseMemRefType type) const {
 ///  * 1-D `vector<axT>` remains as is while,
 ///  * n>1 `vector<ax...xkxT>` convert via an (n-1)-D array type to
 ///    `!llvm.array<ax...array<jxvector<kxT>>>`.
-/// Returns failure for n-D scalable vector types as LLVM does not support
-/// arrays of scalable vectors.
-FailureOr<Type> LLVMTypeConverter::convertVectorType(VectorType type) const {
+Type LLVMTypeConverter::convertVectorType(VectorType type) {
   auto elementType = convertType(type.getElementType());
   if (!elementType)
     return {};
   if (type.getShape().empty())
     return VectorType::get({1}, elementType);
   Type vectorType = VectorType::get(type.getShape().back(), elementType,
-                                    type.getScalableDims().back());
+                                    type.getNumScalableDims());
   assert(LLVM::isCompatibleVectorType(vectorType) &&
          "expected vector type compatible with the LLVM dialect");
-  // Only the trailing dimension can be scalable.
-  if (llvm::is_contained(type.getScalableDims().drop_back(), true))
-    return failure();
   auto shape = type.getShape();
   for (int i = shape.size() - 2; i >= 0; --i)
     vectorType = LLVM::LLVMArrayType::get(vectorType, shape[i]);
@@ -508,10 +428,9 @@ FailureOr<Type> LLVMTypeConverter::convertVectorType(VectorType type) const {
 /// UnrankedMemRefType, are converted following the specific rules for the
 /// calling convention. Calling convention independent types are converted
 /// following the default LLVM type conversions.
-Type LLVMTypeConverter::convertCallingConventionType(
-    Type type, bool useBarePtrCallConv) const {
-  if (useBarePtrCallConv)
-    if (auto memrefTy = dyn_cast<BaseMemRefType>(type))
+Type LLVMTypeConverter::convertCallingConventionType(Type type) {
+  if (options.useBarePtrCallConv)
+    if (auto memrefTy = type.dyn_cast<BaseMemRefType>())
       return convertMemRefToBarePtr(memrefTy);
 
   return convertType(type);
@@ -522,52 +441,29 @@ Type LLVMTypeConverter::convertCallingConventionType(
 /// to the LLVM-IR dialect (i.e., MemRefType, or any other builtin type).
 void LLVMTypeConverter::promoteBarePtrsToDescriptors(
     ConversionPatternRewriter &rewriter, Location loc, ArrayRef<Type> stdTypes,
-    SmallVectorImpl<Value> &values) const {
+    SmallVectorImpl<Value> &values) {
   assert(stdTypes.size() == values.size() &&
          "The number of types and values doesn't match");
   for (unsigned i = 0, end = values.size(); i < end; ++i)
-    if (auto memrefTy = dyn_cast<MemRefType>(stdTypes[i]))
+    if (auto memrefTy = stdTypes[i].dyn_cast<MemRefType>())
       values[i] = MemRefDescriptor::fromStaticShape(rewriter, loc, *this,
                                                     memrefTy, values[i]);
 }
 
-/// Convert a non-empty list of types of values produced by an operation into an
-/// LLVM-compatible type. In particular, if more than one value is
-/// produced, create a literal structure with elements that correspond to each
-/// of the types converted with `convertType`.
-Type LLVMTypeConverter::packOperationResults(TypeRange types) const {
-  assert(!types.empty() && "expected non-empty list of type");
-  if (types.size() == 1)
-    return convertType(types[0]);
-
-  SmallVector<Type> resultTypes;
-  resultTypes.reserve(types.size());
-  for (Type type : types) {
-    Type converted = convertType(type);
-    if (!converted || !LLVM::isCompatibleType(converted))
-      return {};
-    resultTypes.push_back(converted);
-  }
-
-  return LLVM::LLVMStructType::getLiteral(&getContext(), resultTypes);
-}
-
-/// Convert a non-empty list of types to be returned from a function into an
-/// LLVM-compatible type. In particular, if more than one value is returned,
-/// create an LLVM dialect structure type with elements that correspond to each
-/// of the types converted with `convertCallingConventionType`.
-Type LLVMTypeConverter::packFunctionResults(TypeRange types,
-                                            bool useBarePtrCallConv) const {
+/// Convert a non-empty list of types to be returned from a function into a
+/// supported LLVM IR type.  In particular, if more than one value is returned,
+/// create an LLVM IR structure type with elements that correspond to each of
+/// the MLIR types converted with `convertType`.
+Type LLVMTypeConverter::packFunctionResults(TypeRange types) {
   assert(!types.empty() && "expected non-empty list of type");
 
-  useBarePtrCallConv |= options.useBarePtrCallConv;
   if (types.size() == 1)
-    return convertCallingConventionType(types.front(), useBarePtrCallConv);
+    return convertCallingConventionType(types.front());
 
-  SmallVector<Type> resultTypes;
+  SmallVector<Type, 8> resultTypes;
   resultTypes.reserve(types.size());
   for (auto t : types) {
-    auto converted = convertCallingConventionType(t, useBarePtrCallConv);
+    auto converted = convertCallingConventionType(t);
     if (!converted || !LLVM::isCompatibleType(converted))
       return {};
     resultTypes.push_back(converted);
@@ -577,46 +473,45 @@ Type LLVMTypeConverter::packFunctionResults(TypeRange types,
 }
 
 Value LLVMTypeConverter::promoteOneMemRefDescriptor(Location loc, Value operand,
-                                                    OpBuilder &builder) const {
+                                                    OpBuilder &builder) {
   // Alloca with proper alignment. We do not expect optimizations of this
   // alloca op and so we omit allocating at the entry block.
-  auto ptrType = LLVM::LLVMPointerType::get(builder.getContext());
+  auto ptrType = LLVM::LLVMPointerType::get(operand.getType());
   Value one = builder.create<LLVM::ConstantOp>(loc, builder.getI64Type(),
                                                builder.getIndexAttr(1));
   Value allocated =
-      builder.create<LLVM::AllocaOp>(loc, ptrType, operand.getType(), one);
+      builder.create<LLVM::AllocaOp>(loc, ptrType, one, /*alignment=*/0);
   // Store into the alloca'ed descriptor.
   builder.create<LLVM::StoreOp>(loc, operand, allocated);
   return allocated;
 }
 
-SmallVector<Value, 4>
-LLVMTypeConverter::promoteOperands(Location loc, ValueRange opOperands,
-                                   ValueRange operands, OpBuilder &builder,
-                                   bool useBarePtrCallConv) const {
+SmallVector<Value, 4> LLVMTypeConverter::promoteOperands(Location loc,
+                                                         ValueRange opOperands,
+                                                         ValueRange operands,
+                                                         OpBuilder &builder) {
   SmallVector<Value, 4> promotedOperands;
   promotedOperands.reserve(operands.size());
-  useBarePtrCallConv |= options.useBarePtrCallConv;
   for (auto it : llvm::zip(opOperands, operands)) {
     auto operand = std::get<0>(it);
     auto llvmOperand = std::get<1>(it);
 
-    if (useBarePtrCallConv) {
+    if (options.useBarePtrCallConv) {
       // For the bare-ptr calling convention, we only have to extract the
       // aligned pointer of a memref.
-      if (dyn_cast<MemRefType>(operand.getType())) {
+      if (auto memrefType = operand.getType().dyn_cast<MemRefType>()) {
         MemRefDescriptor desc(llvmOperand);
         llvmOperand = desc.alignedPtr(builder, loc);
-      } else if (isa<UnrankedMemRefType>(operand.getType())) {
+      } else if (operand.getType().isa<UnrankedMemRefType>()) {
         llvm_unreachable("Unranked memrefs are not supported");
       }
     } else {
-      if (isa<UnrankedMemRefType>(operand.getType())) {
+      if (operand.getType().isa<UnrankedMemRefType>()) {
         UnrankedMemRefDescriptor::unpack(builder, loc, llvmOperand,
                                          promotedOperands);
         continue;
       }
-      if (auto memrefType = dyn_cast<MemRefType>(operand.getType())) {
+      if (auto memrefType = operand.getType().dyn_cast<MemRefType>()) {
         MemRefDescriptor::unpack(builder, loc, llvmOperand, memrefType,
                                  promotedOperands);
         continue;
@@ -632,10 +527,10 @@ LLVMTypeConverter::promoteOperands(Location loc, ValueRange opOperands,
 /// argument to a list of non-aggregate types containing descriptor
 /// information, and an UnrankedmemRef function argument to a list containing
 /// the rank and a pointer to a descriptor struct.
-LogicalResult
-mlir::structFuncArgTypeConverter(const LLVMTypeConverter &converter, Type type,
-                                 SmallVectorImpl<Type> &result) {
-  if (auto memref = dyn_cast<MemRefType>(type)) {
+LogicalResult mlir::structFuncArgTypeConverter(LLVMTypeConverter &converter,
+                                               Type type,
+                                               SmallVectorImpl<Type> &result) {
+  if (auto memref = type.dyn_cast<MemRefType>()) {
     // In signatures, Memref descriptors are expanded into lists of
     // non-aggregate values.
     auto converted =
@@ -645,7 +540,7 @@ mlir::structFuncArgTypeConverter(const LLVMTypeConverter &converter, Type type,
     result.append(converted.begin(), converted.end());
     return success();
   }
-  if (isa<UnrankedMemRefType>(type)) {
+  if (type.isa<UnrankedMemRefType>()) {
     auto converted = converter.getUnrankedMemRefDescriptorFields();
     if (converted.empty())
       return failure();
@@ -661,11 +556,10 @@ mlir::structFuncArgTypeConverter(const LLVMTypeConverter &converter, Type type,
 
 /// Callback to convert function argument types. It converts MemRef function
 /// arguments to bare pointers to the MemRef element type.
-LogicalResult
-mlir::barePtrFuncArgTypeConverter(const LLVMTypeConverter &converter, Type type,
-                                  SmallVectorImpl<Type> &result) {
-  auto llvmTy = converter.convertCallingConventionType(
-      type, /*useBarePointerCallConv=*/true);
+LogicalResult mlir::barePtrFuncArgTypeConverter(LLVMTypeConverter &converter,
+                                                Type type,
+                                                SmallVectorImpl<Type> &result) {
+  auto llvmTy = converter.convertCallingConventionType(type);
   if (!llvmTy)
     return failure();
 

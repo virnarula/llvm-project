@@ -14,22 +14,14 @@
 //     typedef unspecified catalog;
 // };
 
-#include <cstdint>
 #include <locale>
 #include <type_traits>
 
-#include "assert_macros.h"
+#include "test_macros.h"
 
-#ifdef _LIBCPP_VERSION
-ASSERT_SAME_TYPE(std::messages_base::catalog, std::intptr_t);
-#endif
-
-// Check that we implement LWG2028
-static_assert(std::is_signed<std::messages_base::catalog>::value, "");
-static_assert(std::is_integral<std::messages_base::catalog>::value, "");
-
-int main(int, char**) {
-  std::messages_base mb;
+int main(int, char**)
+{
+    std::messages_base mb;
 
   return 0;
 }

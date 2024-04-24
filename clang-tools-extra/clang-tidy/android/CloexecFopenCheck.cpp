@@ -14,7 +14,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 void CloexecFopenCheck::registerMatchers(MatchFinder *Finder) {
   auto CharPointerType = hasType(pointerType(pointee(isAnyCharacter())));
@@ -29,4 +31,6 @@ void CloexecFopenCheck::check(const MatchFinder::MatchResult &Result) {
   insertStringFlag(Result, /*Mode=*/'e', /*ArgPos=*/1);
 }
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang

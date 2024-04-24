@@ -15,7 +15,6 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/Support/ConvertUTF.h"
-#include <optional>
 
 using clang::analyze_format_string::ArgType;
 using clang::analyze_format_string::FormatStringHandler;
@@ -351,12 +350,10 @@ ArgType::matchesType(ASTContext &C, QualType argTy) const {
     case AnyCharTy: {
       if (const auto *ETy = argTy->getAs<EnumType>()) {
         // If the enum is incomplete we know nothing about the underlying type.
-        // Assume that it's 'int'. Do not use the underlying type for a scoped
-        // enumeration.
+        // Assume that it's 'int'.
         if (!ETy->getDecl()->isComplete())
           return NoMatch;
-        if (ETy->isUnscopedEnumerationType())
-          argTy = ETy->getDecl()->getIntegerType();
+        argTy = ETy->getDecl()->getIntegerType();
       }
 
       if (const auto *BT = argTy->getAs<BuiltinType>()) {
@@ -368,11 +365,8 @@ ArgType::matchesType(ASTContext &C, QualType argTy) const {
         case BuiltinType::SChar:
         case BuiltinType::UChar:
         case BuiltinType::Char_U:
-            return Match;
         case BuiltinType::Bool:
-          if (!Ptr)
-            return Match;
-          break;
+          return Match;
         }
         // "Partially matched" because of promotions?
         if (!Ptr) {
@@ -396,11 +390,10 @@ ArgType::matchesType(ASTContext &C, QualType argTy) const {
     case SpecificTy: {
       if (const EnumType *ETy = argTy->getAs<EnumType>()) {
         // If the enum is incomplete we know nothing about the underlying type.
-        // Assume that it's 'int'. Do not use the underlying type for a scoped
-        // enumeration as that needs an exact match.
+        // Assume that it's 'int'.
         if (!ETy->getDecl()->isComplete())
           argTy = C.IntTy;
-        else if (ETy->isUnscopedEnumerationType())
+        else
           argTy = ETy->getDecl()->getIntegerType();
       }
       argTy = C.getCanonicalType(argTy).getUnqualifiedType();
@@ -413,14 +406,11 @@ ArgType::matchesType(ASTContext &C, QualType argTy) const {
         switch (BT->getKind()) {
           default:
             break;
-          case BuiltinType::Bool:
-            if (Ptr && (T == C.UnsignedCharTy || T == C.SignedCharTy))
-              return NoMatch;
-            [[fallthrough]];
           case BuiltinType::Char_S:
           case BuiltinType::SChar:
           case BuiltinType::Char_U:
           case BuiltinType::UChar:
+          case BuiltinType::Bool:
             if (T == C.UnsignedShortTy || T == C.ShortTy)
               return NoMatchTypeConfusion;
             if (T == C.UnsignedCharTy || T == C.SignedCharTy)
@@ -464,32 +454,11 @@ ArgType::matchesType(ASTContext &C, QualType argTy) const {
             switch (BT->getKind()) {
             default:
               break;
-            case BuiltinType::Bool:
-              if (T == C.IntTy || T == C.UnsignedIntTy)
-                return MatchPromotion;
-              break;
             case BuiltinType::Int:
             case BuiltinType::UInt:
               if (T == C.SignedCharTy || T == C.UnsignedCharTy ||
                   T == C.ShortTy || T == C.UnsignedShortTy || T == C.WCharTy ||
                   T == C.WideCharTy)
-                return MatchPromotion;
-              break;
-            case BuiltinType::Char_U:
-              if (T == C.UnsignedIntTy)
-                return MatchPromotion;
-              if (T == C.UnsignedShortTy)
-                return NoMatchPromotionTypeConfusion;
-              break;
-            case BuiltinType::Char_S:
-              if (T == C.IntTy)
-                return MatchPromotion;
-              if (T == C.ShortTy)
-                return NoMatchPromotionTypeConfusion;
-              break;
-            case BuiltinType::Half:
-            case BuiltinType::Float:
-              if (T == C.DoubleTy)
                 return MatchPromotion;
               break;
             case BuiltinType::Short:
@@ -765,13 +734,13 @@ const char *ConversionSpecifier::toString() const {
   return nullptr;
 }
 
-std::optional<ConversionSpecifier>
+Optional<ConversionSpecifier>
 ConversionSpecifier::getStandardSpecifier() const {
   ConversionSpecifier::Kind NewKind;
 
   switch (getKind()) {
   default:
-    return std::nullopt;
+    return None;
   case DArg:
     NewKind = dArg;
     break;
@@ -878,8 +847,6 @@ bool FormatSpecifier::hasValidLengthModifier(const TargetInfo &Target,
       }
 
       switch (CS.getKind()) {
-        case ConversionSpecifier::bArg:
-        case ConversionSpecifier::BArg:
         case ConversionSpecifier::dArg:
         case ConversionSpecifier::DArg:
         case ConversionSpecifier::iArg:
@@ -1064,8 +1031,7 @@ bool FormatSpecifier::hasStandardLengthConversionCombination() const {
   return true;
 }
 
-std::optional<LengthModifier>
-FormatSpecifier::getCorrectedLengthModifier() const {
+Optional<LengthModifier> FormatSpecifier::getCorrectedLengthModifier() const {
   if (CS.isAnyIntArg() || CS.getKind() == ConversionSpecifier::nArg) {
     if (LM.getKind() == LengthModifier::AsLongDouble ||
         LM.getKind() == LengthModifier::AsQuad) {
@@ -1075,7 +1041,7 @@ FormatSpecifier::getCorrectedLengthModifier() const {
     }
   }
 
-  return std::nullopt;
+  return None;
 }
 
 bool FormatSpecifier::namedTypeToLengthModifier(QualType QT,

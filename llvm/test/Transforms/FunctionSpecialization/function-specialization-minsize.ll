@@ -1,18 +1,18 @@
-; RUN: opt -passes="ipsccp<func-spec>" -S < %s | FileCheck %s
+; RUN: opt -function-specialization -S < %s | FileCheck %s
 
-; CHECK-NOT: @compute.specialized.1
-; CHECK-NOT: @compute.specialized.2
+; CHECK-NOT: @compute.1
+; CHECK-NOT: @compute.2
 
 define i64 @main(i64 %x, i1 %flag) {
 entry:
   br i1 %flag, label %plus, label %minus
 
 plus:
-  %tmp0 = call i64 @compute(i64 %x, ptr @plus)
+  %tmp0 = call i64 @compute(i64 %x, i64 (i64)* @plus)
   br label %merge
 
 minus:
-  %tmp1 = call i64 @compute(i64 %x, ptr @minus)
+  %tmp1 = call i64 @compute(i64 %x, i64 (i64)* @minus)
   br label %merge
 
 merge:
@@ -20,7 +20,7 @@ merge:
   ret i64 %tmp2
 }
 
-define internal i64 @compute(i64 %x, ptr %binop) minsize {
+define internal i64 @compute(i64 %x, i64 (i64)* %binop) minsize {
 entry:
   %tmp0 = call i64 %binop(i64 %x)
   ret i64 %tmp0

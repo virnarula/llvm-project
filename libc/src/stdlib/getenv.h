@@ -9,10 +9,10 @@
 #ifndef LLVM_LIBC_SRC_STDLIB_GETENV_H
 #define LLVM_LIBC_SRC_STDLIB_GETENV_H
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 char *getenv(const char *name);
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_STDLIB_GETENV_H

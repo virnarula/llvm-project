@@ -1,4 +1,5 @@
-//===-- Unittests for string_view -----------------------------------------===//
+//===-- Unittests for string_view
+//------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,9 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/__support/CPP/string_view.h"
-#include "test/UnitTest/Test.h"
+#include "utils/UnitTest/Test.h"
 
-using LIBC_NAMESPACE::cpp::string_view;
+using __llvm_libc::cpp::string_view;
 
 TEST(LlvmLibcStringViewTest, InitializeCheck) {
   string_view v;

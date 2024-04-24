@@ -11,11 +11,11 @@
 // template<class I>
 // unspecified iter_move;
 
-#include <algorithm>
-#include <array>
-#include <cassert>
 #include <iterator>
-#include <type_traits>
+
+#include <array>
+#include <algorithm>
+#include <cassert>
 #include <utility>
 
 #include "../unqualified_lookup_wrapper.h"
@@ -158,15 +158,15 @@ constexpr bool test() {
 
   auto unscoped = check_unqualified_lookup::unscoped_enum::a;
   assert(std::ranges::iter_move(unscoped) == check_unqualified_lookup::unscoped_enum::a);
-  static_assert(!noexcept(std::ranges::iter_move(unscoped)));
+  assert(!noexcept(std::ranges::iter_move(unscoped)));
 
   auto scoped = check_unqualified_lookup::scoped_enum::a;
   assert(std::ranges::iter_move(scoped) == nullptr);
-  static_assert(noexcept(std::ranges::iter_move(scoped)));
+  assert(noexcept(std::ranges::iter_move(scoped)));
 
   auto some_union = check_unqualified_lookup::some_union{0};
   assert(std::ranges::iter_move(some_union) == 0);
-  static_assert(!noexcept(std::ranges::iter_move(some_union)));
+  assert(!noexcept(std::ranges::iter_move(some_union)));
 
   // Check noexcept-correctness
   static_assert(noexcept(std::ranges::iter_move(std::declval<WithADL<true>>())));

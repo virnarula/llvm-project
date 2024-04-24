@@ -28,15 +28,20 @@ struct TestOperationEqualPass
                          << opCount;
       return signalPassFailure();
     }
+    DenseMap<Value, Value> valuesMap;
+    auto mapValue = [&](Value lhs, Value rhs) {
+      auto insertion = valuesMap.insert({lhs, rhs});
+      return success(insertion.first->second == rhs);
+    };
 
     Operation *first = &module.getBody()->front();
     llvm::outs() << first->getName().getStringRef() << " with attr "
-                 << first->getDiscardableAttrDictionary();
+                 << first->getAttrDictionary();
     OperationEquivalence::Flags flags{};
     if (!first->hasAttr("strict_loc_check"))
       flags |= OperationEquivalence::IgnoreLocations;
     if (OperationEquivalence::isEquivalentTo(first, &module.getBody()->back(),
-                                             flags))
+                                             mapValue, mapValue, flags))
       llvm::outs() << " compares equals.\n";
     else
       llvm::outs() << " compares NOT equals!\n";

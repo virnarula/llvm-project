@@ -10,7 +10,6 @@
 #define LLDB_INTERPRETER_COMMANDHISTORY_H
 
 #include <mutex>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,7 +28,7 @@ public:
 
   bool IsEmpty() const;
 
-  std::optional<llvm::StringRef> FindString(llvm::StringRef input_str) const;
+  llvm::Optional<llvm::StringRef> FindString(llvm::StringRef input_str) const;
 
   llvm::StringRef GetStringAtIndex(size_t idx) const;
 

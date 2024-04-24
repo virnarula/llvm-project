@@ -68,3 +68,4 @@ define i32 @testsize4(i32 %x) minsize nounwind {
   %div = udiv i32 %x, 33
   ret i32 %div
 }
+

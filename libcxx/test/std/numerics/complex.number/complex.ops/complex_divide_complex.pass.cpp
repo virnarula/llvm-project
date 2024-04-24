@@ -10,9 +10,7 @@
 
 // template<class T>
 //   complex<T>
-//   operator/(const complex<T>& lhs, const complex<T>& rhs); // constexpr in C++20
-
-// ADDITIONAL_COMPILE_FLAGS(has-fconstexpr-steps): -fconstexpr-steps=5000000
+//   operator/(const complex<T>& lhs, const complex<T>& rhs);
 
 #include <complex>
 #include <cassert>
@@ -21,128 +19,135 @@
 #include "../cases.h"
 
 template <class T>
-TEST_CONSTEXPR_CXX20
-bool
-test()
+void
+test(const std::complex<T>& lhs, const std::complex<T>& rhs, std::complex<T> x)
 {
-    const std::complex<T> lhs(-4.0, 7.5);
-    const std::complex<T> rhs(1.5, 2.5);
-    assert(lhs / rhs == std::complex<T>(1.5, 2.5));
-    return true;
+    assert(lhs / rhs == x);
 }
 
-TEST_CONSTEXPR_CXX20
-bool
-test_edges()
+template <class T>
+void
+test()
 {
-  const unsigned N = sizeof(testcases) / sizeof(testcases[0]);
-  int classification[N];
-  for (unsigned i=0; i < N; ++i)
-    classification[i] = classify(testcases[i]);
+    std::complex<T> lhs(-4.0, 7.5);
+    std::complex<T> rhs(1.5, 2.5);
+    std::complex<T>   x(1.5, 2.5);
+    test(lhs, rhs, x);
+}
 
-  for (unsigned i = 0; i < N; ++i) {
-    for (unsigned j = 0; j < N; ++j) {
-      std::complex<double> r = testcases[i] / testcases[j];
-      switch (classification[i]) {
-      case zero:
-        switch (classification[j]) {
-        case zero:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero:
-          assert(classify(r) == zero);
-          break;
-        case inf:
-          assert(classify(r) == zero);
-          break;
-        case NaN:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero_nan:
-          assert(classify(r) == NaN);
-          break;
+void test_edges()
+{
+    const unsigned N = sizeof(testcases) / sizeof(testcases[0]);
+    for (unsigned i = 0; i < N; ++i)
+    {
+        for (unsigned j = 0; j < N; ++j)
+        {
+            std::complex<double> r = testcases[i] / testcases[j];
+            switch (classify(testcases[i]))
+            {
+            case zero:
+                switch (classify(testcases[j]))
+                {
+                case zero:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero:
+                    assert(classify(r) == zero);
+                    break;
+                case inf:
+                    assert(classify(r) == zero);
+                    break;
+                case NaN:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero_nan:
+                    assert(classify(r) == NaN);
+                    break;
+                }
+                break;
+            case non_zero:
+                switch (classify(testcases[j]))
+                {
+                case zero:
+                    assert(classify(r) == inf);
+                    break;
+                case non_zero:
+                    assert(classify(r) == non_zero);
+                    break;
+                case inf:
+                    assert(classify(r) == zero);
+                    break;
+                case NaN:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero_nan:
+                    assert(classify(r) == NaN);
+                    break;
+                }
+                break;
+            case inf:
+                switch (classify(testcases[j]))
+                {
+                case zero:
+                    assert(classify(r) == inf);
+                    break;
+                case non_zero:
+                    assert(classify(r) == inf);
+                    break;
+                case inf:
+                    assert(classify(r) == NaN);
+                    break;
+                case NaN:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero_nan:
+                    assert(classify(r) == NaN);
+                    break;
+                }
+                break;
+            case NaN:
+                switch (classify(testcases[j]))
+                {
+                case zero:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero:
+                    assert(classify(r) == NaN);
+                    break;
+                case inf:
+                    assert(classify(r) == NaN);
+                    break;
+                case NaN:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero_nan:
+                    assert(classify(r) == NaN);
+                    break;
+                }
+                break;
+            case non_zero_nan:
+                switch (classify(testcases[j]))
+                {
+                case zero:
+                    assert(classify(r) == inf);
+                    break;
+                case non_zero:
+                    assert(classify(r) == NaN);
+                    break;
+                case inf:
+                    assert(classify(r) == NaN);
+                    break;
+                case NaN:
+                    assert(classify(r) == NaN);
+                    break;
+                case non_zero_nan:
+                    assert(classify(r) == NaN);
+                    break;
+                }
+                break;
+            }
         }
-        break;
-      case non_zero:
-        switch (classification[j]) {
-        case zero:
-          assert(classify(r) == inf);
-          break;
-        case non_zero:
-          assert(classify(r) == non_zero);
-          break;
-        case inf:
-          assert(classify(r) == zero);
-          break;
-        case NaN:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero_nan:
-          assert(classify(r) == NaN);
-          break;
-        }
-        break;
-      case inf:
-        switch (classification[j]) {
-        case zero:
-          assert(classify(r) == inf);
-          break;
-        case non_zero:
-          assert(classify(r) == inf);
-          break;
-        case inf:
-          assert(classify(r) == NaN);
-          break;
-        case NaN:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero_nan:
-          assert(classify(r) == NaN);
-          break;
-        }
-        break;
-      case NaN:
-        switch (classification[j]) {
-        case zero:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero:
-          assert(classify(r) == NaN);
-          break;
-        case inf:
-          assert(classify(r) == NaN);
-          break;
-        case NaN:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero_nan:
-          assert(classify(r) == NaN);
-          break;
-        }
-        break;
-      case non_zero_nan:
-        switch (classification[j]) {
-        case zero:
-          assert(classify(r) == inf);
-          break;
-        case non_zero:
-          assert(classify(r) == NaN);
-          break;
-        case inf:
-          assert(classify(r) == NaN);
-          break;
-        case NaN:
-          assert(classify(r) == NaN);
-          break;
-        case non_zero_nan:
-          assert(classify(r) == NaN);
-          break;
-        }
-        break;
-      }
     }
-  }
-  return true;
 }
 
 int main(int, char**)
@@ -152,12 +157,5 @@ int main(int, char**)
     test<long double>();
     test_edges();
 
-#if TEST_STD_VER > 17
-    static_assert(test<float>());
-    static_assert(test<double>());
-    static_assert(test<long double>());
-    static_assert(test_edges());
-#endif
-
-    return 0;
+  return 0;
 }

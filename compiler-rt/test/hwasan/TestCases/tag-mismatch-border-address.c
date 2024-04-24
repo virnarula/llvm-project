@@ -2,7 +2,8 @@
 // RUN: %clang_hwasan  %s -o %t
 // RUN: not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
 
-// REQUIRES: aarch64-target-arch || riscv64-target-arch
+// REQUIRES: stable-runtime
+// REQUIRES: aarch64-target-arch
 
 #include <sanitizer/hwasan_interface.h>
 #include <stdio.h>

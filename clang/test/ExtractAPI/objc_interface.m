@@ -57,44 +57,37 @@
     {
       "kind": "memberOf",
       "source": "c:objc(cs)Super(cm)getWithProperty:",
-      "target": "c:objc(cs)Super",
-      "targetFallback": "Super"
+      "target": "c:objc(cs)Super"
     },
     {
       "kind": "memberOf",
       "source": "c:objc(cs)Super(im)setProperty:andOtherThing:",
-      "target": "c:objc(cs)Super",
-      "targetFallback": "Super"
+      "target": "c:objc(cs)Super"
     },
     {
       "kind": "memberOf",
       "source": "c:objc(cs)Super(py)Property",
-      "target": "c:objc(cs)Super",
-      "targetFallback": "Super"
+      "target": "c:objc(cs)Super"
     },
     {
       "kind": "conformsTo",
       "source": "c:objc(cs)Super",
-      "target": "c:objc(pl)Protocol",
-      "targetFallback": "Protocol"
+      "target": "c:objc(pl)Protocol"
     },
     {
       "kind": "memberOf",
       "source": "c:objc(cs)Derived@Ivar",
-      "target": "c:objc(cs)Derived",
-      "targetFallback": "Derived"
+      "target": "c:objc(cs)Derived"
     },
     {
       "kind": "memberOf",
       "source": "c:objc(cs)Derived(im)getIvar",
-      "target": "c:objc(cs)Derived",
-      "targetFallback": "Derived"
+      "target": "c:objc(cs)Derived"
     },
     {
       "kind": "inheritsFrom",
       "source": "c:objc(cs)Derived",
-      "target": "c:objc(cs)Super",
-      "targetFallback": "Super"
+      "target": "c:objc(cs)Super"
     }
   ],
   "symbols": [
@@ -124,8 +117,8 @@
       },
       "location": {
         "position": {
-          "character": 11,
-          "line": 2
+          "character": 12,
+          "line": 3
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -231,8 +224,8 @@
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 4
+          "character": 1,
+          "line": 5
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -392,8 +385,8 @@
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 5
+          "character": 1,
+          "line": 6
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -434,6 +427,14 @@
         },
         {
           "kind": "keyword",
+          "spelling": "atomic"
+        },
+        {
+          "kind": "text",
+          "spelling": ", "
+        },
+        {
+          "kind": "keyword",
           "spelling": "readonly"
         },
         {
@@ -468,10 +469,6 @@
         {
           "kind": "identifier",
           "spelling": "Property"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -484,8 +481,8 @@
       },
       "location": {
         "position": {
-          "character": 49,
-          "line": 3
+          "character": 50,
+          "line": 4
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -544,8 +541,8 @@
       },
       "location": {
         "position": {
-          "character": 11,
-          "line": 8
+          "character": 12,
+          "line": 9
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -583,10 +580,6 @@
         {
           "kind": "identifier",
           "spelling": "Ivar"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -599,8 +592,8 @@
       },
       "location": {
         "position": {
-          "character": 7,
-          "line": 9
+          "character": 8,
+          "line": 10
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -668,8 +661,8 @@
       },
       "location": {
         "position": {
-          "character": 0,
-          "line": 11
+          "character": 1,
+          "line": 12
         },
         "uri": "file://INPUT_DIR/input.h"
       },

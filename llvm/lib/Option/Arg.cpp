@@ -20,19 +20,19 @@ using namespace llvm::opt;
 
 Arg::Arg(const Option Opt, StringRef S, unsigned Index, const Arg *BaseArg)
     : Opt(Opt), BaseArg(BaseArg), Spelling(S), Index(Index), Claimed(false),
-      IgnoredTargetSpecific(false), OwnsValues(false) {}
+      OwnsValues(false) {}
 
 Arg::Arg(const Option Opt, StringRef S, unsigned Index, const char *Value0,
          const Arg *BaseArg)
     : Opt(Opt), BaseArg(BaseArg), Spelling(S), Index(Index), Claimed(false),
-      IgnoredTargetSpecific(false), OwnsValues(false) {
+      OwnsValues(false) {
   Values.push_back(Value0);
 }
 
 Arg::Arg(const Option Opt, StringRef S, unsigned Index, const char *Value0,
          const char *Value1, const Arg *BaseArg)
     : Opt(Opt), BaseArg(BaseArg), Spelling(S), Index(Index), Claimed(false),
-      IgnoredTargetSpecific(false), OwnsValues(false) {
+      OwnsValues(false) {
   Values.push_back(Value0);
   Values.push_back(Value1);
 }
@@ -45,8 +45,10 @@ Arg::~Arg() {
 }
 
 void Arg::print(raw_ostream& O) const {
-  O << "<Opt:";
-  Opt.print(O, /*AddNewLine=*/false);
+  O << "<";
+
+  O << " Opt:";
+  Opt.print(O);
 
   O << " Index:" << Index;
 

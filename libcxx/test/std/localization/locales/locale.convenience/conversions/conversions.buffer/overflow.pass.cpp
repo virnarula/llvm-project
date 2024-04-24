@@ -8,7 +8,7 @@
 
 // <locale>
 
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS -D_LIBCPP_ENABLE_CXX26_REMOVED_CODECVT
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
 // wbuffer_convert<Codecvt, Elem, Tr>
 
@@ -19,10 +19,9 @@
 // XFAIL: no-wide-characters
 
 #include <locale>
-#include <cassert>
 #include <codecvt>
 #include <fstream>
-#include <sstream>
+#include <cassert>
 
 #include "test_macros.h"
 
@@ -47,73 +46,62 @@ struct test_buf
 int main(int, char**)
 {
     {
-        std::string s;
-        {
-            std::ostringstream out;
-            test_buf f(out.rdbuf());
-            assert(f.pbase() == 0);
-            assert(f.pptr() == 0);
-            assert(f.epptr() == 0);
-            assert(f.overflow(L'a') == L'a');
-            assert(f.pbase() != 0);
-            assert(f.pptr() == f.pbase());
-            assert(f.epptr() - f.pbase() == 4095);
-            s = out.str();
-        }
-        {
-            std::istringstream in(s);
-            test_buf f(in.rdbuf());
-            assert(f.sgetc() == L'a');
-        }
+        std::ofstream bs("overflow.dat");
+        test_buf f(bs.rdbuf());
+        assert(f.pbase() == 0);
+        assert(f.pptr() == 0);
+        assert(f.epptr() == 0);
+        assert(f.overflow(L'a') == L'a');
+        assert(f.pbase() != 0);
+        assert(f.pptr() == f.pbase());
+        assert(f.epptr() - f.pbase() == 4095);
     }
     {
-        std::string s;
-        {
-            std::ostringstream out;
-            test_buf f(out.rdbuf());
-            f.pubsetbuf(0, 0);
-            assert(f.pbase() == 0);
-            assert(f.pptr() == 0);
-            assert(f.epptr() == 0);
-            assert(f.overflow('a') == 'a');
-            assert(f.pbase() == 0);
-            assert(f.pptr() == 0);
-            assert(f.epptr() == 0);
-            s = out.str();
-        }
-        {
-            std::istringstream in(s);
-            test_buf f(in.rdbuf());
-            assert(f.sgetc() == L'a');
-        }
+        std::ifstream bs("overflow.dat");
+        test_buf f(bs.rdbuf());
+        assert(f.sgetc() == L'a');
     }
-    // TODO: Move this to std::stringstream once https://llvm.org/PR59083 has been resolved
-#ifndef TEST_HAS_NO_FILESYSTEM
+    std::remove("overflow.dat");
     {
-        {
-            std::ofstream bs("overflow.dat");
-            test_buf f(bs.rdbuf());
-            assert(f.sputc(0x4E51) == 0x4E51);
-            assert(f.sputc(0x4E52) == 0x4E52);
-            assert(f.sputc(0x4E53) == 0x4E53);
-        }
-        {
-            std::ifstream f("overflow.dat");
-            assert(f.is_open());
-            assert(f.get() == 0xE4);
-            assert(f.get() == 0xB9);
-            assert(f.get() == 0x91);
-            assert(f.get() == 0xE4);
-            assert(f.get() == 0xB9);
-            assert(f.get() == 0x92);
-            assert(f.get() == 0xE4);
-            assert(f.get() == 0xB9);
-            assert(f.get() == 0x93);
-            assert(f.get() == -1);
-        }
-        std::remove("overflow.dat");
+        std::ofstream bs("overflow.dat");
+        test_buf f(bs.rdbuf());
+        f.pubsetbuf(0, 0);
+        assert(f.pbase() == 0);
+        assert(f.pptr() == 0);
+        assert(f.epptr() == 0);
+        assert(f.overflow('a') == 'a');
+        assert(f.pbase() == 0);
+        assert(f.pptr() == 0);
+        assert(f.epptr() == 0);
     }
-#endif // TEST_HAS_NO_FILESYSTEM
+    {
+        std::ifstream bs("overflow.dat");
+        test_buf f(bs.rdbuf());
+        assert(f.sgetc() == L'a');
+    }
+    std::remove("overflow.dat");
+    {
+        std::ofstream bs("overflow.dat");
+        test_buf f(bs.rdbuf());
+        assert(f.sputc(0x4E51) == 0x4E51);
+        assert(f.sputc(0x4E52) == 0x4E52);
+        assert(f.sputc(0x4E53) == 0x4E53);
+    }
+    {
+        std::ifstream f("overflow.dat");
+        assert(f.is_open());
+        assert(f.get() == 0xE4);
+        assert(f.get() == 0xB9);
+        assert(f.get() == 0x91);
+        assert(f.get() == 0xE4);
+        assert(f.get() == 0xB9);
+        assert(f.get() == 0x92);
+        assert(f.get() == 0xE4);
+        assert(f.get() == 0xB9);
+        assert(f.get() == 0x93);
+        assert(f.get() == -1);
+    }
+    std::remove("overflow.dat");
 
-    return 0;
+  return 0;
 }

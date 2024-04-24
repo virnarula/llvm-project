@@ -31,7 +31,6 @@
 
 using namespace llvm;
 
-extern cl::opt<bool> UseNewDbgInfoFormat;
 // See PassManagers.h for Pass Manager infrastructure overview.
 
 //===----------------------------------------------------------------------===//
@@ -528,11 +527,6 @@ bool PassManagerImpl::run(Module &M) {
   dumpArguments();
   dumpPasses();
 
-  // RemoveDIs: if a command line flag is given, convert to the DPValue
-  // representation of debug-info for the duration of these passes.
-  if (UseNewDbgInfoFormat)
-    M.convertToNewDbgValues();
-
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
 
@@ -544,8 +538,6 @@ bool PassManagerImpl::run(Module &M) {
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doFinalization(M);
-
-  M.convertFromNewDbgValues();
 
   return Changed;
 }
@@ -1416,20 +1408,15 @@ bool FPPassManager::runOnFunction(Function &F) {
     FunctionSize = F.getInstructionCount();
   }
 
-  // Store name outside of loop to avoid redundant calls.
-  const StringRef Name = F.getName();
-  llvm::TimeTraceScope FunctionScope("OptFunction", Name);
+  llvm::TimeTraceScope FunctionScope("OptFunction", F.getName());
 
   for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
     FunctionPass *FP = getContainedPass(Index);
     bool LocalChanged = false;
 
-    // Call getPassName only when required. The call itself is fairly cheap, but
-    // still virtual and repeated calling adds unnecessary overhead.
-    llvm::TimeTraceScope PassScope(
-        "RunPass", [FP]() { return std::string(FP->getPassName()); });
+    llvm::TimeTraceScope PassScope("RunPass", FP->getPassName());
 
-    dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, Name);
+    dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpRequiredSet(FP);
 
     initializeAnalysisImpl(FP);
@@ -1468,7 +1455,7 @@ bool FPPassManager::runOnFunction(Function &F) {
 
     Changed |= LocalChanged;
     if (LocalChanged)
-      dumpPassInfo(FP, MODIFICATION_MSG, ON_FUNCTION_MSG, Name);
+      dumpPassInfo(FP, MODIFICATION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpPreservedSet(FP);
     dumpUsedSet(FP);
 
@@ -1476,7 +1463,7 @@ bool FPPassManager::runOnFunction(Function &F) {
     if (LocalChanged)
       removeNotPreservedAnalysis(FP);
     recordAvailableAnalysis(FP);
-    removeDeadPasses(FP, Name, ON_FUNCTION_MSG);
+    removeDeadPasses(FP, F.getName(), ON_FUNCTION_MSG);
   }
 
   return Changed;

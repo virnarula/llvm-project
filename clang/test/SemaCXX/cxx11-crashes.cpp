@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -std=c++11 -verify %s -Wno-deprecated-builtins
 
+// rdar://12240916 stack overflow.
 namespace rdar12240916 {
 
 struct S2 {
@@ -36,6 +37,7 @@ S4 foo2() {
 
 }
 
+// rdar://12542261 stack overflow.
 namespace rdar12542261 {
 
 template <class _Tp>
@@ -65,7 +67,7 @@ namespace b6981007 {
   struct S {}; // expected-note 3{{candidate}}
   void f() {
     S s(1, 2, 3); // expected-error {{no matching}}
-    for (auto x : s) {
+    for (auto x : s) { // expected-error {{invalid range expression of}}
       // We used to attempt to evaluate the initializer of this variable,
       // and crash because it has an undeduced type.
       const int &n(x);

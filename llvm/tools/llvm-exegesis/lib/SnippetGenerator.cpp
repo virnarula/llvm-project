@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <array>
 #include <string>
 
 #include "Assembler.h"
@@ -16,7 +17,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Program.h"
@@ -75,14 +75,10 @@ Error SnippetGenerator::generateConfigurations(
       {
         BenchmarkCode BC;
         BC.Info = CT.Info;
-        BC.Key.Instructions.reserve(CT.Instructions.size());
         for (InstructionTemplate &IT : CT.Instructions) {
-          if (auto Error = randomizeUnsetVariables(State, ForbiddenRegs, IT))
-            return Error;
-          MCInst Inst = IT.build();
-          if (auto Error = validateGeneratedInstruction(State, Inst))
-            return Error;
-          BC.Key.Instructions.push_back(Inst);
+          if (auto error = randomizeUnsetVariables(State, ForbiddenRegs, IT))
+            return error;
+          BC.Key.Instructions.push_back(IT.build());
         }
         if (CT.ScratchSpacePointerInReg)
           BC.LiveIns.push_back(CT.ScratchSpacePointerInReg);
@@ -144,10 +140,9 @@ std::vector<RegisterValue> SnippetGenerator::computeRegisterInitialValues(
 }
 
 Expected<std::vector<CodeTemplate>>
-generateSelfAliasingCodeTemplates(InstructionTemplate Variant,
-                                  const BitVector &ForbiddenRegisters) {
-  const AliasingConfigurations SelfAliasing(
-      Variant.getInstr(), Variant.getInstr(), ForbiddenRegisters);
+generateSelfAliasingCodeTemplates(InstructionTemplate Variant) {
+  const AliasingConfigurations SelfAliasing(Variant.getInstr(),
+                                            Variant.getInstr());
   if (SelfAliasing.empty())
     return make_error<SnippetGeneratorFailure>("empty self aliasing");
   std::vector<CodeTemplate> Result;
@@ -218,15 +213,6 @@ size_t randomBit(const BitVector &Vector) {
   return *Itr;
 }
 
-std::optional<int> getFirstCommonBit(const BitVector &A, const BitVector &B) {
-  BitVector Intersect = A;
-  Intersect &= B;
-  int idx = Intersect.find_first();
-  if (idx != -1)
-    return idx;
-  return {};
-}
-
 void setRandomAliasing(const AliasingConfigurations &AliasingConfigurations,
                        InstructionTemplate &DefIB, InstructionTemplate &UseIB) {
   assert(!AliasingConfigurations.empty());
@@ -281,22 +267,6 @@ Error randomizeUnsetVariables(const LLVMState &State,
       if (auto Err = randomizeMCOperand(State, IT.getInstr(), Var,
                                         AssignedValue, ForbiddenRegs))
         return Err;
-  }
-  return Error::success();
-}
-
-Error validateGeneratedInstruction(const LLVMState &State, const MCInst &Inst) {
-  for (const auto &Operand : Inst) {
-    if (!Operand.isValid()) {
-      // Mention the particular opcode - it is not necessarily the "main"
-      // opcode being benchmarked by this snippet. For example, serial snippet
-      // generator uses one more opcode when in SERIAL_VIA_NON_MEMORY_INSTR
-      // execution mode.
-      const auto OpcodeName = State.getInstrInfo().getName(Inst.getOpcode());
-      return make_error<Failure>("Not all operands were initialized by the "
-                                 "snippet generator for " +
-                                 OpcodeName + " opcode.");
-    }
   }
   return Error::success();
 }

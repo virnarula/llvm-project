@@ -7,7 +7,7 @@
 @b = external global %struct.a, align 1
 
 ; Function Attrs: norecurse nounwind readnone
-define ptr @d() {
+define %struct.a* @d() {
 ; CHECK-LABEL: d:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    lui $1, %highest(b)
@@ -18,5 +18,5 @@ define ptr @d() {
 ; CHECK-NEXT:    jr $ra
 ; CHECK-NEXT:    daddiu $2, $1, %lo(b)
 entry:
-  ret ptr @b
+  ret %struct.a* @b
 }

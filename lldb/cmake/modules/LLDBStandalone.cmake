@@ -16,9 +16,6 @@ set(LLVM_MAIN_SRC_DIR ${LLVM_BUILD_MAIN_SRC_DIR} CACHE PATH "Path to LLVM source
 set(LLVM_MAIN_INCLUDE_DIR ${LLVM_MAIN_INCLUDE_DIR} CACHE PATH "Path to llvm/include")
 set(LLVM_BINARY_DIR ${LLVM_BINARY_DIR} CACHE PATH "Path to LLVM build tree")
 
-set(LLDB_TEST_LIBCXX_ROOT_DIR "${LLVM_BINARY_DIR}" CACHE PATH
-    "The build root for libcxx. Used in standalone builds to point the API tests to a custom build of libcxx.")
-
 set(LLVM_LIT_ARGS "-sv" CACHE STRING "Default options for lit")
 
 set(lit_file_name "llvm-lit")
@@ -92,6 +89,7 @@ include(CheckAtomic)
 include(LLVMDistributionSupport)
 
 set(PACKAGE_VERSION "${LLVM_PACKAGE_VERSION}")
+set(LLVM_INCLUDE_TESTS ON CACHE INTERNAL "")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 include_directories(
@@ -102,8 +100,8 @@ include_directories(
 if(LLDB_INCLUDE_TESTS)
   # Build the gtest library needed for unittests, if we have LLVM sources
   # handy.
-  if (EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest AND NOT TARGET llvm_gtest)
-    add_subdirectory(${LLVM_THIRD_PARTY_DIR}/unittest third-party/unittest)
+  if (EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest AND NOT TARGET llvm_gtest)
+    add_subdirectory(${LLVM_MAIN_SRC_DIR}/utils/unittest utils/unittest)
   endif()
   # LLVMTestingSupport library is needed for Process/gdb-remote.
   if (EXISTS ${LLVM_MAIN_SRC_DIR}/lib/Testing/Support
@@ -128,16 +126,3 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX})
-
-# If LLDB is building against a prebuilt Clang, then the Clang resource
-# directory that LLDB is using for its embedded Clang instance needs to point to
-# the resource directory of the used Clang installation.
-if (NOT TARGET clang-resource-headers)
-  include(GetClangResourceDir)
-  get_clang_resource_dir(LLDB_EXTERNAL_CLANG_RESOURCE_DIR
-    PREFIX "${Clang_DIR}/../../../")
-
-  if (NOT EXISTS ${LLDB_EXTERNAL_CLANG_RESOURCE_DIR})
-    message(FATAL_ERROR "Expected directory for clang-resource-headers not found: ${LLDB_EXTERNAL_CLANG_RESOURCE_DIR}")
-  endif()
-endif()

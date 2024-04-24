@@ -98,10 +98,6 @@ size_t GuardedPoolAllocator::getPlatformPageSize() {
 }
 
 void GuardedPoolAllocator::installAtFork() {
-  static bool AtForkInstalled = false;
-  if (AtForkInstalled)
-    return;
-  AtForkInstalled = true;
   auto Disable = []() {
     if (auto *S = getSingleton())
       S->disable();

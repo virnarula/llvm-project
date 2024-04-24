@@ -11,12 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "bolt/RuntimeLibs/RuntimeLibrary.h"
-#include "bolt/Core/Linker.h"
-#include "bolt/RuntimeLibs/RuntimeLibraryVariables.inc"
 #include "bolt/Utils/Utils.h"
 #include "llvm/BinaryFormat/Magic.h"
+#include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/Object/Archive.h"
-#include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Path.h"
 
 #define DEBUG_TYPE "bolt-rtlib"
@@ -30,12 +28,12 @@ std::string RuntimeLibrary::getLibPath(StringRef ToolPath,
                                        StringRef LibFileName) {
   StringRef Dir = llvm::sys::path::parent_path(ToolPath);
   SmallString<128> LibPath = llvm::sys::path::parent_path(Dir);
-  llvm::sys::path::append(LibPath, "lib" LLVM_LIBDIR_SUFFIX);
+  llvm::sys::path::append(LibPath, "lib");
   if (!llvm::sys::fs::exists(LibPath)) {
     // In some cases we install bolt binary into one level deeper in bin/,
     // we need to go back one more level to find lib directory.
     LibPath = llvm::sys::path::parent_path(llvm::sys::path::parent_path(Dir));
-    llvm::sys::path::append(LibPath, "lib" LLVM_LIBDIR_SUFFIX);
+    llvm::sys::path::append(LibPath, "lib");
   }
   llvm::sys::path::append(LibPath, LibFileName);
   if (!llvm::sys::fs::exists(LibPath)) {
@@ -45,8 +43,7 @@ std::string RuntimeLibrary::getLibPath(StringRef ToolPath,
   return std::string(LibPath.str());
 }
 
-void RuntimeLibrary::loadLibrary(StringRef LibPath, BOLTLinker &Linker,
-                                 BOLTLinker::SectionsMapper MapSections) {
+void RuntimeLibrary::loadLibrary(StringRef LibPath, RuntimeDyld &RTDyld) {
   ErrorOr<std::unique_ptr<MemoryBuffer>> MaybeBuf =
       MemoryBuffer::getFile(LibPath, false, false);
   check_error(MaybeBuf.getError(), LibPath);
@@ -59,7 +56,7 @@ void RuntimeLibrary::loadLibrary(StringRef LibPath, BOLTLinker &Linker,
     for (const object::Archive::Child &C : Archive.children(Err)) {
       std::unique_ptr<object::Binary> Bin = cantFail(C.getAsBinary());
       if (object::ObjectFile *Obj = dyn_cast<object::ObjectFile>(&*Bin))
-        Linker.loadObject(Obj->getMemoryBufferRef(), MapSections);
+        RTDyld.loadObject(*Obj);
     }
     check_error(std::move(Err), B->getBufferIdentifier());
   } else if (Magic == file_magic::elf_relocatable ||
@@ -67,7 +64,7 @@ void RuntimeLibrary::loadLibrary(StringRef LibPath, BOLTLinker &Linker,
     std::unique_ptr<object::ObjectFile> Obj = cantFail(
         object::ObjectFile::createObjectFile(B.get()->getMemBufferRef()),
         "error creating in-memory object");
-    Linker.loadObject(Obj->getMemoryBufferRef(), MapSections);
+    RTDyld.loadObject(*Obj);
   } else {
     errs() << "BOLT-ERROR: unrecognized library format: " << LibPath << "\n";
     exit(1);

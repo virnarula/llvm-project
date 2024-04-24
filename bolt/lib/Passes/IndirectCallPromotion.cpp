@@ -14,9 +14,7 @@
 #include "bolt/Passes/BinaryFunctionCallGraph.h"
 #include "bolt/Passes/DataflowInfoManager.h"
 #include "bolt/Passes/Inliner.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/CommandLine.h"
-#include <iterator>
 
 #define DEBUG_TYPE "ICP"
 #define DEBUG_VERBOSE(Level, X)                                                \
@@ -158,7 +156,6 @@ static cl::opt<bool> ICPPeelForInline(
 
 } // namespace opts
 
-#ifndef NDEBUG
 static bool verifyProfile(std::map<uint64_t, BinaryFunction> &BFs) {
   bool IsValid = true;
   for (auto &BFI : BFs) {
@@ -183,7 +180,6 @@ static bool verifyProfile(std::map<uint64_t, BinaryFunction> &BFs) {
   }
   return IsValid;
 }
-#endif
 
 namespace llvm {
 namespace bolt {
@@ -259,14 +255,14 @@ IndirectCallPromotion::getCallTargets(BinaryBasicBlock &BB,
            JT->EntrySize == BC.AsmInfo->getCodePointerSize());
     for (size_t I = Range.first; I < Range.second; ++I, JI += JIAdj) {
       MCSymbol *Entry = JT->Entries[I];
-      const BinaryBasicBlock *ToBB = BF.getBasicBlockForLabel(Entry);
-      assert(ToBB || Entry == BF.getFunctionEndLabel() ||
+      assert(BF.getBasicBlockForLabel(Entry) ||
+             Entry == BF.getFunctionEndLabel() ||
              Entry == BF.getFunctionEndLabel(FragmentNum::cold()));
       if (Entry == BF.getFunctionEndLabel() ||
           Entry == BF.getFunctionEndLabel(FragmentNum::cold()))
         continue;
       const Location To(Entry);
-      const BinaryBasicBlock::BinaryBranchInfo &BI = BB.getBranchInfo(*ToBB);
+      const BinaryBasicBlock::BinaryBranchInfo &BI = BB.getBranchInfo(Entry);
       Targets.emplace_back(From, To, BI.MispredictedCount, BI.Count,
                            I - Range.first);
     }
@@ -460,7 +456,7 @@ IndirectCallPromotion::maybeGetHotJumpTableTargets(BinaryBasicBlock &BB,
 
     if (AccessInfo.MemoryObject) {
       // Deal with bad/stale data
-      if (!AccessInfo.MemoryObject->getName().starts_with(
+      if (!AccessInfo.MemoryObject->getName().startswith(
               "JUMP_TABLE/" + Function.getOneName().str()))
         return JumpTableInfoType();
       Index =
@@ -501,8 +497,11 @@ IndirectCallPromotion::maybeGetHotJumpTableTargets(BinaryBasicBlock &BB,
     HotTarget.second = Index;
   }
 
-  llvm::copy(llvm::make_second_range(HotTargetMap),
-             std::back_inserter(HotTargets));
+  llvm::transform(
+      HotTargetMap, std::back_inserter(HotTargets),
+      [](const std::pair<MCSymbol *, std::pair<uint64_t, uint64_t>> &A) {
+        return A.second;
+      });
 
   // Sort with highest counts first.
   llvm::sort(reverse(HotTargets));
@@ -593,7 +592,7 @@ IndirectCallPromotion::findCallTargetSymbols(std::vector<Callsite> &Targets,
 
       NewTargets.push_back(Target);
       std::vector<uint64_t>({JTIndex}).swap(NewTargets.back().JTIndices);
-      llvm::erase(Target.JTIndices, JTIndex);
+      llvm::erase_value(Target.JTIndices, JTIndex);
 
       // Keep fixCFG counts sane if more indices use this same target later
       assert(IndicesPerTarget[Target.To.Sym] > 0 && "wrong map");
@@ -756,15 +755,6 @@ IndirectCallPromotion::rewriteCall(
   const bool IsTailCallOrJT =
       (MIB->isTailCall(CallInst) || Function.getJumpTable(CallInst));
 
-  // If we are tracking the indirect call/jump address, propagate the address to
-  // the ICP code.
-  const std::optional<uint32_t> IndirectInstrOffset = MIB->getOffset(CallInst);
-  if (IndirectInstrOffset) {
-    for (auto &[Symbol, Instructions] : ICPcode)
-      for (MCInst &Inst : Instructions)
-        MIB->setOffset(Inst, *IndirectInstrOffset);
-  }
-
   // Move instructions from the tail of the original call block
   // to the merge block.
 
@@ -778,12 +768,10 @@ IndirectCallPromotion::rewriteCall(
       TailInsts.push_back(*++TailInst);
 
   InstructionListType MovedInst = IndCallBlock.splitInstructions(&CallInst);
-  // Link new BBs to the original input offset of the indirect call site or its
-  // containing BB, so we can map samples recorded in new BBs back to the
-  // original BB seen in the input binary (if using BAT).
-  const uint32_t OrigOffset = IndirectInstrOffset
-                                  ? *IndirectInstrOffset
-                                  : IndCallBlock.getInputOffset();
+  // Link new BBs to the original input offset of the BB where the indirect
+  // call site is, so we can map samples recorded in new BBs back to the
+  // original BB seen in the input binary (if using BAT)
+  const uint32_t OrigOffset = IndCallBlock.getInputOffset();
 
   IndCallBlock.eraseInstructions(MethodFetchInsns.begin(),
                                  MethodFetchInsns.end());
@@ -1469,6 +1457,7 @@ void IndirectCallPromotion::runOnFunctions(BinaryContext &BC) {
                                std::max<uint64_t>(TotalIndexBasedCandidates, 1))
          << "%\n";
 
+  (void)verifyProfile;
 #ifndef NDEBUG
   verifyProfile(BFs);
 #endif

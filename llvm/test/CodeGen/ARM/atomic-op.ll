@@ -6,27 +6,26 @@
 
 target datalayout = "e-m:e-p:32:32-i64:64-v128:64:128-a:0:32-n32-S64"
 
-; CHECK-LABEL: _func:
-define void @func(i32 %argc, ptr %argv) nounwind {
+define void @func(i32 %argc, i8** %argv) nounwind {
 entry:
-	%argc.addr = alloca i32		; <ptr> [#uses=1]
-	%argv.addr = alloca ptr		; <ptr> [#uses=1]
-	%val1 = alloca i32		; <ptr> [#uses=2]
-	%val2 = alloca i32		; <ptr> [#uses=15]
-	%andt = alloca i32		; <ptr> [#uses=2]
-	%ort = alloca i32		; <ptr> [#uses=2]
-	%xort = alloca i32		; <ptr> [#uses=2]
-	%old = alloca i32		; <ptr> [#uses=18]
-	%temp = alloca i32		; <ptr> [#uses=2]
-	store i32 %argc, ptr %argc.addr
-	store ptr %argv, ptr %argv.addr
-	store i32 0, ptr %val1
-	store i32 31, ptr %val2
-	store i32 3855, ptr %andt
-	store i32 3855, ptr %ort
-	store i32 3855, ptr %xort
-	store i32 4, ptr %temp
-	%tmp = load i32, ptr %temp
+	%argc.addr = alloca i32		; <i32*> [#uses=1]
+	%argv.addr = alloca i8**		; <i8***> [#uses=1]
+	%val1 = alloca i32		; <i32*> [#uses=2]
+	%val2 = alloca i32		; <i32*> [#uses=15]
+	%andt = alloca i32		; <i32*> [#uses=2]
+	%ort = alloca i32		; <i32*> [#uses=2]
+	%xort = alloca i32		; <i32*> [#uses=2]
+	%old = alloca i32		; <i32*> [#uses=18]
+	%temp = alloca i32		; <i32*> [#uses=2]
+	store i32 %argc, i32* %argc.addr
+	store i8** %argv, i8*** %argv.addr
+	store i32 0, i32* %val1
+	store i32 31, i32* %val2
+	store i32 3855, i32* %andt
+	store i32 3855, i32* %ort
+	store i32 3855, i32* %xort
+	store i32 4, i32* %temp
+	%tmp = load i32, i32* %temp
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: add
@@ -35,8 +34,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_add_4
   ; CHECK-BAREMETAL: add
   ; CHECK-BAREMETAL-NOT: __sync
-  %0 = atomicrmw add ptr %val1, i32 %tmp monotonic
-	store i32 %0, ptr %old
+  %0 = atomicrmw add i32* %val1, i32 %tmp monotonic
+	store i32 %0, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: sub
@@ -45,8 +44,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_sub_4
   ; CHECK-BAREMETAL: sub
   ; CHECK-BAREMETAL-NOT: __sync
-  %1 = atomicrmw sub ptr %val2, i32 30 monotonic
-	store i32 %1, ptr %old
+  %1 = atomicrmw sub i32* %val2, i32 30 monotonic
+	store i32 %1, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: add
@@ -55,8 +54,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_add_4
   ; CHECK-BAREMETAL: add
   ; CHECK-BAREMETAL-NOT: __sync
-  %2 = atomicrmw add ptr %val2, i32 1 monotonic
-	store i32 %2, ptr %old
+  %2 = atomicrmw add i32* %val2, i32 1 monotonic
+	store i32 %2, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: sub
@@ -65,8 +64,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_sub_4
   ; CHECK-BAREMETAL: sub
   ; CHECK-BAREMETAL-NOT: __sync
-  %3 = atomicrmw sub ptr %val2, i32 1 monotonic
-	store i32 %3, ptr %old
+  %3 = atomicrmw sub i32* %val2, i32 1 monotonic
+	store i32 %3, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: and
@@ -75,8 +74,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_and_4
   ; CHECK-BAREMETAL: and
   ; CHECK-BAREMETAL-NOT: __sync
-  %4 = atomicrmw and ptr %andt, i32 4080 monotonic
-	store i32 %4, ptr %old
+  %4 = atomicrmw and i32* %andt, i32 4080 monotonic
+	store i32 %4, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: or
@@ -85,8 +84,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_or_4
   ; CHECK-BAREMETAL: or
   ; CHECK-BAREMETAL-NOT: __sync
-  %5 = atomicrmw or ptr %ort, i32 4080 monotonic
-	store i32 %5, ptr %old
+  %5 = atomicrmw or i32* %ort, i32 4080 monotonic
+	store i32 %5, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: eor
@@ -95,8 +94,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_fetch_xor_4
   ; CHECK-BAREMETAL: eor
   ; CHECK-BAREMETAL-NOT: __sync
-  %6 = atomicrmw xor ptr %xort, i32 4080 monotonic
-	store i32 %6, ptr %old
+  %6 = atomicrmw xor i32* %xort, i32 4080 monotonic
+	store i32 %6, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: cmp
@@ -105,8 +104,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %7 = atomicrmw min ptr %val2, i32 16 monotonic
-	store i32 %7, ptr %old
+  %7 = atomicrmw min i32* %val2, i32 16 monotonic
+	store i32 %7, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
 	%neg = sub i32 0, 1
   ; CHECK: ldrex
@@ -116,8 +115,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %8 = atomicrmw min ptr %val2, i32 %neg monotonic
-	store i32 %8, ptr %old
+  %8 = atomicrmw min i32* %val2, i32 %neg monotonic
+	store i32 %8, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: cmp
@@ -126,8 +125,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %9 = atomicrmw max ptr %val2, i32 1 monotonic
-	store i32 %9, ptr %old
+  %9 = atomicrmw max i32* %val2, i32 1 monotonic
+	store i32 %9, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: bic
@@ -137,8 +136,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: bic
   ; CHECK-BAREMETAL-NOT: __sync
-  %10 = atomicrmw max ptr %val2, i32 0 monotonic
-	store i32 %10, ptr %old
+  %10 = atomicrmw max i32* %val2, i32 0 monotonic
+	store i32 %10, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
   ; CHECK: cmp
@@ -147,8 +146,8 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %11 = atomicrmw umin ptr %val2, i32 16 monotonic
-	store i32 %11, ptr %old
+  %11 = atomicrmw umin i32* %val2, i32 16 monotonic
+	store i32 %11, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
 	%uneg = sub i32 0, 1
   ; CHECK: ldrex
@@ -158,57 +157,56 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %12 = atomicrmw umin ptr %val2, i32 %uneg monotonic
-	store i32 %12, ptr %old
+  %12 = atomicrmw umin i32* %val2, i32 %uneg monotonic
+	store i32 %12, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umax_4
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %13 = atomicrmw umax ptr %val2, i32 1 monotonic
-	store i32 %13, ptr %old
+  %13 = atomicrmw umax i32* %val2, i32 1 monotonic
+	store i32 %13, i32* %old
 	call void asm sideeffect "", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umax_4
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_4
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %14 = atomicrmw umax ptr %val2, i32 0 monotonic
-	store i32 %14, ptr %old
+  %14 = atomicrmw umax i32* %val2, i32 0 monotonic
+	store i32 %14, i32* %old
 
   ret void
 }
 
-; CHECK-LABEL: _func2:
 define void @func2() nounwind {
 entry:
   %val = alloca i16
   %old = alloca i16
-  store i16 31, ptr %val
+  store i16 31, i16* %val
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umin_2
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_2
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %0 = atomicrmw umin ptr %val, i16 16 monotonic
-  store i16 %0, ptr %old
+  %0 = atomicrmw umin i16* %val, i16 16 monotonic
+  store i16 %0, i16* %old
   %uneg = sub i16 0, 1
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umin_2
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_2
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %1 = atomicrmw umin ptr %val, i16 %uneg monotonic
-  store i16 %1, ptr %old
+  %1 = atomicrmw umin i16* %val, i16 %uneg monotonic
+  store i16 %1, i16* %old
   ; CHECK: ldrex
   ; CHECK: cmp
   ; CHECK: strex
@@ -216,80 +214,79 @@ entry:
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_2
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %2 = atomicrmw umax ptr %val, i16 1 monotonic
-  store i16 %2, ptr %old
+  %2 = atomicrmw umax i16* %val, i16 1 monotonic
+  store i16 %2, i16* %old
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umax_2
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_2
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %3 = atomicrmw umax ptr %val, i16 0 monotonic
-  store i16 %3, ptr %old
+  %3 = atomicrmw umax i16* %val, i16 0 monotonic
+  store i16 %3, i16* %old
   ret void
 }
 
-; CHECK-LABEL: _func3:
 define void @func3() nounwind {
 entry:
   %val = alloca i8
   %old = alloca i8
-  store i8 31, ptr %val
+  store i8 31, i8* %val
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umin_1
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_1
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %0 = atomicrmw umin ptr %val, i8 16 monotonic
-  store i8 %0, ptr %old
+  %0 = atomicrmw umin i8* %val, i8 16 monotonic
+  store i8 %0, i8* %old
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umin_1
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_1
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
   %uneg = sub i8 0, 1
-  %1 = atomicrmw umin ptr %val, i8 %uneg monotonic
-  store i8 %1, ptr %old
+  %1 = atomicrmw umin i8* %val, i8 %uneg monotonic
+  store i8 %1, i8* %old
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umax_1
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_1
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %2 = atomicrmw umax ptr %val, i8 1 monotonic
-  store i8 %2, ptr %old
+  %2 = atomicrmw umax i8* %val, i8 1 monotonic
+  store i8 %2, i8* %old
   ; CHECK: ldrex
-  ; CHECK: strex
   ; CHECK: cmp
+  ; CHECK: strex
   ; CHECK-T1: bl ___sync_fetch_and_umax_1
   ; CHECK-T1-M0: bl ___atomic_compare_exchange_1
   ; CHECK-BAREMETAL: cmp
   ; CHECK-BAREMETAL-NOT: __sync
-  %3 = atomicrmw umax ptr %val, i8 0 monotonic
-  store i8 %3, ptr %old
+  %3 = atomicrmw umax i8* %val, i8 0 monotonic
+  store i8 %3, i8* %old
   ret void
 }
 
-; CHECK-LABEL: _func4:
+; CHECK: func4
 ; This function should not need to use callee-saved registers.
 ; rdar://problem/12203728
 ; CHECK-NOT: r4
-define i32 @func4(ptr %p) nounwind optsize ssp {
+define i32 @func4(i32* %p) nounwind optsize ssp {
 entry:
-  %0 = atomicrmw add ptr %p, i32 1 monotonic
+  %0 = atomicrmw add i32* %p, i32 1 monotonic
   ret i32 %0
 }
 
-define i32 @test_cmpxchg_fail_order(ptr %addr, i32 %desired, i32 %new) {
+define i32 @test_cmpxchg_fail_order(i32 *%addr, i32 %desired, i32 %new) {
 ; CHECK-LABEL: test_cmpxchg_fail_order:
 
-  %pair = cmpxchg ptr %addr, i32 %desired, i32 %new seq_cst monotonic
+  %pair = cmpxchg i32* %addr, i32 %desired, i32 %new seq_cst monotonic
   %oldval = extractvalue { i32, i1 } %pair, 0
 ; CHECK-ARMV7:     mov     r[[ADDR:[0-9]+]], r0
 ; CHECK-ARMV7:     ldrex   [[OLDVAL:r[0-9]+]], [r0]
@@ -328,10 +325,10 @@ define i32 @test_cmpxchg_fail_order(ptr %addr, i32 %desired, i32 %new) {
   ret i32 %oldval
 }
 
-define i32 @test_cmpxchg_fail_order1(ptr %addr, i32 %desired, i32 %new) {
+define i32 @test_cmpxchg_fail_order1(i32 *%addr, i32 %desired, i32 %new) {
 ; CHECK-LABEL: test_cmpxchg_fail_order1:
 
-  %pair = cmpxchg ptr %addr, i32 %desired, i32 %new acquire acquire
+  %pair = cmpxchg i32* %addr, i32 %desired, i32 %new acquire acquire
   %oldval = extractvalue { i32, i1 } %pair, 0
 ; CHECK-NOT:     dmb ish
 ; CHECK: [[LOOP_BB:\.?LBB[0-9]+_1]]:
@@ -351,10 +348,10 @@ define i32 @test_cmpxchg_fail_order1(ptr %addr, i32 %desired, i32 %new) {
   ret i32 %oldval
 }
 
-define i32 @load_load_add_acquire(ptr %mem1, ptr %mem2) nounwind {
+define i32 @load_load_add_acquire(i32* %mem1, i32* %mem2) nounwind {
 ; CHECK-LABEL: load_load_add_acquire
-  %val1 = load atomic i32, ptr %mem1 acquire, align 4
-  %val2 = load atomic i32, ptr %mem2 acquire, align 4
+  %val1 = load atomic i32, i32* %mem1 acquire, align 4
+  %val2 = load atomic i32, i32* %mem2 acquire, align 4
   %tmp = add i32 %val1, %val2
 
 ; CHECK: ldr {{r[0-9]}}, [r0]
@@ -378,10 +375,10 @@ define i32 @load_load_add_acquire(ptr %mem1, ptr %mem2) nounwind {
   ret i32 %tmp
 }
 
-define void @store_store_release(ptr %mem1, i32 %val1, ptr %mem2, i32 %val2) {
+define void @store_store_release(i32* %mem1, i32 %val1, i32* %mem2, i32 %val2) {
 ; CHECK-LABEL: store_store_release
-  store atomic i32 %val1, ptr %mem1 release, align 4
-  store atomic i32 %val2, ptr %mem2 release, align 4
+  store atomic i32 %val1, i32* %mem1 release, align 4
+  store atomic i32 %val2, i32* %mem2 release, align 4
 
 ; CHECK: dmb
 ; CHECK: str r1, [r0]
@@ -402,11 +399,11 @@ define void @store_store_release(ptr %mem1, i32 %val1, ptr %mem2, i32 %val2) {
   ret void
 }
 
-define void @load_fence_store_monotonic(ptr %mem1, ptr %mem2) {
+define void @load_fence_store_monotonic(i32* %mem1, i32* %mem2) {
 ; CHECK-LABEL: load_fence_store_monotonic
-  %val = load atomic i32, ptr %mem1 monotonic, align 4
+  %val = load atomic i32, i32* %mem1 monotonic, align 4
   fence seq_cst
-  store atomic i32 %val, ptr %mem2 monotonic, align 4
+  store atomic i32 %val, i32* %mem2 monotonic, align 4
 
 ; CHECK: ldr [[R0:r[0-9]]], [r0]
 ; CHECK: dmb

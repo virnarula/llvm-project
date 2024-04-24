@@ -11,9 +11,10 @@
 
 #include "../ClangTidyCheck.h"
 #include "llvm/ADT/StringSet.h"
-#include <optional>
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// Finds function calls where the arguments passed are provided out of order,
 /// based on the difference between the argument name and the parameter names
@@ -70,7 +71,7 @@ private:
   llvm::StringMap<std::string> AbbreviationDictionary;
 
   bool isHeuristicEnabled(Heuristic H) const;
-  std::optional<int8_t> getBound(Heuristic H, BoundKind BK) const;
+  Optional<int8_t> getBound(Heuristic H, BoundKind BK) const;
 
   // Runtime information of the currently analyzed function call.
   SmallVector<QualType, SmallVectorSize> ArgTypes;
@@ -92,6 +93,8 @@ private:
                        BoundKind BK) const;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_SUSPICIOUSCALLARGUMENTCHECK_H

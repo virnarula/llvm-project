@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - %s | FileCheck %s
 
 @interface NSObject
 + (id)alloc;
@@ -14,6 +14,7 @@ void test1(void) {
   // CHECK: {{call.*@objc_msgSend}}
   // CHECK: {{call.*@objc_msgSend}}
   // CHECK: {{call.*@objc_msgSend}}
+  // CHECK: bitcast i8*
   NSString *str1 = [[[NSString alloc] init] retain];
 }
 
@@ -22,6 +23,7 @@ void test2(void) {
   // CHECK: {{call.*@objc_msgSend}}
   // CHECK: {{call.*@objc_msgSend}}
   // CHECK: {{call.*@objc_msgSend}}
+  // CHECK: bitcast i8*
   NSString *str1 = NSString.alloc.init.retain;
 }
 
@@ -30,9 +32,10 @@ void test2(void) {
 @end
 
 @implementation Test2
-// CHECK: define internal {{.*}}ptr @"\01-[Test2 init]"
+// CHECK: define internal {{.*}}i8* @"\01-[Test2 init]"
 - (id)init {
   // CHECK: {{call.*@objc_msgSendSuper}}
+  // CHECK-NEXT: bitcast i8*
   return [super init];
 }
 @end
@@ -42,9 +45,10 @@ void test2(void) {
 @end
 
 @implementation Test3
-// CHECK: define internal {{.*}}ptr @"\01-[Test3 init]"
+// CHECK: define internal {{.*}}i8* @"\01-[Test3 init]"
 - (id)init {
   // CHECK: {{call.*@objc_msgSendSuper}}
+  // CHECK-NEXT: bitcast i8*
   return [super init];
 }
 @end

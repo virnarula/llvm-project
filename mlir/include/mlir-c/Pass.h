@@ -70,9 +70,9 @@ static inline bool mlirPassManagerIsNull(MlirPassManager passManager) {
 MLIR_CAPI_EXPORTED MlirOpPassManager
 mlirPassManagerGetAsOpPassManager(MlirPassManager passManager);
 
-/// Run the provided `passManager` on the given `op`.
+/// Run the provided `passManager` on the given `module`.
 MLIR_CAPI_EXPORTED MlirLogicalResult
-mlirPassManagerRunOnOp(MlirPassManager passManager, MlirOperation op);
+mlirPassManagerRun(MlirPassManager passManager, MlirModule module);
 
 /// Enable mlir-print-ir-after-all.
 MLIR_CAPI_EXPORTED void
@@ -123,12 +123,10 @@ MLIR_CAPI_EXPORTED void mlirPrintPassPipeline(MlirOpPassManager passManager,
                                               MlirStringCallback callback,
                                               void *userData);
 
-/// Parse a textual MLIR pass pipeline and assign it to the provided
-/// OpPassManager. If parsing fails an error message is reported using the
-/// provided callback.
+/// Parse a textual MLIR pass pipeline and add it to the provided OpPassManager.
+
 MLIR_CAPI_EXPORTED MlirLogicalResult
-mlirParsePassPipeline(MlirOpPassManager passManager, MlirStringRef pipeline,
-                      MlirStringCallback callback, void *userData);
+mlirParsePassPipeline(MlirOpPassManager passManager, MlirStringRef pipeline);
 
 //===----------------------------------------------------------------------===//
 // External Pass API.

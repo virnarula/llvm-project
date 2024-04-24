@@ -16,7 +16,6 @@
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/Support/Debug.h"
-#include <optional>
 using namespace llvm;
 
 #define DEBUG_TYPE "NVPTXtti"
@@ -140,10 +139,10 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
   // represents how to replace an NVVM intrinsic with target-generic LLVM IR.
   struct SimplifyAction {
     // Invariant: At most one of these Optionals has a value.
-    std::optional<Intrinsic::ID> IID;
-    std::optional<Instruction::CastOps> CastOp;
-    std::optional<Instruction::BinaryOps> BinaryOp;
-    std::optional<SpecialCase> Special;
+    Optional<Intrinsic::ID> IID;
+    Optional<Instruction::CastOps> CastOp;
+    Optional<Instruction::BinaryOps> BinaryOp;
+    Optional<SpecialCase> Special;
 
     FtzRequirementTy FtzRequirement = FTZ_Any;
     // Denormal handling is guarded by different attributes depending on the
@@ -180,6 +179,10 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
       return {Intrinsic::ceil, FTZ_MustBeOn};
     case Intrinsic::nvvm_fabs_d:
       return {Intrinsic::fabs, FTZ_Any};
+    case Intrinsic::nvvm_fabs_f:
+      return {Intrinsic::fabs, FTZ_MustBeOff};
+    case Intrinsic::nvvm_fabs_ftz_f:
+      return {Intrinsic::fabs, FTZ_MustBeOn};
     case Intrinsic::nvvm_floor_d:
       return {Intrinsic::floor, FTZ_Any};
     case Intrinsic::nvvm_floor_f:
@@ -199,14 +202,6 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
     case Intrinsic::nvvm_fma_rn_f16x2:
       return {Intrinsic::fma, FTZ_MustBeOff, true};
     case Intrinsic::nvvm_fma_rn_ftz_f16x2:
-      return {Intrinsic::fma, FTZ_MustBeOn, true};
-    case Intrinsic::nvvm_fma_rn_bf16:
-      return {Intrinsic::fma, FTZ_MustBeOff, true};
-    case Intrinsic::nvvm_fma_rn_ftz_bf16:
-      return {Intrinsic::fma, FTZ_MustBeOn, true};
-    case Intrinsic::nvvm_fma_rn_bf16x2:
-      return {Intrinsic::fma, FTZ_MustBeOff, true};
-    case Intrinsic::nvvm_fma_rn_ftz_bf16x2:
       return {Intrinsic::fma, FTZ_MustBeOn, true};
     case Intrinsic::nvvm_fmax_d:
       return {Intrinsic::maxnum, FTZ_Any};
@@ -260,6 +255,12 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
       return {Intrinsic::minimum, FTZ_MustBeOff, true};
     case Intrinsic::nvvm_fmin_ftz_nan_f16x2:
       return {Intrinsic::minimum, FTZ_MustBeOn, true};
+    case Intrinsic::nvvm_round_d:
+      return {Intrinsic::round, FTZ_Any};
+    case Intrinsic::nvvm_round_f:
+      return {Intrinsic::round, FTZ_MustBeOff};
+    case Intrinsic::nvvm_round_ftz_f:
+      return {Intrinsic::round, FTZ_MustBeOn};
     case Intrinsic::nvvm_sqrt_rn_d:
       return {Intrinsic::sqrt, FTZ_Any};
     case Intrinsic::nvvm_sqrt_f:
@@ -268,6 +269,10 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
       // the ftz-ness of the surrounding code.  sqrt_rn_f and sqrt_rn_ftz_f are
       // the versions with explicit ftz-ness.
       return {Intrinsic::sqrt, FTZ_Any};
+    case Intrinsic::nvvm_sqrt_rn_f:
+      return {Intrinsic::sqrt, FTZ_MustBeOff};
+    case Intrinsic::nvvm_sqrt_rn_ftz_f:
+      return {Intrinsic::sqrt, FTZ_MustBeOn};
     case Intrinsic::nvvm_trunc_d:
       return {Intrinsic::trunc, FTZ_Any};
     case Intrinsic::nvvm_trunc_f:
@@ -302,8 +307,24 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
       return {Instruction::UIToFP};
 
     // NVVM intrinsics that map to LLVM binary ops.
+    case Intrinsic::nvvm_add_rn_d:
+      return {Instruction::FAdd, FTZ_Any};
+    case Intrinsic::nvvm_add_rn_f:
+      return {Instruction::FAdd, FTZ_MustBeOff};
+    case Intrinsic::nvvm_add_rn_ftz_f:
+      return {Instruction::FAdd, FTZ_MustBeOn};
+    case Intrinsic::nvvm_mul_rn_d:
+      return {Instruction::FMul, FTZ_Any};
+    case Intrinsic::nvvm_mul_rn_f:
+      return {Instruction::FMul, FTZ_MustBeOff};
+    case Intrinsic::nvvm_mul_rn_ftz_f:
+      return {Instruction::FMul, FTZ_MustBeOn};
     case Intrinsic::nvvm_div_rn_d:
       return {Instruction::FDiv, FTZ_Any};
+    case Intrinsic::nvvm_div_rn_f:
+      return {Instruction::FDiv, FTZ_MustBeOff};
+    case Intrinsic::nvvm_div_rn_ftz_f:
+      return {Instruction::FDiv, FTZ_MustBeOn};
 
     // The remainder of cases are NVVM intrinsics that map to LLVM idioms, but
     // need special handling.
@@ -312,6 +333,10 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
     // as well.
     case Intrinsic::nvvm_rcp_rn_d:
       return {SPC_Reciprocal, FTZ_Any};
+    case Intrinsic::nvvm_rcp_rn_f:
+      return {SPC_Reciprocal, FTZ_MustBeOff};
+    case Intrinsic::nvvm_rcp_rn_ftz_f:
+      return {SPC_Reciprocal, FTZ_MustBeOn};
 
       // We do not currently simplify intrinsics that give an approximate
       // answer. These include:
@@ -343,10 +368,12 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
   // intrinsic, we don't have to look up any module metadata, as
   // FtzRequirementTy will be FTZ_Any.)
   if (Action.FtzRequirement != FTZ_Any) {
-    // FIXME: Broken for f64
-    DenormalMode Mode = II->getFunction()->getDenormalMode(
-        Action.IsHalfTy ? APFloat::IEEEhalf() : APFloat::IEEEsingle());
-    bool FtzEnabled = Mode.Output == DenormalMode::PreserveSign;
+    const char *AttrName =
+        Action.IsHalfTy ? "denormal-fp-math" : "denormal-fp-math-f32";
+    StringRef Attr =
+        II->getFunction()->getFnAttribute(AttrName).getValueAsString();
+    DenormalMode Mode = parseDenormalFPAttribute(Attr);
+    bool FtzEnabled = Mode.Output != DenormalMode::IEEE;
 
     if (FtzEnabled != (Action.FtzRequirement == FTZ_MustBeOn))
       return nullptr;
@@ -386,12 +413,12 @@ static Instruction *simplifyNvvmIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
   llvm_unreachable("All SpecialCase enumerators should be handled in switch.");
 }
 
-std::optional<Instruction *>
+Optional<Instruction *>
 NVPTXTTIImpl::instCombineIntrinsic(InstCombiner &IC, IntrinsicInst &II) const {
   if (Instruction *I = simplifyNvvmIntrinsic(&II, IC)) {
     return I;
   }
-  return std::nullopt;
+  return None;
 }
 
 InstructionCost NVPTXTTIImpl::getArithmeticInstrCost(

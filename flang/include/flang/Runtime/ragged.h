@@ -29,6 +29,11 @@ struct RaggedArrayHeader {
   std::int64_t *extentPointer;
 };
 
+RaggedArrayHeader *RaggedArrayAllocate(
+    RaggedArrayHeader *, bool, std::int64_t, std::int64_t, std::int64_t *);
+
+void RaggedArrayDeallocate(RaggedArrayHeader *);
+
 extern "C" {
 
 // For more on ragged arrays see https://en.wikipedia.org/wiki/Jagged_array. The
@@ -48,12 +53,12 @@ extern "C" {
 // non-negative rank indicates the length of the extentVector, which is a list
 // of non-negative extents. elementSize is the size of a data element in the
 // rectangular space defined by the extentVector.
-void *RTDECL(RaggedArrayAllocate)(void *header, bool isHeader,
+void *RTNAME(RaggedArrayAllocate)(void *header, bool isHeader,
     std::int64_t rank, std::int64_t elementSize, std::int64_t *extentVector);
 
 // Runtime helper for deallocation of ragged array buffers. The root header of
 // the ragged array structure is passed to deallocate the entire ragged array.
-void RTDECL(RaggedArrayDeallocate)(void *raggedArrayHeader);
+void RTNAME(RaggedArrayDeallocate)(void *raggedArrayHeader);
 
 } // extern "C"
 } // namespace Fortran::runtime

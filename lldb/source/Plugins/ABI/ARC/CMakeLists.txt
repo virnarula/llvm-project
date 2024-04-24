@@ -8,5 +8,4 @@ add_lldb_library(lldbPluginABIARC PLUGIN
     lldbPluginProcessUtility
   LINK_COMPONENTS
     Support
-    TargetParser
   )

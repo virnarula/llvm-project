@@ -21,7 +21,7 @@ struct S {
     S() : x(1) {}
     ~S() { ++cnt_dtor; }
     int x;
-    static std::size_t cnt_dtor;
+    static size_t cnt_dtor;
 };
 
 size_t S::cnt_dtor = 0;

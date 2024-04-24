@@ -10,8 +10,6 @@
 
 // <vector>
 
-#include <cstddef>
-#include <memory>
 #include <vector>
 
 #include "test_macros.h"
@@ -24,8 +22,8 @@ struct MyAlloc {
     using value_type = T;
     MyAlloc() = default;
     template<class U> MyAlloc(const MyAlloc<U>&) {}
-    T *allocate(std::size_t n) { return std::allocator<T>().allocate(n); }
-    void deallocate(T *p, std::size_t n) { return std::allocator<T>().deallocate(p, n); }
+    T *allocate(int n) { return std::allocator<T>().allocate(n); }
+    void deallocate(T *p, int n) { return std::allocator<T>().deallocate(p, n); }
 };
 
 int main(int, char**)

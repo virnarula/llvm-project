@@ -30,7 +30,6 @@
 #include "llvm/Support/RISCVAttributeParser.h"
 #include "llvm/Support/TarWriter.h"
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 
 using namespace llvm;
 using namespace llvm::ELF;
@@ -40,13 +39,6 @@ using namespace llvm::sys::fs;
 using namespace llvm::support::endian;
 using namespace lld;
 using namespace lld::elf;
-
-// This function is explicity instantiated in ARM.cpp, don't do it here to avoid
-// warnings with MSVC.
-extern template void ObjFile<ELF32LE>::importCmseSymbols();
-extern template void ObjFile<ELF32BE>::importCmseSymbols();
-extern template void ObjFile<ELF64LE>::importCmseSymbols();
-extern template void ObjFile<ELF64BE>::importCmseSymbols();
 
 bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
@@ -84,7 +76,7 @@ static ELFKind getELFKind(MemoryBufferRef mb, StringRef archiveName) {
       fatal(archiveName + "(" + filename + "): " + msg);
   };
 
-  if (!mb.getBuffer().starts_with(ElfMagic))
+  if (!mb.getBuffer().startswith(ElfMagic))
     report("not an ELF file");
   if (endian != ELFDATA2LSB && endian != ELFDATA2MSB)
     report("corrupted ELF file: invalid data encoding");
@@ -106,7 +98,7 @@ static ELFKind getELFKind(MemoryBufferRef mb, StringRef archiveName) {
 // the input objects have been compiled.
 static void updateARMVFPArgs(const ARMAttributeParser &attributes,
                              const InputFile *f) {
-  std::optional<unsigned> attr =
+  Optional<unsigned> attr =
       attributes.getAttributeValue(ARMBuildAttrs::ABI_VFP_args);
   if (!attr)
     // If an ABI tag isn't present then it is implicitly given the value of 0
@@ -153,11 +145,11 @@ static void updateARMVFPArgs(const ARMAttributeParser &attributes,
 // is compiled with an architecture that supports these features then lld is
 // permitted to use them.
 static void updateSupportedARMFeatures(const ARMAttributeParser &attributes) {
-  std::optional<unsigned> attr =
+  Optional<unsigned> attr =
       attributes.getAttributeValue(ARMBuildAttrs::CPU_arch);
   if (!attr)
     return;
-  auto arch = *attr;
+  auto arch = attr.value();
   switch (arch) {
   case ARMBuildAttrs::Pre_v4:
   case ARMBuildAttrs::v4:
@@ -185,15 +177,6 @@ static void updateSupportedARMFeatures(const ARMAttributeParser &attributes) {
       config->armHasMovtMovw = true;
     break;
   }
-
-  // Only ARMv8-M or later architectures have CMSE support.
-  std::optional<unsigned> profile =
-      attributes.getAttributeValue(ARMBuildAttrs::CPU_arch_profile);
-  if (!profile)
-    return;
-  if (arch >= ARMBuildAttrs::CPUArch::v8_M_Base &&
-      profile == ARMBuildAttrs::MicroControllerProfile)
-    config->armCMSESupport = true;
 }
 
 InputFile::InputFile(Kind k, MemoryBufferRef m)
@@ -204,36 +187,13 @@ InputFile::InputFile(Kind k, MemoryBufferRef m)
     ++nextGroupId;
 }
 
-std::optional<MemoryBufferRef> elf::readFile(StringRef path) {
+Optional<MemoryBufferRef> elf::readFile(StringRef path) {
   llvm::TimeTraceScope timeScope("Load input files", path);
 
   // The --chroot option changes our virtual root directory.
   // This is useful when you are dealing with files created by --reproduce.
-  if (!config->chroot.empty() && path.starts_with("/"))
+  if (!config->chroot.empty() && path.startswith("/"))
     path = saver().save(config->chroot + path);
-
-  bool remapped = false;
-  auto it = config->remapInputs.find(path);
-  if (it != config->remapInputs.end()) {
-    path = it->second;
-    remapped = true;
-  } else {
-    for (const auto &[pat, toFile] : config->remapInputsWildcards) {
-      if (pat.match(path)) {
-        path = toFile;
-        remapped = true;
-        break;
-      }
-    }
-  }
-  if (remapped) {
-    // Use /dev/null to indicate an input file that should be ignored. Change
-    // the path to NUL on Windows.
-#ifdef _WIN32
-    if (path == "/dev/null")
-      path = "NUL";
-#endif
-  }
 
   log(path);
   config->dependencyFiles.insert(llvm::CachedHashString(path));
@@ -242,7 +202,7 @@ std::optional<MemoryBufferRef> elf::readFile(StringRef path) {
                                        /*RequiresNullTerminator=*/false);
   if (auto ec = mbOrErr.getError()) {
     error("cannot open " + path + ": " + ec.message());
-    return std::nullopt;
+    return None;
   }
 
   MemoryBufferRef mbref = (*mbOrErr)->getMemBufferRef();
@@ -292,6 +252,13 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   if (!isCompatible(file))
     return;
 
+  // Binary file
+  if (auto *f = dyn_cast<BinaryFile>(file)) {
+    ctx.binaryFiles.push_back(f);
+    f->parse();
+    return;
+  }
+
   // Lazy object file
   if (file->lazy) {
     if (auto *f = dyn_cast<BitcodeFile>(file)) {
@@ -306,37 +273,26 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   if (config->trace)
     message(toString(file));
 
-  if (file->kind() == InputFile::ObjKind) {
-    ctx.objectFiles.push_back(cast<ELFFileBase>(file));
-    cast<ObjFile<ELFT>>(file)->parse();
-  } else if (auto *f = dyn_cast<SharedFile>(file)) {
+  // .so file
+  if (auto *f = dyn_cast<SharedFile>(file)) {
     f->parse<ELFT>();
-  } else if (auto *f = dyn_cast<BitcodeFile>(file)) {
+    return;
+  }
+
+  // LLVM bitcode file
+  if (auto *f = dyn_cast<BitcodeFile>(file)) {
     ctx.bitcodeFiles.push_back(f);
     f->parse();
-  } else {
-    ctx.binaryFiles.push_back(cast<BinaryFile>(file));
-    cast<BinaryFile>(file)->parse();
+    return;
   }
+
+  // Regular object file
+  ctx.objectFiles.push_back(cast<ELFFileBase>(file));
+  cast<ObjFile<ELFT>>(file)->parse();
 }
 
 // Add symbols in File to the symbol table.
 void elf::parseFile(InputFile *file) { invokeELFT(doParseFile, file); }
-
-// This function is explicity instantiated in ARM.cpp. Mark it extern here,
-// to avoid warnings when building with MSVC.
-extern template void ObjFile<ELF32LE>::importCmseSymbols();
-extern template void ObjFile<ELF32BE>::importCmseSymbols();
-extern template void ObjFile<ELF64LE>::importCmseSymbols();
-extern template void ObjFile<ELF64BE>::importCmseSymbols();
-
-template <class ELFT> static void doParseArmCMSEImportLib(InputFile *file) {
-  cast<ObjFile<ELFT>>(file)->importCmseSymbols();
-}
-
-void elf::parseArmCMSEImportLib(InputFile *file) {
-  invokeELFT(doParseArmCMSEImportLib, file);
-}
 
 // Concatenates arguments to construct a string representing an error location.
 static std::string createFileLineMsg(StringRef path, unsigned line) {
@@ -349,14 +305,14 @@ static std::string createFileLineMsg(StringRef path, unsigned line) {
 
 template <class ELFT>
 static std::string getSrcMsgAux(ObjFile<ELFT> &file, const Symbol &sym,
-                                const InputSectionBase &sec, uint64_t offset) {
+                                InputSectionBase &sec, uint64_t offset) {
   // In DWARF, functions and variables are stored to different places.
   // First, look up a function for a given offset.
-  if (std::optional<DILineInfo> info = file.getDILineInfo(&sec, offset))
+  if (Optional<DILineInfo> info = file.getDILineInfo(&sec, offset))
     return createFileLineMsg(info->FileName, info->Line);
 
   // If it failed, look up again as a variable.
-  if (std::optional<std::pair<std::string, unsigned>> fileLine =
+  if (Optional<std::pair<std::string, unsigned>> fileLine =
           file.getVariableLoc(sym.getName()))
     return createFileLineMsg(fileLine->first, fileLine->second);
 
@@ -364,7 +320,7 @@ static std::string getSrcMsgAux(ObjFile<ELFT> &file, const Symbol &sym,
   return std::string(file.sourceFile);
 }
 
-std::string InputFile::getSrcMsg(const Symbol &sym, const InputSectionBase &sec,
+std::string InputFile::getSrcMsg(const Symbol &sym, InputSectionBase &sec,
                                  uint64_t offset) {
   if (kind() != ObjKind)
     return "";
@@ -401,9 +357,9 @@ StringRef InputFile::getNameForScript() const {
 static void addDependentLibrary(StringRef specifier, const InputFile *f) {
   if (!config->dependentLibraries)
     return;
-  if (std::optional<std::string> s = searchLibraryBaseName(specifier))
+  if (Optional<std::string> s = searchLibraryBaseName(specifier))
     ctx.driver.addFile(saver().save(*s), /*withLOption=*/true);
-  else if (std::optional<std::string> s = findFromSearchPaths(specifier))
+  else if (Optional<std::string> s = findFromSearchPaths(specifier))
     ctx.driver.addFile(saver().save(*s), /*withLOption=*/true);
   else if (fs::exists(specifier))
     ctx.driver.addFile(specifier, /*withLOption=*/false);
@@ -467,7 +423,7 @@ template <class ELFT> DWARFCache *ObjFile<ELFT>::getDwarf() {
 // Returns the pair of file name and line number describing location of data
 // object (variable, array, etc) definition.
 template <class ELFT>
-std::optional<std::pair<std::string, unsigned>>
+Optional<std::pair<std::string, unsigned>>
 ObjFile<ELFT>::getVariableLoc(StringRef name) {
   return getDwarf()->getVariableLoc(name);
 }
@@ -475,8 +431,8 @@ ObjFile<ELFT>::getVariableLoc(StringRef name) {
 // Returns source line information for a given offset
 // using DWARF debug info.
 template <class ELFT>
-std::optional<DILineInfo>
-ObjFile<ELFT>::getDILineInfo(const InputSectionBase *s, uint64_t offset) {
+Optional<DILineInfo> ObjFile<ELFT>::getDILineInfo(InputSectionBase *s,
+                                                  uint64_t offset) {
   // Detect SectionIndex for specified section.
   uint64_t sectionIndex = object::SectionedAddress::UndefSection;
   ArrayRef<InputSectionBase *> sections = s->file->getSections();
@@ -605,9 +561,9 @@ template <class ELFT> void ObjFile<ELFT>::parse(bool ignoreComdats) {
           check(this->getObj().getSectionContents(sec));
       StringRef name = check(obj.getSectionName(sec, shstrtab));
       this->sections[i] = &InputSection::discarded;
-      if (Error e = attributes.parse(contents, ekind == ELF32LEKind
-                                                   ? llvm::endianness::little
-                                                   : llvm::endianness::big)) {
+      if (Error e =
+              attributes.parse(contents, ekind == ELF32LEKind ? support::little
+                                                              : support::big)) {
         InputSection isec(*this, sec, name);
         warn(toString(&isec) + ": " + llvm::toString(std::move(e)));
       } else {
@@ -625,14 +581,28 @@ template <class ELFT> void ObjFile<ELFT>::parse(bool ignoreComdats) {
       }
     }
 
-    // Producing a static binary with MTE globals is not currently supported,
-    // remove all SHT_AARCH64_MEMTAG_GLOBALS_STATIC sections as they're unused
-    // medatada, and we don't want them to end up in the output file for static
-    // executables.
-    if (sec.sh_type == SHT_AARCH64_MEMTAG_GLOBALS_STATIC &&
-        !canHaveMemtagGlobals()) {
+    if (sec.sh_type == SHT_RISCV_ATTRIBUTES && config->emachine == EM_RISCV) {
+      RISCVAttributeParser attributes;
+      ArrayRef<uint8_t> contents =
+          check(this->getObj().getSectionContents(sec));
+      StringRef name = check(obj.getSectionName(sec, shstrtab));
       this->sections[i] = &InputSection::discarded;
-      continue;
+      if (Error e = attributes.parse(contents, support::little)) {
+        InputSection isec(*this, sec, name);
+        warn(toString(&isec) + ": " + llvm::toString(std::move(e)));
+      } else {
+        // FIXME: Validate arch tag contains C if and only if EF_RISCV_RVC is
+        // present.
+
+        // FIXME: Retain the first attribute section we see. Tools such as
+        // llvm-objdump make use of the attribute section to determine which
+        // standard extensions to enable. In a full implementation we would
+        // merge all attribute sections.
+        if (in.attributes == nullptr) {
+          in.attributes = std::make_unique<InputSection>(*this, sec, name);
+          this->sections[i] = in.attributes.get();
+        }
+      }
     }
 
     if (sec.sh_type != SHT_GROUP)
@@ -839,9 +809,8 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats,
       // simply handle such sections as non-mergeable ones. Degrading like this
       // is acceptable because section merging is optional.
       if (auto *ms = dyn_cast<MergeInputSection>(s)) {
-        s = makeThreadLocal<InputSection>(
-            ms->file, ms->flags, ms->type, ms->addralign,
-            ms->contentMaybeDecompress(), ms->name);
+        s = makeThreadLocal<InputSection>(ms->file, ms->flags, ms->type,
+                                          ms->alignment, ms->data(), ms->name);
         sections[info] = s;
       }
 
@@ -908,21 +877,20 @@ template <class ELFT> static uint32_t readAndFeatures(const InputSection &sec) {
   using Elf_Note = typename ELFT::Note;
 
   uint32_t featuresSet = 0;
-  ArrayRef<uint8_t> data = sec.content();
+  ArrayRef<uint8_t> data = sec.rawData;
   auto reportFatal = [&](const uint8_t *place, const char *msg) {
     fatal(toString(sec.file) + ":(" + sec.name + "+0x" +
-          Twine::utohexstr(place - sec.content().data()) + "): " + msg);
+          Twine::utohexstr(place - sec.rawData.data()) + "): " + msg);
   };
   while (!data.empty()) {
     // Read one NOTE record.
     auto *nhdr = reinterpret_cast<const Elf_Nhdr *>(data.data());
-    if (data.size() < sizeof(Elf_Nhdr) ||
-        data.size() < nhdr->getSize(sec.addralign))
+    if (data.size() < sizeof(Elf_Nhdr) || data.size() < nhdr->getSize())
       reportFatal(data.data(), "data is too short");
 
     Elf_Note note(*nhdr);
     if (nhdr->n_type != NT_GNU_PROPERTY_TYPE_0 || note.getName() != "GNU") {
-      data = data.slice(nhdr->getSize(sec.addralign));
+      data = data.slice(nhdr->getSize());
       continue;
     }
 
@@ -931,7 +899,7 @@ template <class ELFT> static uint32_t readAndFeatures(const InputSection &sec) {
                                   : GNU_PROPERTY_X86_FEATURE_1_AND;
 
     // Read a body of a NOTE record, which consists of type-length-value fields.
-    ArrayRef<uint8_t> desc = note.getDesc(sec.addralign);
+    ArrayRef<uint8_t> desc = note.getDesc();
     while (!desc.empty()) {
       const uint8_t *place = desc.data();
       if (desc.size() < 8)
@@ -956,7 +924,7 @@ template <class ELFT> static uint32_t readAndFeatures(const InputSection &sec) {
     }
 
     // Go to next NOTE record to look for more FEATURE_1_AND descriptions.
-    data = data.slice(nhdr->getSize(sec.addralign));
+    data = data.slice(nhdr->getSize());
   }
 
   return featuresSet;
@@ -990,7 +958,7 @@ template <class ELFT>
 InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
                                                     const Elf_Shdr &sec,
                                                     StringRef name) {
-  if (name.starts_with(".n")) {
+  if (name.startswith(".n")) {
     // The GNU linker uses .note.GNU-stack section as a marker indicating
     // that the code in the object file does not expect that the stack is
     // executable (in terms of NX bit). If all input files have the marker,
@@ -1062,15 +1030,12 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(uint32_t idx,
   return makeThreadLocal<InputSection>(*this, sec, name);
 }
 
-// Initialize symbols. symbols is a parallel array to the corresponding ELF
-// symbol table.
+// Initialize this->Symbols. this->Symbols is a parallel array as
+// its corresponding ELF symbol table.
 template <class ELFT>
 void ObjFile<ELFT>::initializeSymbols(const object::ELFFile<ELFT> &obj) {
   ArrayRef<Elf_Sym> eSyms = this->getELFSyms<ELFT>();
-  if (numSymbols == 0) {
-    numSymbols = eSyms.size();
-    symbols = std::make_unique<Symbol *[]>(numSymbols);
-  }
+  symbols.resize(eSyms.size());
 
   // Some entries have been filled by LazyObjFile.
   for (size_t i = firstGlobal, end = eSyms.size(); i != end; ++i)
@@ -1372,7 +1337,7 @@ static uint64_t getAlignment(ArrayRef<typename ELFT::Shdr> sections,
                              const typename ELFT::Sym &sym) {
   uint64_t ret = UINT64_MAX;
   if (sym.st_value)
-    ret = 1ULL << llvm::countr_zero((uint64_t)sym.st_value);
+    ret = 1ULL << countTrailingZeros((uint64_t)sym.st_value);
   if (0 < sym.st_shndx && sym.st_shndx < sections.size())
     ret = std::min<uint64_t>(ret, sections[sym.st_shndx].sh_addralign);
   return (ret > UINT32_MAX) ? 0 : ret;
@@ -1546,9 +1511,8 @@ template <class ELFT> void SharedFile::parse() {
       auto *s = symtab.addSymbol(
           SharedSymbol{*this, name, sym.getBinding(), sym.st_other,
                        sym.getType(), sym.st_value, sym.st_size, alignment});
-      s->dsoDefined = true;
       if (s->file == this)
-        s->versionId = ver;
+        s->verdefIndex = ver;
     }
 
     // Also add the symbol with the versioned name to handle undefined symbols
@@ -1564,9 +1528,8 @@ template <class ELFT> void SharedFile::parse() {
     auto *s = symtab.addSymbol(
         SharedSymbol{*this, saver().save(name), sym.getBinding(), sym.st_other,
                      sym.getType(), sym.st_value, sym.st_size, alignment});
-    s->dsoDefined = true;
     if (s->file == this)
-      s->versionId = idx;
+      s->verdefIndex = idx;
   }
 }
 
@@ -1585,17 +1548,12 @@ static uint16_t getBitcodeMachineKind(StringRef path, const Triple &t) {
   case Triple::r600:
     return EM_AMDGPU;
   case Triple::arm:
-  case Triple::armeb:
   case Triple::thumb:
-  case Triple::thumbeb:
     return EM_ARM;
   case Triple::avr:
     return EM_AVR;
   case Triple::hexagon:
     return EM_HEXAGON;
-  case Triple::loongarch32:
-  case Triple::loongarch64:
-    return EM_LOONGARCH;
   case Triple::mips:
   case Triple::mipsel:
   case Triple::mips64:
@@ -1612,10 +1570,6 @@ static uint16_t getBitcodeMachineKind(StringRef path, const Triple &t) {
   case Triple::riscv32:
   case Triple::riscv64:
     return EM_RISCV;
-  case Triple::sparcv9:
-    return EM_SPARCV9;
-  case Triple::systemz:
-    return EM_S390;
   case Triple::x86:
     return t.isOSIAMCU() ? EM_IAMCU : EM_386;
   case Triple::x86_64:
@@ -1720,10 +1674,7 @@ void BitcodeFile::parse() {
             .second);
   }
 
-  if (numSymbols == 0) {
-    numSymbols = obj->symbols().size();
-    symbols = std::make_unique<Symbol *[]>(numSymbols);
-  }
+  symbols.resize(obj->symbols().size());
   // Process defined symbols first. See the comment in
   // ObjFile<ELFT>::initializeSymbols.
   for (auto [i, irSym] : llvm::enumerate(obj->symbols()))
@@ -1738,12 +1689,11 @@ void BitcodeFile::parse() {
 }
 
 void BitcodeFile::parseLazy() {
-  numSymbols = obj->symbols().size();
-  symbols = std::make_unique<Symbol *[]>(numSymbols);
+  symbols.resize(obj->symbols().size());
   for (auto [i, irSym] : llvm::enumerate(obj->symbols()))
     if (!irSym.isUndefined()) {
       auto *sym = symtab.insert(saver().save(irSym.getName()));
-      sym->resolve(LazySymbol{*this});
+      sym->resolve(LazyObject{*this});
       symbols[i] = sym;
     }
 }
@@ -1772,30 +1722,21 @@ void BinaryFile::parse() {
   // user programs can access blobs by name. Non-alphanumeric
   // characters in a filename are replaced with underscore.
   std::string s = "_binary_" + mb.getBufferIdentifier().str();
-  for (char &c : s)
-    if (!isAlnum(c))
-      c = '_';
+  for (size_t i = 0; i < s.size(); ++i)
+    if (!isAlnum(s[i]))
+      s[i] = '_';
 
   llvm::StringSaver &saver = lld::saver();
 
-  symtab.addAndCheckDuplicate(Defined{this, saver.save(s + "_start"),
+  symtab.addAndCheckDuplicate(Defined{nullptr, saver.save(s + "_start"),
                                       STB_GLOBAL, STV_DEFAULT, STT_OBJECT, 0, 0,
                                       section});
-  symtab.addAndCheckDuplicate(Defined{this, saver.save(s + "_end"), STB_GLOBAL,
-                                      STV_DEFAULT, STT_OBJECT, data.size(), 0,
-                                      section});
-  symtab.addAndCheckDuplicate(Defined{this, saver.save(s + "_size"), STB_GLOBAL,
-                                      STV_DEFAULT, STT_OBJECT, data.size(), 0,
-                                      nullptr});
-}
-
-InputFile *elf::createInternalFile(StringRef name) {
-  auto *file =
-      make<InputFile>(InputFile::InternalKind, MemoryBufferRef("", name));
-  // References from an internal file do not lead to --warn-backrefs
-  // diagnostics.
-  file->groupId = 0;
-  return file;
+  symtab.addAndCheckDuplicate(Defined{nullptr, saver.save(s + "_end"),
+                                      STB_GLOBAL, STV_DEFAULT, STT_OBJECT,
+                                      data.size(), 0, section});
+  symtab.addAndCheckDuplicate(Defined{nullptr, saver.save(s + "_size"),
+                                      STB_GLOBAL, STV_DEFAULT, STT_OBJECT,
+                                      data.size(), 0, nullptr});
 }
 
 ELFFileBase *elf::createObjFile(MemoryBufferRef mb, StringRef archiveName,
@@ -1824,23 +1765,25 @@ ELFFileBase *elf::createObjFile(MemoryBufferRef mb, StringRef archiveName,
 
 template <class ELFT> void ObjFile<ELFT>::parseLazy() {
   const ArrayRef<typename ELFT::Sym> eSyms = this->getELFSyms<ELFT>();
-  numSymbols = eSyms.size();
-  symbols = std::make_unique<Symbol *[]>(numSymbols);
+  symbols.resize(eSyms.size());
+  for (size_t i = firstGlobal, end = eSyms.size(); i != end; ++i)
+    if (eSyms[i].st_shndx != SHN_UNDEF)
+      symbols[i] = symtab.insert(CHECK(eSyms[i].getName(stringTable), this));
 
+  // Replace existing symbols with LazyObject symbols.
+  //
   // resolve() may trigger this->extract() if an existing symbol is an undefined
   // symbol. If that happens, this function has served its purpose, and we can
   // exit from the loop early.
-  for (size_t i = firstGlobal, end = eSyms.size(); i != end; ++i) {
-    if (eSyms[i].st_shndx == SHN_UNDEF)
-      continue;
-    symbols[i] = symtab.insert(CHECK(eSyms[i].getName(stringTable), this));
-    symbols[i]->resolve(LazySymbol{*this});
-    if (!lazy)
-      break;
-  }
+  for (Symbol *sym : makeArrayRef(symbols).slice(firstGlobal))
+    if (sym) {
+      sym->resolve(LazyObject{*this});
+      if (!lazy)
+        return;
+    }
 }
 
-bool InputFile::shouldExtractForCommon(StringRef name) const {
+bool InputFile::shouldExtractForCommon(StringRef name) {
   if (isa<BitcodeFile>(this))
     return isBitcodeNonCommonDef(mb, name, archiveName);
 
@@ -1848,7 +1791,9 @@ bool InputFile::shouldExtractForCommon(StringRef name) const {
 }
 
 std::string elf::replaceThinLTOSuffix(StringRef path) {
-  auto [suffix, repl] = config->thinLTOObjectSuffixReplace;
+  StringRef suffix = config->thinLTOObjectSuffixReplace.first;
+  StringRef repl = config->thinLTOObjectSuffixReplace.second;
+
   if (path.consume_back(suffix))
     return (path + repl).str();
   return std::string(path);

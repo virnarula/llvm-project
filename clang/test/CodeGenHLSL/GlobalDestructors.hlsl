@@ -41,7 +41,6 @@ void Wag() {
 int Pupper::Count = 0;
 
 [numthreads(1,1,1)]
-[shader("compute")]
 void main(unsigned GI : SV_GroupIndex) {
   Wag();
 }

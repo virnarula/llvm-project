@@ -53,9 +53,6 @@ public:
       delete[] Buffer;
   }
 
-  TypeLocBuilder(const TypeLocBuilder &) = delete;
-  TypeLocBuilder &operator=(const TypeLocBuilder &) = delete;
-
   /// Ensures that this buffer has at least as much capacity as described.
   void reserve(size_t Requested) {
     if (Requested > Capacity)

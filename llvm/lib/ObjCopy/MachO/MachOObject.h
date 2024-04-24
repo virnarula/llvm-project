@@ -9,6 +9,7 @@
 #ifndef LLVM_LIB_OBJCOPY_MACHO_MACHOOBJECT_H
 #define LLVM_LIB_OBJCOPY_MACHO_MACHOOBJECT_H
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/MC/StringTableBuilder.h"
@@ -44,7 +45,7 @@ struct Section {
   uint64_t Addr = 0;
   uint64_t Size = 0;
   // Offset in the input file.
-  std::optional<uint32_t> OriginalOffset;
+  Optional<uint32_t> OriginalOffset;
   uint32_t Offset = 0;
   uint32_t Align = 0;
   uint32_t RelOff = 0;
@@ -93,10 +94,10 @@ struct LoadCommand {
   std::vector<std::unique_ptr<Section>> Sections;
 
   // Returns the segment name if the load command is a segment command.
-  std::optional<StringRef> getSegmentName() const;
+  Optional<StringRef> getSegmentName() const;
 
   // Returns the segment vm address if the load command is a segment command.
-  std::optional<uint64_t> getSegmentVMAddr() const;
+  Optional<uint64_t> getSegmentVMAddr() const;
 };
 
 // A symbol information. Fields which starts with "n_" are same as them in the
@@ -119,13 +120,12 @@ struct SymbolEntry {
   }
 
   bool isSwiftSymbol() const {
-    return StringRef(Name).starts_with("_$s") ||
-           StringRef(Name).starts_with("_$S");
+    return StringRef(Name).startswith("_$s") ||
+           StringRef(Name).startswith("_$S");
   }
 
-  std::optional<uint32_t> section() const {
-    return n_sect == MachO::NO_SECT ? std::nullopt
-                                    : std::optional<uint32_t>(n_sect);
+  Optional<uint32_t> section() const {
+    return n_sect == MachO::NO_SECT ? None : Optional<uint32_t>(n_sect);
   }
 };
 
@@ -150,12 +150,11 @@ struct IndirectSymbolEntry {
   // The original value in an indirect symbol table. Higher bits encode extra
   // information (INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS).
   uint32_t OriginalIndex;
-  /// The Symbol referenced by this entry. It's std::nullopt if the index is
+  /// The Symbol referenced by this entry. It's None if the index is
   /// INDIRECT_SYMBOL_LOCAL or INDIRECT_SYMBOL_ABS.
-  std::optional<SymbolEntry *> Symbol;
+  Optional<SymbolEntry *> Symbol;
 
-  IndirectSymbolEntry(uint32_t OriginalIndex,
-                      std::optional<SymbolEntry *> Symbol)
+  IndirectSymbolEntry(uint32_t OriginalIndex, Optional<SymbolEntry *> Symbol)
       : OriginalIndex(OriginalIndex), Symbol(Symbol) {}
 };
 
@@ -171,9 +170,9 @@ struct StringTable {
 
 struct RelocationInfo {
   // The referenced symbol entry. Set if !Scattered && Extern.
-  std::optional<const SymbolEntry *> Symbol;
+  Optional<const SymbolEntry *> Symbol;
   // The referenced section. Set if !Scattered && !Extern.
-  std::optional<const Section *> Sec;
+  Optional<const Section *> Sec;
   // True if Info is a scattered_relocation_info.
   bool Scattered;
   // True if the type is an ADDEND. r_symbolnum holds the addend instead of a
@@ -315,31 +314,31 @@ struct Object {
   LinkData ChainedFixups;
   LinkData DylibCodeSignDRs;
 
-  std::optional<uint32_t> SwiftVersion;
+  Optional<uint32_t> SwiftVersion;
 
   /// The index of LC_CODE_SIGNATURE load command if present.
-  std::optional<size_t> CodeSignatureCommandIndex;
+  Optional<size_t> CodeSignatureCommandIndex;
   /// The index of LC_DYLIB_CODE_SIGN_DRS load command if present.
-  std::optional<size_t> DylibCodeSignDRsIndex;
+  Optional<size_t> DylibCodeSignDRsIndex;
   /// The index of LC_SYMTAB load command if present.
-  std::optional<size_t> SymTabCommandIndex;
+  Optional<size_t> SymTabCommandIndex;
   /// The index of LC_DYLD_INFO or LC_DYLD_INFO_ONLY load command if present.
-  std::optional<size_t> DyLdInfoCommandIndex;
+  Optional<size_t> DyLdInfoCommandIndex;
   /// The index LC_DYSYMTAB load command if present.
-  std::optional<size_t> DySymTabCommandIndex;
+  Optional<size_t> DySymTabCommandIndex;
   /// The index LC_DATA_IN_CODE load command if present.
-  std::optional<size_t> DataInCodeCommandIndex;
+  Optional<size_t> DataInCodeCommandIndex;
   /// The index of LC_LINKER_OPTIMIZATIN_HINT load command if present.
-  std::optional<size_t> LinkerOptimizationHintCommandIndex;
+  Optional<size_t> LinkerOptimizationHintCommandIndex;
   /// The index LC_FUNCTION_STARTS load command if present.
-  std::optional<size_t> FunctionStartsCommandIndex;
+  Optional<size_t> FunctionStartsCommandIndex;
   /// The index LC_DYLD_CHAINED_FIXUPS load command if present.
-  std::optional<size_t> ChainedFixupsCommandIndex;
+  Optional<size_t> ChainedFixupsCommandIndex;
   /// The index LC_DYLD_EXPORTS_TRIE load command if present.
-  std::optional<size_t> ExportsTrieCommandIndex;
+  Optional<size_t> ExportsTrieCommandIndex;
   /// The index of the LC_SEGMENT or LC_SEGMENT_64 load command
   /// corresponding to the __TEXT segment.
-  std::optional<size_t> TextSegmentCommandIndex;
+  Optional<size_t> TextSegmentCommandIndex;
 
   BumpPtrAllocator Alloc;
   StringSaver NewSectionsContents;

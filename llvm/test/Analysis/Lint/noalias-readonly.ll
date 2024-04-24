@@ -1,40 +1,40 @@
 ; RUN: opt < %s -passes=lint -disable-output 2>&1 | FileCheck %s
 
-declare void @f1(ptr noalias readonly, ptr)
+declare void @f1(i8* noalias readonly, i8*)
 
-define void @f2(ptr %a) {
+define void @f2(i8* %a) {
 entry:
-  call void @f1(ptr %a, ptr %a)
+  call void @f1(i8* %a, i8* %a)
   ret void
 }
 
 ; Lint should complain about us passing %a to both arguments, since the noalias
 ; argument may depend on writes to the other.
 ; CHECK: Unusual: noalias argument aliases another argument
-; CHECK-NEXT: call void @f1(ptr %a, ptr %a)
+; CHECK-NEXT: call void @f1(i8* %a, i8* %a)
 
-declare void @f3(ptr noalias, ptr readonly)
+declare void @f3(i8* noalias, i8* readonly)
 
-define void @f4(ptr %a) {
+define void @f4(i8* %a) {
 entry:
-  call void @f3(ptr %a, ptr %a)
+  call void @f3(i8* %a, i8* %a)
   ret void
 }
 
 ; Lint should complain about us passing %a to both arguments, since writes to
 ; the noalias argument may cause a dependency for the other.
 ; CHECK: Unusual: noalias argument aliases another argument
-; CHECK-NEXT: call void @f3(ptr %a, ptr %a)
+; CHECK-NEXT: call void @f3(i8* %a, i8* %a)
 
-declare void @f5(ptr noalias readonly, ptr readonly)
+declare void @f5(i8* noalias readonly, i8* readonly)
 
-define void @f6(ptr %a) {
+define void @f6(i8* %a) {
 entry:
-  call void @f5(ptr %a, ptr %a)
+  call void @f5(i8* %a, i8* %a)
   ret void
 }
 
 ; Lint should not complain about passing %a to both arguments even if one is
 ; noalias, since they are both readonly and thus have no dependence.
 ; CHECK-NOT: Unusual: noalias argument aliases another argument
-; CHECK-NOT: call void @f5(ptr %a, ptr %a)
+; CHECK-NOT: call void @f5(i8* %a, i8* %a)

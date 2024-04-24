@@ -9,12 +9,12 @@
 #ifndef LLVM_LIBC_SRC_THREADS_THRD_CURRENT_H
 #define LLVM_LIBC_SRC_THREADS_THRD_CURRENT_H
 
-#include <threads.h>
+#include "include/threads.h"
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
 thrd_t thrd_current();
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #endif // LLVM_LIBC_SRC_THREADS_THRD_CURRENT_H

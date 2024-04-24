@@ -10,12 +10,18 @@ set(linkopts
   # Add `-Wl,-G`. Quoted from release notes of cmake-3.16.0
   # > On AIX, runtime linking is no longer enabled by default.
   # See https://cmake.org/cmake/help/latest/release/3.16.html
-  set(linkopts -Wl,-G ${linkopts})
+  if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16.0")
+    set(linkopts -Wl,-G ${linkopts})
+  endif()
   set(${link_flags} ${linkopts} PARENT_SCOPE)
 endfunction()
 
 function(get_aix_libatomic_type type)
-  set(${type} MODULE PARENT_SCOPE)
+  if(${CMAKE_VERSION} VERSION_LESS "3.16.0")
+    set(${type} SHARED PARENT_SCOPE)
+  else()
+    set(${type} MODULE PARENT_SCOPE)
+  endif()
 endfunction()
 
 macro(archive_aix_libatomic name libname)

@@ -12,10 +12,8 @@
 include "mlir/Dialect/Index/IR/IndexDialect.td"
 include "mlir/Dialect/Index/IR/IndexEnums.td"
 include "mlir/Interfaces/CastInterfaces.td"
-include "mlir/Interfaces/InferIntRangeInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
 
 //===----------------------------------------------------------------------===//
@@ -24,8 +22,7 @@ include "mlir/IR/OpBase.td"
 
 /// Base class for Index dialect operations.
 class IndexOp<string mnemonic, list<Trait> traits = []>
-    : Op<IndexDialect, mnemonic,
-      [DeclareOpInterfaceMethods<InferIntRangeInterface>] # traits>;
+    : Op<IndexDialect, mnemonic, [Pure] # traits>;
 
 //===----------------------------------------------------------------------===//
 // IndexBinaryOp
@@ -44,7 +41,7 @@ class IndexBinaryOp<string mnemonic, list<Trait> traits = []>
 // AddOp
 //===----------------------------------------------------------------------===//
 
-def Index_AddOp : IndexBinaryOp<"add", [Commutative, Pure]> {
+def Index_AddOp : IndexBinaryOp<"add"> {
   let summary = "index addition";
   let description = [{
     The `index.add` operation takes two index values and computes their sum.
@@ -62,7 +59,7 @@ def Index_AddOp : IndexBinaryOp<"add", [Commutative, Pure]> {
 // SubOp
 //===----------------------------------------------------------------------===//
 
-def Index_SubOp : IndexBinaryOp<"sub", [Pure]> {
+def Index_SubOp : IndexBinaryOp<"sub"> {
   let summary = "index subtraction";
   let description = [{
     The `index.sub` operation takes two index values and computes the difference
@@ -81,7 +78,7 @@ def Index_SubOp : IndexBinaryOp<"sub", [Pure]> {
 // MulOp
 //===----------------------------------------------------------------------===//
 
-def Index_MulOp : IndexBinaryOp<"mul", [Commutative, Pure]> {
+def Index_MulOp : IndexBinaryOp<"mul"> {
   let summary = "index multiplication";
   let description = [{
     The `index.mul` operation takes two index values and computes their product.
@@ -99,7 +96,7 @@ def Index_MulOp : IndexBinaryOp<"mul", [Commutative, Pure]> {
 // DivSOp
 //===----------------------------------------------------------------------===//
 
-def Index_DivSOp : IndexBinaryOp<"divs", [NoMemoryEffect]> {
+def Index_DivSOp : IndexBinaryOp<"divs"> {
   let summary = "index signed division";
   let description = [{
     The `index.divs` operation takes two index values and computes their signed
@@ -121,7 +118,7 @@ def Index_DivSOp : IndexBinaryOp<"divs", [NoMemoryEffect]> {
 // DivUOp
 //===----------------------------------------------------------------------===//
 
-def Index_DivUOp : IndexBinaryOp<"divu", [NoMemoryEffect]> {
+def Index_DivUOp : IndexBinaryOp<"divu"> {
   let summary = "index unsigned division";
   let description = [{
     The `index.divu` operation takes two index values and computes their
@@ -143,7 +140,7 @@ def Index_DivUOp : IndexBinaryOp<"divu", [NoMemoryEffect]> {
 // CeilDivSOp
 //===----------------------------------------------------------------------===//
 
-def Index_CeilDivSOp : IndexBinaryOp<"ceildivs", [NoMemoryEffect]> {
+def Index_CeilDivSOp : IndexBinaryOp<"ceildivs"> {
   let summary = "index signed ceil division";
   let description = [{
     The `index.ceildivs` operation takes two index values and computes their
@@ -165,7 +162,7 @@ def Index_CeilDivSOp : IndexBinaryOp<"ceildivs", [NoMemoryEffect]> {
 // CeilDivUOp
 //===----------------------------------------------------------------------===//
 
-def Index_CeilDivUOp : IndexBinaryOp<"ceildivu", [NoMemoryEffect]> {
+def Index_CeilDivUOp : IndexBinaryOp<"ceildivu"> {
   let summary = "index unsigned ceil division";
   let description = [{
     The `index.ceildivu` operation takes two index values and computes their
@@ -187,7 +184,7 @@ def Index_CeilDivUOp : IndexBinaryOp<"ceildivu", [NoMemoryEffect]> {
 // FloorDivSOp
 //===----------------------------------------------------------------------===//
 
-def Index_FloorDivSOp : IndexBinaryOp<"floordivs", [NoMemoryEffect]> {
+def Index_FloorDivSOp : IndexBinaryOp<"floordivs"> {
   let summary = "index signed floor division";
   let description = [{
     The `index.floordivs` operation takes two index values and computes their
@@ -209,7 +206,7 @@ def Index_FloorDivSOp : IndexBinaryOp<"floordivs", [NoMemoryEffect]> {
 // RemSOp
 //===----------------------------------------------------------------------===//
 
-def Index_RemSOp : IndexBinaryOp<"rems", [NoMemoryEffect]> {
+def Index_RemSOp : IndexBinaryOp<"rems"> {
   let summary = "index signed remainder";
   let description = [{
     The `index.rems` operation takes two index values and computes their signed
@@ -228,7 +225,7 @@ def Index_RemSOp : IndexBinaryOp<"rems", [NoMemoryEffect]> {
 // RemUOp
 //===----------------------------------------------------------------------===//
 
-def Index_RemUOp : IndexBinaryOp<"remu", [NoMemoryEffect]> {
+def Index_RemUOp : IndexBinaryOp<"remu"> {
   let summary = "index unsigned remainder";
   let description = [{
     The `index.remu` operation takes two index values and computes their
@@ -248,7 +245,7 @@ def Index_RemUOp : IndexBinaryOp<"remu", [NoMemoryEffect]> {
 // MaxSOp
 //===----------------------------------------------------------------------===//
 
-def Index_MaxSOp : IndexBinaryOp<"maxs", [Commutative, Pure]> {
+def Index_MaxSOp : IndexBinaryOp<"maxs"> {
   let summary = "index signed maximum";
   let description = [{
     The `index.maxs` operation takes two index values and computes their signed
@@ -267,7 +264,7 @@ def Index_MaxSOp : IndexBinaryOp<"maxs", [Commutative, Pure]> {
 // MaxUOp
 //===----------------------------------------------------------------------===//
 
-def Index_MaxUOp : IndexBinaryOp<"maxu", [Commutative, Pure]> {
+def Index_MaxUOp : IndexBinaryOp<"maxu"> {
   let summary = "index unsigned maximum";
   let description = [{
     The `index.maxu` operation takes two index values and computes their
@@ -284,170 +281,11 @@ def Index_MaxUOp : IndexBinaryOp<"maxu", [Commutative, Pure]> {
 }
 
 //===----------------------------------------------------------------------===//
-// MinSOp
-//===----------------------------------------------------------------------===//
-
-def Index_MinSOp : IndexBinaryOp<"mins", [Commutative, Pure]> {
-  let summary = "index signed minimum";
-  let description = [{
-    The `index.mins` operation takes two index values and computes their signed
-    minimum value. Treats the leading bit as the sign, i.e. `min(-2, 6) = -2`.
-
-    Example:
-
-    ```mlir
-    // c = min(a, b)
-    %c = index.mins %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// MinUOp
-//===----------------------------------------------------------------------===//
-
-def Index_MinUOp : IndexBinaryOp<"minu", [Commutative, Pure]> {
-  let summary = "index unsigned minimum";
-  let description = [{
-    The `index.minu` operation takes two index values and computes their
-    unsigned minimum value. Treats the leading bit as the most significant, i.e.
-    `min(15, 6) = 6` or `min(-2, 6) = 6`.
-
-    Example:
-
-    ```mlir
-    // c = min(a, b)
-    %c = index.minu %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// ShlOp
-//===----------------------------------------------------------------------===//
-
-def Index_ShlOp : IndexBinaryOp<"shl", [Pure]> {
-  let summary = "index shift left";
-  let description = [{
-    The `index.shl` operation shifts an index value to the left by a variable
-    amount. The low order bits are filled with zeroes. The RHS operand is always
-    treated as unsigned. If the RHS operand is equal to or greater than the
-    index bitwidth, the result is a poison value.
-
-    Example:
-
-    ```mlir
-    // c = a << b
-    %c = index.shl %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// ShrSOp
-//===----------------------------------------------------------------------===//
-
-def Index_ShrSOp : IndexBinaryOp<"shrs", [Pure]> {
-  let summary = "signed index shift right";
-  let description = [{
-    The `index.shrs` operation shifts an index value to the right by a variable
-    amount. The LHS operand is treated as signed. The high order bits are filled
-    with copies of the most significant bit. If the RHS operand is equal to or
-    greater than the index bitwidth, the result is a poison value.
-
-    Example:
-
-    ```mlir
-    // c = a >> b
-    %c = index.shrs %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// ShrUOp
-//===----------------------------------------------------------------------===//
-
-def Index_ShrUOp : IndexBinaryOp<"shru", [Pure]> {
-  let summary = "unsigned index shift right";
-  let description = [{
-    The `index.shru` operation shifts an index value to the right by a variable
-    amount. The LHS operand is treated as unsigned. The high order bits are
-    filled with zeroes. If the RHS operand is equal to or greater than the index
-    bitwidth, the result is a poison value.
-
-    Example:
-
-    ```mlir
-    // c = a >> b
-    %c = index.shru %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// AndOp
-//===----------------------------------------------------------------------===//
-
-def Index_AndOp : IndexBinaryOp<"and", [Commutative, Pure]> {
-  let summary = "index bitwise and";
-  let description = [{
-    The `index.and` operation takes two index values and computes their bitwise
-    and.
-
-    Example:
-
-    ```mlir
-    // c = a & b
-    %c = index.and %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// OrOp
-//===----------------------------------------------------------------------===//
-
-def Index_OrOp : IndexBinaryOp<"or", [Commutative, Pure]> {
-  let summary = "index bitwise or";
-  let description = [{
-    The `index.or` operation takes two index values and computes their bitwise
-    or.
-
-    Example:
-
-    ```mlir
-    // c = a | b
-    %c = index.or %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
-// XorOp
-//===----------------------------------------------------------------------===//
-
-def Index_XOrOp : IndexBinaryOp<"xor", [Commutative, Pure]> {
-  let summary = "index bitwise xor";
-  let description = [{
-    The `index.xor` operation takes two index values and computes their bitwise
-    xor.
-
-    Example:
-
-    ```mlir
-    // c = a ^ b
-    %c = index.xor %a, %b
-    ```
-  }];
-}
-
-//===----------------------------------------------------------------------===//
 // CastSOp
 //===----------------------------------------------------------------------===//
 
-def Index_CastSOp : IndexOp<"casts", [Pure,
-    DeclareOpInterfaceMethods<CastOpInterface>]> {
+def Index_CastSOp : IndexOp<"casts",
+                           [DeclareOpInterfaceMethods<CastOpInterface>]> {
   let summary = "index signed cast";
   let description = [{
     The `index.casts` operation enables conversions between values of index type
@@ -469,15 +307,14 @@ def Index_CastSOp : IndexOp<"casts", [Pure,
   let arguments = (ins AnyTypeOf<[AnyInteger, Index]>:$input);
   let results = (outs AnyTypeOf<[AnyInteger, Index]>:$output);
   let assemblyFormat = "$input attr-dict `:` type($input) `to` type($output)";
-  let hasFolder = 1;
 }
 
 //===----------------------------------------------------------------------===//
 // CastUOp
 //===----------------------------------------------------------------------===//
 
-def Index_CastUOp : IndexOp<"castu", [Pure,
-    DeclareOpInterfaceMethods<CastOpInterface>]> {
+def Index_CastUOp : IndexOp<"castu",
+                           [DeclareOpInterfaceMethods<CastOpInterface>]> {
   let summary = "index unsigned cast";
   let description = [{
     The `index.castu` operation enables conversions between values of index type
@@ -499,14 +336,13 @@ def Index_CastUOp : IndexOp<"castu", [Pure,
   let arguments = (ins AnyTypeOf<[AnyInteger, Index]>:$input);
   let results = (outs AnyTypeOf<[AnyInteger, Index]>:$output);
   let assemblyFormat = "$input attr-dict `:` type($input) `to` type($output)";
-  let hasFolder = 1;
 }
 
 //===----------------------------------------------------------------------===//
 // CmpOp
 //===----------------------------------------------------------------------===//
 
-def Index_CmpOp : IndexOp<"cmp", [Pure]> {
+def Index_CmpOp : IndexOp<"cmp"> {
   let summary = "index compare";
   let description = [{
     The `index.cmp` operation takes two index values and compares them according
@@ -544,14 +380,13 @@ def Index_CmpOp : IndexOp<"cmp", [Pure]> {
   let results = (outs I1:$result);
   let assemblyFormat = "`` $pred `(` $lhs `,` $rhs `)` attr-dict";
   let hasFolder = 1;
-  let hasCanonicalizeMethod = 1;
 }
 
 //===----------------------------------------------------------------------===//
 // SizeOfOp
 //===----------------------------------------------------------------------===//
 
-def Index_SizeOfOp : IndexOp<"sizeof", [Pure]> {
+def Index_SizeOfOp : IndexOp<"sizeof"> {
   let summary = "size in bits of the index type";
   let description = [{
     The `index.sizeof` operation produces an index-typed SSA value equal to the
@@ -573,10 +408,7 @@ def Index_SizeOfOp : IndexOp<"sizeof", [Pure]> {
 // ConstantOp
 //===----------------------------------------------------------------------===//
 
-def Index_ConstantOp : IndexOp<"constant", [
-    ConstantLike, Pure,
-    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>
-  ]> {
+def Index_ConstantOp : IndexOp<"constant", [ConstantLike]> {
   let summary = "index constant";
   let description = [{
     The `index.constant` operation produces an index-typed SSA value equal to
@@ -601,10 +433,7 @@ def Index_ConstantOp : IndexOp<"constant", [
 // BoolConstantOp
 //===----------------------------------------------------------------------===//
 
-def Index_BoolConstantOp : IndexOp<"bool.constant", [
-    ConstantLike, Pure,
-    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>
-  ]> {
+def Index_BoolConstantOp : IndexOp<"bool.constant", [ConstantLike]> {
   let summary = "boolean constant";
   let description = [{
     The `index.bool.constant` operation produces an bool-typed SSA value equal

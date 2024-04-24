@@ -56,26 +56,22 @@ struct Vehicle {
     {
       "kind": "memberOf",
       "source": "c:@S@Vehicle@E@input.h@64@Bicycle",
-      "target": "c:@S@Vehicle@E@input.h@64",
-      "targetFallback": "Vehicle::enum (unnamed)"
+      "target": "c:@S@Vehicle@E@input.h@64"
     },
     {
       "kind": "memberOf",
       "source": "c:@S@Vehicle@E@input.h@64@Car",
-      "target": "c:@S@Vehicle@E@input.h@64",
-      "targetFallback": "Vehicle::enum (unnamed)"
+      "target": "c:@S@Vehicle@E@input.h@64"
     },
     {
       "kind": "memberOf",
       "source": "c:@S@Vehicle@FI@type",
-      "target": "c:@S@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@S@Vehicle"
     },
     {
       "kind": "memberOf",
       "source": "c:@S@Vehicle@FI@information",
-      "target": "c:@S@Vehicle",
-      "targetFallback": "Vehicle"
+      "target": "c:@S@Vehicle"
     }
   ],
   "symbols": [
@@ -94,10 +90,6 @@ struct Vehicle {
           "kind": "typeIdentifier",
           "preciseIdentifier": "c:i",
           "spelling": "unsigned int"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "docComment": {
@@ -105,12 +97,12 @@ struct Vehicle {
           {
             "range": {
               "end": {
-                "character": 28,
-                "line": 2
+                "character": 29,
+                "line": 3
               },
               "start": {
-                "character": 8,
-                "line": 2
+                "character": 9,
+                "line": 3
               }
             },
             "text": "The type of vehicle."
@@ -127,8 +119,8 @@ struct Vehicle {
       },
       "location": {
         "position": {
-          "character": 4,
-          "line": 3
+          "character": 5,
+          "line": 4
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -163,8 +155,8 @@ struct Vehicle {
       },
       "location": {
         "position": {
-          "character": 8,
-          "line": 4
+          "character": 9,
+          "line": 5
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -206,8 +198,8 @@ struct Vehicle {
       },
       "location": {
         "position": {
-          "character": 8,
-          "line": 5
+          "character": 9,
+          "line": 6
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -245,10 +237,6 @@ struct Vehicle {
         {
           "kind": "identifier",
           "spelling": "Vehicle"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "docComment": {
@@ -256,12 +244,12 @@ struct Vehicle {
           {
             "range": {
               "end": {
-                "character": 13,
-                "line": 0
+                "character": 14,
+                "line": 1
               },
               "start": {
-                "character": 4,
-                "line": 0
+                "character": 5,
+                "line": 1
               }
             },
             "text": "A Vehicle"
@@ -278,8 +266,8 @@ struct Vehicle {
       },
       "location": {
         "position": {
-          "character": 7,
-          "line": 1
+          "character": 8,
+          "line": 2
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -316,10 +304,6 @@ struct Vehicle {
         {
           "kind": "identifier",
           "spelling": "type"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -332,8 +316,8 @@ struct Vehicle {
       },
       "location": {
         "position": {
-          "character": 6,
-          "line": 6
+          "character": 7,
+          "line": 7
         },
         "uri": "file://INPUT_DIR/input.h"
       },
@@ -371,10 +355,6 @@ struct Vehicle {
         {
           "kind": "identifier",
           "spelling": "information"
-        },
-        {
-          "kind": "text",
-          "spelling": ";"
         }
       ],
       "identifier": {
@@ -387,8 +367,8 @@ struct Vehicle {
       },
       "location": {
         "position": {
-          "character": 6,
-          "line": 12
+          "character": 7,
+          "line": 13
         },
         "uri": "file://INPUT_DIR/input.h"
       },

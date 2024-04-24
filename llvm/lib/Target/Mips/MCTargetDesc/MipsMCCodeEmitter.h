@@ -44,7 +44,10 @@ public:
 
   void EmitByte(unsigned char C, raw_ostream &OS) const;
 
-  void encodeInstruction(const MCInst &MI, SmallVectorImpl<char> &CB,
+  void emitInstruction(uint64_t Val, unsigned Size, const MCSubtargetInfo &STI,
+                       raw_ostream &OS) const;
+
+  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override;
 

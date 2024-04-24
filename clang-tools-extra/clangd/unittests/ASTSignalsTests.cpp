@@ -68,7 +68,6 @@ TEST(ASTSignals, Derive) {
           Pair(sym("Y", index::SymbolKind::Variable, "@N@tar@S@X@FI@\\0").ID,
                2),
           Pair(_ /*a*/, 3)));
-  EXPECT_EQ(Signals.InsertionDirective, Symbol::IncludeDirective::Include);
 }
 } // namespace
 } // namespace clangd

@@ -846,7 +846,7 @@ Value *IfExprAST::codegen() {
   ThenBB = Builder->GetInsertBlock();
 
   // Emit else block.
-  TheFunction->insert(TheFunction->end(), ElseBB);
+  TheFunction->getBasicBlockList().push_back(ElseBB);
   Builder->SetInsertPoint(ElseBB);
 
   Value *ElseV = Else->codegen();
@@ -858,7 +858,7 @@ Value *IfExprAST::codegen() {
   ElseBB = Builder->GetInsertBlock();
 
   // Emit merge block.
-  TheFunction->insert(TheFunction->end(), MergeBB);
+  TheFunction->getBasicBlockList().push_back(MergeBB);
   Builder->SetInsertPoint(MergeBB);
   PHINode *PN = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
 
@@ -1157,7 +1157,7 @@ static void HandleTopLevelExpression() {
 
       // Get the symbol's address and cast it to the right type (takes no
       // arguments, returns a double) so we can call it as a native function.
-      auto *FP = Sym.getAddress().toPtr<double (*)()>();
+      auto *FP = (double (*)())(intptr_t)Sym.getAddress();
       fprintf(stderr, "Evaluated to %f\n", FP());
 
       // Delete the anonymous expression module from the JIT.

@@ -11,7 +11,6 @@
 
 #include "Cuda.h"
 #include "Gnu.h"
-#include "LazyDetector.h"
 #include "ROCm.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
@@ -21,7 +20,7 @@ namespace clang {
 namespace driver {
 namespace tools {
 
-/// Directly call GNU Binutils assembler and linker
+/// MinGW -- Directly call GNU Binutils assembler and linker
 namespace MinGW {
 class LLVM_LIBRARY_VISIBILITY Assembler : public Tool {
 public:
@@ -35,7 +34,7 @@ public:
                     const char *LinkingOutput) const override;
 };
 
-class LLVM_LIBRARY_VISIBILITY Linker final : public Tool {
+class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
 public:
   Linker(const ToolChain &TC) : Tool("MinGW::Linker", "linker", TC) {}
 
@@ -66,6 +65,7 @@ public:
 
   bool HasNativeLLVMSupport() const override;
 
+  bool IsIntegratedAssemblerDefault() const override;
   UnwindTableLevel
   getDefaultUnwindTableLevel(const llvm::opt::ArgList &Args) const override;
   bool isPICDefault() const override;
@@ -103,18 +103,17 @@ protected:
   Tool *buildAssembler() const override;
 
 private:
-  LazyDetector<CudaInstallationDetector> CudaInstallation;
-  LazyDetector<RocmInstallationDetector> RocmInstallation;
+  CudaInstallationDetector CudaInstallation;
+  RocmInstallationDetector RocmInstallation;
 
   std::string Base;
   std::string GccLibDir;
   clang::driver::toolchains::Generic_GCC::GCCVersion GccVer;
   std::string Ver;
   std::string SubdirName;
-  std::string TripleDirName;
   mutable std::unique_ptr<tools::gcc::Preprocessor> Preprocessor;
   mutable std::unique_ptr<tools::gcc::Compiler> Compiler;
-  void findGccLibDir(const llvm::Triple &LiteralTriple);
+  void findGccLibDir();
 
   bool NativeLLVMSupport;
 };

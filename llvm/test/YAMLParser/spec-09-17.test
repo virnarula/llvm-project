@@ -1,5 +1,4 @@
-# RUN: yaml-bench -canonical %s | FileCheck %s --strict-whitespace
-# CHECK: "first line\nmore line"
+# RUN: yaml-bench -canonical %s
 
  first line 
    

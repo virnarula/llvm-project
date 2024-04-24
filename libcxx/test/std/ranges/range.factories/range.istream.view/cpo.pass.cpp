@@ -14,7 +14,6 @@
 #include <cassert>
 #include <ranges>
 #include <sstream>
-#include <type_traits>
 
 #include "test_macros.h"
 #include "utils.h"

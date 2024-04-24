@@ -12,7 +12,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::cert {
+namespace clang {
+namespace tidy {
+namespace cert {
 
 void FloatLoopCounter::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -27,4 +29,6 @@ void FloatLoopCounter::check(const MatchFinder::MatchResult &Result) {
                                    "floating-point type");
 }
 
-} // namespace clang::tidy::cert
+} // namespace cert
+} // namespace tidy
+} // namespace clang

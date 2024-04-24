@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::readability {
+namespace clang {
+namespace tidy {
+namespace readability {
 
 /// Checks for large functions based on various metrics.
 ///
@@ -41,25 +43,16 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
 private:
-  const std::optional<unsigned> LineThreshold;
-  const std::optional<unsigned> StatementThreshold;
-  const std::optional<unsigned> BranchThreshold;
-  const std::optional<unsigned> ParameterThreshold;
-  const std::optional<unsigned> NestingThreshold;
-  const std::optional<unsigned> VariableThreshold;
-
-  static constexpr std::optional<unsigned> DefaultLineThreshold = std::nullopt;
-  static constexpr std::optional<unsigned> DefaultStatementThreshold = 800U;
-  static constexpr std::optional<unsigned> DefaultBranchThreshold =
-      std::nullopt;
-  static constexpr std::optional<unsigned> DefaultParameterThreshold =
-      std::nullopt;
-  static constexpr std::optional<unsigned> DefaultNestingThreshold =
-      std::nullopt;
-  static constexpr std::optional<unsigned> DefaultVariableThreshold =
-      std::nullopt;
+  const unsigned LineThreshold;
+  const unsigned StatementThreshold;
+  const unsigned BranchThreshold;
+  const unsigned ParameterThreshold;
+  const unsigned NestingThreshold;
+  const unsigned VariableThreshold;
 };
 
-} // namespace clang::tidy::readability
+} // namespace readability
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_FUNCTIONSIZECHECK_H

@@ -13,7 +13,9 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 void CloexecAccept4Check::registerMatchers(MatchFinder *Finder) {
   auto SockAddrPointerType =
@@ -32,4 +34,6 @@ void CloexecAccept4Check::check(const MatchFinder::MatchResult &Result) {
   insertMacroFlag(Result, /*MacroFlag=*/"SOCK_CLOEXEC", /*ArgPos=*/3);
 }
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang

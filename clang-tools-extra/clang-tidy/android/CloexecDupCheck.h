@@ -11,7 +11,9 @@
 
 #include "CloexecCheck.h"
 
-namespace clang::tidy::android {
+namespace clang {
+namespace tidy {
+namespace android {
 
 /// dup() is better to be replaced by fcntl(), which has close-on-exec flag.
 /// Find the usage of dup() and redirect user to use fcntl().
@@ -26,6 +28,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::android
+} // namespace android
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_DUP_H

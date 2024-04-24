@@ -1,10 +1,10 @@
-; RUN: llc < %s -march=nvptx64 2>&1 | FileCheck %s
-; RUN: %if ptxas %{ llc < %s -march=nvptx64 | %ptxas-verify %}
+; RUN: llc < %s -march=nvptx 2>&1 | FileCheck %s
+; RUN: %if ptxas %{ llc < %s -march=nvptx | %ptxas-verify %}
 
 ; Allow to make libcalls that are defined in the current module
 
-declare ptr @malloc(i64)
-declare void @free(ptr)
+declare i8* @malloc(i64)
+declare void @free(i8*)
 
 ; Underlying libcall declaration
 ; CHECK: .visible .func  (.param .align 16 .b8 func_retval0[16]) __umodti3
@@ -40,8 +40,8 @@ define void @malloc_then_free() {
 ; CHECK:  malloc,
 ; CHECK:  call.uni
 ; CHECK:  free,
-  %a = call ptr @malloc(i64 4)
-  store i8 0, ptr %a
-  call void @free(ptr %a)
+  %a = call i8* @malloc(i64 4)
+  store i8 0, i8* %a
+  call void @free(i8* %a)
   ret void
 }

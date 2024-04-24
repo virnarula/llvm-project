@@ -10,7 +10,6 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_ASTSIGNALS_H
 
 #include "ParsedAST.h"
-#include "index/Symbol.h"
 #include "index/SymbolID.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
@@ -30,9 +29,6 @@ struct ASTSignals {
   /// Namespaces whose symbols are used in the file, and the number of such
   /// distinct symbols.
   llvm::StringMap<unsigned> RelatedNamespaces;
-  /// Preferred preprocessor directive to use for inclusions by the file.
-  Symbol::IncludeDirective InsertionDirective =
-      Symbol::IncludeDirective::Include;
 
   static ASTSignals derive(const ParsedAST &AST);
 };

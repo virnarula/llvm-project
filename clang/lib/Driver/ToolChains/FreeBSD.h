@@ -17,9 +17,9 @@ namespace clang {
 namespace driver {
 namespace tools {
 
-/// Directly call GNU Binutils assembler and linker
+/// freebsd -- Directly call GNU Binutils assembler and linker
 namespace freebsd {
-class LLVM_LIBRARY_VISIBILITY Assembler final : public Tool {
+class LLVM_LIBRARY_VISIBILITY Assembler : public Tool {
 public:
   Assembler(const ToolChain &TC)
       : Tool("freebsd::Assembler", "assembler", TC) {}
@@ -32,7 +32,7 @@ public:
                     const char *LinkingOutput) const override;
 };
 
-class LLVM_LIBRARY_VISIBILITY Linker final : public Tool {
+class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
 public:
   Linker(const ToolChain &TC) : Tool("freebsd::Linker", "linker", TC) {}
 
@@ -58,19 +58,12 @@ public:
   bool IsMathErrnoDefault() const override { return false; }
   bool IsObjCNonFragileABIDefault() const override { return true; }
 
-  void
-  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
-                            llvm::opt::ArgStringList &CC1Args) const override;
-
-  RuntimeLibType GetDefaultRuntimeLibType() const override {
-    return ToolChain::RLT_CompilerRT;
-  }
-  CXXStdlibType GetDefaultCXXStdlibType() const override {
-    return ToolChain::CST_Libcxx;
-  }
-
+  CXXStdlibType GetDefaultCXXStdlibType() const override;
   void addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                              llvm::opt::ArgStringList &CC1Args) const override;
+  void
+  addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
+                           llvm::opt::ArgStringList &CC1Args) const override;
   void AddCXXStdlibLibArgs(const llvm::opt::ArgList &Args,
                            llvm::opt::ArgStringList &CmdArgs) const override;
   void AddCudaIncludeArgs(const llvm::opt::ArgList &DriverArgs,
@@ -78,14 +71,20 @@ public:
   void AddHIPIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                          llvm::opt::ArgStringList &CC1Args) const override;
 
+  llvm::ExceptionHandling
+  GetExceptionModel(const llvm::opt::ArgList &Args) const override;
   UnwindTableLevel
   getDefaultUnwindTableLevel(const llvm::opt::ArgList &Args) const override;
   bool isPIEDefault(const llvm::opt::ArgList &Args) const override;
   SanitizerMask getSupportedSanitizers() const override;
-  unsigned GetDefaultDwarfVersion() const override { return 4; }
+  unsigned GetDefaultDwarfVersion() const override;
   // Until dtrace (via CTF) and LLDB can deal with distributed debug info,
   // FreeBSD defaults to standalone/full debug info.
   bool GetDefaultStandaloneDebug() const override { return true; }
+  void
+  addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                        llvm::opt::ArgStringList &CC1Args,
+                        Action::OffloadKind DeviceOffloadKind) const override;
 
 protected:
   Tool *buildAssembler() const override;

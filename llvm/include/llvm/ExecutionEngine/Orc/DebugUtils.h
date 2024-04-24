@@ -70,7 +70,7 @@ raw_ostream &operator<<(raw_ostream &OS, const MaterializationUnit &MU);
 raw_ostream &operator<<(raw_ostream &OS,
                         const JITDylibLookupFlags &JDLookupFlags);
 
-/// Render a SymbolLookupFlags instance.
+/// Rendar a SymbolLookupFlags instance.
 raw_ostream &operator<<(raw_ostream &OS, const SymbolLookupFlags &LookupFlags);
 
 /// Render a SymbolLookupSet entry.

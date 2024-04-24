@@ -1,9 +1,9 @@
-; RUN:  llc -amdgpu-scalarize-global-loads=false  -mtriple=amdgcn -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,SI,FUNC %s
-; RUN:  llc -amdgpu-scalarize-global-loads=false  -mtriple=amdgcn -mcpu=bonaire -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,CI,FUNC %s
-; RUN:  llc -amdgpu-scalarize-global-loads=false  -mtriple=amdgcn -mcpu=tonga -mattr=-flat-for-global -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,CI,FUNC %s
+; RUN:  llc -amdgpu-scalarize-global-loads=false  -march=amdgcn -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,SI,FUNC %s
+; RUN:  llc -amdgpu-scalarize-global-loads=false  -march=amdgcn -mcpu=bonaire -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,CI,FUNC %s
+; RUN:  llc -amdgpu-scalarize-global-loads=false  -march=amdgcn -mcpu=tonga -mattr=-flat-for-global -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,CI,FUNC %s
 
-; RUN:  llc -amdgpu-scalarize-global-loads=false  -mtriple=amdgcn -enable-unsafe-fp-math -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,SI,FUNC %s
-; RUN:  llc -amdgpu-scalarize-global-loads=false  -mtriple=amdgcn -mcpu=tonga -mattr=-flat-for-global -enable-unsafe-fp-math -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN,CI,FUNC %s
+; RUN:  llc -amdgpu-scalarize-global-loads=false  -march=amdgcn -enable-unsafe-fp-math -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN-UNSAFE,FUNC %s
+; RUN:  llc -amdgpu-scalarize-global-loads=false  -march=amdgcn -mcpu=tonga -mattr=-flat-for-global -enable-unsafe-fp-math -verify-machineinstrs < %s | FileCheck --check-prefixes=GCN-UNSAFE,VI-UNSAFE,FUNC %s
 
 declare double @llvm.fabs.f64(double) #0
 declare double @llvm.floor.f64(double) #0
@@ -23,12 +23,15 @@ declare double @llvm.floor.f64(double) #0
 ; CI: v_floor_f64_e32 [[FLOORX:v\[[0-9]+:[0-9]+\]]], [[X]]
 ; CI: v_add_f64 [[FRACT:v\[[0-9]+:[0-9]+\]]], [[X]], -[[FLOORX]]
 
+; GCN-UNSAFE: buffer_load_dwordx2 [[X:v\[[0-9]+:[0-9]+\]]]
+; GCN-UNSAFE: v_fract_f64_e32 [[FRACT:v\[[0-9]+:[0-9]+\]]], [[X]]
+
 ; GCN: buffer_store_dwordx2 [[FRACT]]
-define amdgpu_kernel void @fract_f64(ptr addrspace(1) %out, ptr addrspace(1) %src) #1 {
-  %x = load double, ptr addrspace(1) %src
+define amdgpu_kernel void @fract_f64(double addrspace(1)* %out, double addrspace(1)* %src) #1 {
+  %x = load double, double addrspace(1)* %src
   %floor.x = call double @llvm.floor.f64(double %x)
   %fract = fsub double %x, %floor.x
-  store double %fract, ptr addrspace(1) %out
+  store double %fract, double addrspace(1)* %out
   ret void
 }
 
@@ -47,13 +50,16 @@ define amdgpu_kernel void @fract_f64(ptr addrspace(1) %out, ptr addrspace(1) %sr
 ; CI: v_floor_f64_e64 [[FLOORX:v\[[0-9]+:[0-9]+\]]], -[[X]]
 ; CI: v_add_f64 [[FRACT:v\[[0-9]+:[0-9]+\]]], -[[X]], -[[FLOORX]]
 
+; GCN-UNSAFE: buffer_load_dwordx2 [[X:v\[[0-9]+:[0-9]+\]]]
+; GCN-UNSAFE: v_fract_f64_e64 [[FRACT:v\[[0-9]+:[0-9]+\]]], -[[X]]
+
 ; GCN: buffer_store_dwordx2 [[FRACT]]
-define amdgpu_kernel void @fract_f64_neg(ptr addrspace(1) %out, ptr addrspace(1) %src) #1 {
-  %x = load double, ptr addrspace(1) %src
-  %neg.x = fneg double %x
+define amdgpu_kernel void @fract_f64_neg(double addrspace(1)* %out, double addrspace(1)* %src) #1 {
+  %x = load double, double addrspace(1)* %src
+  %neg.x = fsub double -0.0, %x
   %floor.neg.x = call double @llvm.floor.f64(double %neg.x)
   %fract = fsub double %neg.x, %floor.neg.x
-  store double %fract, ptr addrspace(1) %out
+  store double %fract, double addrspace(1)* %out
   ret void
 }
 
@@ -72,24 +78,32 @@ define amdgpu_kernel void @fract_f64_neg(ptr addrspace(1) %out, ptr addrspace(1)
 ; CI: v_floor_f64_e64 [[FLOORX:v\[[0-9]+:[0-9]+\]]], -|[[X]]|
 ; CI: v_add_f64 [[FRACT:v\[[0-9]+:[0-9]+\]]], -|[[X]]|, -[[FLOORX]]
 
+; GCN-UNSAFE: buffer_load_dwordx2 [[X:v\[[0-9]+:[0-9]+\]]]
+; GCN-UNSAFE: v_fract_f64_e64 [[FRACT:v\[[0-9]+:[0-9]+\]]], -|[[X]]|
+
 ; GCN: buffer_store_dwordx2 [[FRACT]]
-define amdgpu_kernel void @fract_f64_neg_abs(ptr addrspace(1) %out, ptr addrspace(1) %src) #1 {
-  %x = load double, ptr addrspace(1) %src
+define amdgpu_kernel void @fract_f64_neg_abs(double addrspace(1)* %out, double addrspace(1)* %src) #1 {
+  %x = load double, double addrspace(1)* %src
   %abs.x = call double @llvm.fabs.f64(double %x)
-  %neg.abs.x = fneg double %abs.x
+  %neg.abs.x = fsub double -0.0, %abs.x
   %floor.neg.abs.x = call double @llvm.floor.f64(double %neg.abs.x)
   %fract = fsub double %neg.abs.x, %floor.neg.abs.x
-  store double %fract, ptr addrspace(1) %out
+  store double %fract, double addrspace(1)* %out
   ret void
 }
 
 ; FUNC-LABEL: {{^}}multi_use_floor_fract_f64:
-define amdgpu_kernel void @multi_use_floor_fract_f64(ptr addrspace(1) %out, ptr addrspace(1) %src) #1 {
-  %x = load double, ptr addrspace(1) %src
+; VI-UNSAFE: buffer_load_dwordx2 [[X:v\[[0-9]+:[0-9]+\]]]
+; VI-UNSAFE-DAG: v_floor_f64_e32 [[FLOOR:v\[[0-9]+:[0-9]+\]]], [[X]]
+; VI-UNSAFE-DAG: v_fract_f64_e32 [[FRACT:v\[[0-9]+:[0-9]+\]]], [[X]]
+; VI-UNSAFE: buffer_store_dwordx2 [[FLOOR]]
+; VI-UNSAFE: buffer_store_dwordx2 [[FRACT]]
+define amdgpu_kernel void @multi_use_floor_fract_f64(double addrspace(1)* %out, double addrspace(1)* %src) #1 {
+  %x = load double, double addrspace(1)* %src
   %floor.x = call double @llvm.floor.f64(double %x)
   %fract = fsub double %x, %floor.x
-  store volatile double %floor.x, ptr addrspace(1) %out
-  store volatile double %fract, ptr addrspace(1) %out
+  store volatile double %floor.x, double addrspace(1)* %out
+  store volatile double %fract, double addrspace(1)* %out
   ret void
 }
 

@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
-
 #include <limits>
 
 #include "test_macros.h"

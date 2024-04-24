@@ -40,10 +40,10 @@ SimpleExecutorDylibManager::open(const std::string &Path, uint64_t Mode) {
   return H;
 }
 
-Expected<std::vector<ExecutorSymbolDef>>
+Expected<std::vector<ExecutorAddr>>
 SimpleExecutorDylibManager::lookup(tpctypes::DylibHandle H,
                                    const RemoteSymbolLookupSet &L) {
-  std::vector<ExecutorSymbolDef> Result;
+  std::vector<ExecutorAddr> Result;
   auto DL = sys::DynamicLibrary(H.toPtr<void *>());
 
   for (const auto &E : L) {
@@ -52,7 +52,7 @@ SimpleExecutorDylibManager::lookup(tpctypes::DylibHandle H,
         return make_error<StringError>("Required address for empty symbol \"\"",
                                        inconvertibleErrorCode());
       else
-        Result.push_back(ExecutorSymbolDef());
+        Result.push_back(ExecutorAddr());
     } else {
 
       const char *DemangledSymName = E.Name.c_str();
@@ -70,8 +70,7 @@ SimpleExecutorDylibManager::lookup(tpctypes::DylibHandle H,
                                            DemangledSymName,
                                        inconvertibleErrorCode());
 
-      // FIXME: determine accurate JITSymbolFlags.
-      Result.push_back({ExecutorAddr::fromPtr(Addr), JITSymbolFlags::Exported});
+      Result.push_back(ExecutorAddr::fromPtr(Addr));
     }
   }
 

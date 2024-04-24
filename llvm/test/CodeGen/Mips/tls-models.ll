@@ -15,9 +15,9 @@
 
 ; ----- no model specified -----
 
-define ptr @f1() {
+define i32* @f1() {
 entry:
-  ret ptr @external_gd
+  ret i32* @external_gd
 
   ; Non-PIC code can use initial-exec, PIC code has to use general dynamic.
   ; CHECK-NONPIC-LABEL:   f1:
@@ -26,9 +26,9 @@ entry:
   ; CHECK-PIC:      %tlsgd
 }
 
-define ptr @f2() {
+define i32* @f2() {
 entry:
-  ret ptr @internal_gd
+  ret i32* @internal_gd
 
   ; Non-PIC code can use local exec, PIC code can use local dynamic.
   ; CHECK-NONPIC-LABEL:   f2:
@@ -40,9 +40,9 @@ entry:
 
 ; ----- localdynamic specified -----
 
-define ptr @f3() {
+define i32* @f3() {
 entry:
-  ret ptr @external_ld
+  ret i32* @external_ld
 
   ; Non-PIC code can use initial exec, PIC should use local dynamic.
   ; CHECK-NONPIC-LABEL:   f3:
@@ -51,9 +51,9 @@ entry:
   ; CHECK-PIC:      %tlsldm
 }
 
-define ptr @f4() {
+define i32* @f4() {
 entry:
-  ret ptr @internal_ld
+  ret i32* @internal_ld
 
   ; Non-PIC code can use local exec, PIC code can use local dynamic.
   ; CHECK-NONPIC-LABEL:   f4:
@@ -65,9 +65,9 @@ entry:
 
 ; ----- initialexec specified -----
 
-define ptr @f5() {
+define i32* @f5() {
 entry:
-  ret ptr @external_ie
+  ret i32* @external_ie
 
   ; Non-PIC and PIC code will use initial exec as specified.
   ; CHECK-NONPIC-LABEL:   f5:
@@ -76,9 +76,9 @@ entry:
   ; CHECK-PIC:      %gottprel
 }
 
-define ptr @f6() {
+define i32* @f6() {
 entry:
-  ret ptr @internal_ie
+  ret i32* @internal_ie
 
   ; Non-PIC code can use local exec, PIC code use initial exec as specified.
   ; CHECK-NONPIC-LABEL:   f6:
@@ -90,9 +90,9 @@ entry:
 
 ; ----- localexec specified -----
 
-define ptr @f7() {
+define i32* @f7() {
 entry:
-  ret ptr @external_le
+  ret i32* @external_le
 
   ; Non-PIC and PIC code will use local exec as specified.
   ; CHECK-NONPIC-LABEL:   f7:
@@ -101,9 +101,9 @@ entry:
   ; CHECK-PIC:      %tprel_hi
 }
 
-define ptr @f8() {
+define i32* @f8() {
 entry:
-  ret ptr @internal_le
+  ret i32* @internal_le
 
   ; Non-PIC and PIC code will use local exec as specified.
   ; CHECK-NONPIC-LABEL:   f8:

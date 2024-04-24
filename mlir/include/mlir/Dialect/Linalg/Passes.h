@@ -38,28 +38,31 @@ std::unique_ptr<Pass> createFoldReshapeOpsByLinearizationPass();
 
 std::unique_ptr<Pass> createLinalgNamedOpConversionPass();
 
-std::unique_ptr<Pass> createLinalgInlineScalarOperandsPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createLinalgInlineScalarOperandsPass();
 
 /// Create a pass to convert Linalg operations to scf.for loops and
 /// memref.load/memref.store accesses.
-std::unique_ptr<Pass> createConvertLinalgToLoopsPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertLinalgToLoopsPass();
 
 /// Create a pass to convert Linalg operations to scf.parallel loops and
 /// memref.load/memref.store accesses.
-std::unique_ptr<Pass> createConvertLinalgToParallelLoopsPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createConvertLinalgToParallelLoopsPass();
 
 /// Create a pass to convert Linalg operations to affine.for loops and
 /// affine_load/affine_store accesses.
 /// Placeholder for now, this is NYI.
-std::unique_ptr<Pass> createConvertLinalgToAffineLoopsPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createConvertLinalgToAffineLoopsPass();
 
 /// Create a pass to convert Linalg operations which work on tensors to use
 /// buffers instead.
-std::unique_ptr<Pass> createLinalgBufferizePass();
+std::unique_ptr<OperationPass<func::FuncOp>> createLinalgBufferizePass();
 
 /// Create a pass to convert named Linalg operations to Linalg generic
 /// operations.
-std::unique_ptr<Pass> createLinalgGeneralizationPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createLinalgGeneralizationPass();
 
 /// Create a pass to convert Linalg operations to equivalent operations that
 /// work on primitive types, if possible.

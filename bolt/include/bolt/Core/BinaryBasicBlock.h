@@ -100,6 +100,16 @@ private:
   using LocSymsTy = std::vector<std::pair<uint32_t, const MCSymbol *>>;
   std::unique_ptr<LocSymsTy> LocSyms;
 
+  /// After output/codegen, map output offsets of instructions in this basic
+  /// block to instruction offsets in the original function. Note that the
+  /// output basic block could be different from the input basic block.
+  /// We only map instruction of interest, such as calls, and sdt markers.
+  ///
+  /// We store the offset array in a basic block to facilitate BAT tables
+  /// generation. Otherwise, the mapping could be done at function level.
+  using OffsetTranslationTableTy = std::vector<std::pair<uint32_t, uint32_t>>;
+  std::unique_ptr<OffsetTranslationTableTy> OffsetTranslationTable;
+
   /// Alignment requirements for the block.
   uint32_t Alignment{1};
 
@@ -133,9 +143,6 @@ private:
   /// Flag to indicate whether this block is valid or not.  Invalid
   /// blocks may contain out of date or incorrect information.
   bool IsValid{true};
-
-  /// Last computed hash value.
-  mutable uint64_t Hash{0};
 
 private:
   BinaryBasicBlock() = delete;
@@ -420,6 +427,10 @@ public:
   /// Return branch info corresponding to an edge going to \p Succ basic block.
   const BinaryBranchInfo &getBranchInfo(const BinaryBasicBlock &Succ) const;
 
+  /// Return branch info corresponding to an edge going to a basic block with
+  /// label \p Label.
+  BinaryBranchInfo &getBranchInfo(const MCSymbol *Label);
+
   /// Set branch information for the outgoing edge to block \p Succ.
   void setSuccessorBranchInfo(const BinaryBasicBlock &Succ, uint64_t Count,
                               uint64_t MispredictedCount) {
@@ -559,7 +570,6 @@ public:
   }
 
   /// Return required alignment for the block.
-  Align getAlign() const { return Align(Alignment); }
   uint32_t getAlignment() const { return Alignment; }
 
   /// Set the maximum number of bytes to use for the block alignment.
@@ -818,7 +828,8 @@ public:
     return OutputAddressRange;
   }
 
-  bool hasLocSyms() const { return LocSyms != nullptr; }
+  /// Update addresses of special instructions inside this basic block.
+  void updateOutputValues(const MCAsmLayout &Layout);
 
   /// Return mapping of input offsets to symbols in the output.
   LocSymsTy &getLocSyms() {
@@ -828,6 +839,19 @@ public:
   /// Return mapping of input offsets to symbols in the output.
   const LocSymsTy &getLocSyms() const {
     return const_cast<BinaryBasicBlock *>(this)->getLocSyms();
+  }
+
+  /// Return offset translation table for the basic block.
+  OffsetTranslationTableTy &getOffsetTranslationTable() {
+    return OffsetTranslationTable
+               ? *OffsetTranslationTable
+               : *(OffsetTranslationTable =
+                       std::make_unique<OffsetTranslationTableTy>());
+  }
+
+  /// Return offset translation table for the basic block.
+  const OffsetTranslationTableTy &getOffsetTranslationTable() const {
+    return const_cast<BinaryBasicBlock *>(this)->getOffsetTranslationTable();
   }
 
   /// Return size of the basic block in the output binary.
@@ -918,9 +942,6 @@ public:
   /// Check if the block has a jump table instruction.
   bool hasJumpTable() const { return getJumpTable() != nullptr; }
 
-  /// Returns the last computed hash value of the block.
-  uint64_t getHash() const { return Hash; }
-
 private:
   void adjustNumPseudos(const MCInst &Inst, int Sign);
 
@@ -944,9 +965,6 @@ private:
 
   /// Set the index of this basic block.
   void setIndex(unsigned I) { Index = I; }
-
-  /// Sets the hash value of the basic block.
-  void setHash(uint64_t Value) const { Hash = Value; }
 
   template <typename T> void clearList(T &List) {
     T TempList;

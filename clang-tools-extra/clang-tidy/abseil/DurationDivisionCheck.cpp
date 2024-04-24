@@ -11,7 +11,9 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
 
-namespace clang::tidy::abseil {
+namespace clang {
+namespace tidy {
+namespace abseil {
 
 using namespace clang::ast_matchers;
 
@@ -50,4 +52,6 @@ void DurationDivisionCheck::check(const MatchFinder::MatchResult &Result) {
              ")");
 }
 
-} // namespace clang::tidy::abseil
+} // namespace abseil
+} // namespace tidy
+} // namespace clang

@@ -12,7 +12,9 @@
 #include "../ClangTidyCheck.h"
 #include <string>
 
-namespace clang::tidy::bugprone {
+namespace clang {
+namespace tidy {
+namespace bugprone {
 
 /// Detects function calls where the return value is unused.
 ///
@@ -24,24 +26,13 @@ public:
   void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
-  std::optional<TraversalKind> getCheckTraversalKind() const override {
-    return TK_IgnoreUnlessSpelledInSource;
-  }
 
 private:
   std::string CheckedFunctions;
-  const std::vector<StringRef> CheckedReturnTypes;
-
-protected:
-  UnusedReturnValueCheck(StringRef Name, ClangTidyContext *Context,
-                         std::string CheckedFunctions);
-  UnusedReturnValueCheck(StringRef Name, ClangTidyContext *Context,
-                         std::string CheckedFunctions,
-                         std::vector<StringRef> CheckedReturnTypes,
-                         bool AllowCastToVoid);
-  bool AllowCastToVoid;
 };
 
-} // namespace clang::tidy::bugprone
+} // namespace bugprone
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_BUGPRONE_UNUSEDRETURNVALUECHECK_H

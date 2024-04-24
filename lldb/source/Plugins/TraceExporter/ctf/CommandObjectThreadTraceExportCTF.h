@@ -12,7 +12,6 @@
 #include "TraceExporterCTF.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
-#include <optional>
 
 namespace lldb_private {
 namespace ctf {
@@ -30,7 +29,7 @@ public:
 
     llvm::ArrayRef<OptionDefinition> GetDefinitions() override;
 
-    std::optional<size_t> m_thread_index;
+    llvm::Optional<size_t> m_thread_index;
     std::string m_file;
   };
 
@@ -48,7 +47,7 @@ public:
   Options *GetOptions() override { return &m_options; }
 
 protected:
-  void DoExecute(Args &command, CommandReturnObject &result) override;
+  bool DoExecute(Args &command, CommandReturnObject &result) override;
 
   CommandOptions m_options;
 };

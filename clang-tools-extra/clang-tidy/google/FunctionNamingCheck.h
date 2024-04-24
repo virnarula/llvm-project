@@ -12,7 +12,10 @@
 #include "../ClangTidyCheck.h"
 #include "llvm/ADT/StringRef.h"
 
-namespace clang::tidy::google::objc {
+namespace clang {
+namespace tidy {
+namespace google {
+namespace objc {
 
 /// Finds function names that do not conform to the recommendations of the
 /// Google Objective-C Style Guide. Function names should be in upper camel case
@@ -34,6 +37,9 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::google::objc
+} // namespace objc
+} // namespace google
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_GOOGLE_OBJC_FUNCTION_NAMING_CHECK_H

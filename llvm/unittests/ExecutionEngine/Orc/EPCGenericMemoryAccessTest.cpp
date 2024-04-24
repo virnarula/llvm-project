@@ -41,17 +41,6 @@ llvm::orc::shared::CWrapperFunctionResult testWriteBuffers(const char *ArgData,
       .release();
 }
 
-llvm::orc::shared::CWrapperFunctionResult testWritePointers(const char *ArgData,
-                                                            size_t ArgSize) {
-  return WrapperFunction<void(SPSSequence<SPSMemoryAccessPointerWrite>)>::
-      handle(ArgData, ArgSize,
-             [](std::vector<tpctypes::PointerWrite> Ws) {
-               for (auto &W : Ws)
-                 *W.Addr.template toPtr<uint64_t *>() = W.Value.getValue();
-             })
-          .release();
-}
-
 TEST(EPCGenericMemoryAccessTest, MemWrites) {
   auto SelfEPC = cantFail(SelfExecutorProcessControl::Create());
 
@@ -65,7 +54,6 @@ TEST(EPCGenericMemoryAccessTest, MemWrites) {
   FAs.WriteUInt64s = ExecutorAddr::fromPtr(
       &testWriteUInts<tpctypes::UInt64Write, SPSMemoryAccessUInt64Write>);
   FAs.WriteBuffers = ExecutorAddr::fromPtr(&testWriteBuffers);
-  FAs.WritePointers = ExecutorAddr::fromPtr(&testWritePointers);
 
   auto MemAccess = std::make_unique<EPCGenericMemoryAccess>(*SelfEPC, FAs);
 
@@ -74,7 +62,6 @@ TEST(EPCGenericMemoryAccessTest, MemWrites) {
   uint16_t Test_UInt16 = 0;
   uint32_t Test_UInt32 = 0;
   uint64_t Test_UInt64 = 0;
-  uint64_t Test_Pointer = 0;
   char Test_Buffer[21];
 
   auto Err1 =
@@ -105,11 +92,6 @@ TEST(EPCGenericMemoryAccessTest, MemWrites) {
       MemAccess->writeBuffers({{ExecutorAddr::fromPtr(&Test_Buffer), TestMsg}});
   EXPECT_THAT_ERROR(std::move(Err5), Succeeded());
   EXPECT_EQ(StringRef(Test_Buffer, TestMsg.size()), TestMsg);
-
-  auto Err6 = MemAccess->writePointers(
-      {{ExecutorAddr::fromPtr(&Test_Pointer), ExecutorAddr(1U)}});
-  EXPECT_THAT_ERROR(std::move(Err6), Succeeded());
-  EXPECT_EQ(Test_Pointer, 1U);
 
   cantFail(SelfEPC->disconnect());
 }

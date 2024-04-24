@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::llvm_check {
+namespace clang {
+namespace tidy {
+namespace llvm_check {
 
 /// Historically, LLVM has used `unsigned` to represent registers. Since then
 /// a `Register` object has been introduced for improved type-safety and make
@@ -27,6 +29,8 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace clang::tidy::llvm_check
+} // namespace llvm_check
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_LLVM_PREFERREGISTEROVERUNSIGNEDCHECK_H

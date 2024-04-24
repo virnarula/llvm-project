@@ -8,46 +8,12 @@ def BsdExtensions : StandardSpec<"BSDExtensions"> {
         FunctionSpec<
             "strlcat",
             RetValSpec<SizeTType>,
-            [ArgSpec<ConstCharRestrictedPtr>, ArgSpec<ConstCharRestrictedPtr>, ArgSpec<SizeTType>]
+            [ArgSpec<CharPtr>, ArgSpec<ConstCharPtr>, ArgSpec<SizeTType>]
         >,
         FunctionSpec<
             "strlcpy",
             RetValSpec<SizeTType>,
-            [ArgSpec<ConstCharRestrictedPtr>, ArgSpec<ConstCharRestrictedPtr>, ArgSpec<SizeTType>]
-        >,
-        FunctionSpec<
-            "strsep",
-            RetValSpec<CharPtr>,
-            [ArgSpec<CharRestrictedPtrPtr>, ArgSpec<ConstCharRestrictedPtr>]
-        >,
-      ]
-  >;
-
-  HeaderSpec Strings = HeaderSpec<
-      "strings.h",
-      [], // Macros
-      [], // Types
-      [], // Enumerations
-      [
-        FunctionSpec<
-            "strcasecmp",
-            RetValSpec<IntType>,
-            [ArgSpec<ConstCharPtr>, ArgSpec<ConstCharPtr>]
-        >,
-        FunctionSpec<
-            "strncasecmp",
-            RetValSpec<IntType>,
-            [ArgSpec<ConstCharPtr>, ArgSpec<ConstCharPtr>, ArgSpec<SizeTType>]
-        >,
-        FunctionSpec<
-            "index",
-            RetValSpec<CharPtr>,
-            [ArgSpec<ConstCharPtr>, ArgSpec<IntType>]
-        >,
-        FunctionSpec<
-            "rindex",
-            RetValSpec<CharPtr>,
-            [ArgSpec<ConstCharPtr>, ArgSpec<IntType>]
+            [ArgSpec<CharPtr>, ArgSpec<ConstCharPtr>, ArgSpec<SizeTType>]
         >,
       ]
   >;
@@ -68,7 +34,6 @@ def BsdExtensions : StandardSpec<"BSDExtensions"> {
 
   let Headers = [
     String,
-    Strings,
     SysWait,
   ];
 }

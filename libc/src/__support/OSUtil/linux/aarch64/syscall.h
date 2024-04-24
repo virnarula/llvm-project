@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIBC_SRC___SUPPORT_OSUTIL_LINUX_AARCH64_SYSCALL_H
-#define LLVM_LIBC_SRC___SUPPORT_OSUTIL_LINUX_AARCH64_SYSCALL_H
+#ifndef LLVM_LIBC_SRC_SUPPORT_OSUTIL_LINUX_AARCH64_SYSCALL_H
+#define LLVM_LIBC_SRC_SUPPORT_OSUTIL_LINUX_AARCH64_SYSCALL_H
 
 #include "src/__support/common.h"
 
@@ -42,54 +42,60 @@
 #define SYSCALL_INSTR(input_constraint)                                        \
   LIBC_INLINE_ASM("svc 0" : "=r"(x0) : input_constraint : "memory", "cc")
 
-namespace LIBC_NAMESPACE {
+namespace __llvm_libc {
 
-LIBC_INLINE long syscall_impl(long number) {
+__attribute__((always_inline)) inline long syscall_impl(long number) {
   REGISTER_DECL_0;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_0);
   return x0;
 }
 
-LIBC_INLINE long syscall_impl(long number, long arg1) {
+__attribute__((always_inline)) inline long syscall_impl(long number,
+                                                        long arg1) {
   REGISTER_DECL_1;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_1);
   return x0;
 }
 
-LIBC_INLINE long syscall_impl(long number, long arg1, long arg2) {
+__attribute__((always_inline)) inline long syscall_impl(long number, long arg1,
+                                                        long arg2) {
   REGISTER_DECL_2;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_2);
   return x0;
 }
 
-LIBC_INLINE long syscall_impl(long number, long arg1, long arg2, long arg3) {
+__attribute__((always_inline)) inline long syscall_impl(long number, long arg1,
+                                                        long arg2, long arg3) {
   REGISTER_DECL_3;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_3);
   return x0;
 }
 
-LIBC_INLINE long syscall_impl(long number, long arg1, long arg2, long arg3,
-                              long arg4) {
+__attribute__((always_inline)) inline long
+syscall_impl(long number, long arg1, long arg2, long arg3, long arg4) {
   REGISTER_DECL_4;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_4);
   return x0;
 }
 
-LIBC_INLINE long syscall_impl(long number, long arg1, long arg2, long arg3,
-                              long arg4, long arg5) {
+__attribute__((always_inline)) inline long syscall_impl(long number, long arg1,
+                                                        long arg2, long arg3,
+                                                        long arg4, long arg5) {
   REGISTER_DECL_5;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_5);
   return x0;
 }
 
-LIBC_INLINE long syscall_impl(long number, long arg1, long arg2, long arg3,
-                              long arg4, long arg5, long arg6) {
+__attribute__((always_inline)) inline long syscall_impl(long number, long arg1,
+                                                        long arg2, long arg3,
+                                                        long arg4, long arg5,
+                                                        long arg6) {
   REGISTER_DECL_6;
   SYSCALL_INSTR(REGISTER_CONSTRAINT_6);
   return x0;
 }
 
-} // namespace LIBC_NAMESPACE
+} // namespace __llvm_libc
 
 #undef REGISTER_DECL_0
 #undef REGISTER_DECL_1
@@ -107,4 +113,4 @@ LIBC_INLINE long syscall_impl(long number, long arg1, long arg2, long arg3,
 #undef REGISTER_CONSTRAINT_5
 #undef REGISTER_CONSTRAINT_6
 
-#endif // LLVM_LIBC_SRC___SUPPORT_OSUTIL_LINUX_AARCH64_SYSCALL_H
+#endif // LLVM_LIBC_SRC_SUPPORT_OSUTIL_LINUX_AARCH64_SYSCALL_H

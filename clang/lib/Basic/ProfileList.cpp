@@ -17,7 +17,6 @@
 #include "llvm/Support/SpecialCaseList.h"
 
 #include "llvm/Support/raw_ostream.h"
-#include <optional>
 
 using namespace clang;
 
@@ -36,8 +35,8 @@ public:
   bool isEmpty() const { return Sections.empty(); }
 
   bool hasPrefix(StringRef Prefix) const {
-    for (const auto &It : Sections)
-      if (It.second.Entries.count(Prefix) > 0)
+    for (auto &SectionIter : Sections)
+      if (SectionIter.Entries.count(Prefix) > 0)
         return true;
     return false;
   }
@@ -101,7 +100,7 @@ ProfileList::getDefault(CodeGenOptions::ProfileInstrKind Kind) const {
   return Allow;
 }
 
-std::optional<ProfileList::ExclusionType>
+llvm::Optional<ProfileList::ExclusionType>
 ProfileList::inSection(StringRef Section, StringRef Prefix,
                        StringRef Query) const {
   if (SCL->inSection(Section, Prefix, Query, "allow"))
@@ -112,10 +111,10 @@ ProfileList::inSection(StringRef Section, StringRef Prefix,
     return Forbid;
   if (SCL->inSection(Section, Prefix, Query))
     return Allow;
-  return std::nullopt;
+  return None;
 }
 
-std::optional<ProfileList::ExclusionType>
+llvm::Optional<ProfileList::ExclusionType>
 ProfileList::isFunctionExcluded(StringRef FunctionName,
                                 CodeGenOptions::ProfileInstrKind Kind) const {
   StringRef Section = getSectionName(Kind);
@@ -126,16 +125,16 @@ ProfileList::isFunctionExcluded(StringRef FunctionName,
     return Forbid;
   if (SCL->inSection(Section, "fun", FunctionName))
     return Allow;
-  return std::nullopt;
+  return None;
 }
 
-std::optional<ProfileList::ExclusionType>
+llvm::Optional<ProfileList::ExclusionType>
 ProfileList::isLocationExcluded(SourceLocation Loc,
                                 CodeGenOptions::ProfileInstrKind Kind) const {
   return isFileExcluded(SM.getFilename(SM.getFileLoc(Loc)), Kind);
 }
 
-std::optional<ProfileList::ExclusionType>
+llvm::Optional<ProfileList::ExclusionType>
 ProfileList::isFileExcluded(StringRef FileName,
                             CodeGenOptions::ProfileInstrKind Kind) const {
   StringRef Section = getSectionName(Kind);
@@ -146,5 +145,5 @@ ProfileList::isFileExcluded(StringRef FileName,
     return Forbid;
   if (SCL->inSection(Section, "src", FileName))
     return Allow;
-  return std::nullopt;
+  return None;
 }

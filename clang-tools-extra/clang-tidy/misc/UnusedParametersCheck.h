@@ -11,7 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::misc {
+namespace clang {
+namespace tidy {
+namespace misc {
 
 /// Finds unused parameters and fixes them, so that `-Wunused-parameter` can be
 /// turned on.
@@ -25,7 +27,6 @@ public:
 
 private:
   const bool StrictMode;
-  const bool IgnoreVirtual;
   class IndexerVisitor;
   std::unique_ptr<IndexerVisitor> Indexer;
 
@@ -34,6 +35,8 @@ private:
                         const FunctionDecl *Function, unsigned ParamIndex);
 };
 
-} // namespace clang::tidy::misc
+} // namespace misc
+} // namespace tidy
+} // namespace clang
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MISC_UNUSED_PARAMETERS_H

@@ -436,8 +436,8 @@ HexagonCopyToCombine::findPotentialNewifiableTFRs(MachineBasicBlock &BB) {
           continue;
         Register Reg = Op.getReg();
         if (Hexagon::DoubleRegsRegClass.contains(Reg)) {
-          for (MCPhysReg SubReg : TRI->subregs(Reg))
-            LastDef[SubReg] = &MI;
+          for (MCSubRegIterator SubRegs(Reg, TRI); SubRegs.isValid(); ++SubRegs)
+            LastDef[*SubRegs] = &MI;
         } else if (Hexagon::IntRegsRegClass.contains(Reg))
           LastDef[Reg] = &MI;
       } else if (Op.isRegMask()) {
@@ -467,7 +467,7 @@ bool HexagonCopyToCombine::runOnMachineFunction(MachineFunction &MF) {
 
   // Combine aggressively (for code size)
   ShouldCombineAggressively =
-      MF.getTarget().getOptLevel() <= CodeGenOptLevel::Default;
+    MF.getTarget().getOptLevel() <= CodeGenOpt::Default;
 
   // Disable CONST64 for tiny core since it takes a LD resource.
   if (!OptForSize && ST->isTinyCore())

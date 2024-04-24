@@ -58,8 +58,7 @@ bool CodeGenCoverage::parse(MemoryBuffer &Buffer, StringRef BackendName) {
       if (std::distance(CurPtr, Buffer.getBufferEnd()) < 8)
         return false; // Data is invalid. Not enough bytes for another rule id.
 
-      uint64_t RuleID =
-          support::endian::read64(CurPtr, llvm::endianness::native);
+      uint64_t RuleID = support::endian::read64(CurPtr, support::native);
       CurPtr += 8;
 
       // ~0ull terminates the rule id list.

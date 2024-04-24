@@ -11,14 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
-#include "llvm/ADT/StringRef.h"
 
 using namespace clang;
 using namespace ento;
@@ -56,8 +55,8 @@ class PointerArithChecker
                                 bool PointedNeeded = false) const;
   void initAllocIdentifiers(ASTContext &C) const;
 
-  const BugType BT_pointerArith{this, "Dangerous pointer arithmetic"};
-  const BugType BT_polyArray{this, "Dangerous pointer arithmetic"};
+  mutable std::unique_ptr<BuiltinBug> BT_pointerArith;
+  mutable std::unique_ptr<BuiltinBug> BT_polyArray;
   mutable llvm::SmallSet<IdentifierInfo *, 8> AllocFunctions;
 
 public:
@@ -80,9 +79,10 @@ void PointerArithChecker::checkDeadSymbols(SymbolReaper &SR,
   // see http://reviews.llvm.org/D14203 for further information.
   /*ProgramStateRef State = C.getState();
   RegionStateTy RegionStates = State->get<RegionState>();
-  for (const MemRegion *Reg: llvm::make_first_range(RegionStates)) {
-    if (!SR.isLiveRegion(Reg))
-      State = State->remove<RegionState>(Reg);
+  for (RegionStateTy::iterator I = RegionStates.begin(), E = RegionStates.end();
+       I != E; ++I) {
+    if (!SR.isLiveRegion(I->first))
+      State = State->remove<RegionState>(I->first);
   }
   C.addTransition(State);*/
 }
@@ -168,10 +168,13 @@ void PointerArithChecker::reportPointerArithMisuse(const Expr *E,
     if (!IsPolymorphic)
       return;
     if (ExplodedNode *N = C.generateNonFatalErrorNode()) {
-      constexpr llvm::StringLiteral Msg =
-          "Pointer arithmetic on a pointer to base class is dangerous "
-          "because derived and base class may have different size.";
-      auto R = std::make_unique<PathSensitiveBugReport>(BT_polyArray, Msg, N);
+      if (!BT_polyArray)
+        BT_polyArray.reset(new BuiltinBug(
+            this, "Dangerous pointer arithmetic",
+            "Pointer arithmetic on a pointer to base class is dangerous "
+            "because derived and base class may have different size."));
+      auto R = std::make_unique<PathSensitiveBugReport>(
+          *BT_polyArray, BT_polyArray->getDescription(), N);
       R->addRange(E->getSourceRange());
       R->markInteresting(ArrayRegion);
       C.emitReport(std::move(R));
@@ -188,10 +191,13 @@ void PointerArithChecker::reportPointerArithMisuse(const Expr *E,
     return;
 
   if (ExplodedNode *N = C.generateNonFatalErrorNode()) {
-    constexpr llvm::StringLiteral Msg =
-        "Pointer arithmetic on non-array variables relies on memory layout, "
-        "which is dangerous.";
-    auto R = std::make_unique<PathSensitiveBugReport>(BT_pointerArith, Msg, N);
+    if (!BT_pointerArith)
+      BT_pointerArith.reset(new BuiltinBug(this, "Dangerous pointer arithmetic",
+                                           "Pointer arithmetic on non-array "
+                                           "variables relies on memory layout, "
+                                           "which is dangerous."));
+    auto R = std::make_unique<PathSensitiveBugReport>(
+        *BT_pointerArith, BT_pointerArith->getDescription(), N);
     R->addRange(SR);
     R->markInteresting(Region);
     C.emitReport(std::move(R));

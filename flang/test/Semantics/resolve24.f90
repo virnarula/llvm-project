@@ -14,11 +14,11 @@ end subroutine
 subroutine test2
   !ERROR: Generic interface 'foo' has both a function and a subroutine
   interface foo
-    function t2f1(x)
+    function f1(x)
     end function
     subroutine s()
     end subroutine
-    function t2f2(x, y)
+    function f2(x, y)
     end function
   end interface
 end subroutine
@@ -48,13 +48,13 @@ end subroutine
 
 subroutine test5
   interface foo
-    function t5f1()
+    function f1()
     end function
   end interface
   interface bar
-    subroutine t5s1()
+    subroutine s1()
     end subroutine
-    subroutine t5s2(x)
+    subroutine s2(x)
     end subroutine
   end interface
   !ERROR: Cannot call function 'foo' like a subroutine

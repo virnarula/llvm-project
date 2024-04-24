@@ -12,7 +12,6 @@ tablegen(LLVM DXILOperation.inc -gen-dxil-operation)
 add_public_tablegen_target(DirectXCommonTableGen)
 
 add_llvm_target(DirectXCodeGen
-  CBufferDataLayout.cpp
   DirectXAsmPrinter.cpp
   DirectXInstrInfo.cpp
   DirectXRegisterInfo.cpp
@@ -28,30 +27,21 @@ add_llvm_target(DirectXCodeGen
   DXILResourceAnalysis.cpp
   DXILShaderFlags.cpp
   DXILTranslateMetadata.cpp
+  PointerTypeAnalysis.cpp
 
   LINK_COMPONENTS
-  Analysis
   AsmPrinter
-  CodeGen
-  CodeGenTypes
   Core
-  DXILBitWriter
-  DirectXDesc
-  DirectXInfo
-  DirectXPointerTypeAnalysis
-  FrontendHLSL
-  MC
   SelectionDAG
   Support
-  Target
-  TargetParser
-  TransformUtils
+  DirectXInfo
+  DXILBitWriter
+  FrontendHLSL
 
   ADD_TO_COMPONENT
   DirectX
-  )
+)
 
 add_subdirectory(MCTargetDesc)
 add_subdirectory(TargetInfo)
-add_subdirectory(DirectXIRPasses)
 add_subdirectory(DXILWriter)

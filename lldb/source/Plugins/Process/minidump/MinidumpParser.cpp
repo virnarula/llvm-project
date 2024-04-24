@@ -19,7 +19,6 @@
 // C++ includes
 #include <algorithm>
 #include <map>
-#include <optional>
 #include <vector>
 #include <utility>
 
@@ -221,27 +220,27 @@ const MinidumpMiscInfo *MinidumpParser::GetMiscInfo() {
   return MinidumpMiscInfo::Parse(data);
 }
 
-std::optional<LinuxProcStatus> MinidumpParser::GetLinuxProcStatus() {
+llvm::Optional<LinuxProcStatus> MinidumpParser::GetLinuxProcStatus() {
   llvm::ArrayRef<uint8_t> data = GetStream(StreamType::LinuxProcStatus);
 
   if (data.size() == 0)
-    return std::nullopt;
+    return llvm::None;
 
   return LinuxProcStatus::Parse(data);
 }
 
-std::optional<lldb::pid_t> MinidumpParser::GetPid() {
+llvm::Optional<lldb::pid_t> MinidumpParser::GetPid() {
   const MinidumpMiscInfo *misc_info = GetMiscInfo();
   if (misc_info != nullptr) {
     return misc_info->GetPid();
   }
 
-  std::optional<LinuxProcStatus> proc_status = GetLinuxProcStatus();
+  llvm::Optional<LinuxProcStatus> proc_status = GetLinuxProcStatus();
   if (proc_status) {
     return proc_status->GetPid();
   }
 
-  return std::nullopt;
+  return llvm::None;
 }
 
 llvm::ArrayRef<minidump::Module> MinidumpParser::GetModuleList() {
@@ -427,7 +426,7 @@ const minidump::ExceptionStream *MinidumpParser::GetExceptionStream() {
   return nullptr;
 }
 
-std::optional<minidump::Range>
+llvm::Optional<minidump::Range>
 MinidumpParser::FindMemoryRange(lldb::addr_t addr) {
   llvm::ArrayRef<uint8_t> data64 = GetStream(StreamType::Memory64List);
   Log *log = GetLog(LLDBLog::Modules);
@@ -443,14 +442,14 @@ MinidumpParser::FindMemoryRange(lldb::addr_t addr) {
       const size_t range_size = loc_desc.DataSize;
 
       if (loc_desc.RVA + loc_desc.DataSize > GetData().size())
-        return std::nullopt;
+        return llvm::None;
 
       if (range_start <= addr && addr < range_start + range_size) {
         auto ExpectedSlice = GetMinidumpFile().getRawData(loc_desc);
         if (!ExpectedSlice) {
           LLDB_LOG_ERROR(log, ExpectedSlice.takeError(),
                          "Failed to get memory slice: {0}");
-          return std::nullopt;
+          return llvm::None;
         }
         return minidump::Range(range_start, *ExpectedSlice);
       }
@@ -469,14 +468,14 @@ MinidumpParser::FindMemoryRange(lldb::addr_t addr) {
         MinidumpMemoryDescriptor64::ParseMemory64List(data64);
 
     if (memory64_list.empty())
-      return std::nullopt;
+      return llvm::None;
 
     for (const auto &memory_desc64 : memory64_list) {
       const lldb::addr_t range_start = memory_desc64.start_of_memory_range;
       const size_t range_size = memory_desc64.data_size;
 
       if (base_rva + range_size > GetData().size())
-        return std::nullopt;
+        return llvm::None;
 
       if (range_start <= addr && addr < range_start + range_size) {
         return minidump::Range(range_start,
@@ -486,7 +485,7 @@ MinidumpParser::FindMemoryRange(lldb::addr_t addr) {
     }
   }
 
-  return std::nullopt;
+  return llvm::None;
 }
 
 llvm::ArrayRef<uint8_t> MinidumpParser::GetMemory(lldb::addr_t addr,
@@ -495,7 +494,7 @@ llvm::ArrayRef<uint8_t> MinidumpParser::GetMemory(lldb::addr_t addr,
   // ranges a Minidump typically has, so I'm not sure if searching for the
   // appropriate range linearly each time is stupid.  Perhaps we should build
   // an index for faster lookups.
-  std::optional<minidump::Range> range = FindMemoryRange(addr);
+  llvm::Optional<minidump::Range> range = FindMemoryRange(addr);
   if (!range)
     return {};
 

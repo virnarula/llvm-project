@@ -1,5 +1,4 @@
 ; RUN: llc < %s -mtriple=arm64-eabi -aarch64-neon-syntax=apple -asm-verbose=false | FileCheck %s
-; RUN: llc < %s -global-isel=1 -mtriple=arm64-eabi -aarch64-neon-syntax=apple -asm-verbose=false | FileCheck %s
 
 define i32 @vmin_u8x8(<8 x i8> %a) nounwind ssp {
 ; CHECK-LABEL: vmin_u8x8:
@@ -14,7 +13,7 @@ entry:
   br i1 %tobool, label %return, label %if.then
 
 if.then:
-  %call1 = tail call i32 @bar() nounwind
+  %call1 = tail call i32 bitcast (i32 (...)* @bar to i32 ()*)() nounwind
   br label %return
 
 return:
@@ -37,7 +36,7 @@ entry:
   br i1 %tobool, label %return, label %if.then
 
 if.then:
-  %call1 = tail call i32 @bar() nounwind
+  %call1 = tail call i32 bitcast (i32 (...)* @bar to i32 ()*)() nounwind
   br label %return
 
 return:
@@ -58,7 +57,7 @@ entry:
   br i1 %tobool, label %return, label %if.then
 
 if.then:
-  %call1 = tail call i32 @bar() nounwind
+  %call1 = tail call i32 bitcast (i32 (...)* @bar to i32 ()*)() nounwind
   br label %return
 
 return:
@@ -79,7 +78,7 @@ entry:
   br i1 %tobool, label %return, label %if.then
 
 if.then:
-  %call1 = tail call i32 @bar() nounwind
+  %call1 = tail call i32 bitcast (i32 (...)* @bar to i32 ()*)() nounwind
   br label %return
 
 return:

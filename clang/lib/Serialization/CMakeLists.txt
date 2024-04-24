@@ -2,7 +2,6 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   BitstreamReader
   Support
-  TargetParser
   )
 
 
@@ -34,5 +33,4 @@ add_clang_library(clangSerialization
 
   DEPENDS
   omp_gen
-  ClangDriverOptions
   )

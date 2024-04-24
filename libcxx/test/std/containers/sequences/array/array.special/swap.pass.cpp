@@ -12,7 +12,6 @@
 
 #include <array>
 #include <cassert>
-#include <utility>
 
 #include "test_macros.h"
 

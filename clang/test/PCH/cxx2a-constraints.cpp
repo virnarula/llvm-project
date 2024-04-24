@@ -26,8 +26,6 @@ template <SizedLike T> void i(T) {}
 
 void j(SizedLike<int> auto ...ints) {}
 
-template<template<SizedLike> class P> struct S1 { };
-
 #else /*included pch*/
 
 int main() {
