@@ -299,11 +299,11 @@ bool NVPTXMemOpts::runOnFunction(Function &F) {
           toDelete.push_back(LI);
         }
         // Check if prefetching is applicable
-        if (canPrefetch(LI, LIInfo, SE, DL)) {  
-          IRBuilder<> Builder(LI);
-          Value *prefetchAddr = calculateAddress(LI->getPointerOperand(), Builder, DL);
-          prefetchDataToCache(Builder, prefetchAddr);
-        }
+        //if (canPrefetch(LI, LIInfo, SE, DL)) {  
+        //  IRBuilder<> Builder(LI);
+        //  Value *prefetchAddr = calculateAddress(LI->getPointerOperand(), Builder, DL);
+        //  prefetchDataToCache(Builder, prefetchAddr);
+        //}
       }
     }
     for (auto LI : toDelete) {
