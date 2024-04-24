@@ -77,15 +77,8 @@ char NVPTXMemOpts::ID = 0;
 std::string NVPTXMemOpts::SYNC_THREADS_INTRINSIC_NAME = "llvm.nvvm.barrier0";
 std::string NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME = "llvm.nvvm.read.ptx.sreg";
 
-// A common pattern to calculate the abosolute index of a thread is:
-// idx = tid + ctaid * ntid
-// This function will check if an index is calculated in this way
-bool isAbsoluteThreadIndex(Value *idx) {
-  auto sext = dyn_cast<SExtInst>(idx);
-  if (!sext) { return false; }
-  
-  auto val = sext->getOperand(0);
-  auto add = dyn_cast<BinaryOperator>(val);
+bool isAbosoluteThreadIndexHelper(Instruction *I) {
+  auto add = dyn_cast<BinaryOperator>(I);
 
   if (!add || add->getOpcode() != Instruction::Add) { return false; }
 
@@ -98,7 +91,55 @@ bool isAbsoluteThreadIndex(Value *idx) {
 
   if (!tid || !ntid || !ctaid) { return false; }
 
+  if (!tid->getCalledFunction()->getName().startswith(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) ||
+      !ntid->getCalledFunction()->getName().startswith(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) ||
+      !ctaid->getCalledFunction()->getName().startswith(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME)) { 
+        return false; 
+  } 
+
   return true;
+}
+
+// A common pattern to calculate the abosolute index of a thread is:
+// idx = tid + ctaid * ntid
+// This function will check if an index is calculated in this way
+bool isAbsoluteThreadIndex(Value *idx) {
+  auto sext = dyn_cast<SExtInst>(idx);
+  if (!sext) { return false; }
+  
+  auto val = sext->getOperand(0);
+  auto add = dyn_cast<Instruction>(val);
+
+  return isAbosoluteThreadIndexHelper(add);
+}
+
+bool isConstantAcrossHalfThread(Instruction *idx) {
+  return false;
+}
+
+/*
+If we can represent the index as: 
+  <same for threads in a half warp> + threadIdx.x
+
+Then we know that the index is contiguous across half threads
+*/
+bool IsContiguousAcrossHalfThread(Value *idx) {
+  auto sext = dyn_cast<SExtInst>(idx);
+  if (!sext) { return false; }
+  
+  auto val = sext->getOperand(0);
+  auto add = dyn_cast<BinaryOperator>(val);
+
+  if (!add || add->getOpcode() != Instruction::Add) { return false; }
+
+  // check that one operand is threadIdx.x with isAbosluteThreadIndex
+  if (isAbosoluteThreadIndexHelper(cast<Instruction>(add->getOperand(0)))) {
+    return true;
+  } else if (isAbosoluteThreadIndexHelper(cast<Instruction>(add->getOperand(1)))) {
+    return true;
+  }
+
+  return false;
 }
 
 /*
@@ -115,8 +156,11 @@ void getIndexValues(GetElementPtrInst *GEP, std::vector<NVPTXMemOpts::IndexType>
   if (isa<ConstantInt>(index_value)) {
     indexValues.push_back(NVPTXMemOpts::IndexType::CONSTANT);
     return;
-  } else if (isAbsoluteThreadIndex(cast<Value>(index_value))) {
-      indexValues.push_back(NVPTXMemOpts::IndexType::ABSOLUTE_THREAD_ID);
+  // } else if (isAbsoluteThreadIndex(cast<Value>(index_value))) {
+  //   indexValues.push_back(NVPTXMemOpts::IndexType::ABSOLUTE_THREAD_ID);
+  //   return;
+  } else if (IsContiguousAcrossHalfThread(cast<Value>(index_value))) {
+    indexValues.push_back(NVPTXMemOpts::IndexType::ABSOLUTE_THREAD_ID);
     return;
   }
 
@@ -279,6 +323,7 @@ void NVPTXMemOpts::prefetchDataToCache(IRBuilder<> &Builder, Value *address) {
 }
 
 bool NVPTXMemOpts::runOnFunction(Function &F) {
+  return false;
   M = F.getParent();
   //Analysis for prefetching: 
   LoopInfo &LIInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
