@@ -266,14 +266,15 @@ bool NVPTXMemOpts::canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &
 
 Value* NVPTXMemOpts::calculateAddress(Value *CurrentAddr, IRBuilder<> &Builder, const DataLayout &DL) {
   // Calculate offset based on warp size
+  // Need to write a way to calculate the prefetching address based on thread id and block id
   auto *Offset = ConstantInt::get(Type::getInt64Ty(Builder.getContext()), 32 * DL.getTypeAllocSize(CurrentAddr->getType()));
   return Builder.CreateAdd(CurrentAddr, Offset, "prefetchAddr");
 }
 
 void NVPTXMemOpts::prefetchDataToCache(IRBuilder<> &Builder, Value *address) {
   Module *M = Builder.GetInsertBlock()->getModule();
-  // this is an inbuilt function for nvptx, not sure whether this can be used
-  FunctionCallee PrefetchFunc = M->getOrInsertFunction("llvm.nvvm.prefetch.global", FunctionType::getVoidTy(M->getContext()), address->getType(), Type::getInt32Ty(M->getContext()));
+  // implementation logic here
+  // FunctionCallee PrefetchFunc
   Builder.CreateCall(PrefetchFunc, {address, Builder.getInt32(0)});
 }
 
