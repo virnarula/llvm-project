@@ -13,7 +13,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 int main(void) {
-    int numElements = 50000;
+    int numElements = 500000000;
     size_t size = numElements * sizeof(float);
     float scalar = 3.0f;
     float *h_input = (float *)malloc(size);
@@ -32,7 +32,7 @@ int main(void) {
     cuInit(0);
     cuDeviceGet(&cuDevice, 0);
     cuCtxCreate(&cuContext, 0, cuDevice);
-    cuModuleLoad(&cuModule, "test_02_scalar.fatbin");
+    cuModuleLoad(&cuModule, "test.fatbin");
     cuModuleGetFunction(&vectorScalarMultiply, cuModule, "_Z30vectorScalarMultiply_coalescedPKfPffi");
 
     // Allocate vectors in device memory

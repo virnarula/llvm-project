@@ -13,7 +13,9 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 int main(void) {
-    int numElements = 50000;
+    int numCols = 4096;
+    int numRows = 4096;
+    int numElements = numCols * numRows;
     size_t size = numElements * sizeof(float);
     float *h_A = (float *)malloc(size);
     float *h_B = (float *)malloc(size);
@@ -34,7 +36,7 @@ int main(void) {
     cuDeviceGet(&cuDevice, 0);
     cuCtxCreate(&cuContext, 0, cuDevice);
     cuModuleLoad(&cuModule, "test.fatbin");
-    cuModuleGetFunction(&vectorAdd, cuModule, "_Z9vectorAddPKfS0_Pfi");
+    cuModuleGetFunction(&vectorAdd, cuModule, "_Z9matrixAddPKfS0_Pfii");
 
     // Allocate vectors in device memory
     CUdeviceptr d_A, d_B, d_C;
@@ -47,18 +49,30 @@ int main(void) {
     cuMemcpyHtoD(d_B, (void *)h_B, size);
 
     // Invoke kernel
-    int threadsPerBlock = 256;
-    int blocksPerGrid = (numElements + threadsPerBlock - 1) / threadsPerBlock;
-    void *args[] = { &d_A, &d_B, &d_C, &numElements };
-    cuLaunchKernel(vectorAdd, blocksPerGrid, 1, 1, threadsPerBlock, 1, 1, 0, 0, args, 0);
+    dim3 threadsPerBlock(16, 16);
+    dim3 numBlocks(numCols / threadsPerBlock.x, numRows / threadsPerBlock.y);
+    void *args[] = { &d_A, &d_B, &d_C, &numRows, &numCols};
+    CUresult res = cuLaunchKernel(vectorAdd, 
+        numBlocks.x, numBlocks.y, 1, 
+        threadsPerBlock.x, threadsPerBlock.y, 1, 
+        0, 0, args, 0);
+    
+    if (res != CUDA_SUCCESS) {
+        fprintf(stderr, "cuLaunchKernel failed: %d\n", res);
+        exit(EXIT_FAILURE);
+    }
 
     // Copy result from device memory to host memory
     cuMemcpyDtoH((void *)h_C, d_C, size);
 
     // Verify result
     for (int i = 0; i < numElements; ++i) {
-        if (fabs(h_A[i] + h_B[i] - h_C[i]) > 1e-5) {
+        if (h_A[i] + h_B[i] - h_C[i] != 0) {
             fprintf(stderr, "Result verification failed at element %d!\n", i);
+            fprintf(stderr, "h_A[%d] = %f\n", i, h_A[i]);
+            fprintf(stderr, "h_B[%d] = %f\n", i, h_B[i]);
+            fprintf(stderr, "h_C[%d] = %f\n", i, h_C[i]);
+            fprintf(stderr, h_C[i] - h_A[i] - h_B[i] < 0 ? "Negative error\n" : "Positive error\n");
             exit(EXIT_FAILURE);
         }
     }

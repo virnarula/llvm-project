@@ -1,18 +1,18 @@
 #include <cuda_runtime.h>
 
 // CUDA kernel for element-wise addition of two matrices
-__global__ void matrixAdd(const int *A, const int *B, int *C, int numRows, int numCols) {
+__global__ void matrixAdd(const float *A, const float *B, float *C, int numRows, int numCols) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (row < numRows && col < numCols) {
         int idx = row * numCols + col;
         C[idx] = A[idx] + B[idx];
     }
-}
+}   
 
 
 // CUDA kernel for element-wise addition of two matrices with memory coalescing
-__global__ void matrixAdd_coalesced(const int *A, const int *B, int *C, int numRows, int numCols) {
+__global__ void matrixAdd_coalesced(const float *A, const float *B, float *C, int numRows, int numCols) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int A_shared[16][16];
