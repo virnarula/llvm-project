@@ -14,9 +14,9 @@
 #define LLVM_LIB_TARGET_NVPTX_NVPTXMEMOPTS_H
 
 namespace llvm {
-class FunctionPass;
+class ModulePass;
 
-FunctionPass *createMemOpts();
-extern FunctionPass *createNVPTXMemOptsPass();
+ModulePass *createMemOpts();
+extern ModulePass *createNVPTXMemOptsPass();
 }
 #endif

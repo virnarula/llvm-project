@@ -26,16 +26,17 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Analysis/IVDescriptors.h"
 
 #define DEBUG_TYPE "nvptx-mem-opts"
 
 using namespace llvm;
 
 namespace {
-  struct NVPTXMemOpts : public FunctionPass {
+  struct NVPTXMemOpts : public ModulePass {
     static char ID;
 
-    NVPTXMemOpts() : FunctionPass(ID) {}
+    NVPTXMemOpts() : ModulePass(ID) {}
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
@@ -44,7 +45,8 @@ namespace {
       AU.addRequired<ScalarEvolutionWrapperPass>();
     }
 
-    bool runOnFunction(Function &F) override;
+    bool runOnModule(Module &M) override;
+    bool runOnFunction(Function &F);
 
     StringRef getPassName() const override {
       return "Memory coalescing and prefetching";
@@ -52,153 +54,229 @@ namespace {
 
     static std::string SYNC_THREADS_INTRINSIC_NAME;
     static std::string NVVM_READ_SREG_INTRINSIC_NAME;
+    static std::string THREAD_BLOCK_SIZE_MARKER_1D;
+    static std::string THREAD_BLOCK_SIZE_MARKER_2D;
+    static std::string THREAD_BLOCK_SIZE_MARKER_3D;
 
-    enum IndexType {
-      CONSTANT,
-      ABSOLUTE_THREAD_ID,
-      LOOP_INDUCTION
-    };
   private:
 
-    // Helper functions
-    void CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexValues);
-    bool isCallCoalescable(LoadInst *LI, std::vector<IndexType> &indexValues);
-    bool canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE, const DataLayout &DL);
-    Value* calculateAddress(Value *CurrentAddr, IRBuilder<> &Builder, const DataLayout &DL);
-    void prefetchDataToCache(IRBuilder<> &Builder, Value *address);
-    
-    std::vector<IndexType> isLoadingFromArray(LoadInst *LI);
+    bool CoalesceBasicBlocks(Function &F);
+    bool CoalesceLoops(LoopInfo &LIInfo, ScalarEvolution &SE, const DataLayout &DL);
+    Instruction *CoalescePattern1(LoadInst *LI, std::vector<std::pair<LoadInst*, GetElementPtrInst*>> &LoadsToReplace);
+    void CoalescePattern2(LoadInst *LI, PHINode *IndVar, Loop *L, ScalarEvolution &SE);
+    void CoalescePattern3(LoadInst *LI, PHINode *IndVar, Loop *L, ScalarEvolution &SE);
 
-    Module *M;
+    // Helper functions
+    void GetThreadBlockSize(Function &F);
+    ArrayType *getSharedArrayType(GetElementPtrInst *GEP);
+    bool isCallCoalescable(LoadInst *LI);
+    
+    std::vector<int> threadBlockSize;
     };
   };
 
 char NVPTXMemOpts::ID = 0;
 std::string NVPTXMemOpts::SYNC_THREADS_INTRINSIC_NAME = "llvm.nvvm.barrier0";
 std::string NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME = "llvm.nvvm.read.ptx.sreg";
+std::string NVPTXMemOpts::THREAD_BLOCK_SIZE_MARKER_1D = "__tb_size_marker_1D";
+std::string NVPTXMemOpts::THREAD_BLOCK_SIZE_MARKER_2D = "__tb_size_marker_2D";
+std::string NVPTXMemOpts::THREAD_BLOCK_SIZE_MARKER_3D = "__tb_size_marker_3D";
 
-bool isAbosoluteThreadIndexHelper(Instruction *I) {
+// Convert a llvm::Value to an int. must be a ConstantInt
+int Value2Int(Value *V) {
+  auto CI = dyn_cast<ConstantInt>(V);
+  assert(CI && "Value is not a ConstantInt");
+  return CI->getZExtValue();
+}
+
+// ================================================================
+// ================== Pattern matching functions ==================
+// ================================================================
+
+// A common pattern to calculate the abosolute index of a thread is:
+// idx = tid + ctaid * ntid
+// This function will check if a value is calculated in this way
+// isX is true if the value is threadIdx.x. Otherwise, it is threadIdx.y or threadIdx.z
+bool isAbsoluteThreadIdxHelper(Instruction *I, bool isX = true) {
   auto add = dyn_cast<BinaryOperator>(I);
-
   if (!add || add->getOpcode() != Instruction::Add) { return false; }
 
   auto mul = dyn_cast<BinaryOperator>(add->getOperand(0));
   if (!mul || mul->getOpcode() != Instruction::Mul) { return false; }
 
-  auto tid = dyn_cast<CallInst>(mul->getOperand(0));
-  auto ntid = dyn_cast<CallInst>(mul->getOperand(1));
-  auto ctaid = dyn_cast<CallInst>(add->getOperand(1));
+  // The operands can be in any order. This will assign them correctly.
+  CallInst *ctaid = nullptr;
+  CallInst *ntid = nullptr;
+  CallInst *LHS = dyn_cast<CallInst>(mul->getOperand(0));
+  CallInst *RHS = dyn_cast<CallInst>(mul->getOperand(1));
+  if (!LHS || !RHS) { return false; }
+  if (LHS->getCalledFunction()->getName().starts_with(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME + ".ntid.")) {
+    ntid = dyn_cast<CallInst>(mul->getOperand(0));
+    ctaid = dyn_cast<CallInst>(mul->getOperand(1));
+  } else if (RHS->getCalledFunction()->getName().starts_with(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME + ".ntid.")) {
+    ntid = dyn_cast<CallInst>(mul->getOperand(1));
+    ctaid = dyn_cast<CallInst>(mul->getOperand(0));
+  } else {
+    return false;
+  }
+
+  auto tid = dyn_cast<CallInst>(add->getOperand(1));
 
   if (!tid || !ntid || !ctaid) { return false; }
 
-  if (!tid->getCalledFunction()->getName().startswith(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) ||
-      !ntid->getCalledFunction()->getName().startswith(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) ||
-      !ctaid->getCalledFunction()->getName().startswith(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME)) { 
+  // Check that the operands are the correct intrinsics
+  if (!tid->getCalledFunction()->getName().starts_with(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) ||
+      !ntid->getCalledFunction()->getName().starts_with(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) ||
+      !ctaid->getCalledFunction()->getName().starts_with(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME)) { 
         return false; 
-  } 
+  }
+
+  if (isX && !(tid->getCalledFunction()->getName().ends_with(".tid.x") &&
+               ntid->getCalledFunction()->getName().ends_with(".ntid.x") &&
+               ctaid->getCalledFunction()->getName().ends_with(".ctaid.x"))) {
+    return false;
+  } else if (!isX && !(tid->getCalledFunction()->getName().ends_with(".tid.y") &&
+               ntid->getCalledFunction()->getName().ends_with(".ntid.y") &&
+               ctaid->getCalledFunction()->getName().ends_with(".ctaid.y") ||
+               tid->getCalledFunction()->getName().ends_with(".tid.z") &&
+               ntid->getCalledFunction()->getName().ends_with(".ntid.z") &&
+               ctaid->getCalledFunction()->getName().ends_with(".ctaid.z"))){
+    return false;
+  }
 
   return true;
 }
 
-// A common pattern to calculate the abosolute index of a thread is:
-// idx = tid + ctaid * ntid
-// This function will check if an index is calculated in this way
-bool isAbsoluteThreadIndex(Value *idx) {
-  auto sext = dyn_cast<SExtInst>(idx);
-  if (!sext) { return false; }
+// Returns true if a value is a constant for all threads in a half warp
+// If this is true, all inputs used to calculate the value must be either:
+//   - Constant
+//   - Kernel Argument
+//   - Predefined constants not dependent on threadIdx.x
+//   - A UnaryOp or BinaryOp with inputs as above
+// Recursion is expensive but necessary for flexibility
+bool isConstantForHalfWarp(Value *V) {
+  if (auto *CI = dyn_cast<ConstantInt>(V)) {
+    return true;
+  } else if (auto *Arg = dyn_cast<Argument>(V)) {
+    return true;  // if it is a function argument, it must be constant for half warp
+  }
   
-  auto val = sext->getOperand(0);
-  auto add = dyn_cast<Instruction>(val);
-
-  return isAbosoluteThreadIndexHelper(add);
-}
-
-bool isConstantAcrossHalfThread(Instruction *idx) {
+  // V must be an instruction then
+  Instruction *I = dyn_cast<Instruction>(V);
+  if (!I) { 
+    return false;
+  } else if (isAbsoluteThreadIdxHelper(I, false)) {
+    return true;
+  } else if (auto *UI = dyn_cast<UnaryOperator>(V)){
+    return isConstantForHalfWarp(UI->getOperand(0));
+  } else if (auto *BI = dyn_cast<BinaryOperator>(V)) {
+    return isConstantForHalfWarp(BI->getOperand(0)) && isConstantForHalfWarp(BI->getOperand(1));
+  }
+  
   return false;
 }
 
 /*
-If we can represent the index as: 
-  <same for threads in a half warp> + threadIdx.x
-
-Then we know that the index is contiguous across half threads
+  Returns true if the load instruction is of the form:
+  <Constant for half-warp> + idx
 */
-bool IsContiguousAcrossHalfThread(Value *idx) {
-  auto sext = dyn_cast<SExtInst>(idx);
-  if (!sext) { return false; }
-  
-  auto val = sext->getOperand(0);
-  auto add = dyn_cast<BinaryOperator>(val);
+bool PatternMatch1(LoadInst *LI) {
+  auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  if (!GEP) { return false; }
+  auto *SextIndex = dyn_cast<SExtInst>(GEP->getOperand(1));
+  if (!SextIndex) { return false; }
+  auto *Index = dyn_cast<BinaryOperator>(SextIndex->getOperand(0));
+  if (!Index) { return false; }
+  if (isAbsoluteThreadIdxHelper(Index)) { return true; }
 
-  if (!add || add->getOpcode() != Instruction::Add) { return false; }
+  if (Index->getOpcode() != Instruction::Add) { return false; }
 
-  // check that one operand is threadIdx.x with isAbosluteThreadIndex
-  if (isAbosoluteThreadIndexHelper(cast<Instruction>(add->getOperand(0)))) {
-    return true;
-  } else if (isAbosoluteThreadIndexHelper(cast<Instruction>(add->getOperand(1)))) {
-    return true;
+  auto *Index1 = dyn_cast<Instruction>(Index->getOperand(0));
+  auto *Index2 = dyn_cast<Instruction>(Index->getOperand(1));
+  if (!Index1 || !Index2) { return false; }
+  if (isConstantForHalfWarp(Index1)) {
+    return isAbsoluteThreadIdxHelper(Index2);
+  } else if (isConstantForHalfWarp(Index2)) {
+    return isAbsoluteThreadIdxHelper(Index1);
   }
-
   return false;
 }
 
 /*
-This function is quite complicated because we are trying to convert
-a single GEP instruction into a vector representing the index element.
-This will require traversing backwards to find the initial values being used as indexes
-
-TODO: some arrays are two dimensional but represented as a single index. 
-We need to handle this case next.
+  Returns true if the load instruction is of the form:
+  <Constant for half-warp> + <loop induction variable>
 */
-void getIndexValues(GetElementPtrInst *GEP, std::vector<NVPTXMemOpts::IndexType> &indexValues) {
-  // get first index value. There should be exactly one
-  auto index_value = GEP->idx_begin();
-  if (isa<ConstantInt>(index_value)) {
-    indexValues.push_back(NVPTXMemOpts::IndexType::CONSTANT);
-    return;
-  // } else if (isAbsoluteThreadIndex(cast<Value>(index_value))) {
-  //   indexValues.push_back(NVPTXMemOpts::IndexType::ABSOLUTE_THREAD_ID);
-  //   return;
-  } else if (IsContiguousAcrossHalfThread(cast<Value>(index_value))) {
-    indexValues.push_back(NVPTXMemOpts::IndexType::ABSOLUTE_THREAD_ID);
-    return;
-  }
-
-
-  return;
-}
-
-// This function will check if the load instruction is loading from an array
-// If it is, it will return the index value types used to access the array
-// If not, it will return an empty vector
-std::vector<NVPTXMemOpts::IndexType> NVPTXMemOpts::isLoadingFromArray(LoadInst *LI) {
-
-  std::vector<NVPTXMemOpts::IndexType> indexValues;
-  assert(LI && "LI is null");
-  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
-  if (!GEP) { return indexValues; }
-  
-  auto ptr = GEP->getPointerOperand();
-  auto ptrGEP = dyn_cast<GetElementPtrInst>(ptr);
-  assert(!ptrGEP && "Nested GEP not supported");
-
-  // get index value. There should be exactly one
-  auto idx = GEP->idx_begin();
-  assert(idx != GEP->idx_end() && "No index found");
-
-  getIndexValues(GEP, indexValues);
-  return indexValues;
+bool PatternMatch2(LoadInst *LI, PHINode *IndVar) {
+  auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  if (!GEP) { return false; }
+  auto *SextIndex = dyn_cast<SExtInst>(GEP->getOperand(1));
+  if (!SextIndex) { return false; }
+  auto *Index = dyn_cast<BinaryOperator>(SextIndex->getOperand(0));
+  if (!Index) { return false; }
+  if (Index->getOpcode() != Instruction::Add) { return false; }
+  auto *Index1 = dyn_cast<Instruction>(Index->getOperand(0));
+  auto *Index2 = dyn_cast<Instruction>(Index->getOperand(1));
+  if (!Index1 || !Index2) { return false; }
+  if (Index1 != IndVar && Index2 != IndVar) { return false; }
+  // one of the operands is the loop induction variable
+  // The other operand should be a constant for the half-warp
+  auto *LHS = Index1 == IndVar ? Index2 : Index1;
+  return isConstantForHalfWarp(LHS);
 }
 
 /*
-Rules regarding coalescing:
-- if the index is a constant for all threads in a warp, it cannot be coalesced
-- if the index is a constant for one thread but contiguous across a warp, it can be coalesced 
-- if the index is a loop induction variable, it can be coalesced
-
-Other memory accesses will be ignored for now
+  Returns true if the load instruction is of the form:
+  <Constant for half-warp> + <K> + idx + <loop induction variable>
 */
-bool NVPTXMemOpts::isCallCoalescable(LoadInst *LI, std::vector<IndexType> &indexValues) {
+bool PatternMatch3(LoadInst *LI, PHINode *IndVar){
+  auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  if (!GEP) { return false; }
+  auto *SextIndex = dyn_cast<SExtInst>(GEP->getOperand(1));
+  if (!SextIndex) { return false; }
+  auto *Index = dyn_cast<BinaryOperator>(SextIndex->getOperand(0));
+  if (!Index) { return false; }
+  if (Index->getOpcode() != Instruction::Add) { return false; }
+  auto *Index1 = dyn_cast<Instruction>(Index->getOperand(0));
+  auto *Index2 = dyn_cast<Instruction>(Index->getOperand(1));
+  if (!Index1 || !Index2) { return false; }
+  if (Index1 != IndVar && Index2 != IndVar) { return false; }
+  
+  // one of the operands is the loop induction variable
+  // The other operand should be a constant for the half-warp
+  auto *ConsantPlusThreadIdx = Index1 == IndVar ? Index2 : Index1;
+
+  // the none loop induction variable should be:
+  // <Constant for half-warp> + <K> + threadIdx.x
+  auto *Add = dyn_cast<BinaryOperator>(ConsantPlusThreadIdx);
+  if (!Add || Add->getOpcode() != Instruction::Add) { return false; }
+  BinaryOperator *KTimesThreadIdx = nullptr;
+  if (isConstantForHalfWarp(Add->getOperand(0))) {
+    KTimesThreadIdx = dyn_cast<BinaryOperator>(Add->getOperand(1));
+  } else if (isConstantForHalfWarp(Add->getOperand(1))) {
+    KTimesThreadIdx = dyn_cast<BinaryOperator>(Add->getOperand(0));
+  }
+
+  // KTimesThreadIdx should be of the form K * threadIdx.x
+  if (!KTimesThreadIdx || KTimesThreadIdx->getOpcode() != Instruction::Mul) { return false; }
+  auto *K = dyn_cast<Instruction>(KTimesThreadIdx->getOperand(0));
+  auto *ThreadIdx = dyn_cast<Instruction>(KTimesThreadIdx->getOperand(1));
+  if (!K || !ThreadIdx) { return false; }
+  if (!isConstantForHalfWarp(K) || !isAbsoluteThreadIdxHelper(ThreadIdx)) { return false; }
+
+  return true;
+}
+
+
+// ================================================================
+// ============= Transformation Helper Functions ==================
+// ================================================================
+
+/*
+Checks if the load satisfies the following conditions for coalescing:
+- The load is from global memory
+- The load is not already coalesced (i.e. stored to shared memory)
+*/
+bool NVPTXMemOpts::isCallCoalescable(LoadInst *LI) {
   auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
   assert(GEP && "GEP is null");
   auto ptr = GEP->getPointerOperand();
@@ -210,147 +288,520 @@ bool NVPTXMemOpts::isCallCoalescable(LoadInst *LI, std::vector<IndexType> &index
     return false;
   }
 
-  // If the load is being stored to shared memory, it cannot be coalesced
-  // It is probably already coalesced
+  // If the load is being stored to shared memory, its probably already coalesced
   auto storeInst = dyn_cast<StoreInst>(LI->user_back());
   if (storeInst && storeInst->getPointerAddressSpace() == 3) {
     return false;
   }
 
-  // TODO:: there will be other considerations
   // otherwise, we assume  the call is coalescable
   return true;
 }
 
-void NVPTXMemOpts::CoalesceMemCalls(LoadInst *LI, std::vector<IndexType> &indexValues) {
-  assert (LI && "LI is null");
-  assert (indexValues.size() > 0 && "indexValues is empty");
-  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
-  assert (GEP && "GEP is null");
+// This will find the threadIdx intrinsic for the given dimension
+// 0 = threadIdx.x, 1 = threadIdx.y, 2 = threadIdx.z
+// If the intrinsic is not found, it will return nullptr
+CallInst *getThreadIdx(Function *F, int dim) {
+  std::string suffix;
+  if (dim == 0) {
+    suffix = ".tid.x";
+  } else if (dim == 1) {
+    suffix = ".tid.y";
+  } else if (dim == 2) {
+    suffix = ".tid.z";
+  } else {
+    assert(false && "Invalid dimension");
+  }
 
-  // First, we need to create a shared memory buffer to store the data
-  // We will use the same type as the original array
-  auto arrayType = GEP->getSourceElementType();
-  // TODO:: for now, we are assuming type is int64 or float64;
-  // we need 8 bytes per element, 64 bytes per warp
-  int arraySize = 16;
-  // Create the array type
-  auto sharedArrayType = ArrayType::get(arrayType, arraySize);
-  auto arrayInitVal = UndefValue::get(sharedArrayType); // TODO:: see why this is not working as the array initializer below
-  auto sharedArray = new GlobalVariable(*M, sharedArrayType, 
-    false, GlobalValue::InternalLinkage, 
-    arrayInitVal, "sharedArray", nullptr, 
-    GlobalValue::NotThreadLocal, 3, false);
-  sharedArray->setAlignment(MaybeAlign(4));
-
-  IRBuilder<> Builder(GEP->getNextNode());
-  // First, we need to load the value from the original array.
-  // This will be loaded into shared memory.
-  auto LoadInst = Builder.CreateLoad(GEP->getSourceElementType(), GEP);
-  // Next, we need to calculate the index for the shared memory array
-  // The original index is the absolute thread id. we need to convert this to tid
-  // first, get the thread id. Find the instrinsic call that is already in the function
-  auto TidInstrinsic = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_tid_x);
-  // get the register that reads the thread id
-  auto TidVal = Builder.CreateCall(TidInstrinsic, {});
-
-  // Next, we need to calculate the index for the shared memory array
-  // first, zero extend the tid value
-  auto TidZeroExt = Builder.CreateZExt(TidVal, Type::getInt64Ty(M->getContext()));
-  // Next, create a GEP to calculate the index of shared memory
-  auto ZeroVal = ConstantInt::get(Type::getInt64Ty(M->getContext()), 0);
-  auto SharedGEP = Builder.CreateGEP(sharedArrayType, sharedArray, std::vector<Value*>{ZeroVal, TidZeroExt});
-
-  // store the value from the original array to the shared memory array
-  Builder.CreateStore(LoadInst, SharedGEP);
-
-  // We need to insert __syncthreads() before the load instruction
-  // This is to ensure that all threads have written to shared memory before we read from it
-  auto syncThreads = Intrinsic::getDeclaration(M, Intrinsic::nvvm_barrier0);
-  Builder.CreateCall(syncThreads, {});
-
-  // Finally, replace the load location with the shared memory location
-  Builder.SetInsertPoint(LI);
-  auto SharedLoad = Builder.CreateLoad(GEP->getSourceElementType(), SharedGEP);
-  LI->replaceAllUsesWith(SharedLoad);
-
-}
-
-// Logic to decide whether to prefetch or not
-bool NVPTXMemOpts::canPrefetch(LoadInst *LI, LoopInfo &LIInfo, ScalarEvolution &SE, const DataLayout &DL) {
-  // First, check if the LoadInst is part of a loop structure.
-  if (Loop *L = LIInfo.getLoopFor(LI->getParent())) {
-    // Ensure the loop is in a simplified form which is easier to analyze.
-    if (!L->isLoopSimplifyForm()) return false;
-    // Attempt to cast the pointer operand of the load instruction to a GEP instruction
-    auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
-    // Retrieve the base pointer of the GEP
-    auto ptr = GEP->getPointerOperand();
-    auto ptrGEP = dyn_cast<GetElementPtrInst>(ptr);
-    // If the base pointer is also a GEP, this might be too complex for simple prefetching logic
-    if (ptrGEP) {
-        return false; 
-    }
-    // Get the SCEV representation of the memory address being loaded
-    if (const SCEV *AccessFunction = SE.getSCEV(GEP)) {
-      // Check if the access pattern to the memory address is affine
-      if (SE.isAffineExpr(AccessFunction)) {
-        // Calculate the stride of the memory access // ToDo: Is this the correct way to get the address?
-        auto *stride = dyn_cast<SCEVConstant>(SE.getMinusSCEV(AccessFunction, SE.getPointerBase(AccessFunction)));
-        // If there's a consistent stride, compare it to 32 times the size of the type loaded. (warp size)
-        if (stride && stride->getValue()->getZExtValue() == 32 * DL.getTypeAllocSize(LI->getType())) {
-            return true;
+  for (auto &BB : *F) {
+    for (auto &I : BB) {
+      if (auto *CI = dyn_cast<CallInst>(&I)) {
+        if (CI->getCalledFunction()->getName().starts_with(NVPTXMemOpts::NVVM_READ_SREG_INTRINSIC_NAME) &&
+            CI->getCalledFunction()->getName().ends_with(suffix)) {
+          return CI;
         }
       }
     }
   }
-  // If none of the conditions for prefetching are met, return false
-  return false;
+  return nullptr;
 }
 
-Value* NVPTXMemOpts::calculateAddress(Value *CurrentAddr, IRBuilder<> &Builder, const DataLayout &DL) {
-  // Calculate offset based on warp size
-  // Need to write a way to calculate the prefetching address based on thread id and block id
-  auto *Offset = ConstantInt::get(Type::getInt64Ty(Builder.getContext()), 32 * DL.getTypeAllocSize(CurrentAddr->getType()));
-  return Builder.CreateAdd(CurrentAddr, Offset, "prefetchAddr");
-}
-
-void NVPTXMemOpts::prefetchDataToCache(IRBuilder<> &Builder, Value *address) {
-  Module *M = Builder.GetInsertBlock()->getModule();
-  // implementation logic here
-  // FunctionCallee PrefetchFunc
-  Builder.CreateCall(PrefetchFunc, {address, Builder.getInt32(0)});
-}
-
-bool NVPTXMemOpts::runOnFunction(Function &F) {
-  return false;
-  M = F.getParent();
-  //Analysis for prefetching: 
-  LoopInfo &LIInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  const DataLayout &DL = F.getParent()->getDataLayout();
-
-  errs() << "Hello from NVPTXMemOpts\n";
-  std::vector<LoadInst*> toDelete;
+// Get the thread block size from the marker functions
+// Remove the marker function calls at the end
+void NVPTXMemOpts::GetThreadBlockSize(Function &F) {
+  auto M = F.getParent();
+  Function *F1 = M->getFunction(NVPTXMemOpts::THREAD_BLOCK_SIZE_MARKER_1D);
+  Function *F2 = M->getFunction(NVPTXMemOpts::THREAD_BLOCK_SIZE_MARKER_2D);
+  Function *F3 = M->getFunction(NVPTXMemOpts::THREAD_BLOCK_SIZE_MARKER_3D);
+  if (!F1 && !F2 && !F3) {
+    assert(false && "Thread block size marker not found");
+  }
+  std::vector<CallInst*> toDelete;
   for (auto &BB : F) {
-    for (auto I = BB.begin(); I != BB.end(); ++I){
-      if (auto *LI = dyn_cast<LoadInst>(&*I)) {
-        auto indexValues = isLoadingFromArray(LI);
-        if (indexValues.empty()) 
-          continue;
-        if (isCallCoalescable(LI, indexValues)) {
-          errs() << "Found a candidate instruction: " << *LI << "\n";
-          CoalesceMemCalls(LI, indexValues);
-          toDelete.push_back(LI);
+    for (auto &I : BB) {
+      if (auto *CI = dyn_cast<CallInst>(&I)) {
+        if (CI->getCalledFunction() == F1) {
+          // get the thread block size
+          threadBlockSize.push_back(Value2Int(CI->getArgOperand(0)));
+          toDelete.push_back(CI);
         }
-        // Check if prefetching is applicable
-        //if (canPrefetch(LI, LIInfo, SE, DL)) {  
-        //  IRBuilder<> Builder(LI);
-        //  Value *prefetchAddr = calculateAddress(LI->getPointerOperand(), Builder, DL);
-        //  prefetchDataToCache(Builder, prefetchAddr);
-        //}
+        else if (CI->getCalledFunction() == F2) {
+          // get the thread block size
+          threadBlockSize.push_back(Value2Int(CI->getArgOperand(0)));
+          threadBlockSize.push_back(Value2Int(CI->getArgOperand(1)));
+          toDelete.push_back(CI);
+        }
+        else if (CI->getCalledFunction() == F3) {
+          // get the thread block size
+          threadBlockSize.push_back(Value2Int(CI->getArgOperand(0)));
+          threadBlockSize.push_back(Value2Int(CI->getArgOperand(1)));
+          threadBlockSize.push_back(Value2Int(CI->getArgOperand(2)));
+          toDelete.push_back(CI);
+        }
       }
     }
+  }
+  for (auto CI : toDelete) {
+    CI->eraseFromParent();
+  }
+}
+
+// Returns the shared array type for the given GEP
+// The array size is the thread block size
+ArrayType *NVPTXMemOpts::getSharedArrayType(GetElementPtrInst *GEP) {
+  auto arrayType = GEP->getSourceElementType();
+  auto arr_1D = ArrayType::get(arrayType, threadBlockSize[0]);
+  if (threadBlockSize.size() == 1) {
+    return arr_1D;
+  }
+  auto arr_2D = ArrayType::get(arr_1D, threadBlockSize[1]);
+  if (threadBlockSize.size() == 2) {
+    return arr_2D;
+  }
+  auto arr_3D = ArrayType::get(arr_2D, threadBlockSize[2]);
+  return arr_3D;
+}
+
+// ================================================================
+// =================== Transformation Functions ===================
+// ================================================================
+
+// Helper function to insert a memory barrier
+void InsertBarrier(Instruction *InsertionPoint) {
+  auto *F = InsertionPoint->getParent()->getParent();
+  auto *M = F->getParent();
+  auto *syncThreads = Intrinsic::getDeclaration(M, Intrinsic::nvvm_barrier0);
+  IRBuilder<> Builder(InsertionPoint);
+  Builder.CreateCall(syncThreads, {});
+}
+
+// Creates a shared memory array and returns the handle to it
+GlobalVariable *CreateSharedArray(Type *SharedArrayType, LoadInst *LI) {
+  auto FuncName = LI->getParent()->getParent()->getName().str() + "input_shared";
+  auto arrayInitVal = UndefValue::get(SharedArrayType);
+  auto M = LI->getParent()->getParent()->getParent();
+  auto sharedArray = new GlobalVariable(*M, SharedArrayType, 
+    false, GlobalValue::InternalLinkage, 
+    arrayInitVal, FuncName, nullptr, 
+    GlobalValue::NotThreadLocal, 3, false);
+  sharedArray->setAlignment(MaybeAlign(4));
+  return sharedArray;
+}
+
+// Returns the new base address for the shared memory array (without threadIdx.x)
+Value *LoadStoreToSharedMemory(BasicBlock *SharedMemoryBlock, LoadInst *LI, GetElementPtrInst *GEP, 
+                             GlobalVariable *sharedArray, Type *sharedArrayType, Value *ConstantForHW, 
+                             Value *NewIndVarPHI, IRBuilder<> &Builder) {
+  auto Func = LI->getParent()->getParent();
+  auto M = Func->getParent(); 
+
+  Builder.SetInsertPoint(SharedMemoryBlock->getTerminator());
+  auto NewBaseAddress = Builder.CreateAdd(ConstantForHW, NewIndVarPHI, "new_add");
+  // add this with threadIdx.x
+  auto NewBaseAddressThreadIdx = Builder.CreateAdd(NewBaseAddress, getThreadIdx(Func, 0), "new_add_threadidx");
+  auto NewSext = Builder.CreateSExt(NewBaseAddressThreadIdx, Type::getInt64Ty(M->getContext()));
+  auto ZeroVal = ConstantInt::get(Type::getInt64Ty(M->getContext()), 0);
+  auto NewGEP = Builder.CreateInBoundsGEP(GEP->getSourceElementType(), GEP->getPointerOperand(), std::vector<Value*>{NewSext});
+  auto NewLoad = Builder.CreateLoad(GEP->getSourceElementType(), NewGEP);
+  // store the value from the original array to the shared memory array
+  auto Sext = Builder.CreateSExt(getThreadIdx(Func, 0), Type::getInt64Ty(M->getContext()));
+  auto Zero = ConstantInt::get(Type::getInt64Ty(M->getContext()), 0);
+  auto SharedGEP = Builder.CreateInBoundsGEP(sharedArrayType, sharedArray, std::vector<Value*>{Zero, Sext});
+  auto LastStore = Builder.CreateStore(NewLoad, SharedGEP);
+  return NewBaseAddress;
+}
+
+// Inserts a prefetching instructions into the loop
+// Creates an initial prefetch outside the loop and updates the prefetch inside
+void Prefetch(BasicBlock *OuterPreheader, BasicBlock* OuterLatch, BasicBlock *OuterHeader,
+              BasicBlock *SharedMemoryBlock, BasicBlock *PrefetchBlock, BasicBlock *InnerHeader, 
+              BasicBlock *InnerLatch, GetElementPtrInst *GEP, Value *ConstantForHW, 
+              CallInst *ThreadIdxCall, Value *NewBaseAddress, Value *NewStepValue, Value *UpperBound,
+              IRBuilder<> &Builder) {
+  auto Func = OuterPreheader->getParent();
+  auto M = Func->getParent();
+
+  // Outside the outer loop, compute the address to prefetch
+  Builder.SetInsertPoint(OuterPreheader->getTerminator());
+  auto InitalPrefetchAdd = Builder.CreateAdd(ConstantForHW, getThreadIdx(Func, 0), "prefetch_add");
+  auto InitalPrefetchSext = Builder.CreateSExt(InitalPrefetchAdd, Type::getInt64Ty(M->getContext()));
+  auto InitalPrefetchGEP = Builder.CreateInBoundsGEP(GEP->getSourceElementType(), GEP->getPointerOperand(), std::vector<Value*>{InitalPrefetchSext});
+  auto InitalPrefetchLoad = Builder.CreateLoad(GEP->getSourceElementType(), InitalPrefetchGEP);
+
+  // next, we need to prefetch the next data in the loop
+  Builder.SetInsertPoint(SharedMemoryBlock->getTerminator());
+  // Check that the prefetch address is within bounds
+  auto NextPrefetchAdd = Builder.CreateAdd(NewBaseAddress, NewStepValue, "next_prefetch_add");
+  auto NextPrefetchSLT = Builder.CreateICmpSLT(NextPrefetchAdd, UpperBound, "next_prefetch_slt");
+  // Remove the old branch and replace with a new conditional branch
+  // if condition is true, go to prefetch block. Otherwise, go to inner header
+  auto NextPrefetchBranch = Builder.CreateCondBr(NextPrefetchSLT, PrefetchBlock, InnerHeader);
+  SharedMemoryBlock->getTerminator()->eraseFromParent();
+
+  Builder.SetInsertPoint(PrefetchBlock);
+  auto NextPrefetchAddThreadidx = Builder.CreateAdd(NextPrefetchAdd, getThreadIdx(Func, 0), "next_prefetch_add_threadidx");
+  // Add with the constant for half warp
+  auto NextPrefetchAddress = Builder.CreateAdd(NextPrefetchAddThreadidx, ConstantForHW, "next_prefetch_add_threadidx");
+  auto NextPrefetchSext = Builder.CreateSExt(NextPrefetchAddress, Type::getInt64Ty(M->getContext()));
+  auto NextPrefetchGEP = Builder.CreateInBoundsGEP(GEP->getSourceElementType(), GEP->getPointerOperand(), std::vector<Value*>{NextPrefetchSext});
+  auto NextPrefetchLoad = Builder.CreateLoad(GEP->getSourceElementType(), NextPrefetchGEP);
+  Builder.CreateBr(InnerHeader);
+
+  // Create a PHI node in the outer header to select between the next and initial prefetch
+  Builder.SetInsertPoint(OuterHeader->getFirstNonPHI());
+  auto PrefetchPHI = Builder.CreatePHI(GEP->getSourceElementType(), 2, "prefetch_phi");
+  PrefetchPHI->addIncoming(InitalPrefetchLoad, OuterPreheader);
+
+  // Create a phi node in case the prefetch block is not taken
+  Builder.SetInsertPoint(InnerHeader->getFirstNonPHI());
+  auto PrefetchNextPHI = Builder.CreatePHI(GEP->getSourceElementType(), 2, "prefetch_phi_update");
+  PrefetchNextPHI->addIncoming(PrefetchPHI, SharedMemoryBlock);
+  PrefetchNextPHI->addIncoming(NextPrefetchLoad, PrefetchBlock);
+  PrefetchNextPHI->addIncoming(PrefetchNextPHI, InnerLatch);
+  
+  // We need to fix the phi nodes of the inner header now that the prefetch 
+  // block is a new predecessor
+  for (auto &I : *InnerHeader) {
+    if (auto *PHI = dyn_cast<PHINode>(&I)) {
+      int NumIncoming = PHI->getNumIncomingValues();
+      if (NumIncoming == 3)
+        continue;
+      else if (NumIncoming != 2) {
+        assert(false && "Invalid number of incoming values");
+      }
+
+      // Add the same value as the shared memory block
+      for (unsigned i = 0; i < PHI->getNumIncomingValues(); i++) {
+        if (PHI->getIncomingBlock(i) == SharedMemoryBlock) {
+          PHI->addIncoming(PHI->getIncomingValue(i), PrefetchBlock);
+        }
+      }
+    }
+  }
+
+  PrefetchPHI->addIncoming(PrefetchNextPHI, OuterLatch);
+}
+
+// Returns where the memory barrier will be inserted
+// Insertion point will incrementally be updated to farther down the block
+Instruction *NVPTXMemOpts::CoalescePattern1(LoadInst *LI, std::vector<std::pair<LoadInst*, GetElementPtrInst*>> &LoadsToReplace) {
+  assert (LI && "LI is null");
+  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  assert (GEP && "GEP is null");
+  auto M = LI->getParent()->getParent()->getParent();
+
+  // First, we need to create a shared memory buffer to store the data
+  // We will use the same type as the original array
+  auto sharedArrayType = getSharedArrayType(GEP);
+  auto sharedArray = CreateSharedArray(sharedArrayType, LI);
+
+  IRBuilder<> Builder(LI);
+  // First, we need to load the value from the original array.
+  // This will be loaded into shared memory.
+  auto LoadInst = Builder.CreateLoad(GEP->getSourceElementType(), GEP);
+
+  Value *SharedGEP = sharedArray;
+  Type *SharedType = sharedArrayType;
+  
+  // This loop will create GEP for potentially multi-dimensional arrays 
+  for (int i = 2; i >= 0; i--) {
+    if (getThreadIdx(LI->getParent()->getParent(), i) == nullptr) {
+      continue;
+    }
+    auto threadIdx = getThreadIdx(LI->getParent()->getParent(), i);
+    auto TidZeroExt = Builder.CreateZExt(threadIdx, Type::getInt64Ty(M->getContext()));
+    auto ZeroVal = ConstantInt::get(Type::getInt64Ty(M->getContext()), 0);
+    SharedGEP = Builder.CreateInBoundsGEP(SharedType, SharedGEP, std::vector<Value*>{ZeroVal, TidZeroExt});
+    SharedType = SharedType->getArrayElementType();
+  }
+  
+  // store the value from the original array to the shared memory array
+  Instruction* LastStore = Builder.CreateStore(LoadInst, SharedGEP);
+
+  // Finally, replace the load location with the shared memory location
+  LoadsToReplace.push_back(std::make_pair(LI, cast<GetElementPtrInst>(SharedGEP)));
+
+  // return the insertion point for the barrier. This is where the __syncthreads() will be inserted
+  return LastStore->getNextNode();
+}
+
+void NVPTXMemOpts::CoalescePattern2(LoadInst *LI, PHINode *IndVar, Loop *L, ScalarEvolution &SE) {
+  auto Func = L->getHeader()->getParent();
+  auto M = LI->getParent()->getParent()->getParent();
+  LLVMContext &Context = L->getLoopPreheader()->getContext();
+  
+  // Next, we need to create a new outer loop that will iterate the same range
+  // but with a stride of `thread block size`
+  auto *NewIndVar = L->getCanonicalInductionVariable();
+  auto OuterHeader = L->getHeader();
+  auto OuterPreheader = L->getLoopPreheader();
+  auto OuterLatch = L->getLoopLatch();
+  auto OuterBody = OuterLatch->getSinglePredecessor();
+  if (!OuterBody) {
+    return;
+  }
+
+  // Next, we need to create the inner loop's basic blocks
+  BasicBlock *InnerHeader = BasicBlock::Create(Context, "inner.header", Func, OuterHeader);
+  BasicBlock *InnerBody = BasicBlock::Create(Context, "inner.body", Func, InnerHeader);
+  BasicBlock *InnerLatch = BasicBlock::Create(Context, "inner.latch", Func, InnerBody);
+  BasicBlock *SharedMemoryBlock = BasicBlock::Create(Context, "shared_memory", Func, InnerLatch);
+  BasicBlock *PrefetchBlock = BasicBlock::Create(Context, "prefetch", Func, SharedMemoryBlock);
+
+  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  assert (GEP && "GEP is null");
+
+  // Tile the loop by creating a new induction variable and an inner loop
+
+  // Create a new induction variable for the outer loop
+  IRBuilder<> Builder(OuterHeader->getFirstNonPHI());
+  auto *NewStepValue = ConstantInt::get(IndVar->getType(), threadBlockSize[0]);
+  PHINode *NewIndVarPHI = Builder.CreatePHI(IndVar->getType(), 2, "new_indvar");
+  NewIndVarPHI->addIncoming(ConstantInt::get(IndVar->getType(), 0), L->getLoopPreheader());
+
+  // Create new increment instruction
+  Builder.SetInsertPoint(L->getLoopLatch()->getTerminator());
+  Value *NewInc = Builder.CreateAdd(NewIndVarPHI, NewStepValue, "new_inc");
+  NewIndVarPHI->addIncoming(NewInc, L->getLoopLatch());
+
+  // Next, we need to update the loop condition to reflect the new induction variable
+  auto *Cond = L->getHeader()->getTerminator()->getOperand(0);
+  auto *UpperBound = dyn_cast<ICmpInst>(Cond)->getOperand(1);
+  Builder.SetInsertPoint(L->getHeader()->getTerminator());
+  auto *NewCond = Builder.CreateICmpSLT(NewIndVarPHI, UpperBound, "new_cond");
+  L->getHeader()->getTerminator()->setOperand(0, NewCond);
+
+  // Redirect outer loop to inner loop header
+  OuterHeader->getTerminator()->setSuccessor(0, SharedMemoryBlock);
+  Builder.SetInsertPoint(SharedMemoryBlock);
+  Builder.CreateBr(InnerHeader);
+
+  // Inner loop induction variable
+  Builder.SetInsertPoint(InnerHeader);
+  PHINode *InnerIndVar = Builder.CreatePHI(IndVar->getType(), 2, "inner_indvar");
+  InnerIndVar->addIncoming(ConstantInt::get(IndVar->getType(), 0), SharedMemoryBlock);
+
+  // Condition check for inner loop header
+  auto *InnerCond = Builder.CreateICmpSLT(InnerIndVar, NewStepValue, "inner_cond");
+  Builder.CreateCondBr(InnerCond, InnerBody, OuterLatch);
+
+  // Create a new variable old_indvar + inner_indvar, and replace all uses of old_indvar with this
+  Builder.SetInsertPoint(InnerBody);
+  auto *NewIndVarValue = Builder.CreateAdd(NewIndVar, InnerIndVar, "new_indvar_value");
+  // Branch to Outer Loop Body
+  Builder.CreateBr(OuterBody);
+  // Replace all uses of old induction only in the outer body
+  for (auto &I : *OuterBody) {
+    I.replaceUsesOfWith(IndVar, NewIndVarValue);
+  }
+  
+  // Replace successor with inner exit
+  OuterBody->getTerminator()->setSuccessor(0, InnerLatch);
+
+  // Increment inner loop induction variable
+  Builder.SetInsertPoint(InnerLatch);
+  Value *InnerInc = Builder.CreateAdd(InnerIndVar, ConstantInt::get(IndVar->getType(), 1), "inner_inc");
+  Builder.CreateBr(InnerHeader);
+  InnerIndVar->addIncoming(InnerInc, InnerLatch);
+
+  // We need special handling for the phis in the outer loop
+  // one of the incoming values is no longer dominated by the outer body.
+  // We need to insert a dummy phi node in the outer latch to fix this
+  // these are the non-induction variable phis in the outer loop header
+  for (auto &I : *OuterHeader) {
+    if (auto *PHI = dyn_cast<PHINode>(&I)) {
+      // Check if any of the incoming values are defined in the outer body
+      for (unsigned i = 0; i < PHI->getNumIncomingValues(); i++) {
+        auto PhiIncoming = dyn_cast<Instruction>(PHI->getIncomingValue(i));
+        if (PHI->getIncomingBlock(i) == OuterLatch && 
+          PhiIncoming &&
+          PhiIncoming->getParent() == OuterBody) {
+            Builder.SetInsertPoint(InnerHeader->getFirstNonPHI());
+            auto *DummyPHI = Builder.CreatePHI(PHI->getType(), 2, "new_phi");
+            DummyPHI->addIncoming(PHI, SharedMemoryBlock);
+            DummyPHI->addIncoming(PhiIncoming, InnerLatch);
+            PHI->setOperand(i, DummyPHI);
+        }
+      }
+    }
+  }
+  
+  // The loop is now tiled
+
+  auto sharedArrayType = getSharedArrayType(GEP);
+  auto sharedArray = CreateSharedArray(sharedArrayType, LI);
+  
+  // We need to copy the data from the original array to the shared memory array
+  // buffer will be populated before entering the inner loop
+  auto idx = GEP->idx_begin();
+  auto SignExt = dyn_cast<SExtInst>(idx);
+  assert(SignExt && "SignExt is null");
+  auto Index = dyn_cast<BinaryOperator>(SignExt->getOperand(0));
+  auto ConstantForHW = Index->getOperand(1) == NewIndVarValue ? Index->getOperand(0) : Index->getOperand(1);
+
+  Value *NewBaseAddress = LoadStoreToSharedMemory(SharedMemoryBlock, LI, GEP, 
+                                                           sharedArray, sharedArrayType, 
+                                                           ConstantForHW, NewIndVarPHI, Builder);
+
+  // Insert a barrier
+  InsertBarrier(SharedMemoryBlock->getTerminator());
+
+  // In the inner loop body, we want to replace the load instruction with the shared memory load
+  Builder.SetInsertPoint(OuterBody->getFirstNonPHIOrDbgOrLifetime());
+  auto InnerIndVarSext = Builder.CreateSExt(InnerIndVar, Type::getInt64Ty(M->getContext()));
+  auto InnerZero = ConstantInt::get(Type::getInt64Ty(M->getContext()), 0);
+  auto InnerSharedGEP = Builder.CreateInBoundsGEP(sharedArrayType, sharedArray, std::vector<Value*>{InnerIndVarSext});
+  auto InnerSharedLoad = Builder.CreateLoad(GEP->getSourceElementType(), InnerSharedGEP);
+  LI->replaceAllUsesWith(InnerSharedLoad);
+
+  // Insert another barrier at the end of the inner loop
+  InsertBarrier(OuterLatch->getFirstNonPHIOrDbgOrLifetime()); 
+
+  // inputs: OuterPreheader, SharedMemoryBlock, PrefetchBlock, InnerHeader, InnerLatch, Outer Latch, ConstantForHW, threadIdx call, GEP, NewBaseAddress, NewStepValue, UpperBounds, M
+  Prefetch(OuterPreheader, OuterLatch, OuterHeader, 
+           SharedMemoryBlock, PrefetchBlock, InnerHeader, 
+           InnerLatch, GEP, ConstantForHW, getThreadIdx(Func, 0), 
+           NewBaseAddress, NewStepValue, UpperBound, Builder);
+}
+
+// We had to turn off this coalescing because it was causing incorrect program outputs
+// We were unable to debug the issue in time. We left our code here for reference
+void NVPTXMemOpts::CoalescePattern3(LoadInst *LI, PHINode *IndVar, Loop *L, ScalarEvolution &SE) {
+  return;
+  auto Func = L->getHeader()->getParent();
+  auto M = LI->getParent()->getParent()->getParent();
+  LLVMContext &Context = L->getLoopPreheader()->getContext();
+  auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+
+  // Next, we need to create a new outer loop that will iterate the same range
+  // but with a stride of `thread block size`
+  auto *NewIndVar = L->getCanonicalInductionVariable();
+  auto OuterHeader = L->getHeader();
+  auto OuterPreheader = L->getLoopPreheader();
+  auto OuterLatch = L->getLoopLatch();
+  auto OuterBody = OuterLatch->getSinglePredecessor();
+  if (!OuterBody) {
+    return;
+  }
+
+  // Create the inner loop's basic blocks
+  BasicBlock *InnerHeader = BasicBlock::Create(Context, "inner.header", Func, OuterHeader);
+  BasicBlock *InnerBody = BasicBlock::Create(Context, "inner.body", Func, InnerHeader);
+  BasicBlock *InnerLatch = BasicBlock::Create(Context, "inner.latch", Func, InnerBody);
+  BasicBlock *SharedMemoryBlock = BasicBlock::Create(Context, "shared_memory", Func, InnerLatch);
+  BasicBlock *PrefetchBlock = BasicBlock::Create(Context, "prefetch", Func, SharedMemoryBlock);
+
+  IRBuilder<> Builder(OuterHeader->getFirstNonPHI());
+
+  /* We were not able to tile this loop/shared memroy correctly.
+   we omitted our code as it looks very similar to CoalescePattern2*/
+
+  // Our stepping value is possibly not correct. TODO:: Fix this
+  Prefetch(OuterPreheader, OuterLatch, OuterHeader, 
+          SharedMemoryBlock, PrefetchBlock, InnerHeader, 
+          InnerLatch, GEP, nullptr, getThreadIdx(Func, 0), 
+          nullptr, nullptr, nullptr, Builder);
+
+  return;
+}
+
+// ================================================================
+// ======================= Driver Functions =======================
+// ================================================================
+
+bool NVPTXMemOpts::CoalesceLoops(LoopInfo &LIInfo, ScalarEvolution &SE, const DataLayout &DL) {
+  bool Changed = false;
+  for (auto Loop : LIInfo){
+    // if the loop is not in simplified form, we cannot analyze it
+    if (!Loop->isLoopSimplifyForm()) {
+      continue;
+    }
+
+    // Loop induction variable must start at 0 and increment by 1
+    auto *IndVar = Loop->getCanonicalInductionVariable();
+    if (!IndVar) {  
+      return false;
+    }
+
+    std::vector<LoadInst*> toDelete;
+    for (auto *BB : Loop->getBlocks()){
+      for (auto Iter = BB->begin(); Iter != BB->end(); ++Iter) {
+        Instruction &I = *Iter;
+        if (LoadInst *LI = dyn_cast<LoadInst>(&I)) {
+          if (PatternMatch2(LI, IndVar)) {
+            CoalescePattern2(LI, IndVar, Loop, SE);
+            Changed = true;
+            toDelete.push_back(LI);
+          } else if (PatternMatch3(LI, IndVar)) {
+            CoalescePattern3(LI, IndVar, Loop, SE);
+          }
+        }
+      }
+
+      for (auto LI : toDelete) {
+        // assert that the LI has no uses
+        assert(LI->use_empty());
+        LI->eraseFromParent();
+      }
+      toDelete.clear();
+    }
+  }
+  return Changed;
+}
+
+bool NVPTXMemOpts::CoalesceBasicBlocks(Function &F) {
+  bool Changed = false;
+  // TODO:: This is not a nvptx function so todelete wont work
+  std::vector<LoadInst*> toDelete;
+  for (auto &BB : F) {
+    Instruction *BarrierInsertionPoint = nullptr;
+    std::vector<std::pair<LoadInst*, GetElementPtrInst*>> LoadsToReplace;
+    for (auto Iter = BB.begin(); Iter != BB.end(); ++Iter) {
+      Instruction &I = *Iter;
+      auto *LI = dyn_cast<LoadInst>(&I);
+      if (!LI) { continue; }
+      if (!PatternMatch1(LI)) { continue; }
+      if (!isCallCoalescable(LI)) { continue; }
+      BarrierInsertionPoint = CoalescePattern1(LI, LoadsToReplace);
+    }
+    
+    if (BarrierInsertionPoint) {
+      InsertBarrier(BarrierInsertionPoint);
+    }
+
+    // Replace loads with shared memory loads
+    for (auto &pair : LoadsToReplace) {
+      auto LI = pair.first;
+      auto GEP = pair.second;
+      // GEP is array type. We need to get the element type
+      auto BaseType = cast<ArrayType>(GEP->getSourceElementType())->getElementType();
+      
+      IRBuilder<> Builder(BarrierInsertionPoint);
+      auto sharedLoad = Builder.CreateLoad(BaseType, GEP);
+      LI->replaceAllUsesWith(sharedLoad);
+      LI->eraseFromParent();
+    }
+
     for (auto LI : toDelete) {
       // assert that the LI has no uses
       assert(LI->use_empty());
@@ -358,7 +809,38 @@ bool NVPTXMemOpts::runOnFunction(Function &F) {
     }
     toDelete.clear();
   }
-  return false;
+  return Changed;
+}
+
+bool NVPTXMemOpts::runOnFunction(Function &F) {
+  // Use marker function to find out the threadblock size
+  GetThreadBlockSize(F);
+  if (threadBlockSize.empty()) {  // cannot reason without thread block size
+    return false;
+  }
+
+  LoopInfo &LIInfo = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();
+  const DataLayout &DL = F.getParent()->getDataLayout();
+
+  bool Changed = false;
+  // First coalesce loops, then non-loop basic blocks
+  Changed |= CoalesceLoops(LIInfo, SE, DL);
+  Changed |= CoalesceBasicBlocks(F);
+
+  return Changed;
+}
+
+bool NVPTXMemOpts::runOnModule(Module &M) {
+  bool Changed = false;
+  for (auto &F : M) {
+    if (F.empty() || F.isDeclaration())
+      continue;
+
+    Changed |= runOnFunction(F);
+    threadBlockSize.clear();
+  }
+  return Changed;
 }
 
 // } // end anonymous namespace
@@ -371,6 +853,6 @@ INITIALIZE_PASS(NVPTXMemOpts, "nvptx-mem-opts",
                 "Memory coalescing and prefetching",
                 true, false)
 
-FunctionPass *llvm::createNVPTXMemOptsPass() {
+ModulePass *llvm::createNVPTXMemOptsPass() {
   return new NVPTXMemOpts();
 }

@@ -4,7 +4,7 @@ Authors: Vir Narula (vnarula2) & Chamika Sudusinghe (chamika2)
 ## Overview
 In this project, we implement two GPU memory optimizations known as memory coalescing and prefetching for the NVIDIA PTX backend.
 
-## Setup
+## Setup + Build
 Ensure you have the following dependencies:
 1. Cmake
 2. Python
@@ -21,19 +21,19 @@ Follow the same build instructions normally given for LLVM, listed below. Hopefu
 
 ## Project Details
 
-- Our memory optomization pass is under `./llvm/lib/Target/NVPTX`.
-- Our tests are under `./llvm/test/Transforms/NVPTXMemOpts/`
-- You can find the NVPTX optimization pipeline under `./llvm/lib/Target/NVPTX/NVPTXTargetMachine.cpp`
+- Our memory optomization pass is under `./llvm/lib/Target/NVPTX/`. The relevant files are `NVPTXMemOpts.{h, cpp}`.
+- The marker functions we need for our functions can be found under `./llvm/test/Transforms/NVPTXMemOpts/include`
+- Our tests are under `./llvm/test/Transforms/NVPTXMemOpts/`. 
+    - `lit` contains llvm-lit tests for correctness of our transformation. You can run the lit tests using `python run_lit.py <test-filename>`. 
+    - `cuda` contains many unoptimized cuda kernels we used for our performance testing along with optimized versions for development. See instructios below.
+- We have integrated our pass with the NVPTX optimization pipeline under `./llvm/lib/Target/NVPTX/NVPTXTargetMachine.cpp`
 
-### Running the tests
-We have not set up automated testing yet. For now, you must
-1. `cd ./llvm/test/Transforms/NVPTXMemOpts`
-2. `../../../../build/bin/clang -S --cuda-gpu-arch=sm_35 -emit-llvm ./test.cu`.
-This produces 2 files: `test.ll` & `test-cuda-nvptx64-nvidia-cuda-sm_25.bc`. We are only concerend with the `.bc` file as this gives us the generated kernel function.
-3. `../../../../build/bin/llc -march=nvptx64 -mcpu=sm_35 test-cuda-nvptx64-nvidia-cuda-sm_35.bc -o test.ptx` this will compile the kernel function from llvm to ptx.
-4. `nvcc --fatbin test.ptx`, which produces `test.fatbin`
-5. `nvcc -lcuda driver.cpp`
-6. `./a.out`
+### Running non-LIT Tests
+Not all the tests we wrote can be compiled into full CUDA programs. The script will let you know when that is the case.
+1. `cd ./llvm/test/Transforms/NVPTXMemOpts/cuda`
+2. `python run_cuda_program.py <test_folder>`
+
+
 
 
 
