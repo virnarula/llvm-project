@@ -1,0 +1,59 @@
+Loops:
+_______________________
+Name: main.for.body
+IR: 
+; Function Attrs: mustprogress norecurse ssp uwtable
+define hidden void @main.for.body(ptr %sum.1.lcssa.out) #1 !dbg !13 {
+newFuncRoot:
+  br label %for.body, !dbg !17
+
+for.body:                                         ; preds = %for.cond.cleanup3, %newFuncRoot
+  %i.021 = phi i64 [ 0, %newFuncRoot ], [ %inc9, %for.cond.cleanup3 ]
+  %sum.020 = phi double [ 0.000000e+00, %newFuncRoot ], [ %sum.1.lcssa, %for.cond.cleanup3 ]
+  %call = tail call i32 @rand(), !dbg !17
+  %conv = sitofp i32 %call to double, !dbg !17
+  %add = fadd double %sum.020, %conv, !dbg !18
+  %cmp217.not = icmp eq i64 %i.021, 0, !dbg !19
+  br i1 %cmp217.not, label %for.cond.cleanup3, label %for.body4.preheader, !dbg !20
+
+for.body4:                                        ; preds = %for.body4.preheader, %for.body4
+  %j.019 = phi i64 [ %inc, %for.body4 ], [ 0, %for.body4.preheader ]
+  %sum.118 = phi double [ %add7, %for.body4 ], [ %add, %for.body4.preheader ]
+  %call5 = tail call i32 @rand(), !dbg !21
+  %conv6 = sitofp i32 %call5 to double, !dbg !21
+  %add7 = fadd double %sum.118, %conv6, !dbg !22
+  %inc = add nuw nsw i64 %j.019, 1, !dbg !23
+  %exitcond.not = icmp eq i64 %inc, %i.021, !dbg !19
+  br i1 %exitcond.not, label %for.cond.cleanup3.loopexit, label %for.body4, !dbg !20, !llvm.loop !24
+
+for.cond.cleanup3:                                ; preds = %for.cond.cleanup3.loopexit, %for.body
+  %sum.1.lcssa = phi double [ %add, %for.body ], [ %add7, %for.cond.cleanup3.loopexit ], !dbg !27
+  store double %sum.1.lcssa, ptr %sum.1.lcssa.out, align 8
+  %inc9 = add nuw nsw i64 %i.021, 1, !dbg !28
+  %exitcond22.not = icmp eq i64 %inc9, 2048, !dbg !29
+  br i1 %exitcond22.not, label %for.cond.cleanup.exitStub, label %for.body, !dbg !30, !llvm.loop !31
+
+for.body4.preheader:                              ; preds = %for.body
+  br label %for.body4, !dbg !20
+
+for.cond.cleanup3.loopexit:                       ; preds = %for.body4
+  br label %for.cond.cleanup3, !dbg !28
+
+for.cond.cleanup.exitStub:                        ; preds = %for.cond.cleanup3
+  ret void
+}
+
+# Exiting Nodes: 1
+Known Bounds: true
+Vectorized: false
+
+_______________
+Summary Stats: 
+# of module dumps: 1
+
+Extracted: 1
+Contained in extracted loops: 0
+
+Total known bounds: 1
+Total Vectorized: 0
+

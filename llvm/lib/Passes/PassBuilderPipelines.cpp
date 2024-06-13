@@ -55,6 +55,7 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
+#include "llvm/Transforms/IPO/LoopExtractionAnalysis.h"
 #include "llvm/Transforms/IPO/MergeFunctions.h"
 #include "llvm/Transforms/IPO/ModuleInliner.h"
 #include "llvm/Transforms/IPO/OpenMPOpt.h"
@@ -249,7 +250,7 @@ static bool isLTOPreLink(ThinOrFullLTOPhase Phase) {
 FunctionPassManager
 PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
                                                    ThinOrFullLTOPhase Phase) {
-
+  
   FunctionPassManager FPM;
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
@@ -343,6 +344,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
+  
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   FPM.addPass(InstCombinePass());
@@ -988,6 +990,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
+  MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
+  // MPM.addPass(LoopExtractionAnalysisPass());
+
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
   else
@@ -1140,6 +1145,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                            LTOPhase == ThinOrFullLTOPhase::FullLTOPreLink);
   ModulePassManager MPM;
 
+  // MPM.addPass(LoopExtractionAnalysisPass());
+
   // Optimize globals now that the module is fully simplified.
   MPM.addPass(GlobalOptPass());
   MPM.addPass(GlobalDCEPass());
@@ -1192,6 +1199,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // the vectorizer will be able to use them to help recognize vectorizable
   // memory operations.
   MPM.addPass(RecomputeGlobalsAAPass());
+  MPM.addPass(GlobalDCEPass());
+  MPM.addPass(LoopExtractionAnalysisPass());
 
   for (auto &C : OptimizerEarlyEPCallbacks)
     C(MPM, Level);
